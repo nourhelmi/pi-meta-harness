@@ -166,11 +166,13 @@ run on the small model the role's allowedModels designate.
 2. Verify repairs with the anchor commands and a targeted diff read of the
    changed surface. A full fresh checker re-review of a repair is the
    exception, not the default.
-3. A checker repairs small qualifying findings inline under its role mandate:
-   at most three findings, none High, reviewed files only, no product
-   behavior, contract, or schema change, anchors rerun green. Close
-   inline-repaired findings with the rerun anchor evidence plus a targeted
-   diff read. Never launch a repair maker or a fresh checker for them.
+3. A checker repairs qualifying findings inline under its role mandate.
+   Product findings qualify when at most three findings exist, none High,
+   inside reviewed files, anchors rerun green. Test-only, metadata, and
+   mechanical findings qualify regardless of severity when the fix stays in
+   non-product reviewed files and anchors rerun green. Close inline-repaired
+   findings with the rerun anchor evidence plus a targeted diff read. Never
+   launch a repair maker or a fresh checker for them.
 4. All checks run on terra at xhigh. When a whole-diff review approaches
    terra's 272K window, split it per package or phase instead of one giant
    pass; never substitute a weaker model to make a diff fit.
