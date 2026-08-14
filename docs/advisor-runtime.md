@@ -1,6 +1,6 @@
 # Isolated advisor runtime
 
-The advisor uses untracked `.advisor/` state to coordinate parallel Pi sessions without sharing mutable operational files.
+The advisor coordinates parallel Pi sessions through per-repository state under `~/.advisor/<repo-key>/`, resolved from the git common directory so all worktrees of one repository share one root and no repository carries personal runtime files. `advisor_session_init` reports the resolved root; `ADVISOR_STATE_DIR` overrides it for tests.
 
 ## Runtime rules
 
@@ -8,7 +8,7 @@ The advisor uses untracked `.advisor/` state to coordinate parallel Pi sessions 
 2. `advisor_session_init` creates or claims one isolated workstream.
 3. Each live advisor must use a different workstream.
 4. An advisor writes only its own session record, its owned workstream record, new immutable events, and unique run output.
-5. Never write operational state to `.advisor/state.md`.
+5. Treat legacy in-repo `.advisor/` directories as read-only history.
 6. Transfer ownership with an immutable handoff event.
 7. Use Intercom for short conclusions and paths, not transcripts or raw logs.
 8. Launch delegated LLM work only through a configured `bg_agent` role. Use `bg_run` for shell commands.

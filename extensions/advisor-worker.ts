@@ -1,6 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 const ENTRY_TYPE = "advisor-worker";
@@ -51,6 +52,60 @@ interface WorkerState {
 
 interface WorkerRuntime {
 	state?: WorkerState;
+}
+
+// Advisor state lives under the user home so repositories never carry
+// personal runtime files; every worktree of one repository shares one root.
+interface RepoAnchor {
+	commonDir: string;
+	worktreeRoot: string;
+}
+
+async function repoAnchor(cwd: string): Promise<RepoAnchor | undefined> {
+	let dir = resolve(cwd);
+	for (;;) {
+		const dotGit = join(dir, ".git");
+		const info = await stat(dotGit).catch(() => undefined);
+		if (info?.isDirectory()) return { commonDir: dotGit, worktreeRoot: dir };
+		if (info?.isFile()) {
+			const pointer = (await readFile(dotGit, "utf8")).match(/^gitdir:\s*(.+?)\s*$/m)?.[1];
+			if (pointer) {
+				const gitDir = resolve(dir, pointer);
+				const marker = gitDir.lastIndexOf("/.git/worktrees/");
+				return {
+					commonDir: marker >= 0 ? gitDir.slice(0, marker + "/.git".length) : gitDir,
+					worktreeRoot: dir,
+				};
+			}
+		}
+		const parent = dirname(dir);
+		if (parent === dir) return undefined;
+		dir = parent;
+	}
+}
+
+function stateSlug(path: string): string {
+	const cleaned = basename(path)
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 32);
+	const hash = createHash("sha256").update(path).digest("hex").slice(0, 8);
+	return `${cleaned || "dir"}-${hash}`;
+}
+
+async function advisorStateRoot(cwd: string): Promise<string> {
+	const override = process.env.ADVISOR_STATE_DIR;
+	if (override) return resolve(override);
+	const anchor = await repoAnchor(cwd);
+	const key = anchor ? stateSlug(dirname(anchor.commonDir)) : stateSlug(resolve(cwd));
+	return join(homedir(), ".advisor", key);
+}
+
+async function advisorRunsDir(cwd: string, sessionId: string): Promise<string> {
+	const root = await advisorStateRoot(cwd);
+	const anchor = await repoAnchor(cwd);
+	return join(root, "runs", stateSlug(anchor?.worktreeRoot ?? resolve(cwd)), sessionId);
 }
 
 function profilePath(): string {
@@ -131,7 +186,10 @@ function blockedToolReason(
 			return "Worker sessions cannot launch nested or headless LLM agents.";
 		}
 	}
-	if (state.role === "builder" || (toolName !== "edit" && toolName !== "write")) return undefined;
+	// Checkers keep write access for their bounded inline-repair mandate; the
+	// remaining review roles stay read-only outside their run directory.
+	if (state.role === "builder" || state.role === "checker") return undefined;
+	if (toolName !== "edit" && toolName !== "write") return undefined;
 	const path = requestedPath(ctx, input);
 	if (path && isWithin(state.runDir, path)) return undefined;
 	return `The ${state.role} role is read-only outside its own run directory.`;
@@ -166,7 +224,7 @@ async function initializeWorker(
 	if (!profile?.skill) throw new Error(`Unknown or incomplete advisor worker role: ${role}`);
 	const rejection = identityRejection(ctx, config.models);
 	const sessionId = ctx.sessionManager.getSessionId();
-	const runDir = join(ctx.cwd, ".advisor", "runs", sessionId);
+	const runDir = await advisorRunsDir(ctx.cwd, sessionId);
 	await mkdir(runDir, { recursive: true });
 	const state: WorkerState = {
 		role,

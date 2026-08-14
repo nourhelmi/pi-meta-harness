@@ -12,7 +12,7 @@ event. Never orchestrate a fan-out step-by-step from this context.
 
 ## The diamond, as a driver script
 
-Write `.advisor/graphs/<name>.ts` (bun), then `bg_run("bun .advisor/graphs/<name>.ts", ...)`:
+Write `<state-root>/graphs/<name>.ts` (bun) — the advisor state root under `~/.advisor/<repo-key>/` reported by `advisor_session_init` — then `bg_run("bun <state-root>/graphs/<name>.ts", ...)`:
 
 ```ts
 // 1. FAN OUT — independent workers, fresh contexts, cheap model, schema'd output
@@ -64,6 +64,6 @@ use one worker or `/goal`, not a graph. A graph buys breadth, never judgment.
 
 ## Reuse
 
-When a run comes out good, keep the script in `.advisor/graphs/` with a
+When a run comes out good, keep the script in the state root's `graphs/` with a
 one-line header comment (goal, cap, cost of last run). Next time, rerun the
 saved script instead of redesigning — parameterize angles/paths via argv.

@@ -263,19 +263,27 @@ visibility failure; never fall back to an invisible agent.
 
 ## Isolated state convention
 
-Per repository, `.advisor/` is untracked runtime state:
+Advisor state lives outside every repository under `~/.advisor/<repo-key>/`.
+The repo key derives from the repository's git common directory, so all
+worktrees of one repository share one state root and no repository needs
+personal `.gitignore` entries or carries run artifacts. `advisor_session_init`
+reports the resolved root — use the exact paths it returns. `ADVISOR_STATE_DIR`
+overrides the root for tests.
 
-- `.advisor/sessions/<PI_SESSION_ID>.md` — private session checkpoint. Only this
+- `<root>/sessions/<PI_SESSION_ID>.md` — private session checkpoint. Only this
   Pi session can edit its file.
-- `.advisor/workstreams/<slug>.md` — workstream source of truth. Only the owner
+- `<root>/workstreams/<slug>.md` — workstream source of truth. Only the owner
   session named in the file can edit it.
-- `.advisor/events/<timestamp>-<session-short>-<slug>.md` — immutable handoffs,
+- `<root>/events/<timestamp>-<session-short>-<slug>.md` — immutable handoffs,
   decisions, findings, and alerts. Create a new file; never edit another
   session's event.
-- `.advisor/runs/<run-id>/` — worker output. Workers write only inside their run
-  directory. The owning advisor folds a short result into its workstream file.
-- `.advisor/state.md` — legacy read-only pointer. Never write operational state
-  to it.
+- `<root>/graphs/<graphId>.json` — immutable graph manifests, written by
+  `advisor_graph_plan`. Task packets and specs live beside them under the root.
+- `<root>/runs/<worktree-slug>/<run-id>/` — worker output. Workers write only
+  inside their run directory. The owning advisor folds a short result into its
+  workstream file.
+- Legacy in-repo `.advisor/` directories are read-only history from sessions
+  started before the home migration. Never write new state there.
 
 Use `PI_SESSION_ID` for the private filename and `ADVISOR_WORKSTREAM` for the
 slug. `advisor_session_init` sets both the workstream environment and persistent

@@ -1,6 +1,6 @@
 ---
 name: advisor-triage
-description: Read-only daily discovery for an isolated advisor setup. Sweep CI, issues, recent commits, and workstream summaries, then write one immutable event under .advisor/events/. Use on demand or from a headless control process, never as an interactive-session routine.
+description: Read-only daily discovery for an isolated advisor setup. Sweep CI, issues, recent commits, and workstream summaries, then write one immutable event under the advisor state root's events directory. Use on demand or from a headless control process, never as an interactive-session routine.
 ---
 
 # Advisor Triage
@@ -16,8 +16,10 @@ Run independent read-only checks in parallel when useful:
 2. **Issues / PRs**: new items, stale reviews, and unanswered comments.
 3. **Recent commits**: the latest 20 commits on the default branch; identify
    follow-up work with direct evidence.
-4. **Running work**: read the bounded summaries in `.advisor/workstreams/` and
-   the latest relevant files in `.advisor/events/`. `bg_list` covers only the
+4. **Running work**: read the bounded summaries in
+   `~/.advisor/<repo-key>/workstreams/` and the latest relevant files in
+   `~/.advisor/<repo-key>/events/` (the repo key pairs the repository root
+   basename with a hash; `ls ~/.advisor/` shows it). `bg_list` covers only the
    Pi session that calls it; never use it to infer another session's status.
 5. **Repository signals**: use repository-specific source documents only when
    they are named in the project instructions.
@@ -26,7 +28,7 @@ Run independent read-only checks in parallel when useful:
 
 Create one new file:
 
-`.advisor/events/<UTC timestamp>-<session short id>-triage.md`
+`~/.advisor/<repo-key>/events/<UTC timestamp>-<session short id>-triage.md`
 
 Use this format:
 
@@ -35,7 +37,8 @@ Use this format:
   ignore> — estimated size`
 - Maximum seven findings, in priority order.
 - Dedupe against active workstream summaries and recent triage events.
-- Never edit an existing event file or `.advisor/state.md`.
+- Never edit an existing event file. Legacy in-repo `.advisor/` directories
+  are read-only history.
 
 ## Rules
 

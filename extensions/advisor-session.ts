@@ -1,5 +1,7 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
@@ -16,6 +18,7 @@ interface AdvisorSessionState {
 }
 
 interface AdvisorPaths {
+	root: string;
 	workstream: string;
 	session: string;
 	events: string;
@@ -78,15 +81,71 @@ async function readIfPresent(path: string): Promise<string | undefined> {
 	}
 }
 
+// Advisor state lives under the user home so repositories never carry
+// personal runtime files; every worktree of one repository shares one root.
+interface RepoAnchor {
+	commonDir: string;
+	worktreeRoot: string;
+}
+
+async function repoAnchor(cwd: string): Promise<RepoAnchor | undefined> {
+	let dir = resolve(cwd);
+	for (;;) {
+		const dotGit = join(dir, ".git");
+		const info = await stat(dotGit).catch(() => undefined);
+		if (info?.isDirectory()) return { commonDir: dotGit, worktreeRoot: dir };
+		if (info?.isFile()) {
+			const pointer = (await readFile(dotGit, "utf8")).match(/^gitdir:\s*(.+?)\s*$/m)?.[1];
+			if (pointer) {
+				const gitDir = resolve(dir, pointer);
+				const marker = gitDir.lastIndexOf("/.git/worktrees/");
+				return {
+					commonDir: marker >= 0 ? gitDir.slice(0, marker + "/.git".length) : gitDir,
+					worktreeRoot: dir,
+				};
+			}
+		}
+		const parent = dirname(dir);
+		if (parent === dir) return undefined;
+		dir = parent;
+	}
+}
+
+function stateSlug(path: string): string {
+	const cleaned = basename(path)
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 32);
+	const hash = createHash("sha256").update(path).digest("hex").slice(0, 8);
+	return `${cleaned || "dir"}-${hash}`;
+}
+
+async function advisorStateRoot(cwd: string): Promise<string> {
+	const override = process.env.ADVISOR_STATE_DIR;
+	if (override) return resolve(override);
+	const anchor = await repoAnchor(cwd);
+	const key = anchor ? stateSlug(dirname(anchor.commonDir)) : stateSlug(resolve(cwd));
+	return join(homedir(), ".advisor", key);
+}
+
 async function restoredDiskState(
 	ctx: ExtensionContext,
 	sessionId: string,
 ): Promise<AdvisorSessionState | undefined> {
-	const path = join(ctx.cwd, ".advisor", "sessions", `${sessionId}.md`);
-	const content = await readIfPresent(path);
-	const workstream = content ? workstreamFromSession(content) : undefined;
-	if (!workstream) return undefined;
-	return { workstream, sessionId, initializedAt: "legacy-state" };
+	const root = await advisorStateRoot(ctx.cwd);
+	// The in-repo path is legacy fallback so sessions from before the home
+	// migration still restore their workstream binding.
+	const candidates = [
+		join(root, "sessions", `${sessionId}.md`),
+		join(ctx.cwd, ".advisor", "sessions", `${sessionId}.md`),
+	];
+	for (const path of candidates) {
+		const content = await readIfPresent(path);
+		const workstream = content ? workstreamFromSession(content) : undefined;
+		if (workstream) return { workstream, sessionId, initializedAt: "legacy-state" };
+	}
+	return undefined;
 }
 
 async function restoredState(
@@ -96,9 +155,9 @@ async function restoredState(
 	return restoredEntryState(ctx) ?? (await restoredDiskState(ctx, sessionId));
 }
 
-function pathsFor(ctx: ExtensionContext, workstream: string, sessionId: string): AdvisorPaths {
-	const root = join(ctx.cwd, ".advisor");
+function pathsFor(root: string, workstream: string, sessionId: string): AdvisorPaths {
 	return {
+		root,
 		workstream: join(root, "workstreams", `${workstream}.md`),
 		session: join(root, "sessions", `${sessionId}.md`),
 		events: join(root, "events"),
@@ -106,10 +165,9 @@ function pathsFor(ctx: ExtensionContext, workstream: string, sessionId: string):
 	};
 }
 
-async function ensureAdvisorDirectories(ctx: ExtensionContext): Promise<void> {
-	const root = join(ctx.cwd, ".advisor");
+async function ensureAdvisorDirectories(root: string): Promise<void> {
 	await Promise.all(
-		["workstreams", "sessions", "events", "locks"].map((directory) =>
+		["workstreams", "sessions", "events", "locks", "runs", "graphs"].map((directory) =>
 			mkdir(join(root, directory), { recursive: true }),
 		),
 	);
@@ -216,9 +274,10 @@ async function claimWorkstream(
 	ctx: ExtensionContext,
 	workstream: string,
 	sessionId: string,
-): Promise<void> {
-	await ensureAdvisorDirectories(ctx);
-	const paths = pathsFor(ctx, workstream, sessionId);
+): Promise<AdvisorPaths> {
+	const root = await advisorStateRoot(ctx.cwd);
+	await ensureAdvisorDirectories(root);
+	const paths = pathsFor(root, workstream, sessionId);
 	const firstRead = await readIfPresent(paths.workstream);
 	const firstOwner = firstRead ? ownerFromWorkstream(firstRead) : undefined;
 	const transferApproved = await requestTransfer(ctx, workstream, firstOwner, sessionId);
@@ -232,6 +291,7 @@ async function claimWorkstream(
 		await rm(paths.lock, { recursive: true, force: true });
 	}
 	await ensurePrivateSession(paths.session, workstream, sessionId);
+	return paths;
 }
 
 async function verifyHerdr(pi: ExtensionAPI): Promise<string> {
@@ -348,14 +408,19 @@ async function initializeAdvisor(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	value: string | undefined,
-): Promise<{ state: AdvisorSessionState; herdrName: string; usedStoredWorkstream: boolean }> {
+): Promise<{
+	state: AdvisorSessionState;
+	herdrName: string;
+	usedStoredWorkstream: boolean;
+	paths: AdvisorPaths;
+}> {
 	const sessionId = ctx.sessionManager.getSessionId();
 	const restored = await restoredState(ctx, sessionId);
 	const requested = restored ? slugify(value ?? restored.workstream) : await requestedWorkstream(ctx, value);
 	const usedStoredWorkstream = Boolean(restored && restored.workstream !== requested);
 	const workstream = restored?.workstream ?? requested;
 	const paneId = await verifyHerdr(pi);
-	await claimWorkstream(ctx, workstream, sessionId);
+	const paths = await claimWorkstream(ctx, workstream, sessionId);
 	const herdrName = await renameHerdrAgent(pi, paneId, workstream, sessionId);
 	const state: AdvisorSessionState = {
 		workstream,
@@ -365,7 +430,7 @@ async function initializeAdvisor(
 	process.env.ADVISOR_WORKSTREAM = workstream;
 	pi.setSessionName(`advisor-${workstream}`);
 	if (!restoredEntryState(ctx)) pi.appendEntry(ENTRY_TYPE, state);
-	return { state, herdrName, usedStoredWorkstream };
+	return { state, herdrName, usedStoredWorkstream, paths };
 }
 
 export default function advisorSessionExtension(pi: ExtensionAPI): void {
@@ -405,10 +470,15 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 				content: [
 					{
 						type: "text",
-						text: `Initialized advisor workstream ${initialized.state.workstream}. Pi session ${initialized.state.sessionId.slice(0, 8)} is visible in Herdr as ${initialized.herdrName}.`,
+						text:
+							`Initialized advisor workstream ${initialized.state.workstream}. Pi session ${initialized.state.sessionId.slice(0, 8)} is visible in Herdr as ${initialized.herdrName}.\n` +
+							`State root: ${initialized.paths.root}\n` +
+							`Workstream file: ${initialized.paths.workstream}\n` +
+							`Events: ${initialized.paths.events}\n` +
+							`Runs and graphs live under the same root. Legacy in-repo .advisor/ directories are read-only history.`,
 					},
 				],
-				details: initialized.state,
+				details: { ...initialized.state, stateRoot: initialized.paths.root },
 			};
 		},
 	});

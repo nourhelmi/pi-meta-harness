@@ -1,6 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import type { AgentToolResult, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 
@@ -34,6 +35,54 @@ interface GraphDetails {
 
 interface RoleProfiles {
 	profiles?: Record<string, { model?: string; provider?: string }>;
+}
+
+// Advisor state lives under the user home so repositories never carry
+// personal runtime files; every worktree of one repository shares one root.
+interface RepoAnchor {
+	commonDir: string;
+	worktreeRoot: string;
+}
+
+async function repoAnchor(cwd: string): Promise<RepoAnchor | undefined> {
+	let dir = resolve(cwd);
+	for (;;) {
+		const dotGit = join(dir, ".git");
+		const info = await stat(dotGit).catch(() => undefined);
+		if (info?.isDirectory()) return { commonDir: dotGit, worktreeRoot: dir };
+		if (info?.isFile()) {
+			const pointer = (await readFile(dotGit, "utf8")).match(/^gitdir:\s*(.+?)\s*$/m)?.[1];
+			if (pointer) {
+				const gitDir = resolve(dir, pointer);
+				const marker = gitDir.lastIndexOf("/.git/worktrees/");
+				return {
+					commonDir: marker >= 0 ? gitDir.slice(0, marker + "/.git".length) : gitDir,
+					worktreeRoot: dir,
+				};
+			}
+		}
+		const parent = dirname(dir);
+		if (parent === dir) return undefined;
+		dir = parent;
+	}
+}
+
+function stateSlug(path: string): string {
+	const cleaned = basename(path)
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 32);
+	const hash = createHash("sha256").update(path).digest("hex").slice(0, 8);
+	return `${cleaned || "dir"}-${hash}`;
+}
+
+async function advisorStateRoot(cwd: string): Promise<string> {
+	const override = process.env.ADVISOR_STATE_DIR;
+	if (override) return resolve(override);
+	const anchor = await repoAnchor(cwd);
+	const key = anchor ? stateSlug(dirname(anchor.commonDir)) : stateSlug(resolve(cwd));
+	return join(homedir(), ".advisor", key);
 }
 
 function profilePath(): string {
@@ -177,7 +226,7 @@ async function saveManifest(
 	ctx: ExtensionContext,
 	waves: string[][],
 ): Promise<string> {
-	const directory = join(ctx.cwd, ".advisor", "graphs");
+	const directory = join(await advisorStateRoot(ctx.cwd), "graphs");
 	await mkdir(directory, { recursive: true });
 	const path = join(directory, `${params.graphId}.json`);
 	await writeFile(path, `${JSON.stringify(manifest(params, ctx, waves), null, 2)}\n`, {
