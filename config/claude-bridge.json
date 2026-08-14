@@ -1,0 +1,11 @@
+{
+  "provider": {
+    "strictMcpConfig": true,
+    "autoMemoryEnabled": false
+  },
+  "askClaude": {
+    "enabled": false,
+    "allowFullMode": false,
+    "defaultIsolated": true
+  }
+}

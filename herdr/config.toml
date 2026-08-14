@@ -1,0 +1,39 @@
+onboarding = false
+
+[theme]
+name = "tokyo-night"
+auto_switch = false
+
+[theme.custom]
+accent = "#F7CE55"      # tokyo night gold — borders/highlights
+
+[worktrees]
+directory = "~/.herdr/worktrees"
+
+[keys]
+# Attention queue navigation: jump straight to an agent row in the sidebar.
+focus_agent = "prefix+alt+1..9"
+next_agent = "prefix+alt+n"
+previous_agent = "prefix+alt+p"
+# Direct workspace switching (prefix+1..9 stays on tabs).
+switch_workspace = "prefix+shift+1..9"
+# Toggle back to the pane you came from.
+last_pane = "prefix+backtick"
+
+[[keys.command]]
+key = "prefix+alt+g"
+type = "pane"
+command = "lazygit"
+
+[ui]
+accent = "#F7CE55"
+agent_panel_sort = "spaces"
+show_agent_labels_on_pane_borders = true
+
+[ui.toast]
+delivery = "system"
+
+[ui.sound]
+enabled = true
+done_path = "sounds/done.mp3"
+request_path = "sounds/request.mp3"

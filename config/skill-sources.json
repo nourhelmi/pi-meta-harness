@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 2,
+  "groups": [
+    {
+      "source": "addyosmani/agent-skills",
+      "sourceUrl": "https://github.com/addyosmani/agent-skills.git",
+      "commit": "df1edb2e05487d0aa6d93c747141e0aed1187f25",
+      "tree": "b7329cdfe4510c199415339e69134ced1d7d2ca0",
+      "skills": [
+        "context-engineering"
+      ]
+    },
+    {
+      "source": "anthropics/skills",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "commit": "f6656c1256d5a8adfa37db9110046ef20bac644c",
+      "tree": "0caa16f7ab1dd33df735e42b97bafc1b3d32d29c",
+      "skills": [
+        "frontend-design"
+      ]
+    },
+    {
+      "source": "backnotprop/plannotator",
+      "sourceUrl": "https://github.com/backnotprop/plannotator.git",
+      "commit": "59ef54be4440898f4418853477e2229fe16968f8",
+      "tree": "a0810c96105bcfbc5c239a6e4aa2927f68719927",
+      "skills": [
+        "plannotator-annotate",
+        "plannotator-compound",
+        "plannotator-last",
+        "plannotator-review",
+        "plannotator-setup-goal",
+        "plannotator-visual-explainer"
+      ]
+    },
+    {
+      "source": "browser-use/browser-use",
+      "sourceUrl": "https://github.com/browser-use/browser-use.git",
+      "commit": "6c73fced2f6d45a11d88622fe56365a5fe18f28b",
+      "tree": "94d109b7e077cf1a94d5bd86d0316d32c540bc9e",
+      "skills": [
+        "browser-use"
+      ]
+    },
+    {
+      "source": "claude-office-skills/skills",
+      "sourceUrl": "https://github.com/claude-office-skills/skills.git",
+      "commit": "9c4c7d5cd2813a8936bf2c9fdb174ea883b85a11",
+      "tree": "a2c64e5a00b24b0ba9298388f25c6eb45b548a84",
+      "skills": [
+        "cv-builder"
+      ]
+    },
+    {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "pinReason": "Last revision before the v2 rename removed the selected skill names.",
+      "skills": [
+        "ab-test-setup",
+        "ad-creative",
+        "ai-seo",
+        "analytics-tracking",
+        "churn-prevention",
+        "cold-email",
+        "competitor-alternatives",
+        "content-strategy",
+        "copy-editing",
+        "copywriting",
+        "email-sequence",
+        "form-cro",
+        "free-tool-strategy",
+        "launch-strategy",
+        "marketing-ideas",
+        "marketing-psychology",
+        "onboarding-cro",
+        "page-cro",
+        "paid-ads",
+        "paywall-upgrade-cro",
+        "popup-cro",
+        "pricing-strategy",
+        "product-marketing-context",
+        "programmatic-seo",
+        "referral-program",
+        "revops",
+        "sales-enablement",
+        "schema-markup",
+        "seo-audit",
+        "signup-flow-cro",
+        "site-architecture",
+        "social-content"
+      ]
+    },
+    {
+      "source": "fal-ai-community/skills",
+      "sourceUrl": "https://github.com/fal-ai-community/skills.git",
+      "commit": "282eba6fb2a88c68aa3dc05335be7b955688258e",
+      "tree": "562f7cb315253aa0d0c0d58d1507d7e01e85af6b",
+      "pinReason": "Last selected revision before fal-generate was replaced by the genmedia skill set.",
+      "skills": [
+        "fal-generate"
+      ]
+    },
+    {
+      "source": "herdrdev/herdr",
+      "sourceUrl": "https://github.com/herdrdev/herdr.git",
+      "commit": "9e6c2b4e0957498b7da884ed2789fe28b9cde9cf",
+      "tree": "edc9715ffcfcfc4cf2042bfa4fbe94d93abc2f64",
+      "skills": [
+        "herdr"
+      ]
+    },
+    {
+      "source": "imxv/pretty-mermaid-skills",
+      "sourceUrl": "https://github.com/imxv/pretty-mermaid-skills.git",
+      "commit": "e33f086d3b5bcec9f28632e4bd9c348b02bb2278",
+      "tree": "8b8acea143ab1fdf4c45b8a268e8cf5bf2f8cc15",
+      "skills": [
+        "pretty-mermaid"
+      ]
+    },
+    {
+      "source": "inference-sh-9/skills",
+      "sourceUrl": "https://github.com/inference-sh-9/skills.git",
+      "commit": "becc25649700d5457772a00e5143e28ccf9e5afa",
+      "tree": "241372e3f6d572ae0dd4c2bdcc129ce3475dc72c",
+      "skills": [
+        "nano-banana-2"
+      ]
+    },
+    {
+      "source": "nutlope/hallmark",
+      "sourceUrl": "https://github.com/nutlope/hallmark.git",
+      "commit": "13ac0ec7e148655948100b6396439e481361d690",
+      "tree": "02ebcc67f58295654c073cfb74a20a9a86db1f8f",
+      "skills": [
+        "hallmark"
+      ]
+    },
+    {
+      "source": "payloadcms/payload",
+      "sourceUrl": "https://github.com/payloadcms/payload.git",
+      "commit": "ea0d69df25714b3f5a6301684148d0f72f713d41",
+      "tree": "5f65b7ed08fd1045e19d5ae0517e8357b32233a8",
+      "skills": [
+        "payload"
+      ]
+    },
+    {
+      "source": "softaworks/agent-toolkit",
+      "sourceUrl": "https://github.com/softaworks/agent-toolkit.git",
+      "commit": "3027f20f3181758385a1bb8c022d4041dfb4de84",
+      "tree": "8728fc5f92845d088e97e724260f5d5d9724c728",
+      "skills": [
+        "mermaid-diagrams"
+      ]
+    },
+    {
+      "source": "vercel-labs/agent-browser",
+      "sourceUrl": "https://github.com/vercel-labs/agent-browser.git",
+      "commit": "548b159b30eef119ccf6846c8bc807d0eaa3f6f8",
+      "tree": "9bd584af5d938c3a8efa3a25853b7ddb2f9f14bb",
+      "skills": [
+        "agent-browser"
+      ]
+    },
+    {
+      "source": "vercel-labs/agent-skills",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "commit": "b8caa260a420a73042e35521de4b5c8baf6446cc",
+      "tree": "96a7470a8c0eb61db3438ec489da261b7b9eedf8",
+      "skills": [
+        "vercel-composition-patterns",
+        "vercel-react-best-practices",
+        "vercel-react-native-skills",
+        "web-design-guidelines"
+      ]
+    },
+    {
+      "source": "vercel-labs/skills",
+      "sourceUrl": "https://github.com/vercel-labs/skills.git",
+      "commit": "c6f69c631292444cc541ac6d91e2226b0ff247da",
+      "tree": "c28acf1413ed931a92fb8a4d7f1810513bac3ed8",
+      "skills": [
+        "find-skills"
+      ]
+    },
+    {
+      "source": "vercel/ai",
+      "sourceUrl": "https://github.com/vercel/ai.git",
+      "commit": "6c249eef8dd9ffa63aa613f2a4f92b66da7ade77",
+      "tree": "966fe6c8c7ca041c559d854136c695a8ad424775",
+      "skills": [
+        "ai-sdk"
+      ]
+    },
+    {
+      "source": "vercel/turborepo",
+      "sourceUrl": "https://github.com/vercel/turborepo.git",
+      "commit": "dec1a95d48411b700cc499f7cbc8f9d655275c84",
+      "tree": "7952069d0717dd2ab6b87efc5d359ca40fe46ddf",
+      "skills": [
+        "turborepo"
+      ]
+    },
+    {
+      "source": "wshobson/agents",
+      "sourceUrl": "https://github.com/wshobson/agents.git",
+      "commit": "c4b82b0ad771190355eb8e204b1329732a18449a",
+      "tree": "17bed6913ba3d38e4fc867b71383dfc294fdfd25",
+      "skills": [
+        "prompt-engineering-patterns"
+      ]
+    }
+  ]
+}

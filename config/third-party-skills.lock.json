@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 4,
+  "installer": "skills@1.5.22",
+  "skills": {
+    "context-engineering": {
+      "source": "addyosmani/agent-skills",
+      "sourceUrl": "https://github.com/addyosmani/agent-skills.git",
+      "commit": "df1edb2e05487d0aa6d93c747141e0aed1187f25",
+      "tree": "b7329cdfe4510c199415339e69134ced1d7d2ca0",
+      "sha256": "bb8864454c5a24636cab86c4b3c4b29e7e7431c80485bfd7c9c0a19a01936510"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceUrl": "https://github.com/anthropics/skills.git",
+      "commit": "f6656c1256d5a8adfa37db9110046ef20bac644c",
+      "tree": "0caa16f7ab1dd33df735e42b97bafc1b3d32d29c",
+      "sha256": "4eabc66183767153e404b39d1b839b1c37f2d82d86f0a0d7e880a579d8d62336"
+    },
+    "plannotator-annotate": {
+      "source": "backnotprop/plannotator",
+      "sourceUrl": "https://github.com/backnotprop/plannotator.git",
+      "commit": "59ef54be4440898f4418853477e2229fe16968f8",
+      "tree": "a0810c96105bcfbc5c239a6e4aa2927f68719927",
+      "sha256": "1cc193ce157acb9154a840fd7b18afa0ca3dbac087a3c37a0d9978a1df42ae9b"
+    },
+    "plannotator-compound": {
+      "source": "backnotprop/plannotator",
+      "sourceUrl": "https://github.com/backnotprop/plannotator.git",
+      "commit": "59ef54be4440898f4418853477e2229fe16968f8",
+      "tree": "a0810c96105bcfbc5c239a6e4aa2927f68719927",
+      "sha256": "841635d9d8089c7164f2022978fb91b2e0fb11d706a935e8a5b639decfd02f4a"
+    },
+    "plannotator-last": {
+      "source": "backnotprop/plannotator",
+      "sourceUrl": "https://github.com/backnotprop/plannotator.git",
+      "commit": "59ef54be4440898f4418853477e2229fe16968f8",
+      "tree": "a0810c96105bcfbc5c239a6e4aa2927f68719927",
+      "sha256": "33478a0a9b42d3e102043e6fd60adf9581cf85bc8a2520b7e4593183f4ef5180"
+    },
+    "plannotator-review": {
+      "source": "backnotprop/plannotator",
+      "sourceUrl": "https://github.com/backnotprop/plannotator.git",
+      "commit": "59ef54be4440898f4418853477e2229fe16968f8",
+      "tree": "a0810c96105bcfbc5c239a6e4aa2927f68719927",
+      "sha256": "307081c039277911b0af08e399b894acfb40dc4eea43c8e5c059a5df55a61f92"
+    },
+    "plannotator-setup-goal": {
+      "source": "backnotprop/plannotator",
+      "sourceUrl": "https://github.com/backnotprop/plannotator.git",
+      "commit": "59ef54be4440898f4418853477e2229fe16968f8",
+      "tree": "a0810c96105bcfbc5c239a6e4aa2927f68719927",
+      "sha256": "c4d908e001f89e6633dcb01772202a3aa5632f0d4e6dfd4d078237abb9def5e0"
+    },
+    "plannotator-visual-explainer": {
+      "source": "backnotprop/plannotator",
+      "sourceUrl": "https://github.com/backnotprop/plannotator.git",
+      "commit": "59ef54be4440898f4418853477e2229fe16968f8",
+      "tree": "a0810c96105bcfbc5c239a6e4aa2927f68719927",
+      "sha256": "5c72a907ae5d3a2f4cd195ca1ded4a641fd63956f4d3cfaebe28e78b49df497b"
+    },
+    "browser-use": {
+      "source": "browser-use/browser-use",
+      "sourceUrl": "https://github.com/browser-use/browser-use.git",
+      "commit": "6c73fced2f6d45a11d88622fe56365a5fe18f28b",
+      "tree": "94d109b7e077cf1a94d5bd86d0316d32c540bc9e",
+      "sha256": "d85101b4c40540c938a1fc98c716a1ec114cd77bf22dfcb384134824b0a0c0b3"
+    },
+    "cv-builder": {
+      "source": "claude-office-skills/skills",
+      "sourceUrl": "https://github.com/claude-office-skills/skills.git",
+      "commit": "9c4c7d5cd2813a8936bf2c9fdb174ea883b85a11",
+      "tree": "a2c64e5a00b24b0ba9298388f25c6eb45b548a84",
+      "sha256": "e5de7de7841c4c5d51985f55e56faa7e9df1566bf6288200c1944a56ac017786"
+    },
+    "ab-test-setup": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "94087212851539a2e7369afec8f30d3aa85a4740e02b7079f1b6381bc236410b"
+    },
+    "ad-creative": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "b91bdea6c437d1f229e48b4b3de16fcae5290d40e358874c3c93bc78012b89fd"
+    },
+    "ai-seo": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "dbefd6f3c5330cc913806261cf88c5f6b2db5f81908e5253a06e5b3436872307"
+    },
+    "analytics-tracking": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "c0dc3bba3953fa516e89b9b587af247365c04d085c908e49a410e6006f7711f2"
+    },
+    "churn-prevention": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "511cc02201d6216dcf17f4311844472598356536b61ab95e15cfa7480e480b04"
+    },
+    "cold-email": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "88fb47e83e17c485b6b3b10cee2f843cdd784aa49895ceccdf17058774276372"
+    },
+    "competitor-alternatives": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "4a669d99ef16794d3d127c08da55eae6682a479d7d12005541ec40c63b7d2dac"
+    },
+    "content-strategy": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "84e31cfce702afefd351ce7e825a25481b3e1fc3e5c417bbcfa7bf0c1d02b5f5"
+    },
+    "copy-editing": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "ce30da418e2364ccd6ce669903d93ebc67a799259a2432c06cf58f0b742a1da6"
+    },
+    "copywriting": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "ed71837b71d8e46105dabe227faffc2dbe6010c9cb70df86b8fdf7dc3a3c77bb"
+    },
+    "email-sequence": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "ce05b2da8011f180c70b50fbae5afc39330c7e09452ef804d1662a22a3816109"
+    },
+    "form-cro": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "86455da4478dfcdd6353700c379a0223f9e35391d8c30a08da8bdbd51055634f"
+    },
+    "free-tool-strategy": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "3586f9120d7cd084557660e62d14a196e52284945202a1ecc7c480eb53837a35"
+    },
+    "launch-strategy": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "044cae9fc093786589b2f5eda863541943b581917034a8ba4bbd3e2c263c7880"
+    },
+    "marketing-ideas": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "e87f7011da45f07569a3c57ec4f701fbea03784858d2f87d0d7badc0dbe82d41"
+    },
+    "marketing-psychology": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "3d804e8eb6fd98d80d7a2ac95ffe4cddfbbc72393d0255827832e6f435f38414"
+    },
+    "onboarding-cro": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "8e80f250d1a57b2bf1e022b4e48dca9eb252d802c531d76e13bcfcf1a200d216"
+    },
+    "page-cro": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "69617b614c235815fe5c98d1e1048a5461c7100d2efc243af8ad5c324f77a15e"
+    },
+    "paid-ads": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "e4f2e8796f8940ad215c21d41f245d95b7e92a3152174b7f005de42bb2ebc165"
+    },
+    "paywall-upgrade-cro": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "e6d7ba4c5386f113e903338551adc37fab0dd83298f596bee9570eb4c93dc726"
+    },
+    "popup-cro": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "cc3e44c245d9cd443c24ebbddc936bca64d6af9fe3776bc41de5e1e34f3b49de"
+    },
+    "pricing-strategy": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "a08c6e585d81fe0b1a6cdcc7fb8711c276a9ff5b03fbaadb11ee73b16d57fba3"
+    },
+    "product-marketing-context": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "c5346e44b15d69a38c417441b3fe5c2bf6756aa39b20658678f52bb7d12f2e75"
+    },
+    "programmatic-seo": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "172b996ae532eb3907a01b53e0aaa4eb71f195ad7c733648963adf39190fa378"
+    },
+    "referral-program": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "fe720bfaaf8f57623cde2fa98323570dc4090cd502a51d5ab832fada739c43dd"
+    },
+    "revops": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "a4de8b138424d84c691d9035953edab285114fc8deddff61ed449adbf61a272b"
+    },
+    "sales-enablement": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "46e2d721fdc14f4b26654e392970ca0febac4757d3316e2685ca0a56f2376299"
+    },
+    "schema-markup": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "53afdd45d54825d140afee76ff24f5bd9f6678e00eb488b7a2029c0d841afa92"
+    },
+    "seo-audit": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "097197236e96a3c3428fe1581a3ea79c3b19f06498b5fef0d117b48c5e6f5f80"
+    },
+    "signup-flow-cro": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "06365a2e0e0d24395d8e49f80243454600bdec1196b9b64f3a8030ec6222371c"
+    },
+    "site-architecture": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "df5119e9c9703a2e0a7f7e112c102a0c31b5f915ba950129e5ef621222ee38e8"
+    },
+    "social-content": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceUrl": "https://github.com/coreyhaines31/marketingskills.git",
+      "commit": "f3990f7f99ae63b9e26eaa61114f60e0408742ff",
+      "tree": "c853c6677c04ecf53519d2f4f2d28290db7ae05d",
+      "sha256": "c509c3b0036b77e5cb0b0b5956eb3417b50cab8b4635836491b1d5134961eb52"
+    },
+    "fal-generate": {
+      "source": "fal-ai-community/skills",
+      "sourceUrl": "https://github.com/fal-ai-community/skills.git",
+      "commit": "282eba6fb2a88c68aa3dc05335be7b955688258e",
+      "tree": "562f7cb315253aa0d0c0d58d1507d7e01e85af6b",
+      "sha256": "254847d88caa5cb88686705d36e30e3b650b533e0312982b913ab9d32d7b1e3b"
+    },
+    "herdr": {
+      "source": "herdrdev/herdr",
+      "sourceUrl": "https://github.com/herdrdev/herdr.git",
+      "commit": "9e6c2b4e0957498b7da884ed2789fe28b9cde9cf",
+      "tree": "edc9715ffcfcfc4cf2042bfa4fbe94d93abc2f64",
+      "sha256": "1bb439a747faf436ca9871fec762940a27409f58ebb4f43ca7f9cc5a0d23197e"
+    },
+    "pretty-mermaid": {
+      "source": "imxv/pretty-mermaid-skills",
+      "sourceUrl": "https://github.com/imxv/pretty-mermaid-skills.git",
+      "commit": "e33f086d3b5bcec9f28632e4bd9c348b02bb2278",
+      "tree": "8b8acea143ab1fdf4c45b8a268e8cf5bf2f8cc15",
+      "sha256": "746a4f7ee3784efa79a7b7747c4c8404e08150eab4c6826a46c2774c7729b6a7"
+    },
+    "nano-banana-2": {
+      "source": "inference-sh-9/skills",
+      "sourceUrl": "https://github.com/inference-sh-9/skills.git",
+      "commit": "becc25649700d5457772a00e5143e28ccf9e5afa",
+      "tree": "241372e3f6d572ae0dd4c2bdcc129ce3475dc72c",
+      "sha256": "8ce15025c31bbf32fd13781bb4d737908a636955f1ce4604550fa1eb5b00e097"
+    },
+    "hallmark": {
+      "source": "nutlope/hallmark",
+      "sourceUrl": "https://github.com/nutlope/hallmark.git",
+      "commit": "13ac0ec7e148655948100b6396439e481361d690",
+      "tree": "02ebcc67f58295654c073cfb74a20a9a86db1f8f",
+      "sha256": "03db480820f0c9f2d9d1f4c48e5c2d15c2625c7e5916e7500ab7d660d9cc41c5"
+    },
+    "payload": {
+      "source": "payloadcms/payload",
+      "sourceUrl": "https://github.com/payloadcms/payload.git",
+      "commit": "ea0d69df25714b3f5a6301684148d0f72f713d41",
+      "tree": "5f65b7ed08fd1045e19d5ae0517e8357b32233a8",
+      "sha256": "fa76f9cbc22773d9f90675767c020b3d70017fdcf50fe022f72e0087599535e6"
+    },
+    "mermaid-diagrams": {
+      "source": "softaworks/agent-toolkit",
+      "sourceUrl": "https://github.com/softaworks/agent-toolkit.git",
+      "commit": "3027f20f3181758385a1bb8c022d4041dfb4de84",
+      "tree": "8728fc5f92845d088e97e724260f5d5d9724c728",
+      "sha256": "451b0f53d9fe30c19eea0102c8da8c3ec56cf5cce63b97f3d9d9dbf34e1088aa"
+    },
+    "agent-browser": {
+      "source": "vercel-labs/agent-browser",
+      "sourceUrl": "https://github.com/vercel-labs/agent-browser.git",
+      "commit": "548b159b30eef119ccf6846c8bc807d0eaa3f6f8",
+      "tree": "9bd584af5d938c3a8efa3a25853b7ddb2f9f14bb",
+      "sha256": "548a1f92c7ff55081c65ec1577ff5136beb1d0f58252d448d5bd43f05fefc703"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "commit": "b8caa260a420a73042e35521de4b5c8baf6446cc",
+      "tree": "96a7470a8c0eb61db3438ec489da261b7b9eedf8",
+      "sha256": "cdc52f07ec7bc67c4f2e53205a4e35f99cdae70ca4240a714c96ba3889734678"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "commit": "b8caa260a420a73042e35521de4b5c8baf6446cc",
+      "tree": "96a7470a8c0eb61db3438ec489da261b7b9eedf8",
+      "sha256": "16b2055c5f9da13685718c1dd71978f1584a249513e1f341df3edceb08842f1b"
+    },
+    "vercel-react-native-skills": {
+      "source": "vercel-labs/agent-skills",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "commit": "b8caa260a420a73042e35521de4b5c8baf6446cc",
+      "tree": "96a7470a8c0eb61db3438ec489da261b7b9eedf8",
+      "sha256": "1298ce94325280f7e56ed297aab7cd2ab022fbbb67ca53cf0b1381a4dd829178"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "commit": "b8caa260a420a73042e35521de4b5c8baf6446cc",
+      "tree": "96a7470a8c0eb61db3438ec489da261b7b9eedf8",
+      "sha256": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a"
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceUrl": "https://github.com/vercel-labs/skills.git",
+      "commit": "c6f69c631292444cc541ac6d91e2226b0ff247da",
+      "tree": "c28acf1413ed931a92fb8a4d7f1810513bac3ed8",
+      "sha256": "913b9d37d0d54047dd65222bb8c67b2bf04e3cb87dcad1729068d7a8b2c8c396"
+    },
+    "ai-sdk": {
+      "source": "vercel/ai",
+      "sourceUrl": "https://github.com/vercel/ai.git",
+      "commit": "6c249eef8dd9ffa63aa613f2a4f92b66da7ade77",
+      "tree": "966fe6c8c7ca041c559d854136c695a8ad424775",
+      "sha256": "da25c27a274ef2b71017c255f95a26350d2519765a75cb54ee1a37872b121dab"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceUrl": "https://github.com/vercel/turborepo.git",
+      "commit": "dec1a95d48411b700cc499f7cbc8f9d655275c84",
+      "tree": "7952069d0717dd2ab6b87efc5d359ca40fe46ddf",
+      "sha256": "6c2108ad3ad73e526a05c9900a74e99ec14aa5bc1cd7ad5a309a9a7ebbcde251"
+    },
+    "prompt-engineering-patterns": {
+      "source": "wshobson/agents",
+      "sourceUrl": "https://github.com/wshobson/agents.git",
+      "commit": "c4b82b0ad771190355eb8e204b1329732a18449a",
+      "tree": "17bed6913ba3d38e4fc867b71383dfc294fdfd25",
+      "sha256": "2b94e44e7793ffe9294e8e80f2976129b994022d9b0cffa8fd74f356ade7c152"
+    }
+  }
+}

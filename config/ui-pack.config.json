@@ -1,0 +1,57 @@
+{
+  "top": [
+    "logo",
+    "model",
+    "project",
+    "branch",
+    "cost"
+  ],
+  "bottom": [
+    "subagents",
+    "context",
+    "elapsed",
+    "thinking"
+  ],
+  "separator": "",
+  "icons": {
+    "logo": "π",
+    "model": "",
+    "project": "",
+    "branch": "",
+    "subagents": "󰊠",
+    "context": "◔",
+    "cost": "",
+    "thinking": "󰧑",
+    "tokens": "⇅",
+    "clock": "",
+    "elapsed": "󰔛"
+  },
+  "colors": {
+    "logo": "text",
+    "model": "customMessageLabel",
+    "project": "toolTitle",
+    "branch": "success",
+    "subagents": "accent",
+    "context": "toolTitle",
+    "cost": "customMessageLabel",
+    "thinking": "muted",
+    "tokens": "muted",
+    "clock": "muted",
+    "elapsed": "customMessageLabel"
+  },
+  "editor": {
+    "paddingX": 1,
+    "paddingY": 1
+  },
+  "terminalBgSync": true,
+  "herdrStatus": true,
+  "toolCards": "builtin",
+  "thresholds": {
+    "contextWarn": 70,
+    "contextError": 90,
+    "costWarn": 5,
+    "costError": 20
+  },
+  "frameStyle": "heavy",
+  "statusGlyphs": "nerd"
+}

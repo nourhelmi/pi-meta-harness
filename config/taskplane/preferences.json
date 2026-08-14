@@ -1,0 +1,10 @@
+{
+  "initAgentDefaults": {
+    "workerModel": "",
+    "reviewerModel": "",
+    "mergeModel": "",
+    "workerThinking": "high",
+    "reviewerThinking": "high",
+    "mergeThinking": "high"
+  }
+}

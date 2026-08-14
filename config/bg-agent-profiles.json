@@ -1,0 +1,175 @@
+{
+  "defaultAgent": "pi",
+  "models": {
+    "openai-codex/gpt-5.6-sol": {
+      "character": "Tenacious high-intelligence workhorse for planning and long or difficult backend, data, and service implementation. Use as the advisor model when Fable is unavailable because Anthropic session capacity is reached. Frontend implementation routes to opus, grok, or terra by UX scope. Read-only checking goes to terra. high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
+      "thinking": [
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "defaultThinking": "high"
+    },
+    "openai-codex/gpt-5.6-luna": {
+      "character": "Extremely cheap; suggested only for scouting and mechanical chores such as opening a PR, submitting evidence, or formatting. 272K window and weaker precision \u2014 do not assign checking, verification, or whole-branch reviews. Always runs on max.",
+      "thinking": [
+        "max"
+      ],
+      "defaultThinking": "max"
+    },
+    "claude-bridge/claude-opus-5": {
+      "character": "Reserve for genuinely new or greenfield UX/frontend implementation when Anthropic session capacity is healthy, always with frontend-design loaded. Runs at medium reasoning. Grok is the automatic UX fallback when capacity is tight or an Opus launch hits a capacity limit. Not for existing-UX tweaks, checking, review, reduction, planning, or backend.",
+      "thinking": [
+        "medium"
+      ],
+      "defaultThinking": "medium"
+    },
+    "openai-codex/gpt-5.6-terra": {
+      "character": "The default support model at xhigh: checking, verification, reduction, whole-diff review, test authoring, and minor targeted updates to an existing UX. Good intelligence for the money. 272K window \u2014 split whole-branch reviews per package or phase. Not for planning, greenfield UX, or substantial feature implementation.",
+      "thinking": [
+        "xhigh"
+      ],
+      "defaultThinking": "xhigh"
+    },
+    "cursor/grok-4.6": {
+      "character": "High-efficiency generalist at high reasoning. Preferred for research, bounded backend implementation, mixed-stack work, substantial changes to an existing UX, and UX implementation when Opus would consume scarce Anthropic/Fable session capacity. New UX uses Opus while capacity is healthy, then Grok automatically. Always load frontend-design for UX work. 200K window \u2014 keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default.",
+      "thinking": [
+        "high"
+      ],
+      "defaultThinking": "high"
+    }
+  },
+  "profiles": {
+    "scout": {
+      "description": "Read-only investigation with bounded, source-linked findings.",
+      "agent": "pi",
+      "skill": "advisor-role-scout",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "scout"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 3,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-luna",
+        "openai-codex/gpt-5.6-terra",
+        "cursor/grok-4.6"
+      ]
+    },
+    "planner": {
+      "description": "Plan fixed work from verified code and product constraints.",
+      "agent": "pi",
+      "skill": "advisor-role-planner",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "planner"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 3,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-sol"
+      ]
+    },
+    "reducer": {
+      "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
+      "agent": "pi",
+      "skill": "advisor-role-reducer",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "reducer"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 2,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-terra"
+      ]
+    },
+    "builder": {
+      "description": "Implement fixed acceptance criteria in one assigned worktree.",
+      "agent": "pi",
+      "skill": "advisor-role-builder",
+      "excludeTools": [
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "builder"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 6,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-sol",
+        "claude-bridge/claude-opus-5",
+        "openai-codex/gpt-5.6-terra",
+        "openai-codex/gpt-5.6-luna",
+        "cursor/grok-4.6"
+      ]
+    },
+    "checker": {
+      "description": "Fresh-context adversarial review of the completed work.",
+      "agent": "pi",
+      "skill": "advisor-role-checker",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "checker"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 3,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-terra"
+      ]
+    },
+    "browser-verifier": {
+      "description": "Integrated browser verification and safe evidence capture.",
+      "agent": "pi",
+      "skill": "advisor-role-browser-verifier",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "browser-verifier"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 5,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-terra"
+      ]
+    }
+  }
+}

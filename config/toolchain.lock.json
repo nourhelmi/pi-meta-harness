@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "node": {
+      "minimum": "22.19.0",
+      "captured": "25.2.1"
+    },
+    "pi": {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "0.84.1"
+    }
+  },
+  "required": {
+    "herdr": {
+      "minimum": "0.7.0",
+      "captured": "0.7.3",
+      "macosInstall": "brew install herdr"
+    },
+    "engram": {
+      "minimum": "1.20.0",
+      "captured": "1.20.0",
+      "macosInstall": "brew install gentleman-programming/tap/engram"
+    },
+    "agent-browser": {
+      "version": "0.32.3",
+      "install": "npm install --global agent-browser@0.32.3"
+    },
+    "claude": {
+      "captured": "2.1.210",
+      "note": "Authenticate Claude Code locally; credentials are not portable."
+    }
+  },
+  "optional": {
+    "plannotator": {
+      "captured": "0.20.2"
+    },
+    "gh": {
+      "captured": "2.87.3"
+    }
+  }
+}

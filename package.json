@@ -1,0 +1,58 @@
+{
+  "name": "@nourhelmi/pi-meta-harness",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable, reproducible Pi advisor and Herdr setup",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nourhelmi/pi-meta-harness.git"
+  },
+  "homepage": "https://github.com/nourhelmi/pi-meta-harness",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "advisor",
+    "herdr"
+  ],
+  "files": [
+    ".env.example",
+    "LICENSE",
+    "NOTICE.md",
+    "README.md",
+    "config/",
+    "docs/",
+    "extensions/",
+    "herdr/",
+    "scripts/",
+    "skills/",
+    "third-party/"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "scripts": {
+    "bootstrap": "bash scripts/bootstrap.sh",
+    "plan": "node scripts/meta-harness.mjs plan",
+    "doctor": "node scripts/meta-harness.mjs doctor",
+    "test:harness": "node --test tests/*.test.mjs",
+    "test:unified-edit": "node --import tsx --test tests/unified-edit.test.ts",
+    "test": "npm run test:harness && npm run test:unified-edit",
+    "check": "npm test"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.1",
+    "@earendil-works/pi-tui": "0.84.1",
+    "tsx": "4.23.12",
+    "typescript": "5.9.3"
+  }
+}

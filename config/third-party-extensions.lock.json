@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "extensions": [
+    {
+      "name": "unified-edit",
+      "repository": "https://github.com/mitsuhiko/agent-stuff",
+      "commit": "13bc8f87970bec8830aab0f1c0487d35aa7c0917",
+      "path": "extensions/unified-edit.ts",
+      "sha256": "7c878434810cb48d4127efba9f8b5c77e65b36d679e1893563c37ca9f48cf1d1",
+      "license": "Apache-2.0",
+      "package": "mitsupi@1.6.0",
+      "purpose": "Override Pi's built-in edit tool with the unified row-script and patch editor."
+    },
+    {
+      "name": "pi-ui-pack",
+      "repository": "https://github.com/Davidcreador/pi-ui-pack",
+      "commit": "cc2b98f66cb9d7d61b1bcf022cb60271efe6102b",
+      "tree": "61db3fce623df49213fc0e51adde88189bfc84a4",
+      "installSource": "git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b",
+      "license": "MIT",
+      "package": "@davecodes/pi-ui-pack@1.0.0",
+      "purpose": "Own Pi's header, footer, editor frame, tool cards, working indicator, themes, and Herdr status."
+    },
+    {
+      "name": "pi-codex-compaction",
+      "repository": "https://github.com/ogulcancelik/pi-extensions/tree/main/packages/pi-codex-compaction",
+      "installSource": "npm:@ogulcancelik/pi-codex-compaction@0.1.3",
+      "integrity": "sha512-1cI0D7TBlXe6aGI1EZePeo/ogST1rPx3zX0xblUjdUTiiHeeIRHyCkWIe5eRjg1FYi1rdfG5wB5YD0AKnKFHZA==",
+      "license": "MIT",
+      "package": "@ogulcancelik/pi-codex-compaction@0.1.3",
+      "purpose": "Add Codex-aware provider compaction without maintaining a vendored fork."
+    },
+    {
+      "name": "pi-mermaid",
+      "repository": "https://github.com/Gurpartap/pi-mermaid",
+      "installSource": "npm:pi-mermaid@0.3.0",
+      "integrity": "sha512-U6sCqyb/dx6HL5bLu8jFwrHbCpXidjW+DuVaiBxlSIY4zy8lyotRCYSzL+z9ftcltRfFyAtvaeKTLdGH18KG7g==",
+      "license": "MIT",
+      "package": "pi-mermaid@0.3.0",
+      "purpose": "Render Mermaid diagram blocks inside the Pi terminal UI."
+    }
+  ]
+}

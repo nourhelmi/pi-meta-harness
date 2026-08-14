@@ -1,0 +1,5 @@
+[
+  "npm:pi-footer",
+  "git:https://github.com/nourhelmi/pi-powerline",
+  "packages/pi-openai-server-compaction"
+]

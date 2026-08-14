@@ -1,0 +1,51 @@
+{
+  "quietStartup": true,
+  "showCacheMissNotices": true,
+  "theme": "tokyo-night",
+  "transport": "auto",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-sol",
+  "defaultThinkingLevel": "high",
+  "enabledModels": [
+    "claude-bridge/claude-fable-5",
+    "claude-bridge/claude-opus-5",
+    "cursor/grok-4.6",
+    "openai-codex/gpt-5.6-sol",
+    "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-5.6-luna"
+  ],
+  "skills": [
+    "skills"
+  ],
+  "enableSkillCommands": true,
+  "steeringMode": "all",
+  "followUpMode": "one-at-a-time",
+  "packages": [
+    "git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b",
+    "npm:@ogulcancelik/pi-codex-compaction@0.1.3",
+    {
+      "source": "npm:@plannotator/pi-extension@0.27.3",
+      "skills": []
+    },
+    "npm:taskplane@0.30.4",
+    "npm:pi-lens@3.8.74",
+    "npm:@juicesharp/rpiv-ask-user-question@2.5.1",
+    "npm:gentle-engram@0.1.10",
+    "npm:pi-mcp-adapter@2.25.0",
+    "npm:@juicesharp/rpiv-todo@2.5.1",
+    "git:https://github.com/hasit/pi-community-themes@1f8830e60cd6175047837d35f2db489412a2141a",
+    "npm:@davecodes/pi-routines@0.5.1",
+    "npm:@juicesharp/rpiv-btw@2.5.1",
+    "npm:@howaboua/pi-markdown-workflows@0.2.20",
+    "npm:pi-cursor-sdk@0.2.0",
+    "npm:@ff-labs/pi-fff@0.10.3",
+    "npm:pi-intercom@0.10.1",
+    "npm:pi-prompt-template-model@0.12.0",
+    "npm:pi-claude-bridge@0.7.0",
+    "npm:@narumitw/pi-goal@0.51.0",
+    "npm:@amitkot/pi-open-zed@0.1.0",
+    "git:https://github.com/nourhelmi/pi-detach@47ed7659920f994d9120df8d9589ef1bcff6c5d7",
+    "git:https://github.com/nourhelmi/pi-theme-kanagawa@7fdfc2c855e03e958485bd1a465881b29c258e7f",
+    "npm:pi-mermaid@0.3.0"
+  ]
+}

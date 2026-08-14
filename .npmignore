@@ -1,0 +1,17 @@
+node_modules/
+.git/
+.tmp/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+backups/
+auth.json
+trust.json
+sessions/
+intercom/
+run-history.jsonl
+mcp-cache.json
+models-store.json
+.pi-meta-harness-state.json
