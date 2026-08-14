@@ -130,11 +130,10 @@
       ]
     },
     "checker": {
-      "description": "Fresh-context adversarial review of the completed work.",
+      "description": "Fresh-context adversarial review of the completed work, with a bounded inline-repair mandate for small findings.",
       "agent": "pi",
       "skill": "advisor-role-checker",
       "excludeTools": [
-        "edit",
         "bg_agent",
         "orch_start",
         "advisor_session_init"
@@ -144,7 +143,7 @@
         "checker"
       ],
       "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 3,
+      "maxTurns": 5,
       "requireAnchor": true,
       "allowedModels": [
         "openai-codex/gpt-5.6-terra"

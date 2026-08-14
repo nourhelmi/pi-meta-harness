@@ -16,7 +16,7 @@ The advisor uses untracked `.advisor/` state to coordinate parallel Pi sessions 
 10. Validate graphs before three or more nodes or mixed parallel and dependent work.
 11. Parallel builders require explicit approval and separate worktrees.
 12. Successful worker tabs close automatically. Blocked or unknown tabs stay visible.
-13. Keep a builder alive only for a planned bounded repair. Every checker starts fresh.
+13. Keep a builder alive only for a planned bounded repair. Every checker starts fresh and may repair small qualifying findings inline under its role mandate.
 14. Keep global advisor routines paused because open Pi processes share routine state.
 
 ## Intelligence map
@@ -37,7 +37,7 @@ The source of truth is [`../config/bg-agent-profiles.json`](../config/bg-agent-p
 | Planner | Sol | 3 |
 | Reducer | Terra | 2 |
 | Builder | Sol, Opus, Terra, Luna, Grok | 6 |
-| Checker | Terra | 3 |
+| Checker | Terra | 5 |
 | Browser verifier | Terra | 5 |
 
 The advisor selects one allowed model based on the task. Role skill text must not hard-code a different model.

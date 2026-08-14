@@ -15,3 +15,12 @@ The worker owns one bounded node only.
    Claims, Evidence, Files, Decisions, and Remaining Risk.
 8. The final response is at most 12 lines. Include the result path and whether
    the anchor passed. An LLM statement is not evidence that an anchor passed.
+9. Write `result.md` early and update it as work continues. It must exist and
+   be current no later than 60% context use. A partial durable result always
+   beats context exhaustion.
+10. Run every non-destructive pre-flight — identity, credentials, readiness
+    doctors — before any destructive or expensive step such as runtime
+    teardown, long builds, or recording.
+11. If a prompt names a result path outside your assigned run directory, write
+    to your assigned run directory and note the substitution in `result.md`.
+    A result-path mismatch is never a blocker and never lowers a verdict.

@@ -64,7 +64,7 @@ flowchart TD
 | Planner | Sol | 3 |
 | Reducer | Terra | 2 |
 | Builder | Sol, Opus, Terra, Luna, Grok | 6 |
-| Checker | Terra | 3 |
+| Checker | Terra | 5 |
 | Browser verifier | Terra | 5 |
 
 Every delegated role requires a concrete completion anchor. The full routing guidance is in [`config/bg-agent-profiles.json`](config/bg-agent-profiles.json).

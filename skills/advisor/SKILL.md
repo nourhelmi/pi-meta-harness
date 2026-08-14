@@ -25,7 +25,9 @@ generic workstream such as `engineering`.
 2. **Maker ≠ checker.** The agent that produced work never verifies it. A
    builder is reviewed by a fresh checker through Pi. Choose each launch's model
    and reasoning from the model map in the live `bg-agent-profiles.json`; do not
-   hard-code identities here.
+   hard-code identities here. One carve-out: a checker's small inline repairs
+   under its role mandate are closed by deterministic anchor reruns and the
+   next natural gate, not by a dedicated fresh checker.
 3. **One workstream owner.** Two advisor sessions must not own the same
    workstream. Transfer ownership with an explicit handoff event before a new
    session continues it.
@@ -153,8 +155,9 @@ and record, not a numeric cap; spend and elapsed time are inputs, not limits.
 
 ## Checker economy
 
-Checking must not dominate the work. Checkers, browser verifiers, and scouts
-are read-only and run on the small model the role's allowedModels designate.
+Checking must not dominate the work. Browser verifiers and scouts are
+read-only; checkers are read-mostly with a bounded inline-repair mandate. All
+run on the small model the role's allowedModels designate.
 
 1. Not every node earns a fresh checker. Default to one checker per phase or
    merged deliverable, plus one final whole-diff review before PR. Give an
@@ -163,23 +166,73 @@ are read-only and run on the small model the role's allowedModels designate.
 2. Verify repairs with the anchor commands and a targeted diff read of the
    changed surface. A full fresh checker re-review of a repair is the
    exception, not the default.
-3. All checks run on terra at xhigh. When a whole-diff review approaches
+3. A checker repairs small qualifying findings inline under its role mandate:
+   at most three findings, none High, reviewed files only, no product
+   behavior, contract, or schema change, anchors rerun green. Close
+   inline-repaired findings with the rerun anchor evidence plus a targeted
+   diff read. Never launch a repair maker or a fresh checker for them.
+4. All checks run on terra at xhigh. When a whole-diff review approaches
    terra's 272K window, split it per package or phase instead of one giant
    pass; never substitute a weaker model to make a diff fit.
-4. When a checker verdict and a deterministic anchor disagree, the anchor wins
+5. When a checker verdict and a deterministic anchor disagree, the anchor wins
    and the discrepancy is logged.
-5. Independent read-only verifications of the same frozen commit (for example
+6. Independent read-only verifications of the same frozen commit (for example
    the whole-diff review and browser verification) run in parallel in one
    wave, not serially.
-6. Any verifying agent that launches a browser records evidence during that
-   same run (screen recording via the repo's verification tooling). Never
-   schedule a separate browser pass whose only purpose is evidence capture.
-   Retained recordings are not done until they are submitted to the PR: the
-   PR node's anchor includes evidence submission, and unsubmitted evidence is
-   a blocker at handoff, not a footnote.
-7. The gate before PR creation runs the repository's CI-equivalent checks —
+7. Any verifying agent that launches a browser records evidence during that
+   same run and registers it in an evidence manifest in its run directory:
+   capture commit SHA, flows covered, artifact paths. Verifiers never upload
+   and never need artifact-upload credentials. Never schedule a separate
+   browser pass whose only purpose is evidence capture.
+8. The gate before PR creation runs the repository's CI-equivalent checks —
    repo-wide gates and code-quality sweeps included — not only the localized
    checks used during building. A localized pass is not a PR gate.
+
+## Evidence delivery
+
+Evidence is captured while verifying and submitted at delivery.
+
+1. Verifiers record during verification with safe local/dev personas only and
+   write an evidence manifest (capture SHA, flows, artifact paths) in their
+   run directory. Unsafe captures are deleted and recaptured, never retained.
+2. The delivery node collects the manifests, compares each capture SHA to the
+   delivered SHA, and submits still-valid evidence with the PR. Evidence stays
+   valid while the delta does not touch its recorded surfaces: a
+   proven-equivalent rebase, test-only commits, or changes outside the
+   recorded flows.
+3. Only stale evidence earns a re-capture, and only for the affected flows —
+   never the full suite by default.
+4. Artifact-upload authorization is a delivery-time gate. Pre-flight the
+   actual upload capability once early in the workstream when browser work is
+   planned, and again before launching the delivery node, so a credential
+   failure escalates at hour one, not at delivery. An upload-authorization
+   failure never blocks verification or recording.
+
+## Rebase policy
+
+1. Do not rebase before PR by default. When the branch merges cleanly into
+   the target and the changed-path intersection with the target delta is
+   empty, open the PR from the current base; CI verifies the merge result.
+2. When a rebase is genuinely required, prove equivalence deterministically:
+   range-diff all `=`, byte-identical aggregate diffs, empty changed-path
+   intersection. That proof carries every prior verdict and evidence manifest
+   forward. Do not relaunch checkers or verifiers over a proven-equivalent
+   rebase; the rebase node's own single anchor rerun is the maximum.
+
+## Settlement ground truth
+
+Launch and settlement notifications are hints, not verdicts. Before treating
+a worker as failed, unstarted, or empty-handed, check ground truth in its
+worktree: new commits since launch, `result.md` existence and mtime, and
+branch movement. A maker whose commit landed after detach is a late success,
+not a failure — never launch a recovery builder before this check.
+
+## Verdict hygiene
+
+Blocked means a missing product decision, permission, credential, or external
+action only. Metadata-only defects and guard-path rejections are findings or
+notes, never blockers. Never assign a worker a result path: anchors reference
+the worker's own run directory only.
 
 ## Delegation decision tree
 
