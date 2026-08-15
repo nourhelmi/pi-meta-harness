@@ -192,12 +192,19 @@ function blockedToolReason(
 	if (toolName !== "edit" && toolName !== "write") return undefined;
 	const path = requestedPath(ctx, input);
 	if (path && isWithin(state.runDir, path)) return undefined;
+	// Browser verifiers package evidence where the repository's submit tooling
+	// expects it (.artifacts/), not only in their run directory.
+	if (state.role === "browser-verifier" && path && isWithin(join(ctx.cwd, ".artifacts"), path)) {
+		return undefined;
+	}
 	return `The ${state.role} role is read-only outside its own run directory.`;
 }
 
+// Named worker-manifest.json so the runtime never clobbers a worker's own
+// evidence manifest.json staged in the same run directory.
 async function writeManifest(ctx: ExtensionContext, state: WorkerState): Promise<void> {
 	await writeFile(
-		join(state.runDir, "manifest.json"),
+		join(state.runDir, "worker-manifest.json"),
 		`${JSON.stringify(
 			{
 				role: state.role,
