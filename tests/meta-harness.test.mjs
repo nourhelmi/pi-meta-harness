@@ -92,7 +92,14 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
 
   const profiles = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
   assert.deepEqual(profiles.profiles.planner.allowedModels, ["openai-codex/gpt-5.6-sol"]);
-  assert.deepEqual(profiles.profiles.checker.allowedModels, ["openai-codex/gpt-5.6-terra"]);
+  assert.deepEqual(profiles.profiles.checker.allowedModels, [
+    "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-5.6-luna",
+  ]);
+  assert.deepEqual(profiles.profiles["browser-verifier"].allowedModels, [
+    "openai-codex/gpt-5.6-luna",
+    "openai-codex/gpt-5.6-terra",
+  ]);
   assert(profiles.profiles.scout.allowedModels.includes("openai-codex/gpt-5.6-luna"));
   assert(profiles.profiles.builder.allowedModels.includes("claude-bridge/claude-opus-5"));
   assert(profiles.profiles.builder.allowedModels.includes("cursor/grok-4.6"));
