@@ -7,13 +7,13 @@
     },
     "pi": {
       "package": "@earendil-works/pi-coding-agent",
-      "version": "0.84.1"
+      "version": "0.84.2"
     }
   },
   "required": {
     "herdr": {
-      "minimum": "0.7.0",
-      "captured": "0.7.3",
+      "minimum": "0.8.0",
+      "captured": "0.8.0",
       "macosInstall": "brew install herdr"
     },
     "engram": {

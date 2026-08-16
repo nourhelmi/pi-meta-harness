@@ -591,15 +591,15 @@ async function doctor(options) {
     for (const [command, version] of commandVersions) {
       if (!version) errors.push(`Required command not available: ${command}`);
     }
-    if (commandVersions.get("pi") !== "0.84.1") {
-      errors.push(`Pi 0.84.1 required; found ${commandVersions.get("pi") ?? "unavailable"}`);
+    if (commandVersions.get("pi") !== "0.84.2") {
+      errors.push(`Pi 0.84.2 required; found ${commandVersions.get("pi") ?? "unavailable"}`);
     }
     if (commandVersions.get("agent-browser") !== "0.32.3") {
       errors.push(`agent-browser 0.32.3 required; found ${commandVersions.get("agent-browser") ?? "unavailable"}`);
     }
     const herdrVersion = commandVersions.get("herdr");
-    if (herdrVersion && !versionAtLeast(herdrVersion, "0.7.0")) {
-      errors.push(`Herdr 0.7.0+ required; found ${herdrVersion}`);
+    if (herdrVersion && !versionAtLeast(herdrVersion, "0.8.0")) {
+      errors.push(`Herdr 0.8.0+ required; found ${herdrVersion}`);
     }
     const engramVersion = commandVersions.get("engram");
     if (engramVersion && !versionAtLeast(engramVersion, "1.20.0")) {
