@@ -25,7 +25,8 @@ The source of truth is [`../config/bg-agent-profiles.json`](../config/bg-agent-p
 
 | Model | Default use | Reasoning |
 | --- | --- | --- |
-| Sol | planning and difficult backend, data, or service work | high; xhigh or max only for hard debugging |
+| Fable | the advisor session and default planning | medium for the advisor session; high for planner nodes |
+| Sol | difficult backend, data, or service work; planning and advisor fallback at capacity | high; xhigh or max only for hard debugging |
 | Luna | scouting, mechanical chores, procedural-tier checks, and browser verification | max |
 | Opus | genuinely new or greenfield UX | medium |
 | Terra | adversarial-tier checks, final whole-diff review, reduction, tests, and minor existing-UX changes | xhigh |
@@ -34,7 +35,7 @@ The source of truth is [`../config/bg-agent-profiles.json`](../config/bg-agent-p
 | Role | Allowed models | Cap |
 | --- | --- | ---: |
 | Scout | Luna, Terra, Grok | 3 |
-| Planner | Sol | 3 |
+| Planner | Fable, Sol | 3 |
 | Reducer | Terra | 2 |
 | Builder | Sol, Opus, Terra, Luna, Grok | 6 |
 | Checker | Terra, Luna | 5 |

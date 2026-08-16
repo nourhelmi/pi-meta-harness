@@ -1,8 +1,16 @@
 {
   "defaultAgent": "pi",
   "models": {
+    "claude-bridge/claude-fable-5": {
+      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at high and the advisor session switches to Sol.",
+      "thinking": [
+        "medium",
+        "high"
+      ],
+      "defaultThinking": "high"
+    },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Tenacious high-intelligence workhorse for planning and long or difficult backend, data, and service implementation. Use as the advisor model when Fable is unavailable because Anthropic session capacity is reached. Frontend implementation routes to opus, grok, or terra by UX scope. Read-only checking goes to terra. high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
+      "character": "Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation, and the planning fallback when Fable is unavailable because Anthropic session capacity is reached. Use as the advisor model in the same capacity fallback. Frontend implementation routes to opus, grok, or terra by UX scope. Read-only checking goes to terra. high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
       "thinking": [
         "high",
         "xhigh",
@@ -81,6 +89,7 @@
       "maxTurns": 3,
       "requireAnchor": true,
       "allowedModels": [
+        "claude-bridge/claude-fable-5",
         "openai-codex/gpt-5.6-sol"
       ]
     },

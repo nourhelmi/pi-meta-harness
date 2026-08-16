@@ -97,15 +97,17 @@ Frontend routing is scope- and capacity-aware (binding):
   frontend skill as well when one exists.
 
 Protect Fable's shared Anthropic session allowance: Opus does no checking,
-review, reduction, planning, backend, or routine existing-UX work. If Fable
-itself reaches Anthropic capacity, recommend switching the advisor session to
-Sol; workers cannot silently change the advisor's active model. For non-UX
-work, Grok is the preferred cost-efficient generalist for research, bounded
-backend implementation, and mixed-stack work; Sol remains mandatory for
-planning and preferred for long or difficult backend/data work. A feature
-spanning independently editable surfaces may split under the normal builder
-rules (distinct worktrees plus explicit approval when parallel, otherwise
-serial in one worktree).
+review, reduction, planning, backend, or routine existing-UX work. Fable is
+reserved for the advisor session itself (at medium) and for planner nodes (at
+high, the default); it takes no other worker role. If Fable reaches Anthropic
+capacity, planning falls back to Sol at high and the advisor session should
+switch to Sol; workers cannot silently change the advisor's active model. For
+non-UX work, Grok is the preferred cost-efficient generalist for research,
+bounded backend implementation, and mixed-stack work; Sol remains preferred
+for long or difficult backend/data work. A feature spanning independently
+editable surfaces may split under the normal builder rules (distinct
+worktrees plus explicit approval when parallel, otherwise serial in one
+worktree).
 
 Every new `bg_agent` call supplies `role`, `model`, `thinking`, `prompt`,
 `anchor`, `requiredSkills`, `label`, and the exact cwd/worktree. Successful

@@ -91,7 +91,10 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(mcp.mcpServers.context7.headers.CONTEXT7_API_KEY, "${CONTEXT7_API_KEY}");
 
   const profiles = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
-  assert.deepEqual(profiles.profiles.planner.allowedModels, ["openai-codex/gpt-5.6-sol"]);
+  assert.deepEqual(profiles.profiles.planner.allowedModels, [
+    "claude-bridge/claude-fable-5",
+    "openai-codex/gpt-5.6-sol",
+  ]);
   assert.deepEqual(profiles.profiles.checker.allowedModels, [
     "openai-codex/gpt-5.6-terra",
     "openai-codex/gpt-5.6-luna",
@@ -104,6 +107,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(profiles.profiles.builder.allowedModels.includes("claude-bridge/claude-opus-5"));
   assert(profiles.profiles.builder.allowedModels.includes("cursor/grok-4.6"));
   assert.equal(profiles.models["openai-codex/gpt-5.6-sol"].defaultThinking, "high");
+  assert.equal(profiles.models["claude-bridge/claude-fable-5"].defaultThinking, "high");
 
   const second = run("install", "--target", target);
   assert.equal(second.status, 0, second.stderr);
