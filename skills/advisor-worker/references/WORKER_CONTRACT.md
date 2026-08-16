@@ -16,7 +16,7 @@ The worker owns one bounded node only.
 8. The final response is at most 12 lines. Include the result path and whether
    the anchor passed. An LLM statement is not evidence that an anchor passed.
 9. Write `result.md` early and update it as work continues. It must exist and
-   be current no later than 60% context use. A partial durable result always
+   be current no later than 85% context use. A partial durable result always
    beats context exhaustion.
 10. Run every non-destructive pre-flight — identity, credentials, readiness
     doctors — before any destructive or expensive step such as runtime

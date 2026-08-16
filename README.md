@@ -54,8 +54,10 @@ flowchart TD
     B --> BT[Terra: minor update or tests]
     B --> BL[Luna: mechanical work]
     A --> R[Reducer: Terra]
-    A --> C[Checker: Terra]
-    A --> V[Browser verifier: Terra]
+    A --> C{Checker by risk}
+    C --> CT[Terra: adversarial tier]
+    C --> CL[Luna: procedural tier]
+    A --> V[Browser verifier: Luna default]
 ```
 
 | Role | Allowed models | Prompt-cycle cap |
@@ -64,8 +66,8 @@ flowchart TD
 | Planner | Sol | 3 |
 | Reducer | Terra | 2 |
 | Builder | Sol, Opus, Terra, Luna, Grok | 6 |
-| Checker | Terra | 5 |
-| Browser verifier | Terra | 5 |
+| Checker | Terra, Luna | 5 |
+| Browser verifier | Luna, Terra | 5 |
 
 Every delegated role requires a concrete completion anchor. The full routing guidance is in [`config/bg-agent-profiles.json`](config/bg-agent-profiles.json).
 

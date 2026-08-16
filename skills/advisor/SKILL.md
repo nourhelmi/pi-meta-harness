@@ -173,9 +173,14 @@ run on the small model the role's allowedModels designate.
    non-product reviewed files and anchors rerun green. Close inline-repaired
    findings with the rerun anchor evidence plus a targeted diff read. Never
    launch a repair maker or a fresh checker for them.
-4. All checks run on terra at xhigh. When a whole-diff review approaches
-   terra's 272K window, split it per package or phase instead of one giant
-   pass; never substitute a weaker model to make a diff fit.
+4. Checking is tiered by risk, not uniform. The adversarial tier runs on
+   terra at xhigh: schema, auth, security, money, data boundaries, the final
+   whole-diff review before PR, and any recheck after an overturned pass.
+   The procedural tier runs on luna at max: routine mid-phase checks, repair
+   verification, test-harness findings, and browser verification — the
+   deterministic anchors are the backstop. When a whole-diff review
+   approaches terra's 272K window, split it per package or phase instead of
+   one giant pass; never substitute a weaker model to make a diff fit.
 5. When a checker verdict and a deterministic anchor disagree, the anchor wins
    and the discrepancy is logged.
 6. Independent read-only verifications of the same frozen commit (for example

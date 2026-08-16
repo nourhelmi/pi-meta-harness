@@ -11,7 +11,7 @@
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Extremely cheap; suggested only for scouting and mechanical chores such as opening a PR, submitting evidence, or formatting. 272K window and weaker precision \u2014 do not assign checking, verification, or whole-branch reviews. Always runs on max.",
+      "character": "Extremely cheap; the procedural-tier workhorse: scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification — deterministic anchors backstop it. 272K window. Do not assign adversarial-tier checking: schema, auth, security, money, data boundaries, or final whole-diff reviews. Always runs on max.",
       "thinking": [
         "max"
       ],
@@ -25,14 +25,14 @@
       "defaultThinking": "medium"
     },
     "openai-codex/gpt-5.6-terra": {
-      "character": "The default support model at xhigh: checking, verification, reduction, whole-diff review, test authoring, and minor targeted updates to an existing UX. Good intelligence for the money. 272K window \u2014 split whole-branch reviews per package or phase. Not for planning, greenfield UX, or substantial feature implementation.",
+      "character": "The adversarial-tier reviewer at xhigh: schema, auth, security, money, and data-boundary checks, final whole-diff review before PR, rechecks after an overturned pass, reduction, test authoring, and minor targeted updates to an existing UX. Routine procedural checks and browser verification default to luna. 272K window — split whole-branch reviews per package or phase. Not for planning, greenfield UX, or substantial feature implementation.",
       "thinking": [
         "xhigh"
       ],
       "defaultThinking": "xhigh"
     },
     "cursor/grok-4.6": {
-      "character": "High-efficiency generalist at high reasoning. Preferred for research, bounded backend implementation, mixed-stack work, substantial changes to an existing UX, and UX implementation when Opus would consume scarce Anthropic/Fable session capacity. New UX uses Opus while capacity is healthy, then Grok automatically. Always load frontend-design for UX work. 200K window \u2014 keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default.",
+      "character": "High-efficiency generalist at high reasoning. Preferred for research, bounded backend implementation, mixed-stack work, substantial changes to an existing UX, and UX implementation when Opus would consume scarce Anthropic/Fable session capacity. New UX uses Opus while capacity is healthy, then Grok automatically. Always load frontend-design for UX work. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default.",
       "thinking": [
         "high"
       ],
@@ -130,7 +130,7 @@
       ]
     },
     "checker": {
-      "description": "Fresh-context adversarial review of the completed work, with a bounded inline-repair mandate for small findings.",
+      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier runs on terra; procedural tier runs on luna.",
       "agent": "pi",
       "skill": "advisor-role-checker",
       "excludeTools": [
@@ -146,15 +146,15 @@
       "maxTurns": 5,
       "requireAnchor": true,
       "allowedModels": [
-        "openai-codex/gpt-5.6-terra"
+        "openai-codex/gpt-5.6-terra",
+        "openai-codex/gpt-5.6-luna"
       ]
     },
     "browser-verifier": {
-      "description": "Integrated browser verification and safe evidence capture.",
+      "description": "Integrated browser verification and safe evidence capture. Defaults to luna; use terra only for a genuinely ambiguous visual or behavioral judgment.",
       "agent": "pi",
       "skill": "advisor-role-browser-verifier",
       "excludeTools": [
-        "edit",
         "bg_agent",
         "orch_start",
         "advisor_session_init"
@@ -167,6 +167,7 @@
       "maxTurns": 5,
       "requireAnchor": true,
       "allowedModels": [
+        "openai-codex/gpt-5.6-luna",
         "openai-codex/gpt-5.6-terra"
       ]
     }

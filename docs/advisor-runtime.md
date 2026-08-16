@@ -26,9 +26,9 @@ The source of truth is [`../config/bg-agent-profiles.json`](../config/bg-agent-p
 | Model | Default use | Reasoning |
 | --- | --- | --- |
 | Sol | planning and difficult backend, data, or service work | high; xhigh or max only for hard debugging |
-| Luna | cheap scouting and mechanical chores | max |
+| Luna | scouting, mechanical chores, procedural-tier checks, and browser verification | max |
 | Opus | genuinely new or greenfield UX | medium |
-| Terra | checking, verification, reduction, tests, and minor existing-UX changes | xhigh |
+| Terra | adversarial-tier checks, final whole-diff review, reduction, tests, and minor existing-UX changes | xhigh |
 | Grok | research, bounded backend, mixed stack, substantial existing-UX work, and Opus fallback | high |
 
 | Role | Allowed models | Cap |
@@ -37,8 +37,8 @@ The source of truth is [`../config/bg-agent-profiles.json`](../config/bg-agent-p
 | Planner | Sol | 3 |
 | Reducer | Terra | 2 |
 | Builder | Sol, Opus, Terra, Luna, Grok | 6 |
-| Checker | Terra | 5 |
-| Browser verifier | Terra | 5 |
+| Checker | Terra, Luna | 5 |
+| Browser verifier | Luna, Terra | 5 |
 
 The advisor selects one allowed model based on the task. Role skill text must not hard-code a different model.
 
