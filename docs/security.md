@@ -61,4 +61,4 @@ Third-party skills are installed from full source commits. The installer verifie
 
 `pi-detach` is first-party MIT source in its own public repository. This harness installs it from a full commit.
 
-`pi-ui-pack`, `pi-codex-compaction`, and `pi-mermaid` are installed from the exact sources recorded in the extension lock. OpenAI compaction can create provider-side compaction artifacts and local session metadata; it does not make session data portable through this repository.
+`pi-ui-pack`, `pi-codex-compaction`, `pi-mermaid`, and `pi-web-search` are installed from the exact sources recorded in the extension lock. OpenAI compaction can create provider-side compaction artifacts and local session metadata; it does not make session data portable through this repository. Web search sends queries to the active model provider's native search API and stores nothing in this repository.
