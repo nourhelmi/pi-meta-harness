@@ -105,8 +105,8 @@
     {
       "source": "herdrdev/herdr",
       "sourceUrl": "https://github.com/herdrdev/herdr.git",
-      "commit": "9e6c2b4e0957498b7da884ed2789fe28b9cde9cf",
-      "tree": "edc9715ffcfcfc4cf2042bfa4fbe94d93abc2f64",
+      "commit": "346411fa21afd297f5ed3b3fa56f9e3fbf7654b7",
+      "tree": "a0997075215a7ffda63399049e0292e75dc14962",
       "skills": [
         "herdr"
       ]

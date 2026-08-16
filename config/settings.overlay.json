@@ -44,7 +44,7 @@
     "npm:pi-claude-bridge@0.7.0",
     "npm:@narumitw/pi-goal@0.51.0",
     "npm:@amitkot/pi-open-zed@0.1.0",
-    "git:https://github.com/nourhelmi/pi-detach@52668f054b3415f9921412d9ac8a5b70be2816b0",
+    "git:https://github.com/nourhelmi/pi-detach@94673ba49e6b69cbee4b5506343c97193d83c477",
     "git:https://github.com/nourhelmi/pi-theme-kanagawa@7fdfc2c855e03e958485bd1a465881b29c258e7f",
     "npm:pi-mermaid@0.3.0",
     "npm:pi-web-search@1.3.1"

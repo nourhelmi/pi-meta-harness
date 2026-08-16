@@ -306,9 +306,9 @@
     "herdr": {
       "source": "herdrdev/herdr",
       "sourceUrl": "https://github.com/herdrdev/herdr.git",
-      "commit": "9e6c2b4e0957498b7da884ed2789fe28b9cde9cf",
-      "tree": "edc9715ffcfcfc4cf2042bfa4fbe94d93abc2f64",
-      "sha256": "1bb439a747faf436ca9871fec762940a27409f58ebb4f43ca7f9cc5a0d23197e"
+      "commit": "346411fa21afd297f5ed3b3fa56f9e3fbf7654b7",
+      "tree": "a0997075215a7ffda63399049e0292e75dc14962",
+      "sha256": "489d2c6ff7e951e47071fbc5446d99d20ea215fcc5e55b9e4ceaa5a578f22d06"
     },
     "pretty-mermaid": {
       "source": "imxv/pretty-mermaid-skills",
