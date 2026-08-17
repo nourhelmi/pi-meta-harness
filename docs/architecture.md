@@ -39,6 +39,12 @@ Before each mutation, it creates a scoped backup. It does not reload Pi, migrate
 
 `pi-detach` is not vendored. The settings overlay points to its public repository at one full commit, so its code stays reusable and its release history stays independent.
 
+## Herdr session topology
+
+`advisor_launch` is the canonical boundary for a separate advisor: it creates an unfocused Herdr tab at the requested cwd, labels the root pane `advisor · <purpose>`, starts Pi, and submits the advisor bootstrap. It never falls back to splitting the caller's tab. `advisor_session_init` also restores that root-pane label from workstream words.
+
+Configured `bg_agent` workers follow the opposite rule: they stay visible as panes in their owning advisor tab. Their labels are concise `role · <purpose>` values; run IDs remain in agent identities and notifications rather than pane titles.
+
 ## Reproducibility boundary
 
 Pi packages and first-party files are exact. Each third-party skill group records a full source commit and Git tree. The installer fetches that commit directly, verifies both IDs, copies the selected skills, and then verifies each installed folder against its SHA-256 lock.

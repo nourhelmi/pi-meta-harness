@@ -18,6 +18,10 @@ asks the user. This tool names the Pi session and Herdr agent, then creates the
 isolated state. If the user cancels the workstream prompt, stop. Never invent a
 generic workstream such as `engineering`.
 
+Separate advisor sessions launch through `advisor_launch` into a new Herdr tab,
+never a pane split. Workers stay panes in their owning advisor tab. Root panes
+use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
+
 ## Non-negotiables
 
 1. **Never implement in this session.** No file edits beyond specs, prompts,

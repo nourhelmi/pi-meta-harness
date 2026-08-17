@@ -7,6 +7,9 @@ import { Type } from "typebox";
 
 const ENTRY_TYPE = "advisor-session";
 const MAX_WORKSTREAM_LENGTH = 48;
+const MAX_ADVISOR_PURPOSE_LENGTH = 40;
+const ADVISOR_READY_ATTEMPTS = 40;
+const ADVISOR_READY_DELAY_MS = 500;
 const HEADLESS_AGENT_COMMAND =
 	/(?:^|[;&|]\s*|\s)(?:codex\s+exec|claude\s+(?:-p|--print)|opencode\s+(?:run|exec)|pi\s+(?:-p|--print))(?:\s|$)/i;
 const INVISIBLE_AGENT_TOOLS = new Set(["subagent", "orch_start"]);
@@ -47,6 +50,71 @@ function herdrAgentName(workstream: string, sessionId?: string): string {
 	const base = `advisor-${workstream.slice(0, 24).replace(/-+$/g, "")}`;
 	if (!sessionId) return base;
 	return `${base.slice(0, 23).replace(/-+$/g, "")}-${sessionId.slice(0, 8)}`;
+}
+
+function truncateAtWord(value: string, maxLength: number): string {
+	if (value.length <= maxLength) return value;
+	const prefix = value.slice(0, maxLength + 1);
+	const boundary = prefix.lastIndexOf(" ");
+	return (boundary > 0 ? prefix.slice(0, boundary) : value.slice(0, maxLength)).trimEnd();
+}
+
+function advisorPurposeWords(value: string): string {
+	const words = value
+		.trim()
+		.replace(/[-_]+/g, " ")
+		.replace(/\s+/g, " ")
+		.replace(/^advisor(?:\s+|$)/i, "")
+		.trim();
+	return truncateAtWord(words || "workstream", MAX_ADVISOR_PURPOSE_LENGTH);
+}
+
+function advisorPaneLabel(value: string): string {
+	return `advisor · ${advisorPurposeWords(value)}`;
+}
+
+function optionalWorkstream(value: string | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	const workstream = slugify(value.trim());
+	if (!workstream) throw new Error("Enter a workstream name with letters or numbers.");
+	return workstream;
+}
+
+function herdrError(stderr: string, fallback: string): string {
+	return stderr.trim() || fallback;
+}
+
+function herdrTabIds(stdout: string): { tabId: string; paneId: string } {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(stdout);
+	} catch {
+		throw new Error("Herdr returned invalid JSON while creating the advisor tab.");
+	}
+	const result = (parsed as { result?: unknown }).result as
+		| {
+				root_pane?: { pane_id?: unknown; tab_id?: unknown };
+				tab?: { tab_id?: unknown };
+		  }
+		| undefined;
+	const paneId = result?.root_pane?.pane_id;
+	const tabId = result?.tab?.tab_id ?? result?.root_pane?.tab_id;
+	if (typeof paneId !== "string" || typeof tabId !== "string") {
+		throw new Error("Herdr did not return the new advisor tab and root pane IDs.");
+	}
+	return { tabId, paneId };
+}
+
+function advisorBootstrapPrompt(workstream: string | undefined, prompt: string | undefined): string {
+	const initialize = workstream
+		? `Call advisor_session_init with workstream \"${workstream}\" before any other tool.`
+		: "Call advisor_session_init without a workstream before any other tool so the user can name it.";
+	const extra = prompt?.trim();
+	return `/skill:advisor\n\n${initialize}${extra ? `\n\nAdditional instructions:\n${extra}` : ""}`;
+}
+
+async function delay(milliseconds: number): Promise<void> {
+	await new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }
 
 function restoredEntryState(ctx: ExtensionContext): AdvisorSessionState | undefined {
@@ -294,8 +362,16 @@ async function claimWorkstream(
 	return paths;
 }
 
+
+function requireHerdrEnvironment(): void {
+	if (process.env.HERDR_ENV !== "1") {
+		throw new Error("Advisor sessions require Herdr so delegated agents stay visible. No pane-split fallback is available.");
+	}
+}
+
 async function verifyHerdr(pi: ExtensionAPI): Promise<string> {
-	if (process.env.HERDR_ENV !== "1" || !process.env.HERDR_PANE_ID) {
+	requireHerdrEnvironment();
+	if (!process.env.HERDR_PANE_ID) {
 		throw new Error("Advisor sessions require Herdr so delegated agents stay visible.");
 	}
 	const paneId = process.env.HERDR_PANE_ID;
@@ -304,6 +380,74 @@ async function verifyHerdr(pi: ExtensionAPI): Promise<string> {
 		throw new Error("Herdr cannot identify this Pi pane. Reload Pi inside Herdr and invoke /advisor again.");
 	}
 	return paneId;
+}
+
+async function renameHerdrPane(pi: ExtensionAPI, paneId: string, label: string): Promise<void> {
+	await pi.exec("herdr", ["pane", "rename", paneId, label]);
+}
+
+async function launchAdvisor(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	params: { cwd: string; workstream?: string; purpose?: string; prompt?: string },
+): Promise<{ tabId: string; paneId: string; label: string; cwd: string; workstream?: string }> {
+	requireHerdrEnvironment();
+	const cwd = resolve(ctx.cwd, params.cwd);
+	let cwdStat;
+	try {
+		cwdStat = await stat(cwd);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+			throw new Error(`Advisor cwd does not exist: ${cwd}`);
+		}
+		throw error;
+	}
+	if (!cwdStat.isDirectory()) throw new Error(`Advisor cwd is not a directory: ${cwd}`);
+
+	const workstream = optionalWorkstream(params.workstream);
+	const purpose = params.purpose?.trim() || workstream || basename(cwd);
+	const label = advisorPaneLabel(purpose);
+	const created = await pi.exec("herdr", ["tab", "create", "--no-focus", "--cwd", cwd, "--label", label]);
+	if (created.code !== 0) {
+		throw new Error(`Herdr could not create the advisor tab: ${herdrError(created.stderr, "unknown error")}`);
+	}
+	const { tabId, paneId } = herdrTabIds(created.stdout);
+
+	try {
+		const renamed = await pi.exec("herdr", ["pane", "rename", paneId, label]);
+		if (renamed.code !== 0) {
+			throw new Error(`Herdr could not label the advisor pane: ${herdrError(renamed.stderr, "unknown error")}`);
+		}
+		const started = await pi.exec("herdr", ["pane", "run", paneId, "pi"]);
+		if (started.code !== 0) {
+			throw new Error(`Herdr could not start Pi in the advisor tab: ${herdrError(started.stderr, "unknown error")}`);
+		}
+
+		const bootstrap = advisorBootstrapPrompt(workstream, params.prompt);
+		let lastError = "Pi did not become ready";
+		for (let attempt = 0; attempt < ADVISOR_READY_ATTEMPTS; attempt += 1) {
+			const ready = await pi.exec("herdr", ["agent", "get", paneId]);
+			if (ready.code === 0) {
+				const prompted = await pi.exec("herdr", ["agent", "prompt", paneId, bootstrap]);
+				if (prompted.code === 0) {
+					return { tabId, paneId, label, cwd, ...(workstream ? { workstream } : {}) };
+				}
+				lastError = herdrError(prompted.stderr, "Herdr rejected the advisor bootstrap prompt");
+			} else {
+				lastError = herdrError(ready.stderr, "Pi did not become ready");
+			}
+			if (attempt + 1 < ADVISOR_READY_ATTEMPTS) await delay(ADVISOR_READY_DELAY_MS);
+		}
+		throw new Error(`Herdr could not bootstrap the advisor: ${lastError}`);
+	} catch (error) {
+		const closed = await pi.exec("herdr", ["tab", "close", tabId]);
+		if (closed.code !== 0) {
+			throw new Error(
+				`${(error as Error).message} Cleanup also failed: ${herdrError(closed.stderr, "unknown error")}`,
+			);
+		}
+		throw error;
+	}
 }
 
 async function renameHerdrAgent(
@@ -338,6 +482,11 @@ async function restoreActiveSession(
 			await renameHerdrAgent(pi, process.env.HERDR_PANE_ID, state.workstream, state.sessionId);
 		} catch {
 			// The initializer gives a visible error later if Herdr still cannot bind.
+		}
+		try {
+			await renameHerdrPane(pi, process.env.HERDR_PANE_ID, advisorPaneLabel(state.workstream));
+		} catch {
+			// Pane labels are presentational and never block restoration.
 		}
 	}
 	return state;
@@ -422,6 +571,11 @@ async function initializeAdvisor(
 	const paneId = await verifyHerdr(pi);
 	const paths = await claimWorkstream(ctx, workstream, sessionId);
 	const herdrName = await renameHerdrAgent(pi, paneId, workstream, sessionId);
+	try {
+		await renameHerdrPane(pi, paneId, advisorPaneLabel(workstream));
+	} catch {
+		// Pane labels are presentational; the Herdr agent identity remains authoritative.
+	}
 	const state: AdvisorSessionState = {
 		workstream,
 		sessionId,
@@ -439,6 +593,44 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		activeState = await restoreActiveSession(pi, ctx);
 	});
 	registerVisibilityGuard(pi, () => activeState);
+
+	pi.registerTool({
+		name: "advisor_launch",
+		label: "Launch Advisor",
+		description:
+			"Launch a separate advisor Pi session in a new visible Herdr tab without changing caller focus. " +
+			"Never creates a pane split.",
+		parameters: Type.Object({
+			cwd: Type.String({ description: "Existing directory for the new advisor session.", minLength: 1 }),
+			workstream: Type.Optional(
+				Type.String({
+					description: "Optional short workstream slug passed to advisor_session_init.",
+					maxLength: MAX_WORKSTREAM_LENGTH,
+				}),
+			),
+			purpose: Type.Optional(
+				Type.String({ description: "Short human phrase for the advisor pane label.", maxLength: 80 }),
+			),
+			prompt: Type.Optional(
+				Type.String({ description: "Extra instructions appended to the advisor bootstrap prompt." }),
+			),
+		}),
+		async execute(...args) {
+			const [, params, , , ctx] = args;
+			const launched = await launchAdvisor(pi, ctx, params);
+			return {
+				content: [
+					{
+						type: "text",
+						text:
+							`Launched advisor in Herdr tab ${launched.tabId}, pane ${launched.paneId}.\n` +
+							`Label: ${launched.label}\nCwd: ${launched.cwd}`,
+					},
+				],
+				details: launched,
+			};
+		},
+	});
 
 	pi.registerTool({
 		name: "advisor_session_init",

@@ -4,18 +4,18 @@ The advisor coordinates parallel Pi sessions through per-repository state under 
 
 ## Runtime rules
 
-1. Start or focus a fresh Pi session in Herdr and invoke `/advisor`.
+1. Launch every separate advisor with `advisor_launch`; it creates a new Herdr tab with `--no-focus`, never a pane split. A manually opened advisor may still invoke `/advisor` in its own fresh tab.
 2. `advisor_session_init` creates or claims one isolated workstream.
 3. Each live advisor must use a different workstream.
 4. An advisor writes only its own session record, its owned workstream record, new immutable events, and unique run output.
 5. Treat legacy in-repo `.advisor/` directories as read-only history.
 6. Transfer ownership with an immutable handoff event.
 7. Use Intercom for short conclusions and paths, not transcripts or raw logs.
-8. Launch delegated LLM work only through a configured `bg_agent` role. Use `bg_run` for shell commands.
+8. Launch delegated LLM work only through a configured `bg_agent` role. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands.
 9. Every role launch needs a concrete completion anchor and a bounded result file.
 10. Validate graphs before three or more nodes or mixed parallel and dependent work.
 11. Parallel builders require explicit approval and separate worktrees.
-12. Successful worker tabs close automatically. Blocked or unknown tabs stay visible.
+12. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
 13. Keep a builder alive only for a planned bounded repair. Every checker starts fresh and may repair small qualifying findings inline under its role mandate.
 14. Keep global advisor routines paused because open Pi processes share routine state.
 
@@ -45,8 +45,6 @@ The advisor selects one allowed model based on the task. Role skill text must no
 
 ## Start
 
-1. Open or focus a fresh Pi session in Herdr.
-2. Invoke `/advisor` or `/skill:advisor`.
-3. Enter a short workstream name if Pi asks for one.
+From any Pi session running inside Herdr, call `advisor_launch` with the target `cwd` and, when known, a concise `workstream` and `purpose`. The tool creates an unfocused Herdr tab, labels its root pane `advisor · <purpose>`, starts Pi there, and sends the `/skill:advisor` bootstrap. The new advisor still calls `advisor_session_init` as its first action.
 
-No advisor shell launcher is required.
+For a tab opened manually, invoke `/advisor` or `/skill:advisor` and enter a short workstream name if Pi asks. Do not use a pane split for a separate advisor. No advisor shell launcher is required.

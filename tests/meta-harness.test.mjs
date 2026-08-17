@@ -54,7 +54,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   const packageSources = settings.packages.map(packageSource);
   assert.equal(settings.customSetting, true);
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@1ce9558e47c36c323c2e623bb46bebd8690dda34"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@5d4bc187668625a3824ea21d18fbb5fe0e094bc6"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
@@ -117,6 +117,17 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(doctor.status, 0, `${doctor.stdout}\n${doctor.stderr}`);
   assert.match(doctor.stdout, /Doctor passed/);
   await rm(target, { recursive: true, force: true });
+});
+
+test("advisor extension exposes new-tab launch and pane-label behavior", async () => {
+  const extension = await readFile(join(ROOT, "extensions", "advisor-session.ts"), "utf8");
+  assert.match(extension, /name: "advisor_launch"/);
+  assert.match(extension, /\["tab", "create", "--no-focus", "--cwd", cwd, "--label", label\]/);
+  assert.match(extension, /\["pane", "rename", paneId, label\]/);
+  assert.match(extension, /\["pane", "run", paneId, "pi"\]/);
+  assert.match(extension, /\["agent", "prompt", paneId, bootstrap\]/);
+  assert.match(extension, /advisorPaneLabel\(workstream\)/);
+  assert.doesNotMatch(extension, /\["pane", "split"/);
 });
 
 test("doctor rejects unified edit snapshot drift", async () => {
