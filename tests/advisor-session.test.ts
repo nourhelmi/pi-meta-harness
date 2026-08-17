@@ -105,7 +105,7 @@ test("advisor_launch closes a created tab when its root pane is missing", async 
 
   await withHerdrEnvironment(async () => {
     await assert.rejects(
-      tool.execute("test-call", { cwd: "." }, undefined, undefined, { cwd: process.cwd() } as ExtensionContext),
+      tool.execute("test-call", { cwd: ".", purpose: "tab launch" }, undefined, undefined, { cwd: process.cwd() } as ExtensionContext),
       /did not return the new advisor root pane ID/,
     );
   });
