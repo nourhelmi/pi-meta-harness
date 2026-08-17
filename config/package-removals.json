@@ -1,5 +1,6 @@
 [
   "npm:pi-footer",
+  "npm:taskplane",
   "git:https://github.com/nourhelmi/pi-powerline",
   "packages/pi-openai-server-compaction"
 ]

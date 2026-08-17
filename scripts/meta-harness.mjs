@@ -45,7 +45,6 @@ const COPY_ENTRIES = [
   ["config/bg-agent-profiles.json", "bg-agent-profiles.json"],
   ["config/claude-bridge.json", "claude-bridge.json"],
   ["config/markdown-workflows.json", "markdown-workflows.json"],
-  ["config/taskplane/preferences.json", "taskplane/preferences.json"],
 ];
 const MERGE_ENTRIES = [
   ["config/settings.overlay.json", "settings.json", "settings"],

@@ -27,7 +27,6 @@
       "source": "npm:@plannotator/pi-extension@0.27.3",
       "skills": []
     },
-    "npm:taskplane@0.30.4",
     "npm:pi-lens@3.8.74",
     "npm:@juicesharp/rpiv-ask-user-question@2.5.1",
     "npm:gentle-engram@0.1.10",
