@@ -45,9 +45,9 @@
     "plan": "node scripts/meta-harness.mjs plan",
     "doctor": "node scripts/meta-harness.mjs doctor",
     "test:harness": "node --test tests/*.test.mjs",
-    "test:unified-edit": "node --import tsx --test tests/unified-edit.test.ts",
+    "test:extensions": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:harness && npm run test:unified-edit",
+    "test": "npm run test:harness && npm run test:extensions",
     "check": "npm test"
   },
   "devDependencies": {

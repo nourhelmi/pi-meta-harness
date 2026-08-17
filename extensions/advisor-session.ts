@@ -84,7 +84,7 @@ function herdrError(stderr: string, fallback: string): string {
 	return stderr.trim() || fallback;
 }
 
-function herdrTabIds(stdout: string): { tabId: string; paneId: string } {
+function herdrTabIds(stdout: string): { tabId: string; paneId?: string } {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(stdout);
@@ -99,10 +99,8 @@ function herdrTabIds(stdout: string): { tabId: string; paneId: string } {
 		| undefined;
 	const paneId = result?.root_pane?.pane_id;
 	const tabId = result?.tab?.tab_id ?? result?.root_pane?.tab_id;
-	if (typeof paneId !== "string" || typeof tabId !== "string") {
-		throw new Error("Herdr did not return the new advisor tab and root pane IDs.");
-	}
-	return { tabId, paneId };
+	if (typeof tabId !== "string") throw new Error("Herdr did not return the new advisor tab ID.");
+	return { tabId, ...(typeof paneId === "string" ? { paneId } : {}) };
 }
 
 function advisorBootstrapPrompt(workstream: string | undefined, prompt: string | undefined): string {
@@ -411,9 +409,14 @@ async function launchAdvisor(
 	if (created.code !== 0) {
 		throw new Error(`Herdr could not create the advisor tab: ${herdrError(created.stderr, "unknown error")}`);
 	}
-	const { tabId, paneId } = herdrTabIds(created.stdout);
-
+	let tabId: string | undefined;
 	try {
+		const createdIds = herdrTabIds(created.stdout);
+		tabId = createdIds.tabId;
+		if (!createdIds.paneId) {
+			throw new Error("Herdr did not return the new advisor root pane ID.");
+		}
+		const paneId = createdIds.paneId;
 		const renamed = await pi.exec("herdr", ["pane", "rename", paneId, label]);
 		if (renamed.code !== 0) {
 			throw new Error(`Herdr could not label the advisor pane: ${herdrError(renamed.stderr, "unknown error")}`);
@@ -440,6 +443,7 @@ async function launchAdvisor(
 		}
 		throw new Error(`Herdr could not bootstrap the advisor: ${lastError}`);
 	} catch (error) {
+		if (!tabId) throw error;
 		const closed = await pi.exec("herdr", ["tab", "close", tabId]);
 		if (closed.code !== 0) {
 			throw new Error(
