@@ -58,6 +58,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
+  assert(packageSources.includes("git:https://github.com/Davidcreador/pi-skill-tags@15ee7dd4786b07e310971f4c3814b03eb0ed239f"));
   assert(!packageSources.includes("npm:pi-footer@0.5.1"));
   assert(!packageSources.some((entry) => entry.includes("nourhelmi/pi-powerline")));
   assert(!packageSources.includes("git:https://github.com/nourhelmi/pi-detach@old"));
@@ -312,6 +313,23 @@ test("every managed Pi package uses an exact source", async () => {
     const exactGit = /^git:.+@[0-9a-f]{40}$/.test(source);
     assert(exactNpm || exactGit, `Package is not exact: ${source}`);
   }
+});
+
+test("reviewed pi-skill-tags metadata matches its managed commit pin", async () => {
+  const settings = JSON.parse(await readFile(join(ROOT, "config", "settings.overlay.json"), "utf8"));
+  const lock = JSON.parse(await readFile(join(ROOT, "config", "third-party-extensions.lock.json"), "utf8"));
+  const skillTags = lock.extensions.find((extension) => extension.name === "pi-skill-tags");
+  assert.deepEqual(skillTags, {
+    name: "pi-skill-tags",
+    repository: "https://github.com/Davidcreador/pi-skill-tags",
+    commit: "15ee7dd4786b07e310971f4c3814b03eb0ed239f",
+    tree: "ef2ff66e027e4aeb54a71c97403a6c08039076db",
+    installSource: "git:https://github.com/Davidcreador/pi-skill-tags@15ee7dd4786b07e310971f4c3814b03eb0ed239f",
+    license: "MIT",
+    package: "@davecodes/pi-skill-tags@0.1.1",
+    purpose: "Add searchable inline skill tags and expand them into Pi's native skill format.",
+  });
+  assert(settings.packages.map(packageSource).includes(skillTags.installSource));
 });
 
 test("skill plan preserves source attribution and all 58 skills", () => {

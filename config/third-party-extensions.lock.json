@@ -22,6 +22,16 @@
       "purpose": "Own Pi's header, footer, editor frame, tool cards, working indicator, themes, and Herdr status."
     },
     {
+      "name": "pi-skill-tags",
+      "repository": "https://github.com/Davidcreador/pi-skill-tags",
+      "commit": "15ee7dd4786b07e310971f4c3814b03eb0ed239f",
+      "tree": "ef2ff66e027e4aeb54a71c97403a6c08039076db",
+      "installSource": "git:https://github.com/Davidcreador/pi-skill-tags@15ee7dd4786b07e310971f4c3814b03eb0ed239f",
+      "license": "MIT",
+      "package": "@davecodes/pi-skill-tags@0.1.1",
+      "purpose": "Add searchable inline skill tags and expand them into Pi's native skill format."
+    },
+    {
       "name": "pi-codex-compaction",
       "repository": "https://github.com/ogulcancelik/pi-extensions/tree/main/packages/pi-codex-compaction",
       "installSource": "npm:@ogulcancelik/pi-codex-compaction@0.1.3",
