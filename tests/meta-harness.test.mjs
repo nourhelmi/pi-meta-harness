@@ -54,7 +54,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   const packageSources = settings.packages.map(packageSource);
   assert.equal(settings.customSetting, true);
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@c6c94b7c0a4538773e95eda38a7b61df74188611"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@1ce9558e47c36c323c2e623bb46bebd8690dda34"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
