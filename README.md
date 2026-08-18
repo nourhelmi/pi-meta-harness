@@ -57,7 +57,7 @@ flowchart TD
 | Profile | Implementation | Adversarial review | Procedural |
 | --- | --- | ---: | --- |
 | `codex-max` | Sol | Terra | Luna |
-| `codex-lean` | Grok | Sonnet | Luna |
+| `codex-lean` | Sol hard, Sonnet medium, Luna small | Terra | Luna, Sonnet |
 | `anthropic-heavy` | Sonnet | Sonnet / Opus | Luna, else Grok |
 | `grok-cycle` | Grok | Grok | Sonnet |
 

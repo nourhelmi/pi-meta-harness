@@ -51,7 +51,7 @@ role's `allowedModels`. Character notes in the new map are binding.
 | Name | When | Workhorse | Adversarial review | Procedural |
 | --- | --- | --- | --- | --- |
 | `codex-max` | Codex weekly is healthy | Sol | Terra | Luna |
-| `codex-lean` | Codex weekly is nearly gone | Grok | Sonnet (Grok fallback) | Luna |
+| `codex-lean` | Codex leftover: Sol plans + hard builds; Grok lives on grok-cycle | Sol / Sonnet / Luna by hardness | Terra | Luna, Sonnet |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
 | `grok-cycle` | No Codex; Grok owns maker + hefty review | Grok | Grok | Sonnet |
 

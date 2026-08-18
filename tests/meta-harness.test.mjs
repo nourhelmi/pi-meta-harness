@@ -428,8 +428,16 @@ test("reinstall keeps a switched intelligence profile", async () => {
   assert.equal(second.status, 0, second.stderr);
   const profiles = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-lean\n");
-  assert(profiles.profiles.builder.allowedModels.includes("cursor/grok-4.6"));
-  assert(!profiles.profiles.builder.allowedModels.includes("openai-codex/gpt-5.6-sol"));
+  assert.deepEqual(profiles.profiles.planner.allowedModels, [
+    "openai-codex/gpt-5.6-sol",
+  ]);
+  assert.deepEqual(profiles.profiles.builder.allowedModels, [
+    "openai-codex/gpt-5.6-sol",
+    "claude-bridge/claude-sonnet-5",
+    "openai-codex/gpt-5.6-luna",
+  ]);
+  assert(!Object.keys(profiles.models).some((id) => id.startsWith("cursor/")));
+  assert(profiles.models["openai-codex/gpt-5.6-terra"]);
   assert(profiles.models["claude-bridge/claude-sonnet-5"]);
   const doctor = run("doctor", "--target", target);
   assert.equal(doctor.status, 0, `${doctor.stdout}\n${doctor.stderr}`);

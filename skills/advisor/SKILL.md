@@ -105,23 +105,26 @@ from the live map**:
   note — currently Grok. Do not spend another scarce-model attempt or silently
   downgrade the UX requirement;
 - substantial changes to an existing UX use the generalist whose character
-  covers existing UX (Grok, or Sonnet in `anthropic-heavy`);
+  covers existing UX (Grok; Sonnet in `anthropic-heavy` or `codex-lean` when
+  the UX is well-known; Sol in `codex-lean` when the UX is hard);
 - minor targeted tweaks to an existing UX may use the model whose character
-  includes that work (Terra in `codex-max`; otherwise Grok or Sonnet);
+  includes that work (Terra in `codex-max`; Luna or Sonnet in `codex-lean`;
+  otherwise Grok or Sonnet);
 - all UX implementation loads `frontend-design`; load the repository's normal
   frontend skill as well when one exists.
 
 Protect Fable's shared Anthropic session allowance: unless a live character
 note explicitly assigns review or implementation to Opus, Opus does no
 checking, review, reduction, planning, backend, or routine existing-UX work.
-Fable is reserved for the advisor session itself (at medium) and for planner
-nodes (at high, the default); it takes no other worker role. If Fable reaches
-Anthropic capacity, planning falls back to the model named in Fable's
-character note (Sol in `codex-max`, Grok in the other profiles) and the
-advisor session should switch to that same fallback; workers cannot silently
-change the advisor's active model. For non-UX work, pick the implementation
-workhorse from the live characters (Sol in `codex-max`, Grok in `codex-lean`
-and `grok-cycle`, Sonnet in `anthropic-heavy`). Cursor may only appear as
+Fable is reserved for the advisor session itself (at medium) and, when the
+live map lists it on planner, for planner nodes (at high). In `codex-lean`
+planner is Sol, not Fable. Fable takes no other worker role. If Fable reaches
+Anthropic capacity, the advisor session switches to the fallback in Fable's
+character note (Sol in `codex-max` and `codex-lean`, Grok in `grok-cycle` and
+`anthropic-heavy`); workers cannot silently change the advisor's active model.
+For non-UX work, pick the implementation workhorse from the live characters
+(Sol in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Grok in
+`grok-cycle`; Sonnet in `anthropic-heavy`). Cursor may only appear as
 `cursor/grok-4.6`.
 A feature spanning independently editable surfaces may split under the normal
 builder rules (distinct worktrees plus explicit approval when parallel,

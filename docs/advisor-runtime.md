@@ -31,7 +31,7 @@ is a checked copy of `codex-max` for readers.
 | Profile | When | Implementation | Adversarial review | Procedural |
 | --- | --- | --- | --- | --- |
 | `codex-max` | Codex weekly is healthy | Sol | Terra | Luna |
-| `codex-lean` | Codex weekly is nearly gone | Grok | Sonnet (Grok fallback) | Luna |
+| `codex-lean` | Codex leftover; Grok is grok-cycle | Sol / Sonnet / Luna by hardness | Terra | Luna, Sonnet |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
 | `grok-cycle` | No Codex; Grok owns the hefty maker+review loop | Grok | Grok | Sonnet |
 
