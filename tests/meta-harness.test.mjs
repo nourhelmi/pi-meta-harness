@@ -109,6 +109,12 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(profiles.profiles.builder.allowedModels.includes("cursor/grok-4.6"));
   assert.equal(profiles.models["openai-codex/gpt-5.6-sol"].defaultThinking, "high");
   assert.equal(profiles.models["claude-bridge/claude-fable-5"].defaultThinking, "high");
+  assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-max\n");
+  assert(settings.enabledModels.includes("claude-bridge/claude-sonnet-5"));
+  assert.equal(
+    await readFile(join(ROOT, "config", "bg-agent-profiles.json"), "utf8"),
+    await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"),
+  );
 
   const second = run("install", "--target", target);
   assert.equal(second.status, 0, second.stderr);
@@ -405,4 +411,27 @@ test("bootstrap runs every required live stage without bypassing safety", async 
     previous = index;
   }
   assert(!bootstrap.includes("--allow-active"));
+});
+
+test("reinstall keeps a switched intelligence profile", async () => {
+  const target = await temporaryTarget();
+  const first = run("install", "--target", target);
+  assert.equal(first.status, 0, first.stderr);
+  const switched = spawnSync(process.execPath, [
+    join(ROOT, "scripts", "intelligence-profile.mjs"),
+    "codex-lean",
+    "--target",
+    target,
+  ], { encoding: "utf8" });
+  assert.equal(switched.status, 0, switched.stderr);
+  const second = run("install", "--target", target);
+  assert.equal(second.status, 0, second.stderr);
+  const profiles = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
+  assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-lean\n");
+  assert(profiles.profiles.builder.allowedModels.includes("cursor/grok-4.6"));
+  assert(!profiles.profiles.builder.allowedModels.includes("openai-codex/gpt-5.6-sol"));
+  assert(profiles.models["claude-bridge/claude-sonnet-5"]);
+  const doctor = run("doctor", "--target", target);
+  assert.equal(doctor.status, 0, `${doctor.stdout}\n${doctor.stderr}`);
+  await rm(target, { recursive: true, force: true });
 });

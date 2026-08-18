@@ -88,30 +88,44 @@ reason (for example a genuinely hard debugging node), and record that reason
 with the launch in the session file. Model character notes in the map are
 binding — a model whose character excludes a task class must not get it.
 
-Frontend routing is scope- and capacity-aware (binding):
+Re-read the live map before each launch, and always after an intelligence-profile
+switch. Named profiles live in `~/.pi/agent/intelligence-profiles/`
+(`codex-max`, `codex-lean`, `anthropic-heavy`, `grok-cycle`). When the user asks to switch
+maps, load `switch-intelligence-profile` and run the switcher; do not invent
+model IDs that are absent from the new `allowedModels`.
 
-- genuinely new or greenfield UX uses `claude-bridge/claude-opus-5` at medium
-  with `frontend-design` while Anthropic session capacity is healthy;
-- if capacity is known to be tight or an Opus launch reports a capacity limit,
-  retry the same UX node on `cursor/grok-4.6` at high — do not spend another
-  Opus attempt or silently downgrade the UX requirement;
-- substantial changes to an existing UX use Grok at high; minor, targeted
-  tweaks to an existing UX may use Terra at xhigh;
+Frontend routing is scope- and capacity-aware (binding), but the **IDs come
+from the live map**:
+
+- genuinely new or greenfield UX uses the model whose character reserves it for
+  greenfield UX (Opus when that model is in the map and Anthropic capacity is
+  healthy), always with `frontend-design`;
+- if that model is missing from the live map, or capacity is tight, or a
+  launch reports a capacity limit, use the UX fallback named in that character
+  note — currently Grok. Do not spend another scarce-model attempt or silently
+  downgrade the UX requirement;
+- substantial changes to an existing UX use the generalist whose character
+  covers existing UX (Grok, or Sonnet in `anthropic-heavy`);
+- minor targeted tweaks to an existing UX may use the model whose character
+  includes that work (Terra in `codex-max`; otherwise Grok or Sonnet);
 - all UX implementation loads `frontend-design`; load the repository's normal
   frontend skill as well when one exists.
 
-Protect Fable's shared Anthropic session allowance: Opus does no checking,
-review, reduction, planning, backend, or routine existing-UX work. Fable is
-reserved for the advisor session itself (at medium) and for planner nodes (at
-high, the default); it takes no other worker role. If Fable reaches Anthropic
-capacity, planning falls back to Sol at high and the advisor session should
-switch to Sol; workers cannot silently change the advisor's active model. For
-non-UX work, Grok is the preferred cost-efficient generalist for research,
-bounded backend implementation, and mixed-stack work; Sol remains preferred
-for long or difficult backend/data work. A feature spanning independently
-editable surfaces may split under the normal builder rules (distinct
-worktrees plus explicit approval when parallel, otherwise serial in one
-worktree).
+Protect Fable's shared Anthropic session allowance: unless a live character
+note explicitly assigns review or implementation to Opus, Opus does no
+checking, review, reduction, planning, backend, or routine existing-UX work.
+Fable is reserved for the advisor session itself (at medium) and for planner
+nodes (at high, the default); it takes no other worker role. If Fable reaches
+Anthropic capacity, planning falls back to the model named in Fable's
+character note (Sol in `codex-max`, Grok in the other profiles) and the
+advisor session should switch to that same fallback; workers cannot silently
+change the advisor's active model. For non-UX work, pick the implementation
+workhorse from the live characters (Sol in `codex-max`, Grok in `codex-lean`
+and `grok-cycle`, Sonnet in `anthropic-heavy`). Cursor may only appear as
+`cursor/grok-4.6`.
+A feature spanning independently editable surfaces may split under the normal
+builder rules (distinct worktrees plus explicit approval when parallel,
+otherwise serial in one worktree).
 
 Every new `bg_agent` call supplies `role`, `model`, `thinking`, `prompt`,
 `anchor`, `requiredSkills`, `label`, and the exact cwd/worktree. Successful
@@ -179,14 +193,14 @@ run on the small model the role's allowedModels designate.
    non-product reviewed files and anchors rerun green. Close inline-repaired
    findings with the rerun anchor evidence plus a targeted diff read. Never
    launch a repair maker or a fresh checker for them.
-4. Checking is tiered by risk, not uniform. The adversarial tier runs on
-   terra at xhigh: schema, auth, security, money, data boundaries, the final
-   whole-diff review before PR, and any recheck after an overturned pass.
-   The procedural tier runs on luna at max: routine mid-phase checks, repair
-   verification, test-harness findings, and browser verification — the
-   deterministic anchors are the backstop. When a whole-diff review
-   approaches terra's 272K window, split it per package or phase instead of
-   one giant pass; never substitute a weaker model to make a diff fit.
+4. Checking is tiered by risk, not uniform. Pick models from the live map:
+   the adversarial-tier reviewer (character says schema/auth/security/money
+   and final whole-diff review) for those checks, rechecks after an overturned
+   pass, and reduction; the procedural-tier model (character says routine
+   mid-phase checks and browser verification) for the rest. Deterministic
+   anchors are the backstop. When a whole-diff review approaches the chosen
+   reviewer's window, split it per package or phase instead of one giant pass;
+   never substitute a weaker model to make a diff fit.
 5. When a checker verdict and a deterministic anchor disagree, the anchor wins
    and the discrepancy is logged.
 6. Independent read-only verifications of the same frozen commit (for example

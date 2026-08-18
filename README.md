@@ -40,42 +40,36 @@ After bootstrap, export optional MCP credentials through your shell or secret ma
 
 ## Advisor intelligence map
 
+Switchable profiles. Default `codex-max`. Mid-session: `node ~/.pi/agent/bin/intelligence-profile.mjs <name>`.
+
 ```mermaid
 flowchart TD
-    A[Advisor: Sol / high] --> P[Planner: Sol]
-    A --> S{Scout by task}
-    S --> L[Luna: cheap mechanical]
-    S --> T[Terra: precise investigation]
-    S --> G[Grok: research]
-    A --> B{Builder by work}
-    B --> BS[Sol: difficult backend]
-    B --> BO[Opus: greenfield UX]
-    B --> BG[Grok: mixed stack or existing UX]
-    B --> BT[Terra: minor update or tests]
-    B --> BL[Luna: mechanical work]
-    A --> R[Reducer: Terra]
-    A --> C{Checker by risk}
-    C --> CT[Terra: adversarial tier]
-    C --> CL[Luna: procedural tier]
-    A --> V[Browser verifier: Luna default]
+    P[Active profile] --> M[Live bg-agent-profiles.json]
+    M --> A[Advisor: Fable]
+    A --> Plan[Planner: Fable, fallback in character note]
+    A --> S[Scout: cheapest fitting allowedModel]
+    A --> B[Builder: workhorse in character note]
+    A --> R[Reducer: adversarial reviewer]
+    A --> C[Checker: adversarial vs procedural characters]
+    A --> V[Browser verifier: procedural default]
 ```
 
-| Role | Allowed models | Prompt-cycle cap |
-| --- | --- | ---: |
-| Scout | Luna, Terra, Grok | 3 |
-| Planner | Sol | 3 |
-| Reducer | Terra | 2 |
-| Builder | Sol, Opus, Terra, Luna, Grok | 6 |
-| Checker | Terra, Luna | 5 |
-| Browser verifier | Luna, Terra | 5 |
+| Profile | Implementation | Adversarial review | Procedural |
+| --- | --- | ---: | --- |
+| `codex-max` | Sol | Terra | Luna |
+| `codex-lean` | Grok | Sonnet | Luna |
+| `anthropic-heavy` | Sonnet | Sonnet / Opus | Luna, else Grok |
+| `grok-cycle` | Grok | Grok | Sonnet |
 
-Every delegated role requires a concrete completion anchor. The full routing guidance is in [`config/bg-agent-profiles.json`](config/bg-agent-profiles.json).
+Every delegated role requires a concrete completion anchor. Character notes in the active profile are binding. Cursor may only be `cursor/grok-4.6`.
 
 ## Repository map
 
 - `extensions/` — first-party advisor extensions and the reviewed `unified-edit.ts` snapshot.
 - `skills/` — first-party advisor, worker-role, triage, and graph-driver skills.
-- `config/bg-agent-profiles.json` — the advisor intelligence map.
+- `config/intelligence-profiles/` — named intelligence maps (`codex-max`, `codex-lean`, `anthropic-heavy`, `grok-cycle`).
+- `config/bg-agent-profiles.json` — checked copy of `codex-max`.
+- `scripts/intelligence-profile.mjs` — mid-session switcher.
 - `config/settings.overlay.json` — safe Pi settings and exact package pins.
 - `config/mcp.json` — MCP definitions with environment placeholders only.
 - `config/skill-sources.json` — selected third-party skills at exact source commits and trees.

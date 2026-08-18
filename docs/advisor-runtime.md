@@ -21,27 +21,23 @@ The advisor coordinates parallel Pi sessions through per-repository state under 
 
 ## Intelligence map
 
-The source of truth is [`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json).
+Named profiles in [`../config/intelligence-profiles/`](../config/intelligence-profiles/)
+are the source of truth. Install copies them to `~/.pi/agent/intelligence-profiles/`
+and materializes the active one as `bg-agent-profiles.json`. Switch mid-session
+with `node ~/.pi/agent/bin/intelligence-profile.mjs <name>`. The default is
+`codex-max`. [`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json)
+is a checked copy of `codex-max` for readers.
 
-| Model | Default use | Reasoning |
-| --- | --- | --- |
-| Fable | the advisor session and default planning | medium for the advisor session; high for planner nodes |
-| Sol | difficult backend, data, or service work; planning and advisor fallback at capacity | high; xhigh or max only for hard debugging |
-| Luna | scouting, mechanical chores, procedural-tier checks, and browser verification | max |
-| Opus | genuinely new or greenfield UX | medium |
-| Terra | adversarial-tier checks, final whole-diff review, reduction, tests, and minor existing-UX changes | xhigh |
-| Grok | research, bounded backend, mixed stack, substantial existing-UX work, and Opus fallback | high |
+| Profile | When | Implementation | Adversarial review | Procedural |
+| --- | --- | --- | --- | --- |
+| `codex-max` | Codex weekly is healthy | Sol | Terra | Luna |
+| `codex-lean` | Codex weekly is nearly gone | Grok | Sonnet (Grok fallback) | Luna |
+| `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
+| `grok-cycle` | No Codex; Grok owns the hefty maker+review loop | Grok | Grok | Sonnet |
 
-| Role | Allowed models | Cap |
-| --- | --- | ---: |
-| Scout | Luna, Terra, Grok | 3 |
-| Planner | Fable, Sol | 3 |
-| Reducer | Terra | 2 |
-| Builder | Sol, Opus, Terra, Luna, Grok | 6 |
-| Checker | Terra, Luna | 5 |
-| Browser verifier | Luna, Terra | 5 |
-
-The advisor selects one allowed model based on the task. Role skill text must not hard-code a different model.
+Cursor may only appear as `cursor/grok-4.6`. Role `allowedModels` and character
+notes live in the active profile file. The advisor selects one allowed model
+based on those characters. Role skill text must not hard-code a different model.
 
 ## Start
 

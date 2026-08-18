@@ -1,0 +1,178 @@
+{
+  "defaultAgent": "pi",
+  "models": {
+    "claude-bridge/claude-fable-5": {
+      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic Fable capacity is reached, planning falls back to Grok at high and the advisor session switches to Grok.",
+      "thinking": [
+        "medium",
+        "high"
+      ],
+      "defaultThinking": "high"
+    },
+    "openai-codex/gpt-5.6-luna": {
+      "character": "Use leftover Codex quota here first: the procedural-tier workhorse for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. Deterministic anchors backstop it. Always runs on max. If Codex is fully exhausted, procedural work moves to Grok.",
+      "thinking": [
+        "max"
+      ],
+      "defaultThinking": "max"
+    },
+    "claude-bridge/claude-opus-5": {
+      "character": "Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, always with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or the risk is extreme. Runs at medium. Do not use as the default builder — that is Sonnet. Grok is the UX fallback after a capacity limit. Not for planning or routine existing-UX tweaks.",
+      "thinking": [
+        "medium"
+      ],
+      "defaultThinking": "medium"
+    },
+    "claude-bridge/claude-sonnet-5": {
+      "character": "The implementation workhorse and the default adversarial-tier reviewer. Backend, mixed-stack, substantial existing-UX, tests, reduction, schema/auth/security/money checks, and final whole-diff review. Prefer a fresh Sonnet context for review of a Sonnet build. Always load frontend-design for UX work. 1M window. Not for planning. Opus takes greenfield UX while the 5-hour window is fresh.",
+      "thinking": [
+        "medium",
+        "high"
+      ],
+      "defaultThinking": "high"
+    },
+    "cursor/grok-4.6": {
+      "character": "Overflow generalist when Anthropic capacity is tight: research, bounded backend, mixed-stack, existing-UX, planning fallback, and procedural work if Luna is unavailable. Always load frontend-design for UX work. 200K window — keep packets bounded. The only Cursor model this map may use. Preserve Cursor catalog fast-mode default.",
+      "thinking": [
+        "high"
+      ],
+      "defaultThinking": "high"
+    }
+  },
+  "profiles": {
+    "scout": {
+      "description": "Read-only investigation with bounded, source-linked findings.",
+      "agent": "pi",
+      "skill": "advisor-role-scout",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "scout"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 3,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-luna",
+        "cursor/grok-4.6",
+        "claude-bridge/claude-sonnet-5"
+      ]
+    },
+    "planner": {
+      "description": "Plan fixed work from verified code and product constraints.",
+      "agent": "pi",
+      "skill": "advisor-role-planner",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "planner"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 3,
+      "requireAnchor": true,
+      "allowedModels": [
+        "claude-bridge/claude-fable-5",
+        "cursor/grok-4.6"
+      ]
+    },
+    "reducer": {
+      "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
+      "agent": "pi",
+      "skill": "advisor-role-reducer",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "reducer"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 2,
+      "requireAnchor": true,
+      "allowedModels": [
+        "claude-bridge/claude-sonnet-5",
+        "claude-bridge/claude-opus-5"
+      ]
+    },
+    "builder": {
+      "description": "Implement fixed acceptance criteria in one assigned worktree.",
+      "agent": "pi",
+      "skill": "advisor-role-builder",
+      "excludeTools": [
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "builder"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 6,
+      "requireAnchor": true,
+      "allowedModels": [
+        "claude-bridge/claude-sonnet-5",
+        "claude-bridge/claude-opus-5",
+        "cursor/grok-4.6",
+        "openai-codex/gpt-5.6-luna"
+      ]
+    },
+    "checker": {
+      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Default adversarial tier is Sonnet; Opus is allowed for a fresh-context high-risk review; procedural tier is Luna then Grok.",
+      "agent": "pi",
+      "skill": "advisor-role-checker",
+      "excludeTools": [
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "checker"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 5,
+      "requireAnchor": true,
+      "allowedModels": [
+        "claude-bridge/claude-sonnet-5",
+        "claude-bridge/claude-opus-5",
+        "openai-codex/gpt-5.6-luna",
+        "cursor/grok-4.6"
+      ]
+    },
+    "browser-verifier": {
+      "description": "Integrated browser verification and safe evidence capture. Defaults to luna; Grok if Codex is exhausted.",
+      "agent": "pi",
+      "skill": "advisor-role-browser-verifier",
+      "excludeTools": [
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "browser-verifier"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 5,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-luna",
+        "cursor/grok-4.6"
+      ]
+    }
+  }
+}

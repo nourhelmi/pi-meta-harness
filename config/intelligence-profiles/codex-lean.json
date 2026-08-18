@@ -2,45 +2,37 @@
   "defaultAgent": "pi",
   "models": {
     "claude-bridge/claude-fable-5": {
-      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at high and the advisor session switches to Sol.",
+      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Grok at high and the advisor session switches to Grok. Do not fall back to Sol; this profile must not spend remaining Codex weekly on Sol.",
       "thinking": [
         "medium",
         "high"
       ],
       "defaultThinking": "high"
     },
-    "openai-codex/gpt-5.6-sol": {
-      "character": "Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation, and the planning fallback when Fable is unavailable because Anthropic session capacity is reached. Use as the advisor model in the same capacity fallback. Frontend implementation routes to opus, grok, or terra by UX scope. Read-only checking goes to terra. high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
-      "thinking": [
-        "high",
-        "xhigh",
-        "max"
-      ],
-      "defaultThinking": "high"
-    },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Extremely cheap; the procedural-tier workhorse: scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification — deterministic anchors backstop it. 272K window. Do not assign adversarial-tier checking: schema, auth, security, money, data boundaries, or final whole-diff reviews. Always runs on max.",
+      "character": "Extremely cheap Codex leftover: keep using it for short-leash procedural work even when the Codex weekly is nearly gone. Scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification — deterministic anchors backstop it. 272K window. Do not assign adversarial-tier checking or substantial implementation. Always runs on max.",
       "thinking": [
         "max"
       ],
       "defaultThinking": "max"
     },
     "claude-bridge/claude-opus-5": {
-      "character": "Reserve for genuinely new or greenfield UX/frontend implementation when Anthropic session capacity is healthy, always with frontend-design loaded. Runs at medium reasoning. Grok is the automatic UX fallback when capacity is tight or an Opus launch hits a capacity limit. Not for existing-UX tweaks, checking, review, reduction, planning, or backend.",
+      "character": "Reserve for genuinely new or greenfield UX/frontend implementation only when the Anthropic 5-hour window is fresh, always with frontend-design loaded. Runs at medium. Grok is the default UX implementation model in this profile; do not spend another Opus attempt after a capacity limit. Not for existing-UX tweaks, checking, review, reduction, planning, or backend.",
       "thinking": [
         "medium"
       ],
       "defaultThinking": "medium"
     },
-    "openai-codex/gpt-5.6-terra": {
-      "character": "The adversarial-tier reviewer at xhigh: schema, auth, security, money, and data-boundary checks, final whole-diff review before PR, rechecks after an overturned pass, reduction, test authoring, and minor targeted updates to an existing UX. Routine procedural checks and browser verification default to luna. 272K window — split whole-branch reviews per package or phase. Not for planning, greenfield UX, or substantial feature implementation.",
+    "claude-bridge/claude-sonnet-5": {
+      "character": "The adversarial-tier reviewer at high: schema, auth, security, money, and data-boundary checks, final whole-diff review before PR, rechecks after an overturned pass, and reduction. Spends the Anthropic 5-hour window on bounded review bursts, not long builds. 1M window — still split oversized whole-branch reviews per package or phase. Not for planning, greenfield UX, or substantial feature implementation. Grok is the review fallback when the Anthropic window is exhausted; a Grok review of a Grok build needs a second anchor-backed check.",
       "thinking": [
-        "xhigh"
+        "medium",
+        "high"
       ],
-      "defaultThinking": "xhigh"
+      "defaultThinking": "high"
     },
     "cursor/grok-4.6": {
-      "character": "High-efficiency generalist at high reasoning. Preferred for research, bounded backend implementation, mixed-stack work, substantial changes to an existing UX, and UX implementation when Opus would consume scarce Anthropic/Fable session capacity. New UX uses Opus while capacity is healthy, then Grok automatically. Always load frontend-design for UX work. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default. The only Cursor model this map may use.",
+      "character": "The implementation workhorse in this profile: long or difficult backend, data, and service work, mixed-stack, substantial existing-UX changes, research, and UX implementation when Opus is unavailable. Always load frontend-design for UX work. Also the planning/advisor fallback when Fable is at Anthropic capacity, and the review fallback when Sonnet is unavailable. 200K window — keep packets bounded. The only Cursor model this map may use. Preserve Cursor catalog fast-mode default.",
       "thinking": [
         "high"
       ],
@@ -67,7 +59,6 @@
       "requireAnchor": true,
       "allowedModels": [
         "openai-codex/gpt-5.6-luna",
-        "openai-codex/gpt-5.6-terra",
         "cursor/grok-4.6"
       ]
     },
@@ -90,7 +81,7 @@
       "requireAnchor": true,
       "allowedModels": [
         "claude-bridge/claude-fable-5",
-        "openai-codex/gpt-5.6-sol"
+        "cursor/grok-4.6"
       ]
     },
     "reducer": {
@@ -111,7 +102,8 @@
       "maxTurns": 2,
       "requireAnchor": true,
       "allowedModels": [
-        "openai-codex/gpt-5.6-terra"
+        "claude-bridge/claude-sonnet-5",
+        "cursor/grok-4.6"
       ]
     },
     "builder": {
@@ -131,15 +123,13 @@
       "maxTurns": 6,
       "requireAnchor": true,
       "allowedModels": [
-        "openai-codex/gpt-5.6-sol",
+        "cursor/grok-4.6",
         "claude-bridge/claude-opus-5",
-        "openai-codex/gpt-5.6-terra",
-        "openai-codex/gpt-5.6-luna",
-        "cursor/grok-4.6"
+        "openai-codex/gpt-5.6-luna"
       ]
     },
     "checker": {
-      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier runs on terra; procedural tier runs on luna.",
+      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier runs on Sonnet; procedural tier runs on Luna; Grok is the review fallback when Anthropic capacity is exhausted.",
       "agent": "pi",
       "skill": "advisor-role-checker",
       "excludeTools": [
@@ -155,12 +145,13 @@
       "maxTurns": 5,
       "requireAnchor": true,
       "allowedModels": [
-        "openai-codex/gpt-5.6-terra",
-        "openai-codex/gpt-5.6-luna"
+        "claude-bridge/claude-sonnet-5",
+        "openai-codex/gpt-5.6-luna",
+        "cursor/grok-4.6"
       ]
     },
     "browser-verifier": {
-      "description": "Integrated browser verification and safe evidence capture. Defaults to luna; use terra only for a genuinely ambiguous visual or behavioral judgment.",
+      "description": "Integrated browser verification and safe evidence capture. Defaults to luna; use Grok only for a genuinely ambiguous visual or behavioral judgment.",
       "agent": "pi",
       "skill": "advisor-role-browser-verifier",
       "excludeTools": [
@@ -177,7 +168,7 @@
       "requireAnchor": true,
       "allowedModels": [
         "openai-codex/gpt-5.6-luna",
-        "openai-codex/gpt-5.6-terra"
+        "cursor/grok-4.6"
       ]
     }
   }

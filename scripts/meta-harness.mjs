@@ -18,6 +18,13 @@ import {
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ensureActiveProfile,
+  inferProfileName,
+  intelligenceMapErrors,
+  listProfileNames,
+  readJson as readProfileJson,
+} from "./intelligence-profile.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const LIVE_TARGET = resolve(
@@ -42,7 +49,12 @@ const COPY_ENTRIES = [
   ["skills/advisor-worker", "skills/advisor-worker"],
   ["skills/graph-driver", "skills/graph-driver"],
   ["config/ui-pack.config.json", "ui-pack.config.json"],
-  ["config/bg-agent-profiles.json", "bg-agent-profiles.json"],
+  ["config/intelligence-profiles/codex-max.json", "intelligence-profiles/codex-max.json"],
+  ["config/intelligence-profiles/codex-lean.json", "intelligence-profiles/codex-lean.json"],
+  ["config/intelligence-profiles/anthropic-heavy.json", "intelligence-profiles/anthropic-heavy.json"],
+  ["config/intelligence-profiles/grok-cycle.json", "intelligence-profiles/grok-cycle.json"],
+  ["scripts/intelligence-profile.mjs", "bin/intelligence-profile.mjs"],
+  ["skills/switch-intelligence-profile", "skills/switch-intelligence-profile"],
   ["config/claude-bridge.json", "claude-bridge.json"],
   ["config/markdown-workflows.json", "markdown-workflows.json"],
 ];
@@ -53,14 +65,6 @@ const MERGE_ENTRIES = [
 const HERDR_COPY_ENTRIES = [
   ["herdr/config.toml", "config.toml"],
   ["herdr/sounds", "sounds"],
-];
-const REQUIRED_ROLES = [
-  "scout",
-  "planner",
-  "reducer",
-  "builder",
-  "checker",
-  "browser-verifier",
 ];
 const FORBIDDEN_REPOSITORY_NAMES = new Set([
   "auth.json",
@@ -277,6 +281,8 @@ function managedDestinations() {
   return [
     ...COPY_ENTRIES.map(([, destination]) => destination),
     ...MERGE_ENTRIES.map(([, destination]) => destination),
+    "bg-agent-profiles.json",
+    "intelligence-profiles/ACTIVE",
     STATE_FILE,
   ];
 }
@@ -343,6 +349,7 @@ async function install(options) {
       : deepMerge(existing, overlay);
     await atomicJson(join(target, destination), merged);
   }
+  await ensureActiveProfile(target);
   await atomicJson(join(target, STATE_FILE), {
     schemaVersion: 1,
     installedAt: new Date().toISOString(),
@@ -471,49 +478,6 @@ async function repositorySecurityErrors() {
   return errors;
 }
 
-function intelligenceMapErrors(config) {
-  const errors = [];
-  const models = isObject(config.models) ? config.models : {};
-  const profiles = isObject(config.profiles) ? config.profiles : {};
-  if (!Object.keys(models).length) errors.push("Advisor intelligence map has no models");
-
-  for (const [modelId, entry] of Object.entries(models)) {
-    if (!isObject(entry)) {
-      errors.push(`Invalid intelligence-map entry: ${modelId}`);
-      continue;
-    }
-    if (!Array.isArray(entry.thinking) || entry.thinking.length === 0) {
-      errors.push(`Model has no allowed reasoning levels: ${modelId}`);
-    }
-    if (typeof entry.defaultThinking !== "string" || !entry.thinking?.includes(entry.defaultThinking)) {
-      errors.push(`Model default reasoning is not allowed: ${modelId}`);
-    }
-    if (typeof entry.character !== "string" || !entry.character.trim()) {
-      errors.push(`Model has no character guidance: ${modelId}`);
-    }
-  }
-
-  for (const role of REQUIRED_ROLES) {
-    const profile = profiles[role];
-    if (!isObject(profile)) {
-      errors.push(`Missing advisor role: ${role}`);
-      continue;
-    }
-    if (!Number.isInteger(profile.maxTurns) || profile.maxTurns < 1) {
-      errors.push(`Invalid prompt-cycle cap for role: ${role}`);
-    }
-    if (profile.requireAnchor !== true) errors.push(`Role does not require an anchor: ${role}`);
-    if (!Array.isArray(profile.allowedModels) || profile.allowedModels.length === 0) {
-      errors.push(`Role has no allowed models: ${role}`);
-      continue;
-    }
-    for (const modelId of profile.allowedModels) {
-      if (!models[modelId]) errors.push(`Role ${role} references unknown model: ${modelId}`);
-    }
-  }
-  return errors;
-}
-
 function subsetErrors(actual, expected, path = "config") {
   const errors = [];
   if (Array.isArray(expected)) {
@@ -551,6 +515,16 @@ async function doctor(options) {
 
   const profiles = await readJson(join(target, "bg-agent-profiles.json"), {});
   errors.push(...intelligenceMapErrors(profiles));
+  try {
+    const matched = await inferProfileName(target);
+    if (!matched) errors.push("Live intelligence map does not match a named profile");
+    for (const name of await listProfileNames(target)) {
+      const named = await readProfileJson(join(target, "intelligence-profiles", `${name}.json`));
+      for (const error of intelligenceMapErrors(named)) errors.push(`Profile ${name}: ${error}`);
+    }
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
 
   const overlay = await readJson(join(ROOT, "config", "settings.overlay.json"), {});
   const settings = await readJson(join(target, "settings.json"), {});
