@@ -73,6 +73,7 @@ runtime rules: [`docs/advisor-runtime.md`](docs/advisor-runtime.md)
 - [`docs/architecture.md`](docs/architecture.md) — installer topology
 - [`docs/security.md`](docs/security.md) — portability boundary
 - [`docs/cutover.md`](docs/cutover.md) — updating an existing machine
+- [`docs/macos-tcc.md`](docs/macos-tcc.md) — grant Ghostty Full Disk Access so machine-wide searches do not modal-block
 
 ## Fresh-machine setup
 
