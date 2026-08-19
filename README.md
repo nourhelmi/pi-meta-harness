@@ -1,8 +1,70 @@
 # Pi Meta Harness
 
-A public, portable setup for Nour's preferred Pi advisor, Herdr workspace, model routing, extensions, package pins, and selected skills.
+One Ghostty window. One Herdr multiplexer. A Fable advisor that fans work into
+named worker panes. Switchable model maps. Exact pins. No secrets in Git.
 
-The repository contains configuration and policy only. It does not contain credentials, sessions, memories, machine trust, caches, or advisor runtime state.
+The repository is configuration and policy only. Credentials, sessions, memories,
+machine trust, caches, and advisor runtime stay on the machine.
+
+## At a glance
+
+You sit in Ghostty. Herdr owns tabs. `/advisor` claims one isolated workstream.
+That Pi session stays Fable. It launches workers through `pi-detach` `bg_agent`
+into panes in the **same tab**. The live intelligence map picks `model` +
+`thinking` per launch. Quota is not polled — you pick the map.
+
+```mermaid
+---
+config:
+  theme: dark
+  flowchart:
+    curve: basis
+---
+flowchart TB
+  You((you)) --> Ghostty[Ghostty]
+  Ghostty --> Herdr[Herdr multiplexer]
+
+  subgraph tab ["Advisor tab — one workstream"]
+    direction TB
+    Adv["Pi  /advisor\nFable plans and launches"]
+    Map[("live map\nbg-agent-profiles.json")]
+    Map -.->|model + thinking| Adv
+  end
+
+  Herdr --> Adv
+
+  subgraph panes ["Worker panes — same tab, via pi-detach"]
+    direction LR
+    Scout[scout]
+    Plan[planner]
+    Build[builder]
+    Check[checker]
+    Reduce[reducer]
+    Browser[browser]
+  end
+
+  Adv -->|bg_agent| Scout
+  Adv --> Plan
+  Adv --> Build
+  Adv --> Check
+  Adv --> Reduce
+  Adv --> Browser
+
+  classDef you fill:#e94560,stroke:#e94560,color:#fff
+  classDef mux fill:#16213e,stroke:#533483,color:#eee
+  classDef advisor fill:#533483,stroke:#e94560,color:#fff
+  classDef map fill:#1a1a2e,stroke:#f0a500,color:#ffeaa7
+  classDef worker fill:#0f3460,stroke:#16c79a,color:#e8fff7
+
+  class You you
+  class Ghostty,Herdr mux
+  class Adv advisor
+  class Map map
+  class Scout,Plan,Build,Check,Reduce,Browser worker
+```
+
+Deep dive: [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md) ·
+runtime rules: [`docs/advisor-runtime.md`](docs/advisor-runtime.md)
 
 ## Docs
 
@@ -73,23 +135,30 @@ workers keep their launch model. The advisor pane does not auto `/model`.
 Quota is **not** polled. You choose. Deep dive (topology, spend, pick tree,
 per-role allowlists): [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md).
 
-## Advisor intelligence map
+## Intelligence map
 
-Switchable profiles. Shipped default **`codex-max`**. Reinstall keeps
-`intelligence-profiles/ACTIVE`. Cursor may only be `cursor/grok-4.6`. Character
-notes in the live map are binding. Every delegated role needs a concrete
-completion anchor.
+Second figure: which wallet pays. Shipped default **`codex-max`**. Reinstall
+keeps `intelligence-profiles/ACTIVE`. Cursor may only be `cursor/grok-4.6`.
+Character notes in the live map are binding.
 
 ```mermaid
+---
+config:
+  theme: dark
+---
 flowchart LR
-  named["intelligence-profiles/*.json"] --> switcher["intelligence-profile.mjs"]
-  switcher --> live["bg-agent-profiles.json"]
+  named["named JSON"] --> switcher["intelligence-profile.mjs"]
+  switcher --> live["live bg-agent-profiles.json"]
   live --> launches["next bg_agent launch"]
 ```
 
 ```mermaid
+---
+config:
+  theme: dark
+---
 flowchart TD
-  Start[Quota check you decide] --> CodexQ{Codex weekly healthy?}
+  Start[Quota check — you decide] --> CodexQ{Codex weekly healthy?}
   CodexQ -->|yes| UseCM[codex-max]
   CodexQ -->|dying leftover still usable| UseCL[codex-lean]
   CodexQ -->|dead| AnthQ{Burn Anthropic 5h as the workhorse?}
