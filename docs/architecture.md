@@ -23,7 +23,8 @@ flowchart LR
 The harness owns:
 
 - first-party advisor extensions and skills;
-- the named advisor intelligence profiles and the live map they materialize;
+- the named advisor intelligence profiles and the live map they materialize
+  (see [`intelligence-profiles.md`](intelligence-profiles.md));
 - safe Pi and MCP overlays;
 - exact Pi package versions or full Git commits;
 - Herdr presentation and notification configuration;

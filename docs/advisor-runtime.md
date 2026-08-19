@@ -28,16 +28,13 @@ with `node ~/.pi/agent/bin/intelligence-profile.mjs <name>`. The default is
 `codex-max`. [`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json)
 is a checked copy of `codex-max` for readers.
 
-| Profile | When | Implementation | Adversarial review | Procedural |
-| --- | --- | --- | --- | --- |
-| `codex-max` | Codex weekly is healthy | Sol | Terra | Luna |
-| `codex-lean` | Codex leftover; Grok is grok-cycle | Sol / Sonnet / Luna by hardness | Terra | Luna, Sonnet |
-| `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
-| `grok-cycle` | No Codex; Grok owns the hefty maker+review loop | Grok | Grok | Sonnet |
-
 Cursor may only appear as `cursor/grok-4.6`. Role `allowedModels` and character
 notes live in the active profile file. The advisor selects one allowed model
 based on those characters. Role skill text must not hard-code a different model.
+Quota is not polled — you pick the map.
+
+Deep dive (topology, spend, pick tree, per-role allowlists, `/advisor` vs
+switcher): [`intelligence-profiles.md`](intelligence-profiles.md).
 
 ## Start
 

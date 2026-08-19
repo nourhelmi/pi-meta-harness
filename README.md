@@ -4,6 +4,14 @@ A public, portable setup for Nour's preferred Pi advisor, Herdr workspace, model
 
 The repository contains configuration and policy only. It does not contain credentials, sessions, memories, machine trust, caches, or advisor runtime state.
 
+## Docs
+
+- [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md) — maps, quota pick tree, `/advisor` vs switcher, per-role allowlists
+- [`docs/advisor-runtime.md`](docs/advisor-runtime.md) — workstream isolation, `advisor_launch`, pane labels
+- [`docs/architecture.md`](docs/architecture.md) — installer topology
+- [`docs/security.md`](docs/security.md) — portability boundary
+- [`docs/cutover.md`](docs/cutover.md) — updating an existing machine
+
 ## Fresh-machine setup
 
 Install Node.js 22.19 or newer and the host tools first:
@@ -38,30 +46,63 @@ The installer stops if an advisor or worker is active. It never copies credentia
 
 After bootstrap, export optional MCP credentials through your shell or secret manager, start Pi inside Herdr, use `/login` for each provider, and run `/advisor`.
 
+## Start an advisor and pick a map
+
+`/advisor` is a skill invoke, not a CLI with flags. There is no
+`/advisor "task" --profile lean`. The intelligence map is **machine-global**.
+
+In a fresh Pi tab inside Herdr (cwd already the repo):
+
+```text
+/advisor
+
+my task here
+```
+
+Pick the map **before** workers launch:
+
+```bash
+node "$HOME/.pi/agent/bin/intelligence-profile.mjs" --list
+node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
+```
+
+Names: `codex-max` | `codex-lean` | `anthropic-heavy` | `grok-cycle`. Mid-session:
+say `switch to lean` in chat, or run the same node command. Already-running
+workers keep their launch model. The advisor pane does not auto `/model`.
+
+Quota is **not** polled. You choose. Deep dive (topology, spend, pick tree,
+per-role allowlists): [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md).
+
 ## Advisor intelligence map
 
-Switchable profiles. Default `codex-max`. Mid-session: `node ~/.pi/agent/bin/intelligence-profile.mjs <name>`.
+Switchable profiles. Shipped default **`codex-max`**. Reinstall keeps
+`intelligence-profiles/ACTIVE`. Cursor may only be `cursor/grok-4.6`. Character
+notes in the live map are binding. Every delegated role needs a concrete
+completion anchor.
+
+```mermaid
+flowchart LR
+  named["intelligence-profiles/*.json"] --> switcher["intelligence-profile.mjs"]
+  switcher --> live["bg-agent-profiles.json"]
+  live --> launches["next bg_agent launch"]
+```
 
 ```mermaid
 flowchart TD
-    P[Active profile] --> M[Live bg-agent-profiles.json]
-    M --> A[Advisor: Fable]
-    A --> Plan[Planner: Fable, fallback in character note]
-    A --> S[Scout: cheapest fitting allowedModel]
-    A --> B[Builder: workhorse in character note]
-    A --> R[Reducer: adversarial reviewer]
-    A --> C[Checker: adversarial vs procedural characters]
-    A --> V[Browser verifier: procedural default]
+  Start[Quota check you decide] --> CodexQ{Codex weekly healthy?}
+  CodexQ -->|yes| UseCM[codex-max]
+  CodexQ -->|dying leftover still usable| UseCL[codex-lean]
+  CodexQ -->|dead| AnthQ{Burn Anthropic 5h as the workhorse?}
+  AnthQ -->|yes Sonnet or Opus implement| UseAH[anthropic-heavy]
+  AnthQ -->|no Fable plans Grok does build plus review| UseGC[grok-cycle]
 ```
 
-| Profile | Implementation | Adversarial review | Procedural |
-| --- | --- | ---: | --- |
-| `codex-max` | Sol | Terra | Luna |
-| `codex-lean` | Sol hard, Sonnet medium, Luna small | Terra | Luna, Sonnet |
-| `anthropic-heavy` | Sonnet | Sonnet / Opus | Luna, else Grok |
-| `grok-cycle` | Grok | Grok | Sonnet |
-
-Every delegated role requires a concrete completion anchor. Character notes in the active profile are binding. Cursor may only be `cursor/grok-4.6`.
+| Profile | When | Implementation | Adversarial review | Procedural |
+| --- | --- | --- | --- | --- |
+| `codex-max` | Codex weekly healthy | Sol | Terra | Luna |
+| `codex-lean` | Codex leftover; Grok is `grok-cycle` | Sol hard, Sonnet medium, Luna small | Terra | Luna, Sonnet |
+| `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet / Opus | Luna, else Grok |
+| `grok-cycle` | No Codex; Grok owns maker + review | Grok | Grok | Sonnet |
 
 ## Repository map
 
@@ -70,6 +111,7 @@ Every delegated role requires a concrete completion anchor. Character notes in t
 - `config/intelligence-profiles/` — named intelligence maps (`codex-max`, `codex-lean`, `anthropic-heavy`, `grok-cycle`).
 - `config/bg-agent-profiles.json` — checked copy of `codex-max`.
 - `scripts/intelligence-profile.mjs` — mid-session switcher.
+- `docs/intelligence-profiles.md` — topology, quota pick tree, per-role maps.
 - `config/settings.overlay.json` — safe Pi settings and exact package pins.
 - `config/mcp.json` — MCP definitions with environment placeholders only.
 - `config/skill-sources.json` — selected third-party skills at exact source commits and trees.

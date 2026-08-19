@@ -56,3 +56,6 @@ role's `allowedModels`. Character notes in the new map are binding.
 | `grok-cycle` | No Codex; Grok owns maker + hefty review | Grok | Grok | Sonnet |
 
 Cursor may only appear as `cursor/grok-4.6`.
+
+Deep dive (topology, spend, pick tree, per-role allowlists):
+[`docs/intelligence-profiles.md`](../../docs/intelligence-profiles.md).
