@@ -39,7 +39,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   const target = await temporaryTarget();
   await writeFile(
     join(target, "settings.json"),
-    `${JSON.stringify({ packages: ["npm:custom-package@1.0.0", "npm:pi-footer@0.5.1", "git:https://github.com/nourhelmi/pi-powerline@old", "git:https://github.com/nourhelmi/pi-detach@old"], customSetting: true }, null, 2)}\n`,
+    `${JSON.stringify({ packages: ["npm:custom-package@1.0.0", "npm:pi-footer@0.5.1", "git:https://github.com/nourhelmi/pi-powerline@old", "git:https://github.com/nourhelmi/pi-detach@old"], customSetting: true, defaultProvider: "openai-codex", defaultModel: "gpt-5.6-sol", defaultThinkingLevel: "high" }, null, 2)}\n`,
   );
   await writeFile(
     join(target, "mcp.json"),
@@ -53,6 +53,9 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   const settings = JSON.parse(firstSettingsText);
   const packageSources = settings.packages.map(packageSource);
   assert.equal(settings.customSetting, true);
+  assert.equal(settings.defaultProvider, "openai-codex");
+  assert.equal(settings.defaultModel, "gpt-5.6-sol");
+  assert.equal(settings.defaultThinkingLevel, "high");
   assert(packageSources.includes("npm:custom-package@1.0.0"));
   assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@5789475ed46ca442df7306e6391aeea5ed29bda1"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));

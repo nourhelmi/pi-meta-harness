@@ -38,6 +38,14 @@ const LIVE_HERDR_TARGET = resolve(
 const BACKUP_ROOT = join("backups", "pi-meta-harness");
 const HERDR_BACKUP_ROOT = join("backups", "pi-meta-harness-herdr");
 const STATE_FILE = ".pi-meta-harness-state.json";
+const RUNTIME_SETTING_KEYS = new Set([
+  "defaultProvider",
+  "defaultModel",
+  "defaultThinkingLevel",
+]);
+const GENERATED_SKILL_FILES = new Map([
+  ["pretty-mermaid", new Set(["package-lock.json"])],
+]);
 
 const COPY_ENTRIES = [
   ["extensions/advisor-graph.ts", "extensions/advisor-graph.ts"],
@@ -246,6 +254,9 @@ function union(overlay = [], base = []) {
 
 function mergeSettings(base, overlay, removedPackageSources = []) {
   const merged = deepMerge(base, overlay);
+  for (const key of RUNTIME_SETTING_KEYS) {
+    if (base[key] !== undefined) merged[key] = structuredClone(base[key]);
+  }
   const overlayPackages = overlay.packages ?? [];
   const overlayIds = new Set(overlayPackages.map(packageIdentity));
   const removedIds = new Set(removedPackageSources.map(packageIdentity));
@@ -404,11 +415,11 @@ async function filesUnder(path) {
   return result;
 }
 
-async function digest(path) {
+async function digest(path, ignoredRelativePaths = new Set()) {
   const info = await stat(path);
   if (!info.isDirectory()) return createHash("sha256").update(await readFile(path)).digest("hex");
   const hash = createHash("sha256");
-  const files = await filesUnder(path);
+  const files = (await filesUnder(path)).filter((file) => !ignoredRelativePaths.has(relative(path, file)));
   files.sort();
   for (const file of files) {
     hash.update(relative(path, file));
@@ -542,6 +553,7 @@ async function doctor(options) {
     }
   }
   const { packages: _packages, ...settingsOverlay } = overlay;
+  for (const key of RUNTIME_SETTING_KEYS) delete settingsOverlay[key];
   errors.push(...subsetErrors(settings, settingsOverlay, "settings"));
   const removedPackageSources = await readJson(join(ROOT, "config", "package-removals.json"), []);
   for (const source of removedPackageSources) {
@@ -722,9 +734,15 @@ async function installedSkillErrors() {
         continue;
       }
       const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
-      const installed = join(agentDir, "skills", skill);
-      if (!(await exists(installed))) errors.push(`Pinned skill is not installed: ${skill}`);
-      else if (await digest(installed) !== entry.sha256) errors.push(`Pinned skill content drift: ${skill}`);
+      const piInstalled = join(agentDir, "skills", skill);
+      const globalInstalled = join(homedir(), ".agents", "skills", skill);
+      const installed = await exists(piInstalled)
+        ? piInstalled
+        : await exists(globalInstalled) ? globalInstalled : undefined;
+      if (!installed) errors.push(`Pinned skill is not installed: ${skill}`);
+      else if (await digest(installed, GENERATED_SKILL_FILES.get(skill)) !== entry.sha256) {
+        errors.push(`Pinned skill content drift: ${skill}`);
+      }
     }
   }
   return errors;

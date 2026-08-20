@@ -184,7 +184,7 @@ flowchart TD
 - `config/bg-agent-profiles.json` — checked copy of `codex-max`.
 - `scripts/intelligence-profile.mjs` — mid-session switcher.
 - `docs/intelligence-profiles.md` — topology, quota pick tree, per-role maps.
-- `config/settings.overlay.json` — safe Pi settings and exact package pins.
+- `config/settings.overlay.json` — safe Pi defaults and exact package pins. Reinstall preserves the existing `defaultProvider`, `defaultModel`, and `defaultThinkingLevel` because `/model` owns that runtime preference.
 - `config/mcp.json` — MCP definitions with environment placeholders only.
 - `config/skill-sources.json` — selected third-party skills at exact source commits and trees.
 - `herdr/` — portable Herdr theme, UI, keybindings, and notification sounds.
