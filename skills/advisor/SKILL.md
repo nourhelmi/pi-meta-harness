@@ -80,8 +80,9 @@ Pi, with normal skill discovery retained. The advisor skill is explicit-only;
 the worker runtime forces its hidden role skill, checks the model and reasoning,
 blocks nested delegation, and writes detailed output under `.advisor/runs/`.
 
-Roles fix guardrails only: the hidden role skill, tool permissions, turn cap,
-and anchor requirement. Roles do not pin a model. The `models` map in the live
+Roles fix guardrails only: the hidden role skill, coordination permissions,
+turn cap, and anchor requirement. Filesystem tools remain available to every
+role; role instructions define write boundaries. Roles do not pin a model. The `models` map in the live
 `~/.pi/agent/bg-agent-profiles.json` is the **intelligence map**: the allowed
 models, their allowed reasoning levels, defaults, and character notes. You
 choose `model` and `thinking` per launch. Inspect that file when details

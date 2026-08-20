@@ -53,7 +53,6 @@
       "agent": "pi",
       "skill": "advisor-role-scout",
       "excludeTools": [
-        "edit",
         "bg_agent",
         "orch_start",
         "advisor_session_init"
@@ -76,7 +75,6 @@
       "agent": "pi",
       "skill": "advisor-role-planner",
       "excludeTools": [
-        "edit",
         "bg_agent",
         "orch_start",
         "advisor_session_init"
@@ -98,7 +96,6 @@
       "agent": "pi",
       "skill": "advisor-role-reducer",
       "excludeTools": [
-        "edit",
         "bg_agent",
         "orch_start",
         "advisor_session_init"

@@ -21,6 +21,10 @@ test("named profiles are valid and cursor-only grok", async () => {
     for (const modelId of Object.keys(config.models)) {
       if (modelId.startsWith("cursor/")) assert.equal(modelId, "cursor/grok-4.6");
     }
+    for (const [role, profile] of Object.entries(config.profiles)) {
+      assert(!profile.excludeTools.includes("edit"), `${name}/${role} excludes edit`);
+      assert(!profile.excludeTools.includes("write"), `${name}/${role} excludes write`);
+    }
   }
 });
 

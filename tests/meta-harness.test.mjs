@@ -129,6 +129,15 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   await rm(target, { recursive: true, force: true });
 });
 
+test("worker runtime leaves filesystem tools available and blocks nested coordination", async () => {
+  const worker = await readFile(join(ROOT, "extensions", "advisor-worker.ts"), "utf8");
+  assert.match(worker, /COORDINATION_TOOLS\.has\(toolName\)/);
+  assert.match(worker, /HEADLESS_AGENT_COMMAND\.test\(command\)/);
+  assert.doesNotMatch(worker, /toolName !== "edit"/);
+  assert.doesNotMatch(worker, /toolName !== "write"/);
+  assert.doesNotMatch(worker, /role is read-only outside/);
+});
+
 test("advisor extension exposes new-tab launch and pane-label behavior", async () => {
   const extension = await readFile(join(ROOT, "extensions", "advisor-session.ts"), "utf8");
   assert.match(extension, /name: "advisor_launch"/);
