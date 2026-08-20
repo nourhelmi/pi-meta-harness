@@ -11,7 +11,7 @@ Do not continue while an advisor or worker uses the current setup.
 5. Run `node scripts/meta-harness.mjs plan --live` and review every target.
 6. Run `node scripts/meta-harness.mjs install --live`.
 7. Run `pi update --extensions` to install the exact package sources.
-8. Run `node scripts/meta-harness.mjs install-skills --live` to restore the exact pinned third-party skills.
+8. Run `node scripts/meta-harness.mjs install-skills --live` to restore the exact pinned third-party skills. It promotes verified copies into the single canonical `~/.agents/skills` root, removes duplicate Pi-specific copies, and releases those entries from the generic skill updater; change them through the harness pin manifests instead.
 9. Run `node scripts/meta-harness.mjs install-herdr-config --live`.
 10. Run `node scripts/meta-harness.mjs install-herdr-integration --live`.
 11. Run `node scripts/meta-harness.mjs doctor --live`.

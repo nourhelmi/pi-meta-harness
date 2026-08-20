@@ -37,6 +37,7 @@ const LIVE_HERDR_TARGET = resolve(
 );
 const BACKUP_ROOT = join("backups", "pi-meta-harness");
 const HERDR_BACKUP_ROOT = join("backups", "pi-meta-harness-herdr");
+const SKILL_BACKUP_ROOT = join("backups", "pi-meta-harness-skills");
 const STATE_FILE = ".pi-meta-harness-state.json";
 const RUNTIME_SETTING_KEYS = new Set([
   "defaultProvider",
@@ -736,9 +737,12 @@ async function installedSkillErrors() {
       const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
       const piInstalled = join(agentDir, "skills", skill);
       const globalInstalled = join(homedir(), ".agents", "skills", skill);
-      const installed = await exists(piInstalled)
-        ? piInstalled
-        : await exists(globalInstalled) ? globalInstalled : undefined;
+      const piPresent = await exists(piInstalled);
+      const globalPresent = await exists(globalInstalled);
+      if (piPresent && globalPresent && await realpath(piInstalled) !== await realpath(globalInstalled)) {
+        errors.push(`Pinned skill has conflicting Pi and canonical copies: ${skill}`);
+      }
+      const installed = piPresent ? piInstalled : globalPresent ? globalInstalled : undefined;
       if (!installed) errors.push(`Pinned skill is not installed: ${skill}`);
       else if (await digest(installed, GENERATED_SKILL_FILES.get(skill)) !== entry.sha256) {
         errors.push(`Pinned skill content drift: ${skill}`);
@@ -746,6 +750,26 @@ async function installedSkillErrors() {
     }
   }
   return errors;
+}
+
+async function promoteSkillsToCanonical(agentDir, skills) {
+  const canonicalRoot = join(homedir(), ".agents", "skills");
+  await mkdir(canonicalRoot, { recursive: true });
+  for (const skill of skills) {
+    const piInstalled = join(agentDir, "skills", skill);
+    if (!(await exists(piInstalled))) throw new Error(`Pi skill installation is missing: ${skill}`);
+    await copyReplacing(piInstalled, join(canonicalRoot, skill));
+    await rm(piInstalled, { recursive: true, force: true });
+  }
+}
+
+async function releaseManagedSkillsFromGenericLock(skills) {
+  const path = join(homedir(), ".agents", ".skill-lock.json");
+  if (!(await exists(path))) return;
+  const lock = await readJson(path, { version: 3, skills: {} });
+  if (!isObject(lock.skills)) throw new Error(`Invalid global skill lock: ${path}`);
+  for (const skill of skills) delete lock.skills[skill];
+  await atomicJson(path, lock);
 }
 
 function skillInstallCommand(group, checkout) {
@@ -785,7 +809,23 @@ async function skillsPlan() {
 async function installSkills(options) {
   if (!options.live) throw new Error("Third-party global skill installation requires --live");
   assertLiveSafety(options);
-  for (const group of await skillGroups()) {
+  const groups = await skillGroups();
+  const skills = groups.flatMap((group) => group.skills);
+  const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+  const piBackup = await createScopedBackup(
+    agentDir,
+    skills.map((skill) => join("skills", skill)),
+    SKILL_BACKUP_ROOT,
+  );
+  const canonicalRoot = join(homedir(), ".agents");
+  const canonicalBackup = await createScopedBackup(
+    canonicalRoot,
+    [...skills.map((skill) => join("skills", skill)), ".skill-lock.json"],
+    SKILL_BACKUP_ROOT,
+  );
+  console.log(`Pi skill backup: ${piBackup}`);
+  console.log(`Canonical skill backup: ${canonicalBackup}`);
+  for (const group of groups) {
     const temporary = await mkdtemp(join(tmpdir(), "pi-meta-harness-skills-"));
     const checkout = join(temporary, "source");
     try {
@@ -802,10 +842,12 @@ async function installSkills(options) {
       const [command, ...args] = skillInstallCommand(group, checkout);
       console.log(`Installing ${group.source}@${group.commit}`);
       runChecked(command, args, { stdio: "inherit", encoding: undefined });
+      await promoteSkillsToCanonical(agentDir, group.skills);
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }
   }
+  await releaseManagedSkillsFromGenericLock(skills);
   const verificationErrors = await installedSkillErrors();
   if (verificationErrors.length) throw new Error(verificationErrors.join("\n"));
   console.log("Third-party skills installed from verified commits and hashes. Pi was not reloaded.");
