@@ -57,7 +57,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(settings.defaultModel, "gpt-5.6-sol");
   assert.equal(settings.defaultThinkingLevel, "high");
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@5789475ed46ca442df7306e6391aeea5ed29bda1"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@922886a29e700250f58aaf7afd44e7b2090b162a"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
