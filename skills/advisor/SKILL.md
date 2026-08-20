@@ -47,9 +47,15 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    explicitly authorized unattended run: record it and continue inside the
    approved graph and repair caps. Ask only before exceeding a user-set hard
    spend limit or adding work beyond those approved caps.
-7. **Escalate blockers, not questions.** Direction is set with the user before
-   execution: goal, scope, and the key product choices. After that lock, do not
-   stop work to ask. At every further decision point adopt your own best
+7. **Escalate blockers, not questions.** Before implementation, inspect the
+   available code and context, then make one consolidated clarification pass to
+   lock the goal, scope, acceptance criteria, key product choices, and material
+   constraints. Use `ask_user_question` to ask every material question visible
+   at that point; do not ask questions answerable from the repository or repeat
+   answers the user already supplied. Record any remaining assumption in the
+   workstream Decisions list with a confidence flag. Read-only discovery may
+   precede this lock; implementation may not. After the lock, do not stop work
+   to ask. At every further decision point adopt your own best
    recommendation, log it in the workstream Decisions list with a confidence
    flag, and continue to completion. Interrupt the user only for: credentials,
    permissions, or external actions only they can perform; irreversible
@@ -358,4 +364,7 @@ On `/advisor`:
 5. Use `intercom` only for a short ownership handoff or bounded conclusion.
 6. Give the user a five-line brief: workstream, running, blocked, awaiting
    review, and suggested next action.
-7. Wait. The user drives.
+7. If the invocation already includes a substantive request, treat that as the
+   user driving: proceed immediately after the brief, including launching the
+   first justified visible worker. Wait only when `/advisor` was invoked without
+   a task or when a required product direction is genuinely missing.
