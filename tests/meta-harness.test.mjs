@@ -57,7 +57,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(settings.defaultModel, "gpt-5.6-sol");
   assert.equal(settings.defaultThinkingLevel, "high");
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@e9c58313102285656303b0d6d521d35b7a20f814"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@b508eb4c35c7b0339cb8ff8c324d9f4760a1648b"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
@@ -108,6 +108,22 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
     "openai-codex/gpt-5.6-luna",
     "openai-codex/gpt-5.6-terra",
   ]);
+  assert.deepEqual(
+    profiles.profiles.planner.allowedThinkingByModel["openai-codex/gpt-5.6-sol"],
+    ["high"],
+  );
+  assert.deepEqual(
+    profiles.profiles.builder.allowedThinkingByModel["openai-codex/gpt-5.6-sol"],
+    ["high", "xhigh", "max"],
+  );
+  assert.deepEqual(
+    profiles.profiles.checker.allowedThinkingByModel,
+    {
+      "openai-codex/gpt-5.6-terra": ["xhigh"],
+      "openai-codex/gpt-5.6-sol": ["medium"],
+      "openai-codex/gpt-5.6-luna": ["max"],
+    },
+  );
   assert(profiles.profiles.scout.allowedModels.includes("openai-codex/gpt-5.6-luna"));
   assert(profiles.profiles.builder.allowedModels.includes("claude-bridge/claude-opus-5"));
   assert(profiles.profiles.builder.allowedModels.includes("cursor/grok-4.6"));

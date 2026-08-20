@@ -77,6 +77,26 @@ export function intelligenceMapErrors(config) {
     for (const modelId of profile.allowedModels) {
       if (!models[modelId]) errors.push(`Role ${role} references unknown model: ${modelId}`);
     }
+    if (profile.allowedThinkingByModel === undefined) continue;
+    if (!isObject(profile.allowedThinkingByModel)) {
+      errors.push(`Role ${role} has invalid per-model reasoning constraints`);
+      continue;
+    }
+    for (const [modelId, levels] of Object.entries(profile.allowedThinkingByModel)) {
+      if (!profile.allowedModels.includes(modelId)) {
+        errors.push(`Role ${role} constrains reasoning for a disallowed model: ${modelId}`);
+      }
+      if (!Array.isArray(levels) || levels.length === 0) {
+        errors.push(`Role ${role} has no allowed reasoning levels for model: ${modelId}`);
+        continue;
+      }
+      const modelLevels = models[modelId]?.thinking;
+      for (const level of levels) {
+        if (!Array.isArray(modelLevels) || !modelLevels.includes(level)) {
+          errors.push(`Role ${role} allows unsupported reasoning ${level} for model: ${modelId}`);
+        }
+      }
+    }
   }
   return errors;
 }
@@ -92,7 +112,12 @@ export async function listProfileNames(target) {
 }
 
 export async function readJson(path) {
-  return JSON.parse(await readFile(path, "utf8"));
+  const contents = await readFile(path, "utf8");
+  try {
+    return JSON.parse(contents);
+  } catch (error) {
+    throw new Error(`Invalid intelligence profile JSON: ${path}`, { cause: error });
+  }
 }
 
 export async function readActiveName(target) {

@@ -2,7 +2,7 @@
   "defaultAgent": "pi",
   "models": {
     "claude-bridge/claude-fable-5": {
-      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at medium and the advisor session switches to Sol.",
+      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at high and the advisor session switches to Sol.",
       "thinking": [
         "medium",
         "high"
@@ -10,7 +10,7 @@
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. At medium, use for planning when Fable is unavailable and for fresh-context checking when Terra xhigh is unnecessary; use as the advisor model in the same capacity fallback. Frontend implementation routes to opus, grok, or terra by UX scope. Terra xhigh remains the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
+      "character": "Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Medium is checker-only for standard fresh-context review when Terra xhigh is unnecessary. Planning fallback and advisor use remain high. Frontend implementation routes to opus, grok, or terra by UX scope. Terra xhigh remains the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
       "thinking": [
         "medium",
         "high",
@@ -90,7 +90,12 @@
       "allowedModels": [
         "claude-bridge/claude-fable-5",
         "openai-codex/gpt-5.6-sol"
-      ]
+      ],
+      "allowedThinkingByModel": {
+        "openai-codex/gpt-5.6-sol": [
+          "high"
+        ]
+      }
     },
     "reducer": {
       "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
@@ -134,7 +139,14 @@
         "openai-codex/gpt-5.6-terra",
         "openai-codex/gpt-5.6-luna",
         "cursor/grok-4.6"
-      ]
+      ],
+      "allowedThinkingByModel": {
+        "openai-codex/gpt-5.6-sol": [
+          "high",
+          "xhigh",
+          "max"
+        ]
+      }
     },
     "checker": {
       "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier runs on Terra xhigh; standard fresh-context checking may run on Sol medium; procedural tier runs on Luna.",
@@ -156,7 +168,18 @@
         "openai-codex/gpt-5.6-terra",
         "openai-codex/gpt-5.6-sol",
         "openai-codex/gpt-5.6-luna"
-      ]
+      ],
+      "allowedThinkingByModel": {
+        "openai-codex/gpt-5.6-terra": [
+          "xhigh"
+        ],
+        "openai-codex/gpt-5.6-sol": [
+          "medium"
+        ],
+        "openai-codex/gpt-5.6-luna": [
+          "max"
+        ]
+      }
     },
     "browser-verifier": {
       "description": "Integrated browser verification and safe evidence capture. Defaults to luna; use terra only for a genuinely ambiguous visual or behavioral judgment.",

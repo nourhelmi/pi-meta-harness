@@ -178,7 +178,7 @@ When Codex weekly is healthy.
 
 | Slot | Model |
 | --- | --- |
-| Advisor / planner | Fable; Sol medium if Anthropic capacity is gone |
+| Advisor / planner | Fable; Sol high if Anthropic capacity is gone |
 | Build | Sol; Opus greenfield UX; Grok research / existing-UX |
 | Review / reduce | Terra xhigh adversarial; Sol medium standard checking; Terra reduce |
 | Procedural (scout / chores / browser) | Luna |
@@ -193,6 +193,10 @@ Role allowlists:
 | reducer | Terra |
 | scout | Luna, Terra, Grok |
 | browser-verifier | Luna, Terra |
+
+Reasoning is role-scoped: planner permits Sol high, builder permits Sol
+high/xhigh/max, and **only checker permits Sol medium**. Checker keeps Terra
+xhigh for adversarial review and Luna max for procedural checks.
 
 ### `codex-lean` — leftover Codex, Grok lives on `grok-cycle`
 

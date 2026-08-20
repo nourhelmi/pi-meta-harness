@@ -43,6 +43,25 @@ test("cursor models other than grok-4.6 are rejected", async () => {
   );
 });
 
+test("role reasoning constraints must reference allowed model levels", async () => {
+  const config = JSON.parse(
+    await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"),
+  );
+  config.profiles.planner.allowedThinkingByModel = {
+    "openai-codex/gpt-5.6-luna": ["max"],
+    "openai-codex/gpt-5.6-sol": ["minimal"],
+  };
+  const errors = intelligenceMapErrors(config).join("\n");
+  assert.match(
+    errors,
+    /planner constrains reasoning for a disallowed model: openai-codex\/gpt-5\.6-luna/,
+  );
+  assert.match(
+    errors,
+    /planner allows unsupported reasoning minimal for model: openai-codex\/gpt-5\.6-sol/,
+  );
+});
+
 test("switcher copies the named profile over the live map", async () => {
   const target = await mkdtemp(join(tmpdir(), "pi-intelligence-"));
   const install = spawnSync(process.execPath, [HARNESS, "install", "--target", target], {
