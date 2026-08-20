@@ -178,9 +178,9 @@ When Codex weekly is healthy.
 
 | Slot | Model |
 | --- | --- |
-| Advisor / planner | Fable; Sol if Anthropic capacity is gone |
+| Advisor / planner | Fable; Sol medium if Anthropic capacity is gone |
 | Build | Sol; Opus greenfield UX; Grok research / existing-UX |
-| Adversarial review / reduce | Terra |
+| Review / reduce | Terra xhigh adversarial; Sol medium standard checking; Terra reduce |
 | Procedural (scout / chores / browser) | Luna |
 
 Role allowlists:
@@ -189,7 +189,7 @@ Role allowlists:
 | --- | --- |
 | planner | Fable, Sol |
 | builder | Sol, Opus, Terra, Luna, Grok |
-| checker | Terra, Luna |
+| checker | Terra, Sol, Luna |
 | reducer | Terra |
 | scout | Luna, Terra, Grok |
 | browser-verifier | Luna, Terra |

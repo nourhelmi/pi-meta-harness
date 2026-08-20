@@ -57,7 +57,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(settings.defaultModel, "gpt-5.6-sol");
   assert.equal(settings.defaultThinkingLevel, "high");
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@922886a29e700250f58aaf7afd44e7b2090b162a"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@e9c58313102285656303b0d6d521d35b7a20f814"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
@@ -101,6 +101,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   ]);
   assert.deepEqual(profiles.profiles.checker.allowedModels, [
     "openai-codex/gpt-5.6-terra",
+    "openai-codex/gpt-5.6-sol",
     "openai-codex/gpt-5.6-luna",
   ]);
   assert.deepEqual(profiles.profiles["browser-verifier"].allowedModels, [
@@ -111,6 +112,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(profiles.profiles.builder.allowedModels.includes("claude-bridge/claude-opus-5"));
   assert(profiles.profiles.builder.allowedModels.includes("cursor/grok-4.6"));
   assert.equal(profiles.models["openai-codex/gpt-5.6-sol"].defaultThinking, "high");
+  assert(profiles.models["openai-codex/gpt-5.6-sol"].thinking.includes("medium"));
   assert.equal(profiles.models["claude-bridge/claude-fable-5"].defaultThinking, "high");
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-max\n");
   assert(settings.enabledModels.includes("claude-bridge/claude-sonnet-5"));

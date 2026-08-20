@@ -2,7 +2,7 @@
   "defaultAgent": "pi",
   "models": {
     "claude-bridge/claude-fable-5": {
-      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at high and the advisor session switches to Sol.",
+      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at medium and the advisor session switches to Sol.",
       "thinking": [
         "medium",
         "high"
@@ -10,8 +10,9 @@
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation, and the planning fallback when Fable is unavailable because Anthropic session capacity is reached. Use as the advisor model in the same capacity fallback. Frontend implementation routes to opus, grok, or terra by UX scope. Read-only checking goes to terra. high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
+      "character": "Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. At medium, use for planning when Fable is unavailable and for fresh-context checking when Terra xhigh is unnecessary; use as the advisor model in the same capacity fallback. Frontend implementation routes to opus, grok, or terra by UX scope. Terra xhigh remains the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
       "thinking": [
+        "medium",
         "high",
         "xhigh",
         "max"
@@ -136,7 +137,7 @@
       ]
     },
     "checker": {
-      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier runs on terra; procedural tier runs on luna.",
+      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier runs on Terra xhigh; standard fresh-context checking may run on Sol medium; procedural tier runs on Luna.",
       "agent": "pi",
       "skill": "advisor-role-checker",
       "excludeTools": [
@@ -153,6 +154,7 @@
       "requireAnchor": true,
       "allowedModels": [
         "openai-codex/gpt-5.6-terra",
+        "openai-codex/gpt-5.6-sol",
         "openai-codex/gpt-5.6-luna"
       ]
     },
