@@ -13,7 +13,7 @@ const SCRIPT = join(ROOT, "scripts", "intelligence-profile.mjs");
 const HARNESS = join(ROOT, "scripts", "meta-harness.mjs");
 
 test("named profiles are valid and cursor-only grok", async () => {
-  for (const name of ["codex-max", "codex-lean", "anthropic-heavy", "grok-cycle"]) {
+  for (const name of ["codex-max", "codex-lean", "anthropic-heavy", "balanced", "grok-cycle"]) {
     const config = JSON.parse(
       await readFile(join(ROOT, "config", "intelligence-profiles", `${name}.json`), "utf8"),
     );

@@ -1,0 +1,188 @@
+{
+  "defaultAgent": "pi",
+  "models": {
+    "claude-bridge/claude-fable-5": {
+      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at high and the advisor session switches to Sol. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
+      "thinking": [
+        "medium",
+        "high"
+      ],
+      "defaultThinking": "high"
+    },
+    "openai-codex/gpt-5.6-sol": {
+      "character": "Hard-implementation workhorse for long or difficult backend, data, service, mixed-stack, and genuinely hard debugging, and the planning fallback when Fable is unavailable because Anthropic session capacity is reached. Use as the advisor model in the same capacity fallback. high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging. Frontend routes elsewhere: greenfield UX is Opus, all other UX is Sonnet. Checking, review, and reduction are Sonnet-tier, not Sol.",
+      "thinking": [
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "defaultThinking": "high"
+    },
+    "openai-codex/gpt-5.6-terra": {
+      "character": "Second hard-build workhorse alongside Sol: long or difficult backend, data, and service implementation, and test authoring within a build. No checking, review, or reduction in this map — the adversarial tier is Sonnet (Opus for extreme risk). 272K window — keep packets bounded. high is enough for nearly all builds; escalate to xhigh only for genuinely difficult debugging. Not for planning, UX, or procedural chores.",
+      "thinking": [
+        "high",
+        "xhigh"
+      ],
+      "defaultThinking": "high"
+    },
+    "claude-bridge/claude-sonnet-5": {
+      "character": "The default builder and the default adversarial-tier reviewer. Medium and well-known implementation, all existing-UX work, tests, reduction, schema/auth/security/money checks, and final whole-diff review before PR. Prefer a fresh Sonnet context for review of a Sonnet build; escalate to Opus when the risk is extreme. Always load frontend-design for UX work. 1M window. Not for planning; genuinely hard backend goes to Sol or Terra; greenfield UX goes to Opus.",
+      "thinking": [
+        "medium",
+        "high"
+      ],
+      "defaultThinking": "high"
+    },
+    "claude-bridge/claude-opus-5": {
+      "character": "Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, always with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or the risk is extreme. Runs at medium. Do not use as the default builder — that is Sonnet. If an Opus launch hits a capacity limit, the UX fallback is Sonnet with frontend-design, not Grok. Not for planning or routine existing-UX tweaks.",
+      "thinking": [
+        "medium"
+      ],
+      "defaultThinking": "medium"
+    },
+    "openai-codex/gpt-5.6-luna": {
+      "character": "Extremely cheap procedural-tier workhorse: easy, concise, small implementation; scouting; mechanical chores; routine mid-phase checks; repair verification; test-harness findings; and browser verification — deterministic anchors backstop it. 272K window. Do not assign planning, hard implementation, or adversarial-tier checking. Always runs on max.",
+      "thinking": [
+        "max"
+      ],
+      "defaultThinking": "max"
+    }
+  },
+  "profiles": {
+    "scout": {
+      "description": "Read-only investigation with bounded, source-linked findings.",
+      "agent": "pi",
+      "skill": "advisor-role-scout",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "scout"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 3,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-luna",
+        "claude-bridge/claude-sonnet-5"
+      ]
+    },
+    "planner": {
+      "description": "Plan fixed work from verified code and product constraints.",
+      "agent": "pi",
+      "skill": "advisor-role-planner",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "planner"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 3,
+      "requireAnchor": true,
+      "allowedModels": [
+        "claude-bridge/claude-fable-5",
+        "openai-codex/gpt-5.6-sol"
+      ]
+    },
+    "reducer": {
+      "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
+      "agent": "pi",
+      "skill": "advisor-role-reducer",
+      "excludeTools": [
+        "edit",
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "reducer"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 2,
+      "requireAnchor": true,
+      "allowedModels": [
+        "claude-bridge/claude-sonnet-5",
+        "claude-bridge/claude-opus-5",
+        "openai-codex/gpt-5.6-luna"
+      ]
+    },
+    "builder": {
+      "description": "Implement fixed acceptance criteria in one assigned worktree.",
+      "agent": "pi",
+      "skill": "advisor-role-builder",
+      "excludeTools": [
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "builder"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 6,
+      "requireAnchor": true,
+      "allowedModels": [
+        "claude-bridge/claude-sonnet-5",
+        "openai-codex/gpt-5.6-sol",
+        "openai-codex/gpt-5.6-terra",
+        "claude-bridge/claude-opus-5",
+        "openai-codex/gpt-5.6-luna"
+      ]
+    },
+    "checker": {
+      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier and final whole-diff review run on Sonnet; Opus is allowed when Sonnet was the maker or the risk is extreme; procedural tier is Luna.",
+      "agent": "pi",
+      "skill": "advisor-role-checker",
+      "excludeTools": [
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "checker"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 5,
+      "requireAnchor": true,
+      "allowedModels": [
+        "claude-bridge/claude-sonnet-5",
+        "claude-bridge/claude-opus-5",
+        "openai-codex/gpt-5.6-luna"
+      ]
+    },
+    "browser-verifier": {
+      "description": "Integrated browser verification and safe evidence capture. Defaults to luna; use Sonnet only for a genuinely ambiguous visual or behavioral judgment.",
+      "agent": "pi",
+      "skill": "advisor-role-browser-verifier",
+      "excludeTools": [
+        "bg_agent",
+        "orch_start",
+        "advisor_session_init"
+      ],
+      "cliArgs": [
+        "--advisor-worker-role",
+        "browser-verifier"
+      ],
+      "turnCapFlag": "--advisor-worker-max-turns",
+      "maxTurns": 5,
+      "requireAnchor": true,
+      "allowedModels": [
+        "openai-codex/gpt-5.6-luna",
+        "claude-bridge/claude-sonnet-5"
+      ]
+    }
+  }
+}

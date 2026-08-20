@@ -38,7 +38,7 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs" --list
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
 ```
 
-Names: `codex-max` | `codex-lean` | `anthropic-heavy` | `grok-cycle`.
+Names: `codex-max` | `codex-lean` | `anthropic-heavy` | `balanced` | `grok-cycle`.
 
 Mid-session, say `switch to lean` in the advisor chat, or run the same node
 command. Already-running workers keep their launch model. The advisor pane does
@@ -110,6 +110,7 @@ flowchart LR
     CM[codex-max]
     CL[codex-lean]
     AH[anthropic-heavy]
+    BA[balanced]
     GC[grok-cycle]
   end
 
@@ -130,6 +131,9 @@ flowchart LR
   AH -->|Fable Sonnet build/review Opus UX| Anth
   AH -->|Grok overflow| Cursor
 
+  BA -->|Sol Terra hard builds Luna leftover| Codex
+  BA -->|Fable Sonnet build/check Opus UX| Anth
+
   GC -->|no Codex ids| Codex
   GC -->|Fable plus Sonnet procedural| Anth
   GC -->|Grok hefty cycle| Cursor
@@ -144,6 +148,7 @@ flowchart TD
   Start[Quota check you decide] --> CodexQ{Codex weekly healthy?}
   CodexQ -->|yes| UseCM[codex-max]
   CodexQ -->|dying leftover Luna or Sol still usable| UseCL[codex-lean]
+  CodexQ -->|leftover for hard builds Anthropic checks no Grok| UseBA[balanced]
   CodexQ -->|dead| AnthQ{Burn Anthropic 5h as the workhorse?}
   AnthQ -->|yes Sonnet or Opus implement| UseAH[anthropic-heavy]
   AnthQ -->|no Fable plans Grok does build plus review| UseGC[grok-cycle]
@@ -156,6 +161,9 @@ Pick rule:
   (Sol plans + hard builds; Sonnet medium; Luna small; Terra adversarial).
   Grok-as-main is **not** this map.
 - **Codex dead + Anthropic should implement** → `anthropic-heavy`
+- **Split wallets, no Grok: Codex builds hard, Anthropic builds the rest and
+  checks** → `balanced` (Fable plans; Sonnet default builder + adversarial
+  review; Sol/Terra hard backend; Opus greenfield UX; Luna procedural)
 - **Codex dead + Fable stays the brain, Grok does build+review** → `grok-cycle`
 
 ## Profile cards
@@ -233,6 +241,30 @@ Role allowlists:
 | reducer | Sonnet, Opus |
 | scout | Luna, Grok, Sonnet |
 | browser-verifier | Luna, Grok |
+
+### `balanced` — Codex builds hard, Anthropic builds the rest and checks
+
+No Grok anywhere. Fable plans like `codex-max`; the Anthropic side takes the
+default build plus all checking (the slot Terra holds in the Codex maps);
+Sol and Terra stay pure hard-build workhorses.
+
+| Slot | Model |
+| --- | --- |
+| Advisor / planner | Fable; Sol if Anthropic capacity is gone |
+| Build | Sonnet default; Sol or Terra hard backend; Opus greenfield UX; Luna small |
+| Adversarial review / reduce | Sonnet; Opus when Sonnet was the maker or risk is extreme |
+| Procedural (scout / chores / browser) | Luna |
+
+Role allowlists:
+
+| Role | Allowed models |
+| --- | --- |
+| planner | Fable, Sol |
+| builder | Sonnet, Sol, Terra, Opus, Luna |
+| checker | Sonnet, Opus, Luna |
+| reducer | Sonnet, Opus, Luna |
+| scout | Luna, Sonnet |
+| browser-verifier | Luna, Sonnet |
 
 ### `grok-cycle` — no Codex ids
 

@@ -96,7 +96,7 @@ binding — a model whose character excludes a task class must not get it.
 
 Re-read the live map before each launch, and always after an intelligence-profile
 switch. Named profiles live in `~/.pi/agent/intelligence-profiles/`
-(`codex-max`, `codex-lean`, `anthropic-heavy`, `grok-cycle`). When the user asks to switch
+(`codex-max`, `codex-lean`, `anthropic-heavy`, `balanced`, `grok-cycle`). When the user asks to switch
 maps, load `switch-intelligence-profile` and run the switcher; do not invent
 model IDs that are absent from the new `allowedModels`.
 
@@ -111,11 +111,12 @@ from the live map**:
   note — currently Grok. Do not spend another scarce-model attempt or silently
   downgrade the UX requirement;
 - substantial changes to an existing UX use the generalist whose character
-  covers existing UX (Grok; Sonnet in `anthropic-heavy` or `codex-lean` when
-  the UX is well-known; Sol in `codex-lean` when the UX is hard);
+  covers existing UX (Grok; Sonnet in `anthropic-heavy`, `balanced`, or
+  `codex-lean` when the UX is well-known; Sol in `codex-lean` when the UX is
+  hard);
 - minor targeted tweaks to an existing UX may use the model whose character
-  includes that work (Terra in `codex-max`; Luna or Sonnet in `codex-lean`;
-  otherwise Grok or Sonnet);
+  includes that work (Terra in `codex-max`; Luna or Sonnet in `codex-lean`
+  and `balanced`; otherwise Grok or Sonnet);
 - all UX implementation loads `frontend-design`; load the repository's normal
   frontend skill as well when one exists.
 
@@ -126,10 +127,12 @@ Fable is reserved for the advisor session itself (at medium) and, when the
 live map lists it on planner, for planner nodes (at high). In `codex-lean`
 planner is Sol, not Fable. Fable takes no other worker role. If Fable reaches
 Anthropic capacity, the advisor session switches to the fallback in Fable's
-character note (Sol in `codex-max` and `codex-lean`, Grok in `grok-cycle` and
-`anthropic-heavy`); workers cannot silently change the advisor's active model.
+character note (Sol in `codex-max`, `codex-lean`, and `balanced`, Grok in
+`grok-cycle` and `anthropic-heavy`); workers cannot silently change the
+advisor's active model.
 For non-UX work, pick the implementation workhorse from the live characters
-(Sol in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Grok in
+(Sol in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Sonnet
+default with Sol/Terra for hard backend in `balanced`; Grok in
 `grok-cycle`; Sonnet in `anthropic-heavy`). Cursor may only appear as
 `cursor/grok-4.6`.
 A feature spanning independently editable surfaces may split under the normal

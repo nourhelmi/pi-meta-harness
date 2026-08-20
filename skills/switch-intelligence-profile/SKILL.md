@@ -2,9 +2,10 @@
 name: switch-intelligence-profile
 description: >
   Switch or show the advisor intelligence profile (codex-max, codex-lean,
-  anthropic-heavy, grok-cycle). Use when the user says "switch to lean",
-  "switch to grok-cycle", "codex weekly is gone", "use the anthropic-heavy
-  map", "change intelligence profile", or asks which model map is active.
+  anthropic-heavy, balanced, grok-cycle). Use when the user says "switch to
+  lean", "switch to balanced", "switch to grok-cycle", "codex weekly is gone",
+  "use the anthropic-heavy map", "change intelligence profile", or asks which
+  model map is active.
   Mid-session switches apply to subsequent bg_agent launches immediately.
 ---
 
@@ -24,6 +25,7 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs"
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" --list
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" codex-lean
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" anthropic-heavy
+node "$HOME/.pi/agent/bin/intelligence-profile.mjs" balanced
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" codex-max
 ```
@@ -53,6 +55,7 @@ role's `allowedModels`. Character notes in the new map are binding.
 | `codex-max` | Codex weekly is healthy | Sol | Terra | Luna |
 | `codex-lean` | Codex leftover: Sol plans + hard builds; Grok lives on grok-cycle | Sol / Sonnet / Luna by hardness | Terra | Luna, Sonnet |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
+| `balanced` | No Grok; Codex builds hard, Anthropic checks | Sonnet default; Sol/Terra hard; Opus greenfield UX | Sonnet, Opus if extreme-risk | Luna, Sonnet |
 | `grok-cycle` | No Codex; Grok owns maker + hefty review | Grok | Grok | Sonnet |
 
 Cursor may only appear as `cursor/grok-4.6`.

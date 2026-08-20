@@ -129,7 +129,7 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs" --list
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
 ```
 
-Names: `codex-max` | `codex-lean` | `anthropic-heavy` | `grok-cycle`. Mid-session:
+Names: `codex-max` | `codex-lean` | `anthropic-heavy` | `balanced` | `grok-cycle`. Mid-session:
 say `switch to lean` in chat, or run the same node command. Already-running
 workers keep their launch model. The advisor pane does not auto `/model`.
 
@@ -162,6 +162,7 @@ flowchart TD
   Start[Quota check — you decide] --> CodexQ{Codex weekly healthy?}
   CodexQ -->|yes| UseCM[codex-max]
   CodexQ -->|dying leftover still usable| UseCL[codex-lean]
+  CodexQ -->|leftover for hard builds Anthropic checks no Grok| UseBA[balanced]
   CodexQ -->|dead| AnthQ{Burn Anthropic 5h as the workhorse?}
   AnthQ -->|yes Sonnet or Opus implement| UseAH[anthropic-heavy]
   AnthQ -->|no Fable plans Grok does build plus review| UseGC[grok-cycle]
@@ -172,13 +173,14 @@ flowchart TD
 | `codex-max` | Codex weekly healthy | Sol | Terra | Luna |
 | `codex-lean` | Codex leftover; Grok is `grok-cycle` | Sol hard, Sonnet medium, Luna small | Terra | Luna, Sonnet |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet / Opus | Luna, else Grok |
+| `balanced` | No Grok; Codex builds hard, Anthropic checks | Sonnet default, Sol/Terra hard, Opus greenfield UX | Sonnet / Opus | Luna, Sonnet |
 | `grok-cycle` | No Codex; Grok owns maker + review | Grok | Grok | Sonnet |
 
 ## Repository map
 
 - `extensions/` — first-party advisor extensions and the reviewed `unified-edit.ts` snapshot.
 - `skills/` — first-party advisor, worker-role, triage, and graph-driver skills.
-- `config/intelligence-profiles/` — named intelligence maps (`codex-max`, `codex-lean`, `anthropic-heavy`, `grok-cycle`).
+- `config/intelligence-profiles/` — named intelligence maps (`codex-max`, `codex-lean`, `anthropic-heavy`, `balanced`, `grok-cycle`).
 - `config/bg-agent-profiles.json` — checked copy of `codex-max`.
 - `scripts/intelligence-profile.mjs` — mid-session switcher.
 - `docs/intelligence-profiles.md` — topology, quota pick tree, per-role maps.

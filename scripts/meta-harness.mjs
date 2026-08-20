@@ -52,6 +52,7 @@ const COPY_ENTRIES = [
   ["config/intelligence-profiles/codex-max.json", "intelligence-profiles/codex-max.json"],
   ["config/intelligence-profiles/codex-lean.json", "intelligence-profiles/codex-lean.json"],
   ["config/intelligence-profiles/anthropic-heavy.json", "intelligence-profiles/anthropic-heavy.json"],
+  ["config/intelligence-profiles/balanced.json", "intelligence-profiles/balanced.json"],
   ["config/intelligence-profiles/grok-cycle.json", "intelligence-profiles/grok-cycle.json"],
   ["scripts/intelligence-profile.mjs", "bin/intelligence-profile.mjs"],
   ["skills/switch-intelligence-profile", "skills/switch-intelligence-profile"],
