@@ -1,7 +1,7 @@
 # Pi Meta Harness
 
 One Ghostty window. One Herdr multiplexer. A Fable advisor that fans work into
-named worker panes. Switchable model maps. Exact pins. No secrets in Git.
+named worker panes. Switchable advisor guidance. Fixed role guardrails. Exact pins. No secrets in Git.
 
 The repository is configuration and policy only. Credentials, sessions, memories,
 machine trust, caches, and advisor runtime stay on the machine.
@@ -10,8 +10,9 @@ machine trust, caches, and advisor runtime stay on the machine.
 
 You sit in Ghostty. Herdr owns tabs. `/advisor` claims one isolated workstream.
 That Pi session stays Fable. It launches workers through `pi-detach` `bg_agent`
-into panes in the **same tab**. The live intelligence map picks `model` +
-`thinking` per launch. Quota is not polled — you pick the map.
+into panes in the **same tab**. Fixed role configuration enforces skills, tools,
+anchors, and cycle caps. A separate live intelligence guide recommends `model`
++ `thinking` choices to the advisor. Quota is not polled — you pick the guide.
 
 ```mermaid
 ---
@@ -27,8 +28,10 @@ flowchart TB
   subgraph tab ["Advisor tab — one workstream"]
     direction TB
     Adv["Pi  /advisor\nFable plans and launches"]
-    Map[("live map\nbg-agent-profiles.json")]
-    Map -.->|model + thinking| Adv
+    Guide[("advisor guidance\nadvisor-intelligence.json")]
+    Roles[("role guardrails\nbg-agent-profiles.json")]
+    Guide -.->|recommended model + thinking| Adv
+    Roles -.->|role launch policy| Adv
   end
 
   Herdr --> Adv
@@ -59,7 +62,7 @@ flowchart TB
   class You you
   class Ghostty,Herdr mux
   class Adv advisor
-  class Map map
+  class Guide,Roles map
   class Scout,Plan,Build,Check,Reduce,Browser worker
 ```
 
@@ -68,7 +71,7 @@ runtime rules: [`docs/advisor-runtime.md`](docs/advisor-runtime.md)
 
 ## Docs
 
-- [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md) — maps, quota pick tree, `/advisor` vs switcher, per-role allowlists
+- [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md) — advisory guides, quota pick tree, `/advisor` vs switcher, per-role recommendations
 - [`docs/advisor-runtime.md`](docs/advisor-runtime.md) — workstream isolation, `advisor_launch`, pane labels
 - [`docs/architecture.md`](docs/architecture.md) — installer topology
 - [`docs/security.md`](docs/security.md) — portability boundary
@@ -111,10 +114,10 @@ The installer stops if an advisor or worker is active. It never copies credentia
 
 After bootstrap, export optional MCP credentials through your shell or secret manager, start Pi inside Herdr, use `/login` for each provider, and run `/advisor`.
 
-## Start an advisor and pick a map
+## Start an advisor and pick a guide
 
 `/advisor` is a skill invoke, not a CLI with flags. There is no
-`/advisor "task" --profile lean`. The intelligence map is **machine-global**.
+`/advisor "task" --profile lean`. The intelligence guide is **machine-global**.
 
 In a fresh Pi tab inside Herdr (cwd already the repo):
 
@@ -124,7 +127,7 @@ In a fresh Pi tab inside Herdr (cwd already the repo):
 my task here
 ```
 
-Pick the map **before** workers launch:
+Pick the guide **before** workers launch:
 
 ```bash
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" --list
@@ -134,15 +137,17 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
 Names: `codex-max` | `codex-lean` | `anthropic-heavy` | `balanced` | `grok-cycle`. Mid-session:
 say `switch to lean` in chat, or run the same node command. Already-running
 workers keep their launch model. The advisor pane does not auto `/model`.
+The advisor may choose outside the guide with a concise rationale; workers do
+not reject identities that are absent from the recommendations.
 
 Quota is **not** polled. You choose. Deep dive (topology, spend, pick tree,
-per-role allowlists): [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md).
+per-role recommendations): [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md).
 
-## Intelligence map
+## Intelligence guidance
 
 Second figure: which wallet pays. Shipped default **`codex-max`**. Reinstall
-keeps `intelligence-profiles/ACTIVE`. Cursor may only be `cursor/grok-4.6`.
-Character notes in the live map are binding.
+keeps `intelligence-profiles/ACTIVE`. The shipped guides recommend Cursor only
+as `cursor/grok-4.6`. Character and reasoning notes are advisory, not exhaustive.
 
 ```mermaid
 ---
@@ -151,8 +156,10 @@ config:
 ---
 flowchart LR
   named["named JSON"] --> switcher["intelligence-profile.mjs"]
-  switcher --> live["live bg-agent-profiles.json"]
-  live --> launches["next bg_agent launch"]
+  switcher --> live["live advisor-intelligence.json"]
+  live --> advisor["advisor chooses next launch identity"]
+  roles["fixed bg-agent-profiles.json"] --> launches["bg_agent role launch"]
+  advisor --> launches
 ```
 
 ```mermaid
@@ -182,11 +189,12 @@ flowchart TD
 
 - `extensions/` — first-party advisor extensions and the reviewed `unified-edit.ts` snapshot.
 - `skills/` — first-party advisor, worker-role, triage, and graph-driver skills.
-- `config/intelligence-profiles/` — named intelligence maps (`codex-max`, `codex-lean`, `anthropic-heavy`, `balanced`, `grok-cycle`).
-- `config/bg-agent-profiles.json` — checked copy of `codex-max`.
+- `config/intelligence-profiles/` — named advisor intelligence guides (`codex-max`, `codex-lean`, `anthropic-heavy`, `balanced`, `grok-cycle`).
+- `config/bg-agent-profiles.json` — fixed generic role launch guardrails; switching never changes it.
+- `~/.pi/agent/advisor-intelligence.json` — installed live copy of the selected advisory guide.
 - `scripts/intelligence-profile.mjs` — mid-session switcher.
 - `scripts/advisor-eval.mjs` — privacy-bounded advisor trace ingestion, diagnostics, and rubric packets.
-- `docs/intelligence-profiles.md` — topology, quota pick tree, per-role maps.
+- `docs/intelligence-profiles.md` — topology, quota pick tree, per-role recommendations.
 - `config/settings.overlay.json` — safe Pi defaults and exact package pins. Reinstall preserves the existing `defaultProvider`, `defaultModel`, and `defaultThinkingLevel` because `/model` owns that runtime preference.
 - `config/mcp.json` — MCP definitions with environment placeholders only.
 - `config/skill-sources.json` — selected third-party skills at exact source commits and trees.

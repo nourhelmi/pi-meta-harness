@@ -1,174 +1,109 @@
 {
-  "defaultAgent": "pi",
+  "name": "codex-lean",
   "models": {
     "claude-bridge/claude-fable-5": {
-      "character": "The advisor's own session model. The advisor session runs at medium. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, implementation, or planner nodes. Planner in this profile is Sol. When Anthropic capacity is reached, the advisor session switches to Sol at high. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
-      "thinking": [
-        "medium",
-        "high"
-      ],
+      "character": "Advisory: The advisor's own session model. The advisor session runs at medium. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, implementation, or planner nodes. Planner in this profile is Sol. When Anthropic capacity is reached, the advisor session switches to Sol at high. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Planner by default, and the hard-implementation workhorse: long or difficult backend, data, service, mixed-stack, and genuinely hard debugging. Also the advisor-session fallback when Fable is at Anthropic capacity. high is enough for nearly all of that; escalate to xhigh or max only for genuinely difficult debugging. Do not assign scouting, browser verification, or short-leash chores — those are Luna or Sonnet. Frontend: hard or unfamiliar UX may use Sol with frontend-design loaded; medium well-known UX is Sonnet; tiny tweaks are Luna.",
-      "thinking": [
-        "high",
-        "xhigh",
-        "max"
-      ],
+      "character": "Advisory: Planner by default, and the hard-implementation workhorse: long or difficult backend, data, service, mixed-stack, and genuinely hard debugging. Also the advisor-session fallback when Fable is at Anthropic capacity. high is enough for nearly all of that; escalate to xhigh or max only for genuinely difficult debugging. Generally avoid assigning scouting, browser verification, or short-leash chores — those are Luna or Sonnet. Frontend: hard or unfamiliar UX may use Sol with frontend-design loaded; medium well-known UX is Sonnet; tiny tweaks are Luna.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Cheap enough to spend in this profile: medium well-known implementation, scouting when Luna is a poor fit, reduction, and review that is not adversarial-tier. Bounded Anthropic 5-hour bursts. Always load frontend-design for UX work. Do not assign planning, genuinely hard or unfamiliar implementation (that is Sol), adversarial schema/auth/security/money/final whole-diff review (that is Terra), or tiny mechanical chores (that is Luna). Grok is not a fallback here — switch to grok-cycle instead.",
-      "thinking": [
-        "medium",
-        "high"
-      ],
+      "character": "Advisory: Cheap enough to spend in this profile: medium well-known implementation, scouting when Luna is a poor fit, reduction, and review that is not adversarial-tier. Bounded Anthropic 5-hour bursts. Load frontend-design for UX work. Generally avoid assigning planning, genuinely hard or unfamiliar implementation (that is Sol), adversarial schema/auth/security/money/final whole-diff review (that is Terra), or tiny mechanical chores (that is Luna). Grok is not a fallback here — switch to grok-cycle instead.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Extremely cheap Codex leftover: easy, concise, small implementation; scouting; mechanical chores; routine mid-phase checks; repair verification; test-harness findings; and browser verification — deterministic anchors backstop it. 272K window. Do not assign planning, hard implementation, or adversarial-tier checking. Always runs on max.",
-      "thinking": [
-        "max"
-      ],
+      "character": "Advisory: Extremely cheap Codex leftover: easy, concise, small implementation; scouting; mechanical chores; routine mid-phase checks; repair verification; test-harness findings; and browser verification — deterministic anchors backstop it. 272K window. Generally avoid assigning planning, hard implementation, or adversarial-tier checking. Recommended reasoning is max.",
       "defaultThinking": "max"
     },
     "openai-codex/gpt-5.6-terra": {
-      "character": "The adversarial-tier reviewer at xhigh: schema, auth, security, money, and data-boundary checks, final whole-diff review before PR, rechecks after an overturned pass, and hefty reduction. Routine procedural checks and browser verification default to Luna; medium review/reduce defaults to Sonnet. 272K window — split whole-branch reviews per package or phase. Not for planning, greenfield UX, or substantial feature implementation.",
-      "thinking": [
-        "xhigh"
-      ],
+      "character": "Advisory: The adversarial-tier reviewer at xhigh: schema, auth, security, money, and data-boundary checks, final whole-diff review before PR, rechecks after an overturned pass, and hefty reduction. Routine procedural checks and browser verification default to Luna; medium review/reduce defaults to Sonnet. 272K window — split whole-branch reviews per package or phase. Not recommended for planning, greenfield UX, or substantial feature implementation.",
       "defaultThinking": "xhigh"
     }
   },
-  "profiles": {
-    "scout": {
-      "description": "Read-only investigation with bounded, source-linked findings.",
-      "agent": "pi",
-      "skill": "advisor-role-scout",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "scout"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 3,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-luna",
-        "claude-bridge/claude-sonnet-5"
-      ]
-    },
-    "planner": {
-      "description": "Plan fixed work from verified code and product constraints.",
-      "agent": "pi",
-      "skill": "advisor-role-planner",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "planner"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 3,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-sol"
-      ]
-    },
-    "reducer": {
-      "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
-      "agent": "pi",
-      "skill": "advisor-role-reducer",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "reducer"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 2,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-terra",
-        "claude-bridge/claude-sonnet-5",
-        "openai-codex/gpt-5.6-luna"
-      ]
-    },
-    "builder": {
-      "description": "Implement fixed acceptance criteria in one assigned worktree.",
-      "agent": "pi",
-      "skill": "advisor-role-builder",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "builder"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 6,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-sol",
-        "claude-bridge/claude-sonnet-5",
-        "openai-codex/gpt-5.6-luna"
-      ]
-    },
-    "checker": {
-      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier and final whole-diff review run on Terra; medium review on Sonnet; procedural tier on Luna.",
-      "agent": "pi",
-      "skill": "advisor-role-checker",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "checker"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 5,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-terra",
-        "claude-bridge/claude-sonnet-5",
-        "openai-codex/gpt-5.6-luna"
-      ]
-    },
-    "browser-verifier": {
-      "description": "Integrated browser verification and safe evidence capture. Defaults to luna; use Sonnet only for a genuinely ambiguous visual or behavioral judgment.",
-      "agent": "pi",
-      "skill": "advisor-role-browser-verifier",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "browser-verifier"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 5,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-luna",
-        "claude-bridge/claude-sonnet-5"
-      ]
-    }
+  "recommendations": {
+    "scout": [
+      {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fit": "Preferred for bounded investigation in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "high",
+        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
+      }
+    ],
+    "planner": [
+      {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fit": "Preferred for planning in this profile."
+      }
+    ],
+    "reducer": [
+      {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "xhigh",
+        "fit": "Preferred for synthesis and conflict reduction in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "high",
+        "fit": "Alternate for reduction when scope, risk, or capacity warrants."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fit": "Alternate for reduction when scope, risk, or capacity warrants."
+      }
+    ],
+    "builder": [
+      {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fit": "Preferred implementation choice in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "high",
+        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+      }
+    ],
+    "checker": [
+      {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "xhigh",
+        "fit": "Preferred fresh-context review choice in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "high",
+        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+      }
+    ],
+    "browser-verifier": [
+      {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fit": "Preferred for browser verification in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "high",
+        "fit": "Alternate for ambiguous visual or behavioral verification."
+      }
+    ]
   }
 }

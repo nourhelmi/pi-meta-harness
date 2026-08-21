@@ -7,7 +7,7 @@ This repository is designed for public access. Treat every tracked file as publi
 The repository can contain:
 
 - first-party TypeScript extensions and skills;
-- model names, reasoning levels, tool restrictions, and prompt-cycle caps;
+- advisory model names and reasoning guidance, plus enforced role tool restrictions and prompt-cycle caps;
 - safe Pi settings and exact package versions or Git commits;
 - MCP command definitions that use environment placeholders;
 - third-party source URLs, licenses, versions, revisions, and content hashes;
@@ -60,5 +60,10 @@ Third-party Pi packages are installed by exact package version or full Git commi
 Third-party skills are installed from full source commits. The installer verifies the Git tree before it invokes the pinned skills CLI with copy mode, then checks every installed folder against the recorded SHA-256 hash. Updating a skill requires a reviewed commit, tree, and hash change.
 
 `pi-detach` is first-party MIT source in its own public repository. This harness installs it from a full commit.
+
+The installed `bg-agent-profiles.json` is role-only and carries no intelligence
+allowlist. `advisor-intelligence.json` contains recommendations only. Choosing an
+identity outside that guide does not weaken role skill, tool, anchor, or cycle
+guardrails and is retained in worker audit manifests.
 
 `pi-ui-pack`, `pi-codex-compaction`, `pi-mermaid`, and `pi-web-search` are installed from the exact sources recorded in the extension lock. OpenAI compaction can create provider-side compaction artifacts and local session metadata; it does not make session data portable through this repository. Web search sends queries to the active model provider's native search API and stores nothing in this repository.

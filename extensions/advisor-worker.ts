@@ -28,14 +28,7 @@ interface RoleProfile {
 	maxTurns?: number;
 }
 
-interface ModelEntry {
-	character?: string;
-	thinking?: string[];
-	defaultThinking?: string;
-}
-
 interface WorkerConfig {
-	models: Record<string, ModelEntry>;
 	profiles: Record<string, RoleProfile>;
 }
 
@@ -45,7 +38,6 @@ interface WorkerState {
 	runDir: string;
 	maxCycles: number;
 	completedCycles: number;
-	modelValid: boolean;
 	launchModel: string;
 	launchThinking: string;
 }
@@ -118,11 +110,8 @@ function profilePath(): string {
 async function loadWorkerConfig(): Promise<WorkerConfig> {
 	const contents = await readFile(profilePath(), "utf8");
 	try {
-		const parsed = JSON.parse(contents) as {
-			models?: Record<string, ModelEntry>;
-			profiles?: Record<string, RoleProfile>;
-		};
-		return { models: parsed.models ?? {}, profiles: parsed.profiles ?? {} };
+		const parsed = JSON.parse(contents) as { profiles?: Record<string, RoleProfile> };
+		return { profiles: parsed.profiles ?? {} };
 	} catch {
 		throw new Error(`Could not parse advisor worker profiles at ${profilePath()}`);
 	}
@@ -136,24 +125,6 @@ function positiveInteger(value: unknown, fallback: number): number {
 
 function actualModel(ctx: ExtensionContext): string {
 	return ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "unresolved";
-}
-
-// The model map is the launch-time intelligence map: the advisor chooses model
-// and reasoning per launch, so the worker validates its actual identity against
-// the map's allowed set instead of a pinned per-role model.
-function identityRejection(
-	ctx: ExtensionContext,
-	models: Record<string, ModelEntry>,
-): string | undefined {
-	if (!Object.keys(models).length) return undefined;
-	const actual = actualModel(ctx);
-	const entry = models[actual];
-	if (!entry) return `model ${actual} is not in the advisor model map`;
-	const thinking = String(ctx.thinkingLevel);
-	if (entry.thinking?.length && !entry.thinking.includes(thinking)) {
-		return `model ${actual} allows thinking ${entry.thinking.join(", ")}, got ${thinking}`;
-	}
-	return undefined;
 }
 
 function workerContract(state: WorkerState): string {
@@ -186,8 +157,10 @@ async function writeManifest(ctx: ExtensionContext, state: WorkerState): Promise
 			{
 				role: state.role,
 				sessionId: ctx.sessionManager.getSessionId(),
-				model: actualModel(ctx),
-				thinking: ctx.thinkingLevel,
+				launchModel: state.launchModel,
+				launchThinking: state.launchThinking,
+				currentModel: actualModel(ctx),
+				currentThinking: String(ctx.thinkingLevel),
 				maxPromptCycles: state.maxCycles,
 				completedPromptCycles: state.completedCycles,
 			},
@@ -206,7 +179,6 @@ async function initializeWorker(
 	const config = await loadWorkerConfig();
 	const profile = config.profiles[role];
 	if (!profile?.skill) throw new Error(`Unknown or incomplete advisor worker role: ${role}`);
-	const rejection = identityRejection(ctx, config.models);
 	const sessionId = ctx.sessionManager.getSessionId();
 	const runDir = await advisorRunsDir(ctx.cwd, sessionId);
 	await mkdir(runDir, { recursive: true });
@@ -216,7 +188,6 @@ async function initializeWorker(
 		runDir,
 		maxCycles: positiveInteger(pi.getFlag("advisor-worker-max-turns"), profile.maxTurns ?? 3),
 		completedCycles: 0,
-		modelValid: !rejection,
 		launchModel: actualModel(ctx),
 		launchThinking: String(ctx.thinkingLevel),
 	};
@@ -227,10 +198,10 @@ async function initializeWorker(
 		launchThinking: state.launchThinking,
 	});
 	await writeManifest(ctx, state);
-	ctx.ui.setStatus("advisor-worker", `${role} · ${actualModel(ctx)} · ${ctx.thinkingLevel}`);
-	if (rejection) {
-		ctx.ui.notify(`Worker identity rejected: ${rejection}`, "error");
-	}
+	ctx.ui.setStatus(
+		"advisor-worker",
+		`${role} · launch ${state.launchModel}/${state.launchThinking} · current ${actualModel(ctx)}/${ctx.thinkingLevel}`,
+	);
 	return state;
 }
 
@@ -258,14 +229,6 @@ function registerInputGuard(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 			event.text.startsWith("/skill:advisor ")
 		) {
 			ctx.ui.notify("Worker sessions cannot become advisor sessions.", "error");
-			return { action: "handled" as const };
-		}
-		if (!state.modelValid) {
-			ctx.ui.notify("Worker identity is outside the advisor model map; task execution is blocked.", "error");
-			return { action: "handled" as const };
-		}
-		if (actualModel(ctx) !== state.launchModel || String(ctx.thinkingLevel) !== state.launchThinking) {
-			ctx.ui.notify("Worker model or reasoning changed; task execution is blocked.", "error");
 			return { action: "handled" as const };
 		}
 		if (state.completedCycles >= state.maxCycles) {
@@ -302,6 +265,10 @@ function registerCycleTracking(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 		if (!state) return;
 		state.completedCycles += 1;
 		await writeManifest(ctx, state);
+		ctx.ui.setStatus(
+			"advisor-worker",
+			`${state.role} · launch ${state.launchModel}/${state.launchThinking} · current ${actualModel(ctx)}/${ctx.thinkingLevel}`,
+		);
 	});
 }
 

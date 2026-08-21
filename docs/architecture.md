@@ -23,7 +23,8 @@ flowchart LR
 The harness owns:
 
 - first-party advisor extensions and skills;
-- the named advisor intelligence profiles and the live map they materialize
+- fixed `bg_agent` role guardrails;
+- named advisor intelligence guides and the separate live guide they materialize
   (see [`intelligence-profiles.md`](intelligence-profiles.md));
 - safe Pi and MCP overlays;
 - exact Pi package versions or full Git commits;
@@ -36,9 +37,14 @@ Pi owns package installation and provider login. Herdr owns and regenerates its 
 
 The installer copies first-party files, deep-merges safe MCP settings, and merges package settings by package identity. A new exact pin replaces an old version of the same package without deleting unrelated user packages.
 
+`bg-agent-profiles.json` is installed as fixed, generic role transport
+configuration. Named guides are refreshed under `intelligence-profiles/`, while
+the existing `ACTIVE` selection is preserved and rematerialized as
+`advisor-intelligence.json`. Switching a guide never rewrites role transport.
+
 Before each mutation, it creates a scoped backup. It does not reload Pi, migrate an active session, or copy authentication.
 
-`pi-detach` is not vendored. The settings overlay points to its public repository at one full commit, so its code stays reusable and its release history stays independent.
+`pi-detach` is not vendored. The settings overlay points to its public repository at one full reviewed commit. That transport accepts legacy intelligence fields but ignores them; this harness supplies standalone role-only configuration.
 
 ## Herdr session topology
 

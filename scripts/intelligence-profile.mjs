@@ -5,7 +5,6 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 export const DEFAULT_PROFILE = "codex-max";
-export const ALLOWED_CURSOR_MODEL = "cursor/grok-4.6";
 export const REQUIRED_ROLES = [
   "scout",
   "planner",
@@ -14,9 +13,36 @@ export const REQUIRED_ROLES = [
   "checker",
   "browser-verifier",
 ];
+const REASONING_LEVELS = new Set(["minimal", "low", "medium", "high", "xhigh", "max"]);
+const FORBIDDEN_ROLE_POLICY_FIELDS = new Set([
+  "model",
+  "provider",
+  "models",
+  "allowedModels",
+  "allowedThinkingByModel",
+]);
+const ROLE_FIELDS = new Set([
+  "description",
+  "agent",
+  "skill",
+  "tools",
+  "excludeTools",
+  "cliArgs",
+  "turnCapFlag",
+  "maxTurns",
+  "requireAnchor",
+]);
 
 function isObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && Boolean(value.trim());
+}
+
+function stringArray(value) {
+  return Array.isArray(value) && value.every(nonEmptyString);
 }
 
 export function agentDir(override) {
@@ -27,38 +53,28 @@ export function profileDir(target) {
   return join(target, "intelligence-profiles");
 }
 
-export function liveMapPath(target) {
+export function roleConfigPath(target) {
   return join(target, "bg-agent-profiles.json");
+}
+
+export function liveGuidePath(target) {
+  return join(target, "advisor-intelligence.json");
 }
 
 export function activePath(target) {
   return join(profileDir(target), "ACTIVE");
 }
 
-export function intelligenceMapErrors(config) {
+export function roleConfigErrors(config) {
   const errors = [];
-  const models = isObject(config.models) ? config.models : {};
-  const profiles = isObject(config.profiles) ? config.profiles : {};
-  if (!Object.keys(models).length) errors.push("Advisor intelligence map has no models");
-
-  for (const [modelId, entry] of Object.entries(models)) {
-    if (modelId.startsWith("cursor/") && modelId !== ALLOWED_CURSOR_MODEL) {
-      errors.push(`Cursor model is not allowed: ${modelId} (only ${ALLOWED_CURSOR_MODEL})`);
-    }
-    if (!isObject(entry)) {
-      errors.push(`Invalid intelligence-map entry: ${modelId}`);
-      continue;
-    }
-    if (!Array.isArray(entry.thinking) || entry.thinking.length === 0) {
-      errors.push(`Model has no allowed reasoning levels: ${modelId}`);
-    }
-    if (typeof entry.defaultThinking !== "string" || !entry.thinking?.includes(entry.defaultThinking)) {
-      errors.push(`Model default reasoning is not allowed: ${modelId}`);
-    }
-    if (typeof entry.character !== "string" || !entry.character.trim()) {
-      errors.push(`Model has no character guidance: ${modelId}`);
-    }
+  if (!isObject(config)) return ["Advisor role configuration is not an object"];
+  if (!nonEmptyString(config.defaultAgent)) errors.push("Advisor role configuration has no defaultAgent");
+  if (Object.hasOwn(config, "models")) errors.push("Advisor role configuration must not contain models");
+  for (const field of Object.keys(config)) {
+    if (!["defaultAgent", "profiles"].includes(field)) errors.push(`Unknown advisor role configuration field: ${field}`);
   }
+  const profiles = isObject(config.profiles) ? config.profiles : {};
+  if (!Object.keys(profiles).length) errors.push("Advisor role configuration has no profiles");
 
   for (const role of REQUIRED_ROLES) {
     const profile = profiles[role];
@@ -66,44 +82,105 @@ export function intelligenceMapErrors(config) {
       errors.push(`Missing advisor role: ${role}`);
       continue;
     }
+    for (const field of FORBIDDEN_ROLE_POLICY_FIELDS) {
+      if (Object.hasOwn(profile, field)) errors.push(`Role ${role} contains intelligence policy field: ${field}`);
+    }
+    for (const field of Object.keys(profile)) {
+      if (!ROLE_FIELDS.has(field) && !FORBIDDEN_ROLE_POLICY_FIELDS.has(field)) {
+        errors.push(`Role ${role} contains unknown field: ${field}`);
+      }
+    }
+    if (!nonEmptyString(profile.description)) errors.push(`Role has no description: ${role}`);
+    if (!nonEmptyString(profile.agent)) errors.push(`Role has no agent: ${role}`);
+    if (!nonEmptyString(profile.skill)) errors.push(`Role has no forced skill: ${role}`);
+    if (profile.tools !== undefined && !stringArray(profile.tools)) errors.push(`Role has invalid tools: ${role}`);
+    if (profile.excludeTools !== undefined && !stringArray(profile.excludeTools)) {
+      errors.push(`Role has invalid excludeTools: ${role}`);
+    }
+    if (profile.tools === undefined && profile.excludeTools === undefined) {
+      errors.push(`Role has no tools or excludeTools guardrail: ${role}`);
+    }
+    if (!stringArray(profile.cliArgs)) errors.push(`Role has invalid CLI args: ${role}`);
+    if (!nonEmptyString(profile.turnCapFlag)) errors.push(`Role has no turn-cap flag: ${role}`);
     if (!Number.isInteger(profile.maxTurns) || profile.maxTurns < 1) {
       errors.push(`Invalid prompt-cycle cap for role: ${role}`);
     }
     if (profile.requireAnchor !== true) errors.push(`Role does not require an anchor: ${role}`);
-    if (!Array.isArray(profile.allowedModels) || profile.allowedModels.length === 0) {
-      errors.push(`Role has no allowed models: ${role}`);
+  }
+  for (const role of Object.keys(profiles)) {
+    if (!REQUIRED_ROLES.includes(role)) errors.push(`Unknown advisor role: ${role}`);
+  }
+  return errors;
+}
+
+export function intelligenceGuideErrors(config, configuredRoles = REQUIRED_ROLES) {
+  const errors = [];
+  if (!isObject(config)) return ["Advisor intelligence guide is not an object"];
+  if (!nonEmptyString(config.name)) errors.push("Advisor intelligence guide has no name");
+  for (const field of Object.keys(config)) {
+    if (!["name", "models", "recommendations"].includes(field)) {
+      errors.push(`Unknown advisor intelligence guide field: ${field}`);
+    }
+  }
+  const models = isObject(config.models) ? config.models : {};
+  const recommendations = isObject(config.recommendations) ? config.recommendations : {};
+  if (!Object.keys(models).length) errors.push("Advisor intelligence guide has no models");
+
+  for (const [modelId, entry] of Object.entries(models)) {
+    if (!nonEmptyString(modelId) || !isObject(entry)) {
+      errors.push(`Invalid intelligence-guide entry: ${modelId}`);
       continue;
     }
-    for (const modelId of profile.allowedModels) {
-      if (!models[modelId]) errors.push(`Role ${role} references unknown model: ${modelId}`);
-    }
-    if (profile.allowedThinkingByModel === undefined) continue;
-    if (!isObject(profile.allowedThinkingByModel)) {
-      errors.push(`Role ${role} has invalid per-model reasoning constraints`);
-      continue;
-    }
-    for (const [modelId, levels] of Object.entries(profile.allowedThinkingByModel)) {
-      if (!profile.allowedModels.includes(modelId)) {
-        errors.push(`Role ${role} constrains reasoning for a disallowed model: ${modelId}`);
+    for (const field of Object.keys(entry)) {
+      if (!["character", "defaultThinking"].includes(field)) {
+        errors.push(`Model ${modelId} has unknown guidance field: ${field}`);
       }
-      if (!Array.isArray(levels) || levels.length === 0) {
-        errors.push(`Role ${role} has no allowed reasoning levels for model: ${modelId}`);
+    }
+    if (!nonEmptyString(entry.character)) errors.push(`Model has no character guidance: ${modelId}`);
+    if (!REASONING_LEVELS.has(entry.defaultThinking)) {
+      errors.push(`Model has invalid default reasoning guidance: ${modelId}`);
+    }
+  }
+
+  for (const role of configuredRoles) {
+    const choices = recommendations[role];
+    if (!Array.isArray(choices) || choices.length === 0) {
+      errors.push(`Role has no recommendations: ${role}`);
+      continue;
+    }
+    const seen = new Set();
+    for (const [index, choice] of choices.entries()) {
+      if (!isObject(choice)) {
+        errors.push(`Role ${role} has invalid recommendation at index ${index}`);
         continue;
       }
-      const modelLevels = models[modelId]?.thinking;
-      for (const level of levels) {
-        if (!Array.isArray(modelLevels) || !modelLevels.includes(level)) {
-          errors.push(`Role ${role} allows unsupported reasoning ${level} for model: ${modelId}`);
+      for (const field of Object.keys(choice)) {
+        if (!["model", "thinking", "fit"].includes(field)) {
+          errors.push(`Role ${role} recommendation has unknown field: ${field}`);
         }
       }
+      if (!nonEmptyString(choice.model) || !models[choice.model]) {
+        errors.push(`Role ${role} references unknown model: ${choice.model}`);
+      }
+      if (!REASONING_LEVELS.has(choice.thinking)) {
+        errors.push(`Role ${role} recommends invalid reasoning ${choice.thinking} for model: ${choice.model}`);
+      }
+      if (!nonEmptyString(choice.fit)) errors.push(`Role ${role} recommendation has no fit guidance at index ${index}`);
+      const identity = `${choice.model}/${choice.thinking}`;
+      if (seen.has(identity)) errors.push(`Role ${role} repeats recommendation: ${identity}`);
+      seen.add(identity);
     }
+  }
+  for (const role of Object.keys(recommendations)) {
+    if (!configuredRoles.includes(role)) errors.push(`Recommendations reference unknown role: ${role}`);
   }
   return errors;
 }
 
 export async function listProfileNames(target) {
   const dir = profileDir(target);
-  const names = (await readdir(dir))
+  const entries = await readdir(dir);
+  const names = entries
     .filter((name) => name.endsWith(".json"))
     .map((name) => name.slice(0, -".json".length))
     .sort();
@@ -116,13 +193,14 @@ export async function readJson(path) {
   try {
     return JSON.parse(contents);
   } catch (error) {
-    throw new Error(`Invalid intelligence profile JSON: ${path}`, { cause: error });
+    throw new Error(`Invalid JSON: ${path}`, { cause: error });
   }
 }
 
 export async function readActiveName(target) {
   try {
-    const name = (await readFile(activePath(target), "utf8")).trim();
+    const contents = await readFile(activePath(target), "utf8");
+    const name = contents.trim();
     return name || undefined;
   } catch (error) {
     if (error.code === "ENOENT") return undefined;
@@ -130,8 +208,15 @@ export async function readActiveName(target) {
   }
 }
 
+export async function configuredRoleNames(target) {
+  const config = await readJson(roleConfigPath(target));
+  const errors = roleConfigErrors(config);
+  if (errors.length) throw new Error(`Invalid advisor role configuration:\n- ${errors.join("\n- ")}`);
+  return Object.keys(config.profiles);
+}
+
 export async function inferProfileName(target, live) {
-  const bytes = live ?? await readFile(liveMapPath(target));
+  const bytes = live ?? await readFile(liveGuidePath(target));
   for (const name of await listProfileNames(target)) {
     const candidate = await readFile(join(profileDir(target), `${name}.json`));
     if (Buffer.compare(bytes, candidate) === 0) return name;
@@ -160,10 +245,12 @@ export async function applyNamedProfile(target, name, { backupLive = true } = {}
   }
   const source = join(profileDir(target), `${name}.json`);
   const parsed = await readJson(source);
-  const errors = intelligenceMapErrors(parsed);
+  const roles = await configuredRoleNames(target);
+  const errors = intelligenceGuideErrors(parsed, roles);
+  if (parsed.name !== name) errors.unshift(`Profile name ${parsed.name} does not match file name ${name}`);
   if (errors.length) throw new Error(`Invalid profile ${name}:\n- ${errors.join("\n- ")}`);
 
-  const live = liveMapPath(target);
+  const live = liveGuidePath(target);
   if (backupLive) {
     try {
       const previous = await readFile(live);
@@ -193,15 +280,23 @@ export async function statusLines(target) {
   const names = await listProfileNames(target);
   const recorded = await readActiveName(target);
   const inferred = await inferProfileName(target).catch(() => undefined);
-  const live = inferred ?? "custom/unmatched";
-  return [
+  const active = inferred ?? "custom/unmatched";
+  const lines = [
     `Target: ${target}`,
     `Active file: ${recorded ?? "(missing)"}`,
-    `Live map matches: ${live}`,
+    `Live guide matches: ${active}`,
     `Profiles: ${names.join(", ")}`,
-    "This session's /model is unchanged. Subsequent bg_agent launches read the live map.",
-    "If the advisor session itself was on Sol, switch it to Fable or Grok after a lean/heavy cutover.",
   ];
+  if (inferred) {
+    const guide = await readJson(join(profileDir(target), `${inferred}.json`));
+    for (const [role, choices] of Object.entries(guide.recommendations)) {
+      const preferred = choices[0];
+      lines.push(`Preferred ${role}: ${preferred.model} (${preferred.thinking}) — ${preferred.fit}`);
+    }
+  }
+  lines.push("The fixed bg_agent role configuration is unchanged. Recommendations guide subsequent advisor choices but do not restrict launches.");
+  lines.push("This session's /model and already-running workers are unchanged.");
+  return lines;
 }
 
 function usage() {
@@ -221,7 +316,6 @@ export async function runCli(argv) {
   target = agentDir(target);
   if (args[0] === "--list" || args.length === 0) {
     for (const line of await statusLines(target)) console.log(line);
-    if (args[0] === "--list") return;
     return;
   }
   if (args[0] === "--help" || args.length !== 1 || args[0].startsWith("-")) {

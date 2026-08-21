@@ -21,9 +21,10 @@ import { fileURLToPath } from "node:url";
 import {
   ensureActiveProfile,
   inferProfileName,
-  intelligenceMapErrors,
+  intelligenceGuideErrors,
   listProfileNames,
   readJson as readProfileJson,
+  roleConfigErrors,
 } from "./intelligence-profile.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -58,6 +59,7 @@ const COPY_ENTRIES = [
   ["skills/advisor-worker", "skills/advisor-worker"],
   ["skills/graph-driver", "skills/graph-driver"],
   ["config/ui-pack.config.json", "ui-pack.config.json"],
+  ["config/bg-agent-profiles.json", "bg-agent-profiles.json"],
   ["config/intelligence-profiles/codex-max.json", "intelligence-profiles/codex-max.json"],
   ["config/intelligence-profiles/codex-lean.json", "intelligence-profiles/codex-lean.json"],
   ["config/intelligence-profiles/anthropic-heavy.json", "intelligence-profiles/anthropic-heavy.json"],
@@ -294,7 +296,7 @@ function managedDestinations() {
   return [
     ...COPY_ENTRIES.map(([, destination]) => destination),
     ...MERGE_ENTRIES.map(([, destination]) => destination),
-    "bg-agent-profiles.json",
+    "advisor-intelligence.json",
     "intelligence-profiles/ACTIVE",
     STATE_FILE,
   ];
@@ -384,6 +386,9 @@ async function plan(options) {
   for (const [source, destination] of MERGE_ENTRIES) {
     console.log(`MERGE ${source} -> ${destination}`);
   }
+  console.log("PRESERVE intelligence-profiles/ACTIVE when its named guide still exists");
+  console.log("MATERIALIZE selected guide -> advisor-intelligence.json");
+  console.log("NEVER mutate bg-agent-profiles.json during intelligence switching");
   console.log("BACKUP every managed destination before replacement or merge");
   console.log("NO reload, provider login, runtime-state transfer, or active-session migration");
 }
@@ -526,14 +531,16 @@ async function doctor(options) {
     if (await digest(expected) !== await digest(actual)) errors.push(`Drift: ${destination}`);
   }
 
-  const profiles = await readJson(join(target, "bg-agent-profiles.json"), {});
-  errors.push(...intelligenceMapErrors(profiles));
+  const roleConfig = await readJson(join(target, "bg-agent-profiles.json"), {});
+  errors.push(...roleConfigErrors(roleConfig));
   try {
     const matched = await inferProfileName(target);
-    if (!matched) errors.push("Live intelligence map does not match a named profile");
+    if (!matched) errors.push("Live advisor intelligence guide does not match a named profile");
+    const roles = Object.keys(roleConfig.profiles ?? {});
     for (const name of await listProfileNames(target)) {
       const named = await readProfileJson(join(target, "intelligence-profiles", `${name}.json`));
-      for (const error of intelligenceMapErrors(named)) errors.push(`Profile ${name}: ${error}`);
+      if (named.name !== name) errors.push(`Profile ${name}: name does not match file name`);
+      for (const error of intelligenceGuideErrors(named, roles)) errors.push(`Profile ${name}: ${error}`);
     }
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
@@ -608,7 +615,7 @@ async function doctor(options) {
     return;
   }
   console.log(`Doctor passed for ${target}`);
-  console.log("All managed copies, role assignments, package settings, and security checks passed.");
+  console.log("All managed copies, fixed role guardrails, advisor guidance, package settings, and security checks passed.");
 }
 
 async function restoreScoped(options, target, backupRoot, runtimeName, expectedDestinations) {

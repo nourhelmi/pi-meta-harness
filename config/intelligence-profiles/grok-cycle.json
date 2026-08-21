@@ -1,155 +1,86 @@
 {
-  "defaultAgent": "pi",
+  "name": "grok-cycle",
   "models": {
     "claude-bridge/claude-fable-5": {
-      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Grok at high and the advisor session switches to Grok.",
-      "thinking": [
-        "medium",
-        "high"
-      ],
+      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Grok at high and the advisor session switches to Grok.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Luna replacement: cheap short-leash procedural work. Scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification — deterministic anchors backstop it. Default reasoning is medium. Do not assign adversarial-tier checking, final whole-diff review, reduction, planning, or substantial implementation. Grok is the hefty-cycle model.",
-      "thinking": [
-        "medium",
-        "high"
-      ],
+      "character": "Advisory: Luna replacement: cheap short-leash procedural work. Scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification — deterministic anchors backstop it. Default reasoning is medium. Generally avoid assigning adversarial-tier checking, final whole-diff review, reduction, planning, or substantial implementation. Grok is the hefty-cycle model.",
       "defaultThinking": "medium"
     },
     "cursor/grok-4.6": {
-      "character": "The hefty cycle: implementation workhorse and adversarial-tier reviewer. Backend, data, mixed-stack, substantial existing-UX, greenfield UX (load frontend-design), research, schema/auth/security/money checks, final whole-diff review before PR, rechecks after an overturned pass, and reduction. Also the planning/advisor fallback when Fable is at Anthropic capacity. 200K window — keep packets bounded and split oversized reviews per package or phase. A Grok review of a Grok build is expected in this profile; the deterministic anchors are the independence backstop, not a second model. The only Cursor model this map may use. Preserve Cursor catalog fast-mode default.",
-      "thinking": [
-        "high"
-      ],
+      "character": "Advisory: The hefty cycle: implementation workhorse and adversarial-tier reviewer. Backend, data, mixed-stack, substantial existing-UX, greenfield UX (load frontend-design), research, schema/auth/security/money checks, final whole-diff review before PR, rechecks after an overturned pass, and reduction. Also the planning/advisor fallback when Fable is at Anthropic capacity. 200K window — keep packets bounded and split oversized reviews per package or phase. A Grok review of a Grok build is expected in this profile; the deterministic anchors are the independence backstop, not a second model. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
       "defaultThinking": "high"
     }
   },
-  "profiles": {
-    "scout": {
-      "description": "Read-only investigation with bounded, source-linked findings.",
-      "agent": "pi",
-      "skill": "advisor-role-scout",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "scout"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 3,
-      "requireAnchor": true,
-      "allowedModels": [
-        "claude-bridge/claude-sonnet-5",
-        "cursor/grok-4.6"
-      ]
-    },
-    "planner": {
-      "description": "Plan fixed work from verified code and product constraints.",
-      "agent": "pi",
-      "skill": "advisor-role-planner",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "planner"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 3,
-      "requireAnchor": true,
-      "allowedModels": [
-        "claude-bridge/claude-fable-5",
-        "cursor/grok-4.6"
-      ]
-    },
-    "reducer": {
-      "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
-      "agent": "pi",
-      "skill": "advisor-role-reducer",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "reducer"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 2,
-      "requireAnchor": true,
-      "allowedModels": [
-        "cursor/grok-4.6"
-      ]
-    },
-    "builder": {
-      "description": "Implement fixed acceptance criteria in one assigned worktree.",
-      "agent": "pi",
-      "skill": "advisor-role-builder",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "builder"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 6,
-      "requireAnchor": true,
-      "allowedModels": [
-        "cursor/grok-4.6",
-        "claude-bridge/claude-sonnet-5"
-      ]
-    },
-    "checker": {
-      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier and final whole-diff review run on Grok; procedural tier runs on Sonnet.",
-      "agent": "pi",
-      "skill": "advisor-role-checker",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "checker"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 5,
-      "requireAnchor": true,
-      "allowedModels": [
-        "cursor/grok-4.6",
-        "claude-bridge/claude-sonnet-5"
-      ]
-    },
-    "browser-verifier": {
-      "description": "Integrated browser verification and safe evidence capture. Defaults to Sonnet; use Grok only for a genuinely ambiguous visual or behavioral judgment.",
-      "agent": "pi",
-      "skill": "advisor-role-browser-verifier",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "browser-verifier"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 5,
-      "requireAnchor": true,
-      "allowedModels": [
-        "claude-bridge/claude-sonnet-5",
-        "cursor/grok-4.6"
-      ]
-    }
+  "recommendations": {
+    "scout": [
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "medium",
+        "fit": "Preferred for bounded investigation in this profile."
+      },
+      {
+        "model": "cursor/grok-4.6",
+        "thinking": "high",
+        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
+      }
+    ],
+    "planner": [
+      {
+        "model": "claude-bridge/claude-fable-5",
+        "thinking": "high",
+        "fit": "Preferred for planning in this profile."
+      },
+      {
+        "model": "cursor/grok-4.6",
+        "thinking": "high",
+        "fit": "Planning fallback when the preferred choice is unavailable or a different fit is justified."
+      }
+    ],
+    "reducer": [
+      {
+        "model": "cursor/grok-4.6",
+        "thinking": "high",
+        "fit": "Preferred for synthesis and conflict reduction in this profile."
+      }
+    ],
+    "builder": [
+      {
+        "model": "cursor/grok-4.6",
+        "thinking": "high",
+        "fit": "Preferred implementation choice in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "medium",
+        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+      }
+    ],
+    "checker": [
+      {
+        "model": "cursor/grok-4.6",
+        "thinking": "high",
+        "fit": "Preferred fresh-context review choice in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "medium",
+        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+      }
+    ],
+    "browser-verifier": [
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "medium",
+        "fit": "Preferred for browser verification in this profile."
+      },
+      {
+        "model": "cursor/grok-4.6",
+        "thinking": "high",
+        "fit": "Alternate for ambiguous visual or behavioral verification."
+      }
+    ]
   }
 }

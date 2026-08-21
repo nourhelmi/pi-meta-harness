@@ -31,6 +31,8 @@ test("plan does not create the sandbox target", async () => {
   const result = run("plan", "--target", target);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /NO reload/);
+  assert.match(result.stdout, /MATERIALIZE selected guide -> advisor-intelligence\.json/);
+  assert.match(result.stdout, /NEVER mutate bg-agent-profiles\.json/);
   await assert.rejects(readFile(join(target, "settings.json")));
   await rm(parent, { recursive: true, force: true });
 });
@@ -57,7 +59,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(settings.defaultModel, "gpt-5.6-sol");
   assert.equal(settings.defaultThinkingLevel, "high");
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@b508eb4c35c7b0339cb8ff8c324d9f4760a1648b"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@8d3a78f0fbbe2bfea2223e12b9555cf0abe426bd"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
@@ -94,48 +96,22 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(mcp.mcpServers.newrelic.env.NEW_RELIC_API_KEY, "${NEW_RELIC_API_KEY}");
   assert.equal(mcp.mcpServers.context7.headers.CONTEXT7_API_KEY, "${CONTEXT7_API_KEY}");
 
-  const profiles = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
-  assert.deepEqual(profiles.profiles.planner.allowedModels, [
-    "claude-bridge/claude-fable-5",
-    "openai-codex/gpt-5.6-sol",
-  ]);
-  assert.deepEqual(profiles.profiles.checker.allowedModels, [
-    "openai-codex/gpt-5.6-terra",
-    "openai-codex/gpt-5.6-sol",
-    "openai-codex/gpt-5.6-luna",
-  ]);
-  assert.deepEqual(profiles.profiles["browser-verifier"].allowedModels, [
-    "openai-codex/gpt-5.6-luna",
-    "openai-codex/gpt-5.6-terra",
-  ]);
-  assert.deepEqual(
-    profiles.profiles.planner.allowedThinkingByModel["openai-codex/gpt-5.6-sol"],
-    ["high"],
-  );
-  assert.deepEqual(
-    profiles.profiles.builder.allowedThinkingByModel["openai-codex/gpt-5.6-sol"],
-    ["high", "xhigh", "max"],
-  );
-  assert.deepEqual(
-    profiles.profiles.checker.allowedThinkingByModel,
-    {
-      "openai-codex/gpt-5.6-terra": ["xhigh"],
-      "openai-codex/gpt-5.6-sol": ["medium"],
-      "openai-codex/gpt-5.6-luna": ["max"],
-    },
-  );
-  assert(profiles.profiles.scout.allowedModels.includes("openai-codex/gpt-5.6-luna"));
-  assert(profiles.profiles.builder.allowedModels.includes("claude-bridge/claude-opus-5"));
-  assert(profiles.profiles.builder.allowedModels.includes("cursor/grok-4.6"));
-  assert.equal(profiles.models["openai-codex/gpt-5.6-sol"].defaultThinking, "high");
-  assert(profiles.models["openai-codex/gpt-5.6-sol"].thinking.includes("medium"));
-  assert.equal(profiles.models["claude-bridge/claude-fable-5"].defaultThinking, "high");
+  const roles = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
+  assert.deepEqual(Object.keys(roles).sort(), ["defaultAgent", "profiles"]);
+  assert.equal(roles.profiles.planner.skill, "advisor-role-planner");
+  assert.equal(roles.profiles.builder.maxTurns, 6);
+  assert.equal(roles.profiles.checker.requireAnchor, true);
+  assert.equal("models" in roles, false);
+  assert.equal("allowedModels" in roles.profiles.builder, false);
+  const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
+  assert.equal(guide.name, "codex-max");
+  assert.equal(guide.recommendations.planner[0].model, "claude-bridge/claude-fable-5");
+  assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-5.6-terra");
+  assert.equal(guide.recommendations.builder[0].thinking, "high");
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-max\n");
   assert(settings.enabledModels.includes("claude-bridge/claude-sonnet-5"));
-  assert.equal(
-    await readFile(join(ROOT, "config", "bg-agent-profiles.json"), "utf8"),
-    await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"),
-  );
+  assert.equal(await readFile(join(target, "bg-agent-profiles.json"), "utf8"), await readFile(join(ROOT, "config", "bg-agent-profiles.json"), "utf8"));
+  assert.equal(await readFile(join(target, "advisor-intelligence.json"), "utf8"), await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"));
 
   const second = run("install", "--target", target);
   assert.equal(second.status, 0, second.stderr);
@@ -179,20 +155,25 @@ test("doctor rejects unified edit snapshot drift", async () => {
   await rm(target, { recursive: true, force: true });
 });
 
-test("doctor rejects an invalid intelligence map", async () => {
+test("doctor rejects invalid fixed roles and advisor guidance", async () => {
   const target = await temporaryTarget();
   const install = run("install", "--target", target);
   assert.equal(install.status, 0, install.stderr);
-  const path = join(target, "bg-agent-profiles.json");
-  const profiles = JSON.parse(await readFile(path, "utf8"));
-  profiles.profiles.checker.requireAnchor = false;
-  profiles.profiles.builder.allowedModels.push("missing/model");
-  await writeFile(path, `${JSON.stringify(profiles, null, 2)}\n`);
+  const rolesPath = join(target, "bg-agent-profiles.json");
+  const roles = JSON.parse(await readFile(rolesPath, "utf8"));
+  roles.profiles.checker.requireAnchor = false;
+  roles.profiles.builder.allowedModels = ["missing/model"];
+  await writeFile(rolesPath, `${JSON.stringify(roles, null, 2)}\n`);
+  const guidePath = join(target, "advisor-intelligence.json");
+  const guide = JSON.parse(await readFile(guidePath, "utf8"));
+  guide.recommendations.builder[0].model = "missing/model";
+  await writeFile(guidePath, `${JSON.stringify(guide, null, 2)}\n`);
 
   const doctor = run("doctor", "--target", target);
   assert.equal(doctor.status, 1);
   assert.match(doctor.stderr, /Role does not require an anchor: checker/);
-  assert.match(doctor.stderr, /Role builder references unknown model: missing\/model/);
+  assert.match(doctor.stderr, /Role builder contains intelligence policy field: allowedModels/);
+  assert.match(doctor.stderr, /Live advisor intelligence guide does not match a named profile/);
   await rm(target, { recursive: true, force: true });
 });
 
@@ -321,6 +302,7 @@ test("restore returns existing files and removes newly managed files", async () 
   assert.equal(await readFile(join(target, "extensions", "advisor-graph.ts"), "utf8"), "original extension\n");
   assert.equal(await readFile(join(target, "settings.json"), "utf8"), "{\n  \"original\": true\n}\n");
   await assert.rejects(readFile(join(target, "bg-agent-profiles.json")));
+  await assert.rejects(readFile(join(target, "advisor-intelligence.json")));
   await rm(target, { recursive: true, force: true });
 });
 
@@ -454,21 +436,16 @@ test("reinstall keeps a switched intelligence profile", async () => {
     target,
   ], { encoding: "utf8" });
   assert.equal(switched.status, 0, switched.stderr);
+  const fixedRoles = await readFile(join(target, "bg-agent-profiles.json"));
   const second = run("install", "--target", target);
   assert.equal(second.status, 0, second.stderr);
-  const profiles = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-lean\n");
-  assert.deepEqual(profiles.profiles.planner.allowedModels, [
-    "openai-codex/gpt-5.6-sol",
-  ]);
-  assert.deepEqual(profiles.profiles.builder.allowedModels, [
-    "openai-codex/gpt-5.6-sol",
-    "claude-bridge/claude-sonnet-5",
-    "openai-codex/gpt-5.6-luna",
-  ]);
-  assert(!Object.keys(profiles.models).some((id) => id.startsWith("cursor/")));
-  assert(profiles.models["openai-codex/gpt-5.6-terra"]);
-  assert(profiles.models["claude-bridge/claude-sonnet-5"]);
+  assert.deepEqual(await readFile(join(target, "bg-agent-profiles.json")), fixedRoles);
+  const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
+  assert.equal(guide.name, "codex-lean");
+  assert.equal(guide.recommendations.planner[0].model, "openai-codex/gpt-5.6-sol");
+  assert.equal(guide.recommendations.builder[1].model, "claude-bridge/claude-sonnet-5");
+  assert(!Object.keys(guide.models).some((id) => id.startsWith("cursor/")));
   const doctor = run("doctor", "--target", target);
   assert.equal(doctor.status, 0, `${doctor.stdout}\n${doctor.stderr}`);
   await rm(target, { recursive: true, force: true });

@@ -37,5 +37,5 @@ policy. The durable fix is the FDA grant, not a search ban.
 Do **not** `tccutil reset` unless you intend to re-click every grant.
 
 If a TCC dialog still appears after FDA, the grant did not attach to this
-Ghostty process — relaunch Ghostty. Nothing in the intelligence map or Herdr
+Ghostty process — relaunch Ghostty. Nothing in the intelligence guide or Herdr
 can click that dialog remotely.

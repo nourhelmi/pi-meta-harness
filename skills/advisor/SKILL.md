@@ -28,7 +28,7 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    advisor state, and driver scripts. Implementation belongs to workers.
 2. **Maker ≠ checker.** The agent that produced work never verifies it. A
    builder is reviewed by a fresh checker through Pi. Choose each launch's model
-   and reasoning from the model map in the live `bg-agent-profiles.json`; do not
+   and reasoning with the live `advisor-intelligence.json` guide; do not
    hard-code identities here. One carve-out: a checker's small inline repairs
    under its role mandate are closed by deterministic anchor reruns and the
    next natural gate, not by a dedicated fresh checker.
@@ -77,37 +77,36 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
 
 `bg_agent` is the Herdr lifecycle transport. Every configured worker runtime is
 Pi, with normal skill discovery retained. The advisor skill is explicit-only;
-the worker runtime forces its hidden role skill, checks the model and reasoning,
-blocks nested delegation, and writes detailed output under `.advisor/runs/`.
+the worker runtime forces its hidden role skill, blocks nested delegation, and
+writes detailed output under the external advisor runs root.
 
 Roles fix guardrails only: the hidden role skill, coordination permissions,
 turn cap, and anchor requirement. Filesystem tools remain available to every
-role; role instructions define write boundaries. Roles do not pin a model. The `models` map in the live
-`~/.pi/agent/bg-agent-profiles.json` is the **intelligence map**: the allowed
-models, their allowed reasoning levels, defaults, and character notes. You
-choose `model` and `thinking` per launch. Inspect that file when details
-matter; this skill intentionally does not duplicate values that can become
-stale.
+role; role instructions define write boundaries. Roles do not pin or allowlist
+a model. The fixed `~/.pi/agent/bg-agent-profiles.json` contains role transport
+only. The separate `~/.pi/agent/advisor-intelligence.json` contains model
+characters, default reasoning guidance, and ordered role recommendations.
+Choose `model` and `thinking` per launch after reading that guide.
 
-Selection doctrine: pick the cheapest model whose character fits the node, at
-its default reasoning. Escalate reasoning above the default only for a named
-reason (for example a genuinely hard debugging node), and record that reason
-with the launch in the session file. Model character notes in the map are
-binding — a model whose character excludes a task class must not get it.
+Selection doctrine: normally pick the cheapest recommended model whose
+character fits the node, at its recommended reasoning. Choose outside the guide
+when task fit, availability, or capacity warrants, and record a concise
+rationale with the launch. Recommendations are advisory and non-exhaustive;
+worker runtime never rejects an outside-guide or changed identity.
 
-Re-read the live map before each launch, and always after an intelligence-profile
+Re-read the live guide before each launch, and always after an intelligence-profile
 switch. Named profiles live in `~/.pi/agent/intelligence-profiles/`
 (`codex-max`, `codex-lean`, `anthropic-heavy`, `balanced`, `grok-cycle`). When the user asks to switch
-maps, load `switch-intelligence-profile` and run the switcher; do not invent
-model IDs that are absent from the new `allowedModels`.
+guides, load `switch-intelligence-profile` and run the switcher. Switching must
+not change `bg-agent-profiles.json`.
 
-Frontend routing is scope- and capacity-aware (binding), but the **IDs come
-from the live map**:
+Frontend routing is scope- and capacity-aware guidance, and the preferred IDs
+come from the live guide:
 
 - genuinely new or greenfield UX uses the model whose character reserves it for
   greenfield UX (Opus when that model is in the map and Anthropic capacity is
   healthy), always with `frontend-design`;
-- if that model is missing from the live map, or capacity is tight, or a
+- if that model is missing from the live guide, or capacity is tight, or a
   launch reports a capacity limit, use the UX fallback named in that character
   note — currently Grok. Do not spend another scarce-model attempt or silently
   downgrade the UX requirement;
@@ -121,21 +120,22 @@ from the live map**:
 - all UX implementation loads `frontend-design`; load the repository's normal
   frontend skill as well when one exists.
 
-Protect Fable's shared Anthropic session allowance: unless a live character
+Protect Fable's shared Anthropic session allowance: unless live character
 note explicitly assigns review or implementation to Opus, Opus does no
 checking, review, reduction, planning, backend, or routine existing-UX work.
 Fable is reserved for the advisor session itself (at medium) and, when the
-live map lists it on planner, for planner nodes (at high). In `codex-lean`
+guide recommends it for planner, for planner nodes (at high). In `codex-lean`
 planner is Sol, not Fable. Fable takes no other worker role. If Fable reaches
 Anthropic capacity, the advisor session switches to the fallback in Fable's
 character note (Sol in `codex-max`, `codex-lean`, and `balanced`, Grok in
 `grok-cycle` and `anthropic-heavy`); workers cannot silently change the
 advisor's active model.
-For non-UX work, pick the implementation workhorse from the live characters
+For non-UX work, normally pick the implementation workhorse from the live characters
 (Sol in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Sonnet
 default with Sol/Terra for hard backend in `balanced`; Grok in
 `grok-cycle`; Sonnet in `anthropic-heavy`). Cursor may only appear as
-`cursor/grok-4.6`.
+`cursor/grok-4.6`; an exception still requires only a concise rationale, not a
+transport override.
 A feature spanning independently editable surfaces may split under the normal
 builder rules (distinct worktrees plus explicit approval when parallel,
 otherwise serial in one worktree).
@@ -159,8 +159,8 @@ builder worktree isolation. Then execute only the returned waves:
 3. Read bounded `result.md` artifacts, not pane transcripts or raw evidence.
 4. Do not launch a dependent wave until all required upstream nodes passed.
 5. A builder feeds a fresh checker. A browser-visible change then feeds a fresh
-   browser verifier. You select each node's model and reasoning from the
-   intelligence map at launch time, within each role's allowedModels.
+   browser verifier. Select each node's model and reasoning at launch time using
+   the live guide, or record a concise rationale for an outside-guide choice.
 6. Run deterministic anchors with normal commands. An LLM approval is never an
    anchor.
 7. Feed actionable checker findings back to the kept-alive builder, then start
@@ -189,8 +189,8 @@ and record, not a numeric cap; spend and elapsed time are inputs, not limits.
 ## Checker economy
 
 Checking must not dominate the work. Browser verifiers and scouts are
-read-only; checkers are read-mostly with a bounded inline-repair mandate. All
-run on the small model the role's allowedModels designate.
+read-only; checkers are read-mostly with a bounded inline-repair mandate. Use
+the guide's procedural recommendation when it fits.
 
 1. Not every node earns a fresh checker. Default to one checker per phase or
    merged deliverable, plus one final whole-diff review before PR. Give an
@@ -206,7 +206,7 @@ run on the small model the role's allowedModels designate.
    non-product reviewed files and anchors rerun green. Close inline-repaired
    findings with the rerun anchor evidence plus a targeted diff read. Never
    launch a repair maker or a fresh checker for them.
-4. Checking is tiered by risk, not uniform. Pick models from the live map:
+4. Checking is tiered by risk, not uniform. Pick models from the live guide:
    the adversarial-tier reviewer (character says schema/auth/security/money
    and final whole-diff review) for those checks, rechecks after an overturned
    pass, and reduction; the procedural-tier model (character says routine
@@ -282,7 +282,7 @@ For each piece of work, in order:
   bounded `bg_run`. `bg_run` is for tests, builds, and shell commands only. It
   must never launch an LLM or a script that launches LLMs.
 - **One delegated task** → use `bg_agent` with a self-contained prompt, a useful
-  label, a model and reasoning chosen from the intelligence map, the correct
+  label, a model and reasoning chosen with the intelligence guide, the correct
   working directory or worktree, a cap, and a fixed anchor.
 - **Needs supervision or dialogue** → use `bg_agent`. It wakes this session when
   it settles. Answer blocked agents with the same agent name.

@@ -4,17 +4,15 @@ description: >
   Switch or show the advisor intelligence profile (codex-max, codex-lean,
   anthropic-heavy, balanced, grok-cycle). Use when the user says "switch to
   lean", "switch to balanced", "switch to grok-cycle", "codex weekly is gone",
-  "use the anthropic-heavy map", "change intelligence profile", or asks which
-  model map is active.
-  Mid-session switches apply to subsequent bg_agent launches immediately.
+  "use the anthropic-heavy guide", "change intelligence profile", or asks which
+  guidance is active. Mid-session switches guide subsequent bg_agent choices.
 ---
 
 # Switch intelligence profile
 
-The live advisor model map is `~/.pi/agent/bg-agent-profiles.json`. Named
-profiles live in `~/.pi/agent/intelligence-profiles/`. Switching copies a named
-file over the live map. The next `bg_agent` launch re-reads that file. Do not
-edit the live map by hand.
+The live advisor guide is `~/.pi/agent/advisor-intelligence.json`. Named guides
+live in `~/.pi/agent/intelligence-profiles/`. Fixed role guardrails live in
+`~/.pi/agent/bg-agent-profiles.json` and must remain byte-unchanged by a switch.
 
 ## Do this
 
@@ -30,35 +28,36 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" codex-max
 ```
 
-If the live copy is missing, run it from the harness checkout:
+If the installed switcher is missing, run it from the harness checkout:
 
 ```bash
 node /Users/nour/Dev/pi-meta-harness/scripts/intelligence-profile.mjs <name>
 ```
 
-Then **re-read** the live `bg-agent-profiles.json` before the next launch.
-Choose `model` and `thinking` only from that file's `models` map and the
-role's `allowedModels`. Character notes in the new map are binding.
+Then re-read `advisor-intelligence.json` before the next launch. Use its ordered
+`recommendations` and model `character` notes as preferred guidance. The list is
+not exhaustive or enforceable: choose outside it when task fit, availability,
+or capacity warrants, and include a concise rationale in the task packet or
+advisor record. Do not edit the fixed role config.
 
 ## After a switch
 
-- Already-running workers keep their launch model. Only new launches change.
-- This advisor session's `/model` does not change. If the session was on Sol
-  and the new map has no Sol, tell the user to switch the session to Fable or
-  Grok. Workers cannot change the advisor's active model.
-- Report the active profile name and the workhorse/reviewer from the new map.
+- Report the active profile and preferred workhorse/reviewer shown by the switcher.
+- Already-running workers keep their launch identity.
+- This advisor session's `/model` does not change.
+- New workers do not reject outside-guide identities or later identity changes;
+  manifests retain launch/current model and thinking for audit.
+- Role skill, no-advisor promotion, tool restrictions, anchors, and cycle caps
+  remain hard regardless of the chosen identity.
 
 ## Profiles
 
 | Name | When | Workhorse | Adversarial review | Procedural |
 | --- | --- | --- | --- | --- |
 | `codex-max` | Codex weekly is healthy | Sol | Terra xhigh / Sol medium | Luna |
-| `codex-lean` | Codex leftover: Sol plans + hard builds; Grok lives on grok-cycle | Sol / Sonnet / Luna by hardness | Terra | Luna, Sonnet |
+| `codex-lean` | Codex remainder is usable | Sol / Sonnet / Luna by hardness | Terra | Luna, Sonnet |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
-| `balanced` | No Grok; Codex builds hard, Anthropic checks | Sonnet default; Sol/Terra hard; Opus greenfield UX | Sonnet, Opus if extreme-risk | Luna, Sonnet |
+| `balanced` | Codex builds hard, Anthropic checks, no Grok | Sonnet default; Sol/Terra hard; Opus greenfield UX | Sonnet, Opus if extreme-risk | Luna, Sonnet |
 | `grok-cycle` | No Codex; Grok owns maker + hefty review | Grok | Grok | Sonnet |
 
-Cursor may only appear as `cursor/grok-4.6`.
-
-Deep dive (topology, spend, pick tree, per-role allowlists):
-[`docs/intelligence-profiles.md`](../../docs/intelligence-profiles.md).
+Deep dive: [`docs/intelligence-profiles.md`](../../docs/intelligence-profiles.md).

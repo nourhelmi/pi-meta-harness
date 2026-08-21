@@ -1,82 +1,92 @@
 import assert from "node:assert/strict";
-import { readFile, rm } from "node:fs/promises";
-import { mkdtemp } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { intelligenceMapErrors } from "../scripts/intelligence-profile.mjs";
+import {
+  intelligenceGuideErrors,
+  REQUIRED_ROLES,
+  roleConfigErrors,
+} from "../scripts/intelligence-profile.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SCRIPT = join(ROOT, "scripts", "intelligence-profile.mjs");
 const HARNESS = join(ROOT, "scripts", "meta-harness.mjs");
+const NAMES = ["codex-max", "codex-lean", "anthropic-heavy", "balanced", "grok-cycle"];
 
-test("named profiles are valid and cursor-only grok", async () => {
-  for (const name of ["codex-max", "codex-lean", "anthropic-heavy", "balanced", "grok-cycle"]) {
-    const config = JSON.parse(
+test("fixed role configuration is standalone and model-free", async () => {
+  const config = JSON.parse(await readFile(join(ROOT, "config", "bg-agent-profiles.json"), "utf8"));
+  assert.deepEqual(roleConfigErrors(config), []);
+  assert.deepEqual(Object.keys(config).sort(), ["defaultAgent", "profiles"]);
+  assert.deepEqual(Object.keys(config.profiles), REQUIRED_ROLES);
+  for (const profile of Object.values(config.profiles)) {
+    assert.equal(typeof profile.skill, "string");
+    assert(!profile.excludeTools.includes("edit"));
+    assert(!profile.excludeTools.includes("write"));
+    assert.equal("model" in profile, false);
+    assert.equal("allowedModels" in profile, false);
+    assert.equal("allowedThinkingByModel" in profile, false);
+  }
+});
+
+test("named advisor guides are structurally valid and cover every role", async () => {
+  for (const name of NAMES) {
+    const guide = JSON.parse(
       await readFile(join(ROOT, "config", "intelligence-profiles", `${name}.json`), "utf8"),
     );
-    assert.deepEqual(intelligenceMapErrors(config), [], name);
-    for (const modelId of Object.keys(config.models)) {
-      if (modelId.startsWith("cursor/")) assert.equal(modelId, "cursor/grok-4.6");
-    }
-    for (const [role, profile] of Object.entries(config.profiles)) {
-      assert(!profile.excludeTools.includes("edit"), `${name}/${role} excludes edit`);
-      assert(!profile.excludeTools.includes("write"), `${name}/${role} excludes write`);
+    assert.equal(guide.name, name);
+    assert.deepEqual(intelligenceGuideErrors(guide, REQUIRED_ROLES), [], name);
+    assert.deepEqual(Object.keys(guide).sort(), ["models", "name", "recommendations"]);
+    assert.deepEqual(Object.keys(guide.recommendations), REQUIRED_ROLES);
+    for (const choices of Object.values(guide.recommendations)) {
+      assert(choices.length > 0);
+      for (const choice of choices) {
+        assert.equal(typeof choice.fit, "string");
+        assert(guide.models[choice.model]);
+      }
     }
   }
 });
 
-test("cursor models other than grok-4.6 are rejected", async () => {
-  const config = JSON.parse(
+test("recommendation typos remain validation errors", async () => {
+  const guide = JSON.parse(
     await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"),
   );
-  config.models["cursor/gpt-5.6-terra"] = {
-    character: "forbidden",
-    thinking: ["high"],
-    defaultThinking: "high",
-  };
-  assert.match(
-    intelligenceMapErrors(config).join("\n"),
-    /Cursor model is not allowed: cursor\/gpt-5.6-terra/,
-  );
+  guide.recommendations.planner[0].model = "missing/model";
+  guide.recommendations.builder[0].thinking = "ultra";
+  guide.recommendations.chekcer = guide.recommendations.checker;
+  const errors = intelligenceGuideErrors(guide, REQUIRED_ROLES).join("\n");
+  assert.match(errors, /planner references unknown model: missing\/model/);
+  assert.match(errors, /builder recommends invalid reasoning ultra/);
+  assert.match(errors, /Recommendations reference unknown role: chekcer/);
 });
 
-test("role reasoning constraints must reference allowed model levels", async () => {
-  const config = JSON.parse(
-    await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"),
-  );
-  config.profiles.planner.allowedThinkingByModel = {
-    "openai-codex/gpt-5.6-luna": ["max"],
-    "openai-codex/gpt-5.6-sol": ["minimal"],
-  };
-  const errors = intelligenceMapErrors(config).join("\n");
-  assert.match(
-    errors,
-    /planner constrains reasoning for a disallowed model: openai-codex\/gpt-5\.6-luna/,
-  );
-  assert.match(
-    errors,
-    /planner allows unsupported reasoning minimal for model: openai-codex\/gpt-5\.6-sol/,
-  );
-});
-
-test("switcher copies the named profile over the live map", async () => {
+test("switching changes only the live advisor guide", async () => {
   const target = await mkdtemp(join(tmpdir(), "pi-intelligence-"));
-  const install = spawnSync(process.execPath, [HARNESS, "install", "--target", target], {
-    cwd: ROOT,
-    encoding: "utf8",
-  });
-  assert.equal(install.status, 0, install.stderr);
-  const switched = spawnSync(process.execPath, [SCRIPT, "codex-lean", "--target", target], {
-    encoding: "utf8",
-  });
-  assert.equal(switched.status, 0, switched.stderr);
-  const live = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
-  const named = JSON.parse(
-    await readFile(join(ROOT, "config", "intelligence-profiles", "codex-lean.json"), "utf8"),
-  );
-  assert.deepEqual(live, named);
-  await rm(target, { recursive: true, force: true });
+  try {
+    const install = spawnSync(process.execPath, [HARNESS, "install", "--target", target], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    assert.equal(install.status, 0, install.stderr);
+    const rolesBefore = await readFile(join(target, "bg-agent-profiles.json"));
+    const guideBefore = await readFile(join(target, "advisor-intelligence.json"));
+
+    const switched = spawnSync(process.execPath, [SCRIPT, "codex-lean", "--target", target], {
+      encoding: "utf8",
+    });
+    assert.equal(switched.status, 0, switched.stderr);
+    assert.match(switched.stdout, /Preferred builder:/);
+    assert.deepEqual(await readFile(join(target, "bg-agent-profiles.json")), rolesBefore);
+    assert.notDeepEqual(await readFile(join(target, "advisor-intelligence.json")), guideBefore);
+    assert.deepEqual(
+      await readFile(join(target, "advisor-intelligence.json")),
+      await readFile(join(ROOT, "config", "intelligence-profiles", "codex-lean.json")),
+    );
+    assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-lean\n");
+  } finally {
+    await rm(target, { recursive: true, force: true });
+  }
 });

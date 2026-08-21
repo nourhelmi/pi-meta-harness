@@ -9,7 +9,7 @@ disable-model-invocation: true
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 Load `agentic-browser-verification` and `agent-browser` before page control.
 
-Use the launch identity selected from the advisor intelligence map. Do not edit
+Use the launch identity selected with the advisor intelligence guide. Do not edit
 product code. Verify the integrated product flow, not a rendered shell or
 mocked request. Run the required readiness doctor, use safe local/dev personas,
 and inspect visible behavior and relevant requests.

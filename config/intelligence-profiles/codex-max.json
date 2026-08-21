@@ -1,206 +1,123 @@
 {
-  "defaultAgent": "pi",
+  "name": "codex-max",
   "models": {
     "claude-bridge/claude-fable-5": {
-      "character": "The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — do not assign checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at high and the advisor session switches to Sol.",
-      "thinking": [
-        "medium",
-        "high"
-      ],
+      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at high and the advisor session switches to Sol.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Medium is checker-only for standard fresh-context review when Terra xhigh is unnecessary. Planning fallback and advisor use remain high. Frontend implementation routes to opus, grok, or terra by UX scope. Terra xhigh remains the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
-      "thinking": [
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ],
+      "character": "Advisory: Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Medium is recommended for checker use only for standard fresh-context review when Terra xhigh is unnecessary. Planning fallback and advisor use remain high. Frontend implementation routes to opus, grok, or terra by UX scope. Terra xhigh remains the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Extremely cheap; the procedural-tier workhorse: scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification — deterministic anchors backstop it. 272K window. Do not assign adversarial-tier checking: schema, auth, security, money, data boundaries, or final whole-diff reviews. Always runs on max.",
-      "thinking": [
-        "max"
-      ],
+      "character": "Advisory: Extremely cheap; the procedural-tier workhorse: scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification — deterministic anchors backstop it. 272K window. Generally avoid assigning adversarial-tier checking: schema, auth, security, money, data boundaries, or final whole-diff reviews. Recommended reasoning is max.",
       "defaultThinking": "max"
     },
     "claude-bridge/claude-opus-5": {
-      "character": "Reserve for genuinely new or greenfield UX/frontend implementation when Anthropic session capacity is healthy, always with frontend-design loaded. Runs at medium reasoning. Grok is the automatic UX fallback when capacity is tight or an Opus launch hits a capacity limit. Not for existing-UX tweaks, checking, review, reduction, planning, or backend.",
-      "thinking": [
-        "medium"
-      ],
+      "character": "Advisory: Reserve for genuinely new or greenfield UX/frontend implementation when Anthropic session capacity is healthy, preferably with frontend-design loaded. Runs at medium reasoning. Grok is the automatic UX fallback when capacity is tight or an Opus launch hits a capacity limit. Not recommended for existing-UX tweaks, checking, review, reduction, planning, or backend.",
       "defaultThinking": "medium"
     },
     "openai-codex/gpt-5.6-terra": {
-      "character": "The adversarial-tier reviewer at xhigh: schema, auth, security, money, and data-boundary checks, final whole-diff review before PR, rechecks after an overturned pass, reduction, test authoring, and minor targeted updates to an existing UX. Routine procedural checks and browser verification default to luna. 272K window — split whole-branch reviews per package or phase. Not for planning, greenfield UX, or substantial feature implementation.",
-      "thinking": [
-        "xhigh"
-      ],
+      "character": "Advisory: The adversarial-tier reviewer at xhigh: schema, auth, security, money, and data-boundary checks, final whole-diff review before PR, rechecks after an overturned pass, reduction, test authoring, and minor targeted updates to an existing UX. Routine procedural checks and browser verification default to luna. 272K window — split whole-branch reviews per package or phase. Not recommended for planning, greenfield UX, or substantial feature implementation.",
       "defaultThinking": "xhigh"
     },
     "cursor/grok-4.6": {
-      "character": "High-efficiency generalist at high reasoning. Preferred for research, bounded backend implementation, mixed-stack work, substantial changes to an existing UX, and UX implementation when Opus would consume scarce Anthropic/Fable session capacity. New UX uses Opus while capacity is healthy, then Grok automatically. Always load frontend-design for UX work. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default. The only Cursor model this map may use.",
-      "thinking": [
-        "high"
-      ],
+      "character": "Advisory: High-efficiency generalist at high reasoning. Preferred for research, bounded backend implementation, mixed-stack work, substantial changes to an existing UX, and UX implementation when Opus would consume scarce Anthropic/Fable session capacity. New UX uses Opus while capacity is healthy, then Grok automatically. Load frontend-design for UX work. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default. This guide recommends Cursor only as cursor/grok-4.6.",
       "defaultThinking": "high"
     }
   },
-  "profiles": {
-    "scout": {
-      "description": "Read-only investigation with bounded, source-linked findings.",
-      "agent": "pi",
-      "skill": "advisor-role-scout",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "scout"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 3,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-luna",
-        "openai-codex/gpt-5.6-terra",
-        "cursor/grok-4.6"
-      ]
-    },
-    "planner": {
-      "description": "Plan fixed work from verified code and product constraints.",
-      "agent": "pi",
-      "skill": "advisor-role-planner",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "planner"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 3,
-      "requireAnchor": true,
-      "allowedModels": [
-        "claude-bridge/claude-fable-5",
-        "openai-codex/gpt-5.6-sol"
-      ],
-      "allowedThinkingByModel": {
-        "openai-codex/gpt-5.6-sol": [
-          "high"
-        ]
+  "recommendations": {
+    "scout": [
+      {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fit": "Preferred for bounded investigation in this profile."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "xhigh",
+        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
+      },
+      {
+        "model": "cursor/grok-4.6",
+        "thinking": "high",
+        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
       }
-    },
-    "reducer": {
-      "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
-      "agent": "pi",
-      "skill": "advisor-role-reducer",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "reducer"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 2,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-terra"
-      ]
-    },
-    "builder": {
-      "description": "Implement fixed acceptance criteria in one assigned worktree.",
-      "agent": "pi",
-      "skill": "advisor-role-builder",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "builder"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 6,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-sol",
-        "claude-bridge/claude-opus-5",
-        "openai-codex/gpt-5.6-terra",
-        "openai-codex/gpt-5.6-luna",
-        "cursor/grok-4.6"
-      ],
-      "allowedThinkingByModel": {
-        "openai-codex/gpt-5.6-sol": [
-          "high",
-          "xhigh",
-          "max"
-        ]
+    ],
+    "planner": [
+      {
+        "model": "claude-bridge/claude-fable-5",
+        "thinking": "high",
+        "fit": "Preferred for planning in this profile."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fit": "Planning fallback when the preferred choice is unavailable or a different fit is justified."
       }
-    },
-    "checker": {
-      "description": "Fresh-context review of the completed work, with a bounded inline-repair mandate for small findings. Adversarial tier runs on Terra xhigh; standard fresh-context checking may run on Sol medium; procedural tier runs on Luna.",
-      "agent": "pi",
-      "skill": "advisor-role-checker",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "checker"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 5,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-terra",
-        "openai-codex/gpt-5.6-sol",
-        "openai-codex/gpt-5.6-luna"
-      ],
-      "allowedThinkingByModel": {
-        "openai-codex/gpt-5.6-terra": [
-          "xhigh"
-        ],
-        "openai-codex/gpt-5.6-sol": [
-          "medium"
-        ],
-        "openai-codex/gpt-5.6-luna": [
-          "max"
-        ]
+    ],
+    "reducer": [
+      {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "xhigh",
+        "fit": "Preferred for synthesis and conflict reduction in this profile."
       }
-    },
-    "browser-verifier": {
-      "description": "Integrated browser verification and safe evidence capture. Defaults to luna; use terra only for a genuinely ambiguous visual or behavioral judgment.",
-      "agent": "pi",
-      "skill": "advisor-role-browser-verifier",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
-      "cliArgs": [
-        "--advisor-worker-role",
-        "browser-verifier"
-      ],
-      "turnCapFlag": "--advisor-worker-max-turns",
-      "maxTurns": 5,
-      "requireAnchor": true,
-      "allowedModels": [
-        "openai-codex/gpt-5.6-luna",
-        "openai-codex/gpt-5.6-terra"
-      ]
-    }
+    ],
+    "builder": [
+      {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fit": "Preferred implementation choice in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-opus-5",
+        "thinking": "medium",
+        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "xhigh",
+        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+      },
+      {
+        "model": "cursor/grok-4.6",
+        "thinking": "high",
+        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+      }
+    ],
+    "checker": [
+      {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "xhigh",
+        "fit": "Preferred fresh-context review choice in this profile."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "medium",
+        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+      }
+    ],
+    "browser-verifier": [
+      {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
+        "fit": "Preferred for browser verification in this profile."
+      },
+      {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "xhigh",
+        "fit": "Alternate for ambiguous visual or behavioral verification."
+      }
+    ]
   }
 }

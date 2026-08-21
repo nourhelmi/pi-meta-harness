@@ -34,7 +34,7 @@ interface GraphDetails {
 }
 
 interface RoleProfiles {
-	profiles?: Record<string, { model?: string; provider?: string }>;
+	profiles?: Record<string, unknown>;
 }
 
 // Advisor state lives under the user home so repositories never carry

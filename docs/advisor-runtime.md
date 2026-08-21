@@ -19,22 +19,29 @@ The advisor coordinates parallel Pi sessions through per-repository state under 
 13. Keep a builder alive only for a planned bounded repair. Every checker starts fresh and may repair small qualifying findings inline under its role mandate.
 14. Keep global advisor routines paused because open Pi processes share routine state.
 
-## Intelligence map
+## Roles and intelligence
 
-Named profiles in [`../config/intelligence-profiles/`](../config/intelligence-profiles/)
-are the source of truth. Install copies them to `~/.pi/agent/intelligence-profiles/`
-and materializes the active one as `bg-agent-profiles.json`. Switch mid-session
-with `node ~/.pi/agent/bin/intelligence-profile.mjs <name>`. The default is
-`codex-max`. [`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json)
-is a checked copy of `codex-max` for readers.
+[`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json) is fixed
+role transport configuration. It defines the agent, forced role skill, tool
+restrictions, CLI flags, anchor requirement, and cycle cap. It contains no model
+or reasoning policy and is never changed by intelligence switching.
 
-Cursor may only appear as `cursor/grok-4.6`. Role `allowedModels` and character
-notes live in the active profile file. The advisor selects one allowed model
-based on those characters. Role skill text must not hard-code a different model.
-Quota is not polled — you pick the map.
+Named guides in
+[`../config/intelligence-profiles/`](../config/intelligence-profiles/) are the
+advisor's source of model character and ordered role recommendations. Install
+copies them to `~/.pi/agent/intelligence-profiles/` and materializes the active
+guide as `~/.pi/agent/advisor-intelligence.json`. Switch mid-session with
+`node ~/.pi/agent/bin/intelligence-profile.mjs <name>`. The default is
+`codex-max`.
 
-Deep dive (topology, spend, pick tree, per-role allowlists, `/advisor` vs
-switcher): [`intelligence-profiles.md`](intelligence-profiles.md).
+Recommendations are advisory, not exhaustive or enforceable. The advisor should
+normally follow the guide, but may choose an unlisted model or reasoning level
+with a concise rationale. Worker launch and task execution do not reject an
+outside-guide or changed identity; manifests retain launch and current identity
+for audit. Quota is not polled — you pick the guide.
+
+Deep dive (topology, spend, pick tree, recommendations, `/advisor` vs switcher):
+[`intelligence-profiles.md`](intelligence-profiles.md).
 
 ## Start
 
