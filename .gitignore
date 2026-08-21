@@ -22,3 +22,6 @@ models-store.json
 extensions/routines/state.json*
 backups/
 .pi-meta-harness-state.json
+
+# Real advisor traces and generated local evaluation artifacts stay private.
+evals/local/
