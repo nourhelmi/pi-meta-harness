@@ -5,6 +5,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import type { AgentToolResult, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
 
+const GRAPH_IDENTIFIER = /^[a-z][a-z0-9-]{0,47}$/;
+
 const GraphNodeSchema = Type.Object({
 	id: Type.String({ pattern: "^[a-z][a-z0-9-]{0,47}$" }),
 	role: Type.String({ pattern: "^[a-z][a-z0-9-]{0,47}$" }),
@@ -31,6 +33,13 @@ interface GraphDetails {
 	manifestPath?: string;
 	waves?: string[][];
 	nodeCount?: number;
+	warnings?: GraphWarning[];
+}
+
+interface GraphWarning {
+	code: "checker-without-builder" | "browser-without-builder" | "reducer-low-fan-in";
+	nodeId: string;
+	message: string;
 }
 
 interface RoleProfiles {
@@ -102,6 +111,25 @@ async function configuredRoles(): Promise<Set<string>> {
 	}
 }
 
+function validateStructuralParameters(params: GraphParams): void {
+	if (!GRAPH_IDENTIFIER.test(params.graphId)) throw new Error(`Malformed graph id: ${params.graphId}`);
+	if (params.nodes.length < 1 || params.nodes.length > 24) {
+		throw new Error("Graph must contain between 1 and 24 nodes");
+	}
+	const maxParallel = params.maxParallel ?? 3;
+	if (!Number.isInteger(maxParallel) || maxParallel < 1 || maxParallel > 6) {
+		throw new Error("maxParallel must be an integer between 1 and 6");
+	}
+	const maxRepairLoops = params.maxRepairLoops ?? 2;
+	if (!Number.isInteger(maxRepairLoops) || maxRepairLoops < 0 || maxRepairLoops > 3) {
+		throw new Error("maxRepairLoops must be an integer between 0 and 3");
+	}
+	for (const node of params.nodes) {
+		if (!GRAPH_IDENTIFIER.test(node.id)) throw new Error(`Malformed graph node id: ${node.id}`);
+		if (!GRAPH_IDENTIFIER.test(node.role)) throw new Error(`Malformed graph role: ${node.role}`);
+	}
+}
+
 function nodeMap(nodes: GraphNode[]): Map<string, GraphNode> {
 	const byId = new Map<string, GraphNode>();
 	for (const node of nodes) {
@@ -138,21 +166,39 @@ function dependencyClosure(node: GraphNode, byId: Map<string, GraphNode>): Set<s
 	return visited;
 }
 
-function validateRoleOrder(nodes: GraphNode[], byId: Map<string, GraphNode>): void {
+function roleOrderWarnings(nodes: GraphNode[], byId: Map<string, GraphNode>): GraphWarning[] {
+	const warnings: GraphWarning[] = [];
 	for (const node of nodes) {
 		const dependencies = dependencyClosure(node, byId);
 		if (node.role === "checker") {
 			const checksBuilder = [...dependencies].some((id) => byId.get(id)?.role === "builder");
-			if (!checksBuilder) throw new Error(`Checker ${node.id} must depend on a builder`);
+			if (!checksBuilder) {
+				warnings.push({
+					code: "checker-without-builder",
+					nodeId: node.id,
+					message: `Checker ${node.id} has no builder ancestor; confirm this is an intentional baseline or audit review.`,
+				});
+			}
 		}
 		if (node.role === "browser-verifier") {
 			const verifiesBuilder = [...dependencies].some((id) => byId.get(id)?.role === "builder");
-			if (!verifiesBuilder) throw new Error(`Browser verifier ${node.id} must depend on a builder`);
+			if (!verifiesBuilder) {
+				warnings.push({
+					code: "browser-without-builder",
+					nodeId: node.id,
+					message: `Browser verifier ${node.id} has no builder ancestor; confirm this is intentional baseline investigation.`,
+				});
+			}
 		}
-		if (node.role === "reducer" && dependencies.size < 2) {
-			throw new Error(`Reducer ${node.id} must combine at least two upstream nodes`);
+		if (node.role === "reducer" && (node.dependsOn?.length ?? 0) < 2) {
+			warnings.push({
+				code: "reducer-low-fan-in",
+				nodeId: node.id,
+				message: `Reducer ${node.id} has fewer than two upstream nodes; confirm reduction adds value.`,
+			});
 		}
 	}
+	return warnings;
 }
 
 function readyNodes(
@@ -205,6 +251,7 @@ function manifest(
 	params: GraphParams,
 	ctx: ExtensionContext,
 	waves: string[][],
+	warnings: GraphWarning[],
 ): object {
 	return {
 		version: 1,
@@ -217,6 +264,7 @@ function manifest(
 		allowParallelBuilders: params.allowParallelBuilders ?? false,
 		nodes: params.nodes,
 		waves,
+		warnings,
 		createdAt: new Date().toISOString(),
 	};
 }
@@ -225,11 +273,12 @@ async function saveManifest(
 	params: GraphParams,
 	ctx: ExtensionContext,
 	waves: string[][],
+	warnings: GraphWarning[],
 ): Promise<string> {
 	const directory = join(await advisorStateRoot(ctx.cwd), "graphs");
 	await mkdir(directory, { recursive: true });
 	const path = join(directory, `${params.graphId}.json`);
-	await writeFile(path, `${JSON.stringify(manifest(params, ctx, waves), null, 2)}\n`, {
+	await writeFile(path, `${JSON.stringify(manifest(params, ctx, waves, warnings), null, 2)}\n`, {
 		encoding: "utf8",
 		flag: "wx",
 	});
@@ -238,22 +287,26 @@ async function saveManifest(
 
 async function planGraph(params: GraphParams, ctx: ExtensionContext): Promise<AgentToolResult<GraphDetails>> {
 	if (!process.env.ADVISOR_WORKSTREAM) throw new Error("Invoke /advisor before planning a graph");
+	validateStructuralParameters(params);
 	const roles = await configuredRoles();
 	const byId = nodeMap(params.nodes);
 	validateRoles(params.nodes, roles);
 	validateDependencies(params.nodes, byId);
-	validateRoleOrder(params.nodes, byId);
+	const warnings = roleOrderWarnings(params.nodes, byId);
 	const waves = executionWaves(params.nodes, params.maxParallel ?? 3);
 	validateBuilders(waves, byId, params.allowParallelBuilders ?? false);
-	const manifestPath = await saveManifest(params, ctx, waves);
+	const manifestPath = await saveManifest(params, ctx, waves, warnings);
+	const warningText = warnings.length
+		? `\nAdvisory warnings (${warnings.length}; non-blocking):\n${warnings.map((warning) => `- [${warning.code}] ${warning.message}`).join("\n")}\nConfirm these graph shapes are intentional before launch.`
+		: "\nAdvisory warnings: none.";
 	return {
 		content: [
 			{
 				type: "text",
-				text: `Validated ${params.nodes.length} visible Pi nodes in ${waves.length} wave(s). Manifest: ${manifestPath}\n${waves.map((wave, index) => `Wave ${index + 1}: ${wave.join(", ")}`).join("\n")}`,
+				text: `Structurally validated ${params.nodes.length} visible Pi nodes in ${waves.length} wave(s). Manifest: ${manifestPath}\n${waves.map((wave, index) => `Wave ${index + 1}: ${wave.join(", ")}`).join("\n")}${warningText}`,
 			},
 		],
-		details: { manifestPath, waves, nodeCount: params.nodes.length },
+		details: { manifestPath, waves, nodeCount: params.nodes.length, warnings },
 	};
 }
 
@@ -262,7 +315,7 @@ export default function advisorGraphExtension(pi: ExtensionAPI): void {
 		name: "advisor_graph_plan",
 		label: "Advisor Graph",
 		description:
-			"Validate and persist a bounded DAG of visible Pi role agents. It checks roles, dependencies, cycles, checker/browser order, reducer fan-in, anchors, concurrency, and worktree isolation. It never launches hidden agents.",
+			"Structurally validate, lint, and persist a bounded DAG of visible Pi role agents. Malformed structure and unsafe builder concurrency are rejected; role-order and reducer-shape concerns are returned as non-blocking warnings. It never launches hidden agents.",
 		parameters: GraphParameters,
 		async execute(...args) {
 			const [, params, , , ctx] = args;

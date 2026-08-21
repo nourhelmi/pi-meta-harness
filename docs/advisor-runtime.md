@@ -13,11 +13,20 @@ The advisor coordinates parallel Pi sessions through per-repository state under 
 7. Use Intercom for short conclusions and paths, not transcripts or raw logs.
 8. Launch delegated LLM work only through a configured `bg_agent` role. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands.
 9. Every role launch needs a concrete completion anchor and a bounded result file.
-10. Validate graphs before three or more nodes or mixed parallel and dependent work.
+10. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work.
 11. Parallel builders require explicit approval and separate worktrees.
 12. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
 13. Keep a builder alive only for a planned bounded repair. Every checker starts fresh and may repair small qualifying findings inline under its role mandate.
 14. Keep global advisor routines paused because open Pi processes share routine state.
+
+The planner rejects malformed structure, cycles, invalid concurrency, and unsafe
+parallel-builder checkout conflicts. Checker or browser nodes without builder
+ancestors and reducers with low fan-in produce non-blocking warnings instead:
+baseline browser investigation, checker audits, and small reduction shapes can
+be intentional. Warnings are stored in the immutable graph manifest and tool
+details so the advisor can confirm intent without manufacturing dependencies or
+relabeling work. Execution waves remain deterministic DAG output; deciding
+whether each node has enough information value remains the advisor's job.
 
 ## Roles and intelligence
 
@@ -34,9 +43,11 @@ guide as `~/.pi/agent/advisor-intelligence.json`. Switch mid-session with
 `node ~/.pi/agent/bin/intelligence-profile.mjs <name>`. The default is
 `codex-max`.
 
-Recommendations are advisory, not exhaustive or enforceable. The advisor should
-normally follow the guide, but may choose an unlisted model or reasoning level
-with a concise rationale. Worker launch and task execution do not reject an
+Recommendations are advisory, not exhaustive or enforceable. The advisor chooses
+the best model and reasoning for the task from or outside the guide, using fit,
+capability, cost, quota, and availability as judgment inputs. An outside-guide
+choice needs only a concise rationale when material and never permission merely
+for being unlisted. Worker launch and task execution do not reject an
 outside-guide or changed identity; manifests retain launch and current identity
 for audit. Quota is not polled — you pick the guide.
 

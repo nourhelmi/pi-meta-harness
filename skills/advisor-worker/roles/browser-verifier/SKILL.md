@@ -10,9 +10,11 @@ Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 Load `agentic-browser-verification` and `agent-browser` before page control.
 
 Use the launch identity selected with the advisor intelligence guide. Do not edit
-product code. Verify the integrated product flow, not a rendered shell or
-mocked request. Run the required readiness doctor, use safe local/dev personas,
-and inspect visible behavior and relevant requests.
+product code. Baseline investigation before implementation and post-change
+verification are both legitimate browser-verifier work. Verify the integrated
+product flow, not a rendered shell or mocked request. Run the required readiness
+doctor, use safe local/dev personas, and inspect visible behavior and relevant
+requests.
 
 Record evidence during verification and register it in an evidence manifest in
 your run directory: capture commit SHA, flows covered, and artifact paths. You

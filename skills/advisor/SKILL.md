@@ -41,28 +41,26 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
 5. **Anchors are frozen.** "Done" means the anchor passed, not that an agent said
    so: the named check actually ran and passed, deploys succeeded, or tests pass
    in the worktree. Never weaken an anchor to make a loop finish.
-6. **Every delegated run has a cap.** Put a token budget on `/goal`, iteration
-   caps on loops, agent caps on graphs, and spend limits on recurring work.
-   Report spend when a run finishes. A spend anomaly does not interrupt an
-   explicitly authorized unattended run: record it and continue inside the
-   approved graph and repair caps. Ask only before exceeding a user-set hard
-   spend limit or adding work beyond those approved caps.
-7. **Escalate blockers, not questions.** Before implementation, inspect the
-   available code and context, then make one consolidated clarification pass to
-   lock the goal, scope, acceptance criteria, key product choices, and material
-   constraints. Use `ask_user_question` to ask every material question visible
-   at that point; do not ask questions answerable from the repository or repeat
-   answers the user already supplied. Record any remaining assumption in the
-   workstream Decisions list with a confidence flag. Read-only discovery may
-   precede this lock; implementation may not. After the lock, do not stop work
-   to ask. At every further decision point adopt your own best
-   recommendation, log it in the workstream Decisions list with a confidence
-   flag, and continue to completion. Interrupt the user only for: credentials,
-   permissions, or external actions only they can perform; irreversible
-   external effects (deploys, pushes to shared branches, destructive data
-   changes); a user-set hard spend limit; or a discovery that invalidates the
-   agreed direction. Finished work is presented together with the decision log
-   — the user iterates on decisions after completion, not during.
+6. **Bound delegated work.** Put task-appropriate token budgets on `/goal`,
+   repair caps on loops, node caps on graphs, and spend limits on recurring
+   work. These are ceilings for bounded attempts, not rigid global elapsed-time
+   or worker-count targets. Cost, quota, and elapsed time inform judgment; they
+   do not excuse a weak route. Ask before exceeding a user-set hard spend limit
+   or adding work beyond approved caps.
+7. **Lock material boundaries before implementation.** Inspect the repository,
+   ticket, and available evidence first. Ask only about product or architecture
+   choices that the evidence cannot settle and that would materially change the
+   implementation. In particular, do not strengthen, route around, or remove a
+   deprecated subsystem until its intended boundary is explicit. Do not turn
+   this into a mandatory questionnaire: proceed when the repository settles the
+   choice, and consolidate genuinely material unknowns when several remain.
+   Record assumptions in the workstream Decisions list with confidence. After
+   the lock, adopt and record your best recommendation at ordinary decision
+   points. Interrupt the user only for a newly discovered missing product or
+   architecture decision, credentials, permissions or external actions only
+   they can perform, irreversible external effects, a user-set hard spend
+   limit, or evidence that invalidates the agreed direction. Finished work is
+   presented with the decision log.
 8. **Keep raw evidence out of advisor context.** Workers inspect images, large
    logs, traces, and generated reports. They return bounded claims and file
    paths. Do not read image files or large raw outputs directly in an advisor
@@ -88,11 +86,13 @@ only. The separate `~/.pi/agent/advisor-intelligence.json` contains model
 characters, default reasoning guidance, and ordered role recommendations.
 Choose `model` and `thinking` per launch after reading that guide.
 
-Selection doctrine: normally pick the cheapest recommended model whose
-character fits the node, at its recommended reasoning. Choose outside the guide
-when task fit, availability, or capacity warrants, and record a concise
-rationale with the launch. Recommendations are advisory and non-exhaustive;
-worker runtime never rejects an outside-guide or changed identity.
+Selection doctrine: choose the model and reasoning that best fit the node,
+whether listed in the guide or not. Treat model character, capability, cost,
+quota, availability, and task risk as judgment inputs rather than bindings.
+Record a concise rationale for an outside-guide choice only when it is material;
+never ask permission merely because a model or reasoning level is unlisted.
+Recommendations are advisory and non-exhaustive; worker runtime never rejects
+an outside-guide or changed identity.
 
 Re-read the live guide before each launch, and always after an intelligence-profile
 switch. Named profiles live in `~/.pi/agent/intelligence-profiles/`
@@ -106,10 +106,10 @@ come from the live guide:
 - genuinely new or greenfield UX uses the model whose character reserves it for
   greenfield UX (Opus when that model is in the map and Anthropic capacity is
   healthy), always with `frontend-design`;
-- if that model is missing from the live guide, or capacity is tight, or a
-  launch reports a capacity limit, use the UX fallback named in that character
-  note — currently Grok. Do not spend another scarce-model attempt or silently
-  downgrade the UX requirement;
+- if that model is missing from the live guide, capacity is tight, or a launch
+  reports a capacity limit, prefer the UX fallback named in that character note
+  — currently Grok. Avoid another scarce-model attempt unless it adds meaningful
+  expected value, and never silently downgrade the UX requirement;
 - substantial changes to an existing UX use the generalist whose character
   covers existing UX (Grok; Sonnet in `anthropic-heavy`, `balanced`, or
   `codex-lean` when the UX is well-known; Sol in `codex-lean` when the UX is
@@ -120,22 +120,22 @@ come from the live guide:
 - all UX implementation loads `frontend-design`; load the repository's normal
   frontend skill as well when one exists.
 
-Protect Fable's shared Anthropic session allowance: unless live character
-note explicitly assigns review or implementation to Opus, Opus does no
-checking, review, reduction, planning, backend, or routine existing-UX work.
-Fable is reserved for the advisor session itself (at medium) and, when the
-guide recommends it for planner, for planner nodes (at high). In `codex-lean`
-planner is Sol, not Fable. Fable takes no other worker role. If Fable reaches
-Anthropic capacity, the advisor session switches to the fallback in Fable's
+Treat Fable's shared Anthropic session allowance as an important cost and quota
+input. Normally reserve Opus for the greenfield UX or extreme-risk work named in
+the live character notes, and reserve Fable for the advisor session (at medium)
+or guide-recommended planning (at high). These are strong defaults, not role
+allowlists; depart when capability and task risk justify it and record the
+rationale when material. If Fable reaches capacity, prefer the fallback in its
 character note (Sol in `codex-max`, `codex-lean`, and `balanced`, Grok in
-`grok-cycle` and `anthropic-heavy`); workers cannot silently change the
+`grok-cycle` and `anthropic-heavy`); workers still cannot silently change the
 advisor's active model.
 For non-UX work, normally pick the implementation workhorse from the live characters
 (Sol in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Sonnet
 default with Sol/Terra for hard backend in `balanced`; Grok in
-`grok-cycle`; Sonnet in `anthropic-heavy`). Cursor may only appear as
-`cursor/grok-4.6`; an exception still requires only a concise rationale, not a
-transport override.
+`grok-cycle`; Sonnet in `anthropic-heavy`). The shipped guides recommend Cursor
+only as `cursor/grok-4.6`; another Cursor identity is simply an outside-guide
+choice and needs only a concise rationale when material, not a transport
+override.
 A feature spanning independently editable surfaces may split under the normal
 builder rules (distinct worktrees plus explicit approval when parallel,
 otherwise serial in one worktree).
@@ -146,26 +146,41 @@ panes close automatically. Blocked or failed panes remain visible. Set
 `keepAlive: true` only for a builder that is expected to receive bounded
 checker feedback; all checker contexts are fresh.
 
-## Graph protocol
+## Information-value graphing
 
-Use `advisor_graph_plan` before any graph with three or more nodes or any mixed
-parallel/dependent work. Its immutable manifest validates roles, anchors,
-dependencies, cycles, reducer fan-in, checker/browser ordering, concurrency, and
-builder worktree isolation. Then execute only the returned waves:
+Prefer the smallest graph sufficient to resolve the work. Every node needs a
+reason to exist: its task should state the uncertainty, decision, or durable
+artifact it unlocks. A dependency means the downstream node actually consumes
+upstream output; never add one merely to express conventional role order.
+Independent ticket triage, source analysis, and baseline runtime observation
+belong in the same launch wave when each can change the route. Add a reducer only
+when evidence conflicts or synthesis is substantial; otherwise read the bounded
+artifacts directly.
+
+Use `advisor_graph_plan` as a structural validator/linter and coordination aid
+before any graph with three or more nodes or mixed parallel/dependent work. Its
+immutable manifest hard-checks IDs, configured roles, anchors, dependencies,
+cycles, concurrency, and builder worktree isolation. Role-order and reducer
+shape findings are advisory warnings: confirm the shape is intentional, then
+proceed without contorting valid baseline or audit work. The advisor still owns
+whether the graph is useful. Execute only the returned deterministic waves:
 
 1. Launch every independent node in the current wave as parallel `bg_agent`
    calls in one turn.
 2. Wait for completion notifications; never poll.
 3. Read bounded `result.md` artifacts, not pane transcripts or raw evidence.
 4. Do not launch a dependent wave until all required upstream nodes passed.
-5. A builder feeds a fresh checker. A browser-visible change then feeds a fresh
-   browser verifier. Select each node's model and reasoning at launch time using
-   the live guide, or record a concise rationale for an outside-guide choice.
+5. Preserve maker/checker independence for implementation review. Baseline
+   browser investigation may precede any builder, and a checker may perform a
+   bounded audit without one. Post-change browser verification is equally valid.
+   Never relabel browser work as scouting to silence a graph warning.
 6. Run deterministic anchors with normal commands. An LLM approval is never an
    anchor.
-7. Feed actionable checker findings back to the kept-alive builder, then start
-   a new checker. Stop after the manifest repair-loop cap (default two).
-   Every repair cycle is also subject to the convergence judgment below.
+7. Feed actionable checker findings back to the kept-alive builder only when
+   another attempt has a concrete new strategy or information source. Review
+   revised maker output with a fresh checker unless the bounded inline-repair
+   mandate already closed it. Never exceed the manifest repair-loop cap (default
+   two); the convergence judgment may stop earlier.
 8. Parallel builders require explicit user approval and distinct worktrees.
 
 No driver script may spawn LLMs. The advisor directly owns every visible graph
@@ -173,18 +188,25 @@ node and its cost.
 
 ## Convergence judgment
 
-A repair loop is justified only while it converges. This is a judgment you make
-and record, not a numeric cap; spend and elapsed time are inputs, not limits.
+A repair loop is justified only while it can produce new information or apply a
+meaningfully changed strategy. This is model judgment. Caps are bounded-task
+guardrails, while spend and elapsed time are inputs rather than global targets.
 
-1. After every maker→checker cycle, append to the workstream file: findings
-   closed, findings new, and a one-line continue/stop decision with its reason.
-2. Continue only when the last cycle materially converged: fewer and smaller
-   findings, and no contradiction of an earlier "passed" claim.
-3. Two consecutive cycles without convergence — or a fresh checker overturning
-   a previously reported pass — is evidence that the loop is broken, not that
-   it needs more turns. Stop, write an escalation event, and change strategy or
-   surface the decision to the user. Do not open a new graph to continue the
-   same failing loop.
+1. Before every retry, record what new information, changed hypothesis, or
+   changed repair strategy the attempt can produce.
+2. After every maker→checker cycle, append findings closed, findings new, and a
+   one-line continue/stop judgment to the workstream file.
+3. Stop and replan when another run is likely to repeat the same evidence. A
+   checker overturning a previous pass is a strong signal to change strategy,
+   not a reason to repeat the graph unchanged.
+
+## Evidence proportionality
+
+Existing ticket evidence is valid input. Delegate or reproduce it only when the
+work will resolve a named uncertainty, choose a code path, establish a needed
+baseline, or satisfy delivery evidence. Do not inventory every screenshot, log,
+or acceptance artifact by default. One strong witness may be sufficient; repeat
+flaky or racy behavior when repetition materially changes confidence.
 
 ## Checker economy
 
@@ -216,9 +238,11 @@ the guide's procedural recommendation when it fits.
    never substitute a weaker model to make a diff fit.
 5. When a checker verdict and a deterministic anchor disagree, the anchor wins
    and the discrepancy is logged.
-6. Independent read-only verifications of the same frozen commit (for example
-   the whole-diff review and browser verification) run in parallel in one
-   wave, not serially.
+6. Independent read-only checks of the same frozen diff, such as whole-diff
+   review and browser verification, may run in parallel when their expected
+   information value beats the risk that one finding invalidates the other's
+   evidence. Serialize a likely high-impact security review first when its
+   findings would make parallel browser evidence stale or unsafe.
 7. Any verifying agent that launches a browser records evidence during that
    same run and registers it in an evidence manifest in its run directory:
    capture commit SHA, flows covered, artifact paths. Verifiers never upload
@@ -227,6 +251,12 @@ the guide's procedural recommendation when it fits.
 8. The gate before PR creation runs the repository's CI-equivalent checks —
    repo-wide gates and code-quality sweeps included — not only the localized
    checks used during building. A localized pass is not a PR gate.
+
+## Status updates
+
+On long work, mention elapsed path, launch breadth, or major spend only when it
+helps the user understand trajectory, risk, or a change of plan. Do not emit a
+bureaucratic report on a fixed interval.
 
 ## Evidence delivery
 

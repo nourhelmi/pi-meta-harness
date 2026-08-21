@@ -11,10 +11,12 @@ The split is deliberate:
 - `advisor-intelligence.json` is the live advisor-owned guide: model character,
   default reasoning guidance, and ordered role recommendations.
 
-Recommendations are advisory, not exhaustive or enforceable. An advisor may
-choose a model or reasoning level absent from the guide when the task warrants
-it, and should record a concise rationale. Workers accept outside-guide and
-changed identities while recording launch/current identity for audit.
+Recommendations are advisory, not exhaustive or enforceable. An advisor chooses
+the best model and reasoning for the task from or outside the guide, balancing
+fit, capability, cost, quota, and availability. An outside-guide choice needs a
+concise rationale only when material and never permission merely for being
+unlisted. Workers accept outside-guide and changed identities while recording
+launch/current identity for audit.
 
 Shipped default: **`codex-max`**. Reinstall refreshes fixed roles and all named
 guides but preserves the name in `intelligence-profiles/ACTIVE`.

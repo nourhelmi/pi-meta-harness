@@ -137,8 +137,9 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
 Names: `codex-max` | `codex-lean` | `anthropic-heavy` | `balanced` | `grok-cycle`. Mid-session:
 say `switch to lean` in chat, or run the same node command. Already-running
 workers keep their launch model. The advisor pane does not auto `/model`.
-The advisor may choose outside the guide with a concise rationale; workers do
-not reject identities that are absent from the recommendations.
+The advisor may choose outside the guide without asking permission merely
+because an identity is unlisted, recording a concise rationale when material;
+workers do not reject identities absent from the recommendations.
 
 Quota is **not** polled. You choose. Deep dive (topology, spend, pick tree,
 per-role recommendations): [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md).
