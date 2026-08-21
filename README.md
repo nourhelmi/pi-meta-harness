@@ -74,6 +74,8 @@ runtime rules: [`docs/advisor-runtime.md`](docs/advisor-runtime.md)
 - [`docs/security.md`](docs/security.md) — portability boundary
 - [`docs/cutover.md`](docs/cutover.md) — updating an existing machine
 - [`docs/macos-tcc.md`](docs/macos-tcc.md) — grant Ghostty Full Disk Access so machine-wide searches do not modal-block
+- [`docs/advisor-evals.md`](docs/advisor-evals.md) — sanitized trace diagnostics and rubric/checkpoint fixtures
+
 
 ## Fresh-machine setup
 
@@ -183,6 +185,7 @@ flowchart TD
 - `config/intelligence-profiles/` — named intelligence maps (`codex-max`, `codex-lean`, `anthropic-heavy`, `balanced`, `grok-cycle`).
 - `config/bg-agent-profiles.json` — checked copy of `codex-max`.
 - `scripts/intelligence-profile.mjs` — mid-session switcher.
+- `scripts/advisor-eval.mjs` — privacy-bounded advisor trace ingestion, diagnostics, and rubric packets.
 - `docs/intelligence-profiles.md` — topology, quota pick tree, per-role maps.
 - `config/settings.overlay.json` — safe Pi defaults and exact package pins. Reinstall preserves the existing `defaultProvider`, `defaultModel`, and `defaultThinkingLevel` because `/model` owns that runtime preference.
 - `config/mcp.json` — MCP definitions with environment placeholders only.

@@ -3,6 +3,9 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "advisor-eval": "./scripts/advisor-eval.mjs"
+  },
   "description": "Portable, reproducible Pi advisor and Herdr setup",
   "license": "MIT",
   "repository": {
@@ -44,6 +47,7 @@
     "bootstrap": "bash scripts/bootstrap.sh",
     "plan": "node scripts/meta-harness.mjs plan",
     "doctor": "node scripts/meta-harness.mjs doctor",
+    "eval:advisor": "node scripts/advisor-eval.mjs",
     "test:harness": "node --test tests/*.test.mjs",
     "test:extensions": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
