@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   analyzeTrace,
@@ -18,34 +18,42 @@ function usage() {
   return `Advisor Eval
 
 Usage:
-  node scripts/advisor-eval.mjs ingest <session.jsonl> [--output <file>] [--include-summaries]
+  node scripts/advisor-eval.mjs ingest <session.jsonl> [--output <file>]
   node scripts/advisor-eval.mjs analyze <trace.json|session.jsonl> [--output <file>]
   node scripts/advisor-eval.mjs evaluate <fixture.json> [--trace <trace.json|session.jsonl>] [--output <file>]
   node scripts/advisor-eval.mjs compare <left.json> <right.json> [--output <file>]
 
-Real trace ingestion defaults to evals/local/, which is gitignored. Raw message bodies and
-raw tool payloads are never copied. --include-summaries accepts only explicitly tagged
-EVAL_SUMMARY: lines and sanitizes them.`;
+Real trace ingestion defaults to evals/local/, which is gitignored. Raw message bodies,
+summaries, raw tool payloads, and identity strings are never copied. Identity-like fields
+become deterministic per-artifact aliases; other retained fields use closed categories.`;
 }
 
 function parseOptions(argv) {
   const [first = "help", ...rest] = argv;
   const command = first === "--help" || first === "-h" ? "help" : first;
   const positional = [];
-  const options = { command, includeSummaries: false };
+  const options = { command, provided: new Set() };
   for (let index = 0; index < rest.length; index += 1) {
     const value = rest[index];
-    if (value === "--output") options.output = rest[++index];
-    else if (value === "--trace") options.trace = rest[++index];
-    else if (value === "--include-summaries") options.includeSummaries = true;
-    else if (value === "--help" || value === "-h") options.help = true;
+    if (value === "--output" || value === "--trace") {
+      const key = value.slice(2);
+      const next = rest[index + 1];
+      if (!next || next.startsWith("-")) throw new Error(`Option ${value} requires a path`);
+      if (options.provided.has(key)) throw new Error(`Duplicate option: ${value}`);
+      options[key] = next;
+      options.provided.add(key);
+      index += 1;
+    } else if (value === "--help" || value === "-h") options.help = true;
     else if (value.startsWith("-")) throw new Error(`Unknown option: ${value}`);
     else positional.push(value);
   }
-  if (("output" in options && !options.output) || ("trace" in options && !options.trace)) {
-    throw new Error("Options --output and --trace require a path");
-  }
   return { ...options, positional };
+}
+
+function requireAllowedOptions(options, allowed) {
+  for (const key of options.provided) {
+    if (!allowed.includes(key)) throw new Error(`Option --${key} is not valid for ${options.command}`);
+  }
 }
 
 async function readJson(path, label) {
@@ -56,10 +64,10 @@ async function readJson(path, label) {
   }
 }
 
-async function loadTrace(path, includeSummaries = false) {
+async function loadTrace(path) {
   const contents = await readFile(path, "utf8");
   if (extname(path).toLowerCase() === ".jsonl") {
-    return normalizeSession(parseJsonl(contents), { includeSummaries });
+    return normalizeSession(parseJsonl(contents));
   }
   let parsed;
   try {
@@ -67,15 +75,12 @@ async function loadTrace(path, includeSummaries = false) {
   } catch (cause) {
     throw new Error(`Invalid trace JSON: ${path}: ${cause instanceof Error ? cause.message : String(cause)}`);
   }
-  if (parsed?.schemaVersion !== 1 || !Array.isArray(parsed?.events)) {
-    throw new Error(`Trace is not normalized schemaVersion 1: ${path}`);
-  }
+  analyzeTrace(parsed);
   return parsed;
 }
 
-function defaultIngestOutput(input) {
-  const name = basename(input, extname(input)).replace(/[^a-zA-Z0-9._-]+/g, "-") || "session";
-  return join(ROOT, "evals", "local", `${name}.normalized.json`);
+function defaultIngestOutput(normalized) {
+  return join(ROOT, "evals", "local", `${normalized.source.artifactAlias}.normalized.json`);
 }
 
 async function emitJson(value, output) {
@@ -87,7 +92,10 @@ async function emitJson(value, output) {
   const path = resolve(output);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, contents, "utf8");
-  process.stdout.write(`${isAbsolute(output) ? path : output}\n`);
+  let displayPath = output;
+  if (path.startsWith(`${ROOT}/`)) displayPath = relative(ROOT, path);
+  else if (isAbsolute(output)) displayPath = path;
+  process.stdout.write(`${displayPath}\n`);
 }
 
 function requirePositionals(options, count, example) {
@@ -102,29 +110,28 @@ export async function runCli(argv) {
   }
 
   if (options.command === "ingest") {
+    requireAllowedOptions(options, ["output"]);
     requirePositionals(options, 1, "ingest <session.jsonl>");
-    const [input] = options.positional;
-    const normalized = await loadTrace(resolve(input), options.includeSummaries);
-    await emitJson(normalized, options.output ?? defaultIngestOutput(input));
+    const normalized = await loadTrace(resolve(options.positional[0]));
+    await emitJson(normalized, options.output ?? defaultIngestOutput(normalized));
     return;
   }
 
   if (options.command === "analyze") {
+    requireAllowedOptions(options, ["output"]);
     requirePositionals(options, 1, "analyze <trace.json|session.jsonl>");
-    const normalized = await loadTrace(resolve(options.positional[0]), options.includeSummaries);
+    const normalized = await loadTrace(resolve(options.positional[0]));
     await emitJson(analyzeTrace(normalized), options.output);
     return;
   }
 
   if (options.command === "evaluate") {
+    requireAllowedOptions(options, ["output", "trace"]);
     requirePositionals(options, 1, "evaluate <fixture.json>");
     const fixturePath = resolve(options.positional[0]);
     const fixture = await readJson(fixturePath, "fixture");
     const tracePath = resolve(dirname(fixturePath), options.trace ?? fixture.trace ?? "trace.jsonl");
-    const normalized = await loadTrace(
-      tracePath,
-      options.includeSummaries || fixture.ingest?.includeTaggedSummaries === true,
-    );
+    const normalized = await loadTrace(tracePath);
     const validation = validateFixture(fixture, normalized);
     if (!validation.valid) throw new Error(`Invalid fixture:\n- ${validation.errors.join("\n- ")}`);
     await emitJson(createRubricPacket(fixture, normalized), options.output);
@@ -132,11 +139,12 @@ export async function runCli(argv) {
   }
 
   if (options.command === "compare") {
+    requireAllowedOptions(options, ["output"]);
     requirePositionals(options, 2, "compare <left.json> <right.json>");
     const metrics = [];
     for (const path of options.positional) {
       const value = await readJson(resolve(path), "comparison input");
-      metrics.push(value?.diagnosticOnly && value?.elapsed ? value : analyzeTrace(value));
+      metrics.push(Array.isArray(value?.events) ? analyzeTrace(value) : value);
     }
     await emitJson(compareMetrics(metrics[0], metrics[1]), options.output);
     return;
