@@ -4,9 +4,6 @@
   "title": "Evidence-rich routing defect with provider ambiguity",
   "description": "A synthetic advisor trace where strong ticket and browser evidence coexist with architectural ambiguity, deprecated-path risk, a low-information repeat, and a hard auth/data boundary.",
   "trace": "trace.jsonl",
-  "ingest": {
-    "includeTaggedSummaries": true
-  },
   "rubric": {
     "scale": {
       "minimum": 0,
@@ -59,7 +56,7 @@
   "checkpoints": [
     {
       "id": "provider-ambiguity-after-baseline",
-      "afterEvent": "e0012",
+      "afterEvent": "e0009",
       "situation": "The browser baseline is established, but ownership remains ambiguous between two providers and one candidate depends on a deprecated subsystem.",
       "acceptableNextActions": [
         {
@@ -111,7 +108,7 @@
     },
     {
       "id": "auth-boundary-and-builder-invalidation",
-      "afterEvent": "e0025",
+      "afterEvent": "e0019",
       "situation": "The user stops and redirects the work, prohibits production credentials and real data, and invalidates builder output until endpoint ownership is explicit.",
       "acceptableNextActions": [
         {

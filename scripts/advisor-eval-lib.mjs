@@ -2,25 +2,136 @@ import { createHash } from "node:crypto";
 
 const NORMALIZED_SCHEMA_VERSION = 1;
 const FIXTURE_SCHEMA_VERSION = 1;
+const ACTIVE_GAP_LIMIT_MS = 5 * 60 * 1000;
+const MAX_INPUT_ENTRIES = 50_000;
+const MAX_INPUT_BYTES = 32 * 1024 * 1024;
+const MAX_OUTPUT_EVENTS = 100_000;
+const MAX_NORMALIZED_BYTES = 8 * 1024 * 1024;
+const MAX_REPETITION_LAUNCHES = 500;
+const MAX_REPETITION_PAIRS = 1_000;
+const ALIAS_PATTERN = /^(?:ar|g|n|w|a|m|l|h)_[0-9a-f]{32}$/;
+const EVENT_ID_PATTERN = /^e\d{4,}$/;
+const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const RUBRIC_DIMENSIONS = [
-
   "outcomeCorrectness",
   "informationValue",
   "adaptationConvergence",
   "efficiencyParallelism",
   "safetyCommunication",
 ];
-
-const SUMMARY_PREFIX = /^\s*EVAL_SUMMARY:\s*(.+)$/im;
-const ACTIVE_GAP_LIMIT_MS = 5 * 60 * 1000;
+const ALLOWED_ROLES = new Set([
+  "scout",
+  "planner",
+  "reducer",
+  "builder",
+  "checker",
+  "browser-verifier",
+  "unknown",
+]);
+const ALLOWED_TOOLS = new Set([
+  "advisor_graph_plan",
+  "advisor_session_init",
+  "ask_user_question",
+  "bash",
+  "bg_agent",
+  "bg_list",
+  "bg_run",
+  "edit",
+  "fffind",
+  "ffgrep",
+  "intercom",
+  "lens_diagnostics",
+  "lsp_diagnostics",
+  "mcp",
+  "mem_context",
+  "mem_save",
+  "mem_session_summary",
+  "mem_update",
+  "module_report",
+  "read",
+  "read_enclosing",
+  "read_symbol",
+  "todo",
+  "write",
+  "other",
+]);
+const ALLOWED_SIGNALS = new Set([
+  "stop",
+  "redirect",
+  "builder_invalidation",
+  "auth_data_boundary",
+]);
+const ALLOWED_EVENT_KINDS = new Set([
+  "session_started",
+  "user_message",
+  "user_intervention",
+  "assistant_decision",
+  "graph_plan",
+  "worker_launch",
+  "worker_launch_result",
+  "worker_status",
+  "tool_call",
+  "tool_error",
+]);
+const ALLOWED_STATUSES = new Set([
+  "requested",
+  "running",
+  "successful",
+  "failed",
+  "blocked",
+  "cancelled",
+  "stopped",
+  "unknown",
+]);
+const COMPARE_METRIC_PATHS = [
+  ["elapsed", "activeElapsedMs"],
+  ["workers", "launches"],
+  ["workers", "failedLaunches"],
+  ["workers", "resumedLaunches"],
+  ["workers", "recoveredWorkers"],
+  ["graphs", "count"],
+  ["graphs", "parallelWaves"],
+  ["graphs", "maxWaveWidth"],
+  ["signals", "builderInvalidations"],
+  ["signals", "userRedirects"],
+  ["signals", "userStops"],
+];
+const ALLOWED_NORMALIZED_EVENT_KEYS = new Set([
+  "id",
+  "timestamp",
+  "kind",
+  "toolName",
+  "signals",
+  "graphAlias",
+  "nodeCount",
+  "waves",
+  "action",
+  "workerAlias",
+  "attemptAlias",
+  "role",
+  "modelAlias",
+  "labelAlias",
+  "anchorAlias",
+  "anchorWordCount",
+  "status",
+  "startedAt",
+  "endedAt",
+]);
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
 function timestampOf(entry) {
   const value = entry?.timestamp ?? entry?.message?.timestamp;
-  if (typeof value === "number" && Number.isFinite(value)) return new Date(value).toISOString();
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  }
   if (typeof value !== "string") return undefined;
   const time = Date.parse(value);
   return Number.isNaN(time) ? undefined : new Date(time).toISOString();
@@ -35,27 +146,96 @@ function messageText(message) {
     .join("\n");
 }
 
-export function sanitizeMetadataText(value, maxLength = 160) {
-  if (typeof value !== "string") return undefined;
-  let text = value
-    .replace(/https?:\/\/\S+/gi, "[url]")
-    .replace(/[A-Z]:\\(?:[^\s\\]+\\)+[^\s\\]*/g, "[path]")
-    .replace(/(?:^|\s)(?:~|\/Users\/[^/\s]+|\/home\/[^/\s]+|\/private\/tmp|\/tmp)(?:\/[^\s]*)?/g, (match) => `${match.startsWith(" ") ? " " : ""}[path]`)
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
-    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi, "[id]")
-    .replace(/\b[A-Z][A-Z0-9]{1,9}-\d{2,}\b/g, "[ticket]")
-    .replace(/\b(?:gh[pousr]_|sk-|NRAK-|ctx7sk-)[A-Za-z0-9_-]{12,}\b/g, "[secret]")
-    .replace(/\b[A-Za-z0-9_-]{40,}\b/g, "[opaque]")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text) return undefined;
-  if (text.length > maxLength) text = `${text.slice(0, Math.max(1, maxLength - 1)).trimEnd()}…`;
-  return text;
+function validateSessionEntry(entry, lineNumber) {
+  const prefix = `Invalid session entry at line ${lineNumber}`;
+  if (!isObject(entry)) throw new Error(`${prefix}: entry must be an object`);
+  if (typeof entry.type !== "string" || !entry.type) throw new Error(`${prefix}: type must be a non-empty string`);
+  if (entry.type === "message") {
+    if (!isObject(entry.message)) throw new Error(`${prefix}: message must be an object`);
+    if (typeof entry.message.role !== "string" || !entry.message.role) {
+      throw new Error(`${prefix}: message.role must be a non-empty string`);
+    }
+    if (entry.message.content !== undefined
+      && typeof entry.message.content !== "string"
+      && !Array.isArray(entry.message.content)) {
+      throw new Error(`${prefix}: message.content must be a string or array`);
+    }
+    for (const item of Array.isArray(entry.message.content) ? entry.message.content : []) {
+      if (!isObject(item)) throw new Error(`${prefix}: message content items must be objects`);
+      if (item.type === "toolCall") {
+        if (typeof item.name !== "string" || !item.name) throw new Error(`${prefix}: toolCall.name is required`);
+        if (item.id !== undefined && typeof item.id !== "string") throw new Error(`${prefix}: toolCall.id must be a string`);
+        if (item.arguments !== undefined && !isObject(item.arguments)) {
+          throw new Error(`${prefix}: toolCall.arguments must be an object`);
+        }
+      }
+    }
+  }
+  if (entry.type === "custom_message" && entry.details !== undefined && !isObject(entry.details)) {
+    throw new Error(`${prefix}: custom_message.details must be an object`);
+  }
 }
 
-function fingerprint(value) {
-  if (!value) return undefined;
-  return createHash("sha256").update(value).digest("hex").slice(0, 16);
+export function parseJsonl(text) {
+  if (Buffer.byteLength(String(text), "utf8") > MAX_INPUT_BYTES) {
+    throw new Error(`Session JSONL exceeds the ${MAX_INPUT_BYTES} byte budget`);
+  }
+  const entries = [];
+  for (const [index, line] of String(text).split(/\r?\n/).entries()) {
+    if (!line.trim()) continue;
+    let value;
+    try {
+      value = JSON.parse(line);
+    } catch (cause) {
+      throw new Error(`Invalid JSONL at line ${index + 1}: ${cause instanceof Error ? cause.message : String(cause)}`);
+    }
+    validateSessionEntry(value, index + 1);
+    entries.push(value);
+    if (entries.length > MAX_INPUT_ENTRIES) {
+      throw new Error(`Session JSONL exceeds the ${MAX_INPUT_ENTRIES} entry budget`);
+    }
+  }
+  if (!entries.length) throw new Error("Session JSONL contains no entries");
+  return entries;
+}
+
+function createAliaser(serializedEntries) {
+  const artifactDigest = sha256(serializedEntries);
+  const prefixes = {
+    artifact: "ar",
+    graph: "g",
+    node: "n",
+    worker: "w",
+    attempt: "a",
+    model: "m",
+    label: "l",
+    anchor: "h",
+  };
+  const alias = (category, value) => {
+    if (typeof value !== "string" || !value) return undefined;
+    const prefix = prefixes[category];
+    if (!prefix) throw new Error(`Unknown alias category: ${category}`);
+    return `${prefix}_${sha256(`${artifactDigest}\0${category}\0${value}`).slice(0, 32)}`;
+
+  };
+  return { alias, artifactAlias: alias("artifact", artifactDigest) };
+}
+
+function safeRole(value) {
+  return ALLOWED_ROLES.has(value) ? value : "unknown";
+}
+
+function safeToolName(value) {
+  return ALLOWED_TOOLS.has(value) ? value : "other";
+}
+
+function normalizedStatus(value) {
+  const status = String(value ?? "unknown").toLowerCase();
+  if (["completed", "complete", "succeeded", "success", "passed", "done"].includes(status)) return "successful";
+  if (["failed", "failure", "error", "errored", "rejected"].includes(status)) return "failed";
+  if (["running", "started", "promoted", "pending", "requested"].includes(status)) return "running";
+  if (["blocked", "cancelled", "canceled", "stopped"].includes(status)) return status === "canceled" ? "cancelled" : status;
+  return "unknown";
 }
 
 function normalizedWords(value) {
@@ -96,6 +276,15 @@ function hammingDistance(left, right) {
   return count;
 }
 
+function jaccard(left, right) {
+  const a = left instanceof Set ? left : new Set(normalizedWords(left));
+  const b = right instanceof Set ? right : new Set(normalizedWords(right));
+
+  if (!a.size || !b.size) return 0;
+  const intersection = [...a].filter((value) => b.has(value)).length;
+  return intersection / new Set([...a, ...b]).size;
+}
+
 function textSignals(text) {
   const value = text.toLowerCase();
   const signals = [];
@@ -111,20 +300,15 @@ function textSignals(text) {
   return [...new Set(signals)];
 }
 
-function extractSummary(text, includeSummaries) {
-  if (!includeSummaries) return undefined;
-  const match = text.match(SUMMARY_PREFIX);
-  return match ? sanitizeMetadataText(match[1], 240) : undefined;
-}
-
-function graphWaves(nodes) {
+function graphWaves(nodes, alias) {
   const pending = new Map();
-  for (const node of Array.isArray(nodes) ? nodes : []) {
-    if (!isObject(node) || typeof node.id !== "string") continue;
-    pending.set(node.id, {
-      rawId: node.id,
-      id: sanitizeMetadataText(node.id, 80),
-      role: sanitizeMetadataText(node.role, 40),
+  for (const [index, node] of (Array.isArray(nodes) ? nodes : []).entries()) {
+    if (!isObject(node)) continue;
+    const rawId = typeof node.id === "string" && node.id ? node.id : `missing-node-${index + 1}`;
+    pending.set(rawId, {
+      rawId,
+      nodeAlias: alias("node", rawId),
+      role: safeRole(node.role),
       dependsOn: Array.isArray(node.dependsOn) ? node.dependsOn.filter((id) => typeof id === "string") : [],
     });
   }
@@ -135,17 +319,17 @@ function graphWaves(nodes) {
     if (!ready.length) {
       waves.push({
         index: waves.length + 1,
-        nodeIds: [...pending.values()].map((node) => node.id).sort(),
+        nodeAliases: [...pending.values()].map((node) => node.nodeAlias).sort(),
         roles: [],
         unresolved: true,
       });
       break;
     }
-    const sorted = ready.sort((left, right) => left.id.localeCompare(right.id));
+    const sorted = ready.sort((left, right) => left.nodeAlias.localeCompare(right.nodeAlias));
     waves.push({
       index: waves.length + 1,
-      nodeIds: sorted.map((node) => node.id),
-      roles: sorted.map((node) => node.role).filter(Boolean),
+      nodeAliases: sorted.map((node) => node.nodeAlias),
+      roles: sorted.map((node) => node.role),
     });
     for (const node of ready) {
       completed.add(node.rawId);
@@ -155,39 +339,135 @@ function graphWaves(nodes) {
   return waves;
 }
 
-function normalizedStatus(value) {
-  const status = String(value ?? "unknown").toLowerCase();
-  if (["completed", "complete", "succeeded", "success", "passed", "done"].includes(status)) return "successful";
-  if (["failed", "failure", "error", "errored", "rejected"].includes(status)) return "failed";
-  if (["running", "started", "promoted", "pending", "requested"].includes(status)) return "running";
-  if (["blocked", "cancelled", "canceled", "stopped"].includes(status)) return status === "canceled" ? "cancelled" : status;
-  return sanitizeMetadataText(status, 40) ?? "unknown";
-}
+function buildCallDescriptors(entries, alias) {
+  const byItem = new Map();
+  const byToolCallId = new Map();
+  const workerLookup = new Map();
+  const seenWorkers = new Set();
+  let callOrder = 0;
 
-export function parseJsonl(text) {
-  const entries = [];
-  for (const [index, line] of String(text).split(/\r?\n/).entries()) {
-    if (!line.trim()) continue;
-    try {
-      const value = JSON.parse(line);
-      if (!isObject(value)) throw new Error("entry must be an object");
-      entries.push(value);
-    } catch (cause) {
-      throw new Error(`Invalid JSONL at line ${index + 1}: ${cause instanceof Error ? cause.message : String(cause)}`);
+  const registerWorkerLookup = (raw, descriptor) => {
+    if (typeof raw !== "string" || !raw) return;
+    const values = workerLookup.get(raw) ?? [];
+    values.push(descriptor);
+    workerLookup.set(raw, values);
+  };
+
+  for (const [sourceIndex, entry] of entries.entries()) {
+    if (entry.type !== "message" || entry.message.role !== "assistant") continue;
+    for (const item of Array.isArray(entry.message.content) ? entry.message.content : []) {
+      if (item.type !== "toolCall") continue;
+      callOrder += 1;
+      const args = isObject(item.arguments) ? item.arguments : {};
+      let descriptor;
+      if (item.name === "advisor_graph_plan") {
+        const rawGraph = typeof args.graphId === "string" && args.graphId ? args.graphId : `missing-graph-${callOrder}`;
+        descriptor = {
+          kind: "graph_plan",
+          toolName: "advisor_graph_plan",
+          graphAlias: alias("graph", rawGraph),
+          nodeCount: Array.isArray(args.nodes) ? args.nodes.length : 0,
+          waves: graphWaves(args.nodes, alias),
+        };
+      } else if (item.name === "bg_agent") {
+        const rawLabel = typeof args.label === "string" ? args.label : undefined;
+        const rawAnchor = typeof args.anchor === "string" ? args.anchor : undefined;
+        const rawWorker = typeof args.name === "string" && args.name
+          ? args.name
+          : rawLabel ?? `missing-worker-${callOrder}`;
+        const attemptSeed = typeof item.id === "string" && item.id ? item.id : `missing-call-${callOrder}`;
+        descriptor = {
+          kind: "worker_launch",
+          toolName: "bg_agent",
+          sourceIndex,
+          action: seenWorkers.has(rawWorker) ? "resume" : "launch",
+          workerAlias: alias("worker", rawWorker),
+          attemptAlias: alias("attempt", attemptSeed),
+          role: safeRole(args.role),
+          modelAlias: alias("model", args.model),
+          labelAlias: alias("label", rawLabel),
+          anchorAlias: alias("anchor", rawAnchor),
+          anchorWordCount: Math.min(normalizedWords(rawAnchor).length, 10_000),
+          rawWorker,
+          rawLabel,
+          rawAnchor,
+        };
+        seenWorkers.add(rawWorker);
+        registerWorkerLookup(rawWorker, descriptor);
+        registerWorkerLookup(rawLabel, descriptor);
+      } else {
+        descriptor = { kind: "tool_call", toolName: safeToolName(item.name) };
+      }
+      byItem.set(item, descriptor);
+      if (typeof item.id === "string") {
+        if (byToolCallId.has(item.id)) throw new Error("Session contains a duplicate toolCall.id");
+        byToolCallId.set(item.id, descriptor);
+      }
     }
   }
-  if (!entries.length) throw new Error("Session JSONL contains no entries");
-  return entries;
+  return { byItem, byToolCallId, workerLookup };
 }
 
-export function normalizeSession(entries, { includeSummaries = false } = {}) {
+function settlementDescriptor(details, sourceIndex, workerLookup) {
+  const candidates = [];
+  for (const raw of [details.agentName, details.label]) {
+    if (typeof raw !== "string") continue;
+    for (const descriptor of workerLookup.get(raw) ?? []) {
+      if (!candidates.includes(descriptor)) candidates.push(descriptor);
+    }
+  }
+  const preceding = candidates.filter((candidate) => candidate.sourceIndex <= sourceIndex);
+  return preceding.at(-1) ?? candidates[0];
+}
+
+function duplicateFacts(privateLaunches) {
+  const launches = privateLaunches.slice(0, MAX_REPETITION_LAUNCHES).map((launch) => ({
+    ...launch,
+    anchorSimilarity: simhash(launch.rawAnchor),
+    labelWords: new Set(normalizedWords(launch.rawLabel)),
+  }));
+  const facts = {
+    exactAnchors: [],
+    nearAnchors: [],
+    exactLabels: [],
+    nearLabels: [],
+    truncated: privateLaunches.length > MAX_REPETITION_LAUNCHES,
+  };
+  const append = (key, pair) => {
+    if (facts[key].length < MAX_REPETITION_PAIRS) facts[key].push(pair);
+    else facts.truncated = true;
+  };
+  for (let left = 0; left < launches.length; left += 1) {
+    for (let right = left + 1; right < launches.length; right += 1) {
+      const a = launches[left];
+      const b = launches[right];
+      const pair = [a.eventId, b.eventId];
+      if (a.rawAnchor && a.rawAnchor === b.rawAnchor) append("exactAnchors", pair);
+      else if (hammingDistance(a.anchorSimilarity, b.anchorSimilarity) <= 10) append("nearAnchors", pair);
+      if (a.rawLabel && a.rawLabel === b.rawLabel) append("exactLabels", pair);
+      else if (jaccard(a.labelWords, b.labelWords) >= 0.75) append("nearLabels", pair);
+    }
+  }
+  return facts;
+}
+
+export function normalizeSession(entries) {
   if (!Array.isArray(entries)) throw new Error("normalizeSession expects parsed JSONL entries");
+  if (!entries.length) throw new Error("Session contains no entries");
+  if (entries.length > MAX_INPUT_ENTRIES) throw new Error(`Session exceeds the ${MAX_INPUT_ENTRIES} entry budget`);
+  entries.forEach((entry, index) => validateSessionEntry(entry, index + 1));
+  const serializedEntries = JSON.stringify(entries);
+  if (Buffer.byteLength(serializedEntries, "utf8") > MAX_INPUT_BYTES) {
+    throw new Error(`Session exceeds the ${MAX_INPUT_BYTES} byte budget`);
+  }
+
+  const { alias, artifactAlias } = createAliaser(serializedEntries);
+  const descriptors = buildCallDescriptors(entries, alias);
   const events = [];
-  const toolCalls = new Map();
-  const seenWorkers = new Set();
-  let generatedWorker = 0;
+  const privateLaunches = [];
 
   const add = (entry, event) => {
+    if (events.length >= MAX_OUTPUT_EVENTS) throw new Error(`Normalized trace exceeds the ${MAX_OUTPUT_EVENTS} event budget`);
     const normalized = {
       id: `e${String(events.length + 1).padStart(4, "0")}`,
       timestamp: timestampOf(entry),
@@ -198,7 +478,7 @@ export function normalizeSession(entries, { includeSummaries = false } = {}) {
     return normalized;
   };
 
-  for (const entry of entries) {
+  for (const [sourceIndex, entry] of entries.entries()) {
     if (entry.type === "session") {
       add(entry, { kind: "session_started" });
       continue;
@@ -206,11 +486,15 @@ export function normalizeSession(entries, { includeSummaries = false } = {}) {
 
     if (entry.type === "custom_message" && entry.customType === "detach_agent_settled") {
       const details = isObject(entry.details) ? entry.details : {};
+      const linked = settlementDescriptor(details, sourceIndex, descriptors.workerLookup);
+      let fallbackRaw = `unknown-settlement-${sourceIndex}`;
+      if (typeof details.agentName === "string") fallbackRaw = details.agentName;
+      else if (typeof details.label === "string") fallbackRaw = details.label;
       add(entry, {
         kind: "worker_status",
         toolName: "bg_agent",
-        workerKey: sanitizeMetadataText(details.agentName ?? details.label ?? `worker-${++generatedWorker}`, 100),
-        label: sanitizeMetadataText(details.label, 120),
+        workerAlias: linked?.workerAlias ?? alias("worker", fallbackRaw),
+        attemptAlias: linked?.attemptAlias ?? alias("attempt", `settlement-${sourceIndex}-${fallbackRaw}`),
         status: normalizedStatus(details.agentState ?? details.status),
         startedAt: timestampOf({ timestamp: details.startedAt }),
         endedAt: timestampOf({ timestamp: details.endedAt }),
@@ -218,7 +502,7 @@ export function normalizeSession(entries, { includeSummaries = false } = {}) {
       continue;
     }
 
-    if (entry.type !== "message" || !isObject(entry.message)) continue;
+    if (entry.type !== "message") continue;
     const message = entry.message;
     const text = messageText(message);
 
@@ -227,131 +511,240 @@ export function normalizeSession(entries, { includeSummaries = false } = {}) {
       add(entry, {
         kind: signals.length ? "user_intervention" : "user_message",
         ...(signals.length ? { signals } : {}),
-        ...(extractSummary(text, includeSummaries) ? { summary: extractSummary(text, includeSummaries) } : {}),
       });
       continue;
     }
 
     if (message.role === "assistant") {
       const signals = textSignals(text);
-      const summary = extractSummary(text, includeSummaries);
-      if (signals.length || summary) {
-        add(entry, {
-          kind: "assistant_decision",
-          ...(signals.length ? { signals } : {}),
-          ...(summary ? { summary } : {}),
-        });
-      }
+      if (signals.length) add(entry, { kind: "assistant_decision", signals });
       for (const item of Array.isArray(message.content) ? message.content : []) {
-        if (item?.type !== "toolCall" || typeof item.name !== "string") continue;
-        const args = isObject(item.arguments) ? item.arguments : {};
-        let event;
-        if (item.name === "advisor_graph_plan") {
-          const waves = graphWaves(args.nodes);
-          event = add(entry, {
-            kind: "graph_plan",
-            toolName: item.name,
-            graphId: sanitizeMetadataText(args.graphId, 100),
-            nodeCount: Array.isArray(args.nodes) ? args.nodes.length : 0,
-            waves,
+        if (item.type !== "toolCall") continue;
+        const descriptor = descriptors.byItem.get(item);
+        if (descriptor.kind === "graph_plan") {
+          add(entry, {
+            kind: descriptor.kind,
+            toolName: descriptor.toolName,
+            graphAlias: descriptor.graphAlias,
+            nodeCount: descriptor.nodeCount,
+            waves: descriptor.waves,
           });
-        } else if (item.name === "bg_agent") {
-          const workerKey = sanitizeMetadataText(args.name ?? args.label ?? `worker-${++generatedWorker}`, 100);
-          const label = sanitizeMetadataText(args.label, 120);
-          const anchorText = typeof args.anchor === "string" ? args.anchor : "";
-          const action = seenWorkers.has(workerKey) ? "resume" : "launch";
-          seenWorkers.add(workerKey);
-          event = add(entry, {
-            kind: "worker_launch",
-            toolName: item.name,
-            action,
-            workerKey,
-            role: sanitizeMetadataText(args.role, 40),
-            model: sanitizeMetadataText(args.model, 100),
-            label,
-            labelFingerprint: fingerprint(label),
-            labelSimilarity: simhash(label),
-            anchorFingerprint: fingerprint(normalizedWords(anchorText).join(" ")),
-            anchorSimilarity: simhash(anchorText),
-            anchorWordCount: normalizedWords(anchorText).length,
+        } else if (descriptor.kind === "worker_launch") {
+          const event = add(entry, {
+            kind: descriptor.kind,
+            toolName: descriptor.toolName,
+            action: descriptor.action,
+            workerAlias: descriptor.workerAlias,
+            attemptAlias: descriptor.attemptAlias,
+            role: descriptor.role,
+            modelAlias: descriptor.modelAlias,
+            labelAlias: descriptor.labelAlias,
+            anchorAlias: descriptor.anchorAlias,
+            anchorWordCount: descriptor.anchorWordCount,
             status: "requested",
           });
+          privateLaunches.push({
+            eventId: event.id,
+            rawLabel: descriptor.rawLabel,
+            rawAnchor: descriptor.rawAnchor,
+          });
         } else {
-          event = add(entry, { kind: "tool_call", toolName: sanitizeMetadataText(item.name, 100) });
+          add(entry, { kind: "tool_call", toolName: descriptor.toolName });
         }
-        if (typeof item.id === "string") toolCalls.set(item.id, event);
       }
       continue;
     }
 
     if (message.role === "toolResult") {
-      const linked = toolCalls.get(message.toolCallId);
-      const toolName = sanitizeMetadataText(message.toolName ?? linked?.toolName, 100);
+      const linked = typeof message.toolCallId === "string"
+        ? descriptors.byToolCallId.get(message.toolCallId)
+        : undefined;
       if (linked?.kind === "worker_launch") {
-        const details = isObject(message.details) ? message.details : {};
         add(entry, {
           kind: "worker_launch_result",
           toolName: "bg_agent",
-          workerKey: linked.workerKey,
-          role: sanitizeMetadataText(details.role ?? linked.role, 40),
-          model: sanitizeMetadataText(details.model ?? linked.model, 100),
-          status: message.isError ? "failed" : normalizedStatus(details.status ?? "running"),
+          workerAlias: linked.workerAlias,
+          attemptAlias: linked.attemptAlias,
+          role: linked.role,
+          modelAlias: linked.modelAlias,
+          status: message.isError ? "failed" : normalizedStatus(message.details?.status ?? "running"),
         });
       } else if (message.isError) {
-        add(entry, { kind: "tool_error", toolName, status: "failed" });
+        add(entry, {
+          kind: "tool_error",
+          toolName: safeToolName(message.toolName ?? linked?.toolName),
+          status: "failed",
+        });
       }
     }
   }
 
-  return {
+  const normalized = {
     schemaVersion: NORMALIZED_SCHEMA_VERSION,
     source: {
       kind: "pi-session-jsonl",
+      artifactAlias,
       entryCount: entries.length,
-      textPolicy: includeSummaries ? "tagged-eval-summaries-only" : "no-message-text",
+      textPolicy: "categorical-only",
+      aliasScope: "deterministic-per-artifact",
     },
     redaction: {
       rawMessageBodiesCopied: false,
       rawToolPayloadsCopied: false,
-      selectedMetadataOnly: true,
-      metadataSanitized: true,
+      arbitraryTextCopied: false,
+      identityFieldsAliased: true,
       anchorTextStored: false,
     },
+    relationships: { repetition: duplicateFacts(privateLaunches) },
     events,
   };
-}
-
-function jaccard(left, right) {
-  const a = new Set(normalizedWords(left));
-  const b = new Set(normalizedWords(right));
-  if (!a.size || !b.size) return 0;
-  const intersection = [...a].filter((value) => b.has(value)).length;
-  return intersection / new Set([...a, ...b]).size;
-}
-
-function duplicateFacts(launches) {
-  const exactAnchors = [];
-  const nearAnchors = [];
-  const exactLabels = [];
-  const nearLabels = [];
-  for (let left = 0; left < launches.length; left += 1) {
-    for (let right = left + 1; right < launches.length; right += 1) {
-      const a = launches[left];
-      const b = launches[right];
-      const pair = [a.id, b.id];
-      if (a.anchorFingerprint && a.anchorFingerprint === b.anchorFingerprint) exactAnchors.push(pair);
-      else if (hammingDistance(a.anchorSimilarity, b.anchorSimilarity) <= 10) nearAnchors.push(pair);
-      if (a.labelFingerprint && a.labelFingerprint === b.labelFingerprint) exactLabels.push(pair);
-      else if (jaccard(a.label, b.label) >= 0.75) nearLabels.push(pair);
-    }
+  if (Buffer.byteLength(JSON.stringify(normalized), "utf8") > MAX_NORMALIZED_BYTES) {
+    throw new Error(`Normalized trace exceeds the ${MAX_NORMALIZED_BYTES} byte budget`);
   }
-  return { exactAnchors, nearAnchors, exactLabels, nearLabels };
+  assertNormalizedTrace(normalized);
+  return normalized;
 }
 
-export function analyzeTrace(normalized) {
+function assertAlias(value, label, { optional = false } = {}) {
+  if (optional && value === undefined) return;
+  if (typeof value !== "string" || !ALIAS_PATTERN.test(value)) throw new Error(`Invalid normalized ${label}`);
+}
+
+function assertOnlyKeys(value, allowed, label) {
+  if (!isObject(value)) throw new Error(`Normalized ${label} must be an object`);
+  const unknown = Object.keys(value).filter((key) => !allowed.has(key));
+  if (unknown.length) throw new Error(`Normalized ${label} contains unknown field: ${unknown[0]}`);
+}
+
+function assertTimestamp(value, label) {
+  if (value === undefined) return;
+  if (typeof value !== "string"
+    || !ISO_TIMESTAMP_PATTERN.test(value)
+    || Number.isNaN(Date.parse(value))) {
+    throw new Error(`Normalized ${label} is invalid`);
+  }
+}
+
+function assertNormalizedTrace(normalized) {
   if (!isObject(normalized) || normalized.schemaVersion !== NORMALIZED_SCHEMA_VERSION || !Array.isArray(normalized.events)) {
     throw new Error(`Expected normalized trace schemaVersion ${NORMALIZED_SCHEMA_VERSION}`);
   }
+  assertOnlyKeys(normalized, new Set(["schemaVersion", "source", "redaction", "relationships", "events"]), "trace");
+  assertOnlyKeys(
+    normalized.source,
+    new Set(["kind", "artifactAlias", "entryCount", "textPolicy", "aliasScope"]),
+    "source",
+  );
+  if (normalized.source.kind !== "pi-session-jsonl"
+    || normalized.source.textPolicy !== "categorical-only"
+    || normalized.source.aliasScope !== "deterministic-per-artifact"
+    || !Number.isInteger(normalized.source.entryCount)
+    || normalized.source.entryCount < 1
+    || normalized.source.entryCount > MAX_INPUT_ENTRIES) {
+    throw new Error("Normalized trace has an invalid categorical source contract");
+  }
+  assertAlias(normalized.source.artifactAlias, "artifactAlias");
+  assertOnlyKeys(
+    normalized.redaction,
+    new Set(["rawMessageBodiesCopied", "rawToolPayloadsCopied", "arbitraryTextCopied", "identityFieldsAliased", "anchorTextStored"]),
+    "redaction",
+  );
+  if (normalized.redaction.rawMessageBodiesCopied !== false
+    || normalized.redaction.rawToolPayloadsCopied !== false
+    || normalized.redaction.arbitraryTextCopied !== false
+    || normalized.redaction.identityFieldsAliased !== true
+    || normalized.redaction.anchorTextStored !== false) {
+    throw new Error("Normalized trace has an invalid redaction contract");
+  }
+  if (normalized.events.length > MAX_OUTPUT_EVENTS) throw new Error("Normalized trace exceeds the event budget");
+  const eventIds = new Set();
+  for (const event of normalized.events) {
+    if (!isObject(event) || !EVENT_ID_PATTERN.test(event.id) || !ALLOWED_EVENT_KINDS.has(event.kind)) {
+      throw new Error("Normalized trace contains an invalid event");
+    }
+    assertOnlyKeys(event, ALLOWED_NORMALIZED_EVENT_KEYS, "event");
+    if (eventIds.has(event.id)) throw new Error(`Normalized trace repeats event ID: ${event.id}`);
+    eventIds.add(event.id);
+    assertTimestamp(event.timestamp, "event timestamp");
+    assertTimestamp(event.startedAt, "startedAt");
+    assertTimestamp(event.endedAt, "endedAt");
+    if (event.toolName !== undefined && !ALLOWED_TOOLS.has(event.toolName)) throw new Error("Normalized toolName is not categorical");
+    if (event.role !== undefined && !ALLOWED_ROLES.has(event.role)) throw new Error("Normalized role is not categorical");
+    if (event.status !== undefined && !ALLOWED_STATUSES.has(event.status)) throw new Error("Normalized status is not categorical");
+    if (event.action !== undefined && !["launch", "resume"].includes(event.action)) throw new Error("Normalized action is not categorical");
+    if (event.signals !== undefined
+      && (!Array.isArray(event.signals)
+        || new Set(event.signals).size !== event.signals.length
+        || event.signals.some((signal) => !ALLOWED_SIGNALS.has(signal)))) {
+      throw new Error("Normalized signals are not categorical");
+    }
+    if (event.nodeCount !== undefined && (!Number.isInteger(event.nodeCount) || event.nodeCount < 0)) {
+      throw new Error("Normalized nodeCount is invalid");
+    }
+    if (event.anchorWordCount !== undefined
+      && (!Number.isInteger(event.anchorWordCount) || event.anchorWordCount < 0 || event.anchorWordCount > 10_000)) {
+      throw new Error("Normalized anchorWordCount is invalid");
+    }
+    for (const key of ["graphAlias", "workerAlias", "attemptAlias", "modelAlias", "labelAlias", "anchorAlias"]) {
+      assertAlias(event[key], key, { optional: true });
+    }
+    if (event.waves !== undefined && !Array.isArray(event.waves)) throw new Error("Normalized graph waves are invalid");
+    for (const wave of event.waves ?? []) {
+      assertOnlyKeys(wave, new Set(["index", "nodeAliases", "roles", "unresolved"]), "graph wave");
+      if (!Number.isInteger(wave.index)
+        || wave.index < 1
+        || !Array.isArray(wave.nodeAliases)
+        || !Array.isArray(wave.roles)
+        || (wave.unresolved !== undefined && typeof wave.unresolved !== "boolean")) {
+        throw new Error("Normalized graph wave is invalid");
+      }
+      wave.nodeAliases.forEach((value) => assertAlias(value, "nodeAlias"));
+      if (wave.roles.some((role) => !ALLOWED_ROLES.has(role))) throw new Error("Normalized graph wave role is invalid");
+    }
+  }
+  assertOnlyKeys(normalized.relationships, new Set(["repetition"]), "relationships");
+  const repetition = normalized.relationships.repetition;
+  assertOnlyKeys(
+    repetition,
+    new Set(["exactAnchors", "nearAnchors", "exactLabels", "nearLabels", "truncated"]),
+    "repetition relationships",
+  );
+  for (const key of ["exactAnchors", "nearAnchors", "exactLabels", "nearLabels"]) {
+    const pairs = repetition[key];
+    if (!Array.isArray(pairs) || pairs.length > MAX_REPETITION_PAIRS) throw new Error(`Normalized ${key} is invalid`);
+    for (const pair of pairs) {
+      if (!Array.isArray(pair)
+        || pair.length !== 2
+        || pair.some((id) => !eventIds.has(id))) {
+        throw new Error(`Normalized ${key} contains an invalid event pair`);
+      }
+    }
+  }
+  if (typeof repetition.truncated !== "boolean") throw new Error("Normalized repetition truncation flag is invalid");
+  if (Buffer.byteLength(JSON.stringify(normalized), "utf8") > MAX_NORMALIZED_BYTES) {
+    throw new Error("Normalized trace exceeds the byte budget");
+  }
+}
+
+function resolvedAttemptStatus(updates) {
+  let selected = "requested";
+  let priority = 0;
+  for (const update of updates) {
+    const terminal = ["successful", "failed", "blocked", "cancelled", "stopped"].includes(update.status);
+    let nextPriority = 0;
+    if (update.kind === "worker_status" && terminal) nextPriority = 3;
+    else if (terminal) nextPriority = 2;
+    else if (update.status === "running") nextPriority = 1;
+    if (nextPriority >= priority) {
+      selected = update.status;
+      priority = nextPriority;
+    }
+  }
+  return selected;
+}
+
+export function analyzeTrace(normalized) {
+  assertNormalizedTrace(normalized);
   const events = normalized.events;
   const times = events.map((event) => Date.parse(event.timestamp)).filter(Number.isFinite).sort((a, b) => a - b);
   let activeElapsedMs = 0;
@@ -360,27 +753,28 @@ export function analyzeTrace(normalized) {
   }
 
   const launches = events.filter((event) => event.kind === "worker_launch");
-  const attempts = [];
-  const openByWorker = new Map();
-  const failedWorkers = new Set();
-  const recoveredWorkers = new Set();
-  for (const event of events) {
-    if (event.kind === "worker_launch") {
-      const attempt = { eventId: event.id, workerKey: event.workerKey, role: event.role ?? "unknown", action: event.action, status: "requested" };
-      attempts.push(attempt);
-      openByWorker.set(event.workerKey, attempt);
-    } else if (["worker_launch_result", "worker_status"].includes(event.kind)) {
-      const attempt = openByWorker.get(event.workerKey);
-      if (!attempt) continue;
-      attempt.status = event.status;
-      if (event.status === "failed") failedWorkers.add(event.workerKey);
-      if (event.status === "successful" && failedWorkers.has(event.workerKey) && attempt.action === "resume") recoveredWorkers.add(event.workerKey);
-    }
-  }
+  const updatesByAttempt = Object.groupBy(
+    events.filter((event) => ["worker_launch_result", "worker_status"].includes(event.kind)),
+    (event) => event.attemptAlias,
+  );
+  const attempts = launches.map((event) => ({
+    eventId: event.id,
+    workerAlias: event.workerAlias,
+    attemptAlias: event.attemptAlias,
+    role: event.role,
+    action: event.action,
+    status: resolvedAttemptStatus(updatesByAttempt[event.attemptAlias] ?? []),
+  }));
   const successfulByRole = {};
   for (const attempt of attempts.filter((value) => value.status === "successful")) {
     successfulByRole[attempt.role] = (successfulByRole[attempt.role] ?? 0) + 1;
   }
+  const failedWorkers = new Set(attempts.filter((attempt) => attempt.status === "failed").map((attempt) => attempt.workerAlias));
+  const recoveredWorkers = new Set(
+    attempts
+      .filter((attempt) => attempt.action === "resume" && attempt.status === "successful" && failedWorkers.has(attempt.workerAlias))
+      .map((attempt) => attempt.workerAlias),
+  );
 
   const graphs = events.filter((event) => event.kind === "graph_plan");
   const allWaves = graphs.flatMap((graph) => graph.waves ?? []);
@@ -391,8 +785,7 @@ export function analyzeTrace(normalized) {
   for (const event of events.filter((candidate) => ["tool_call", "graph_plan", "worker_launch"].includes(candidate.kind))) {
     toolUsage[event.toolName] = (toolUsage[event.toolName] ?? 0) + 1;
   }
-  const duplicate = duplicateFacts(launches);
-  const failedAttempts = attempts.filter((attempt) => attempt.status === "failed").length;
+  const repetition = normalized.relationships?.repetition ?? {};
 
   return {
     schemaVersion: 1,
@@ -401,7 +794,7 @@ export function analyzeTrace(normalized) {
       "Trace metrics describe observable events; they do not prove outcome quality or prescribe an orchestration workflow.",
       "Active elapsed time caps each inter-event gap at five minutes and is only a workload proxy.",
       "Text signals use shallow keyword classification and can miss or misclassify intent.",
-      "Near-duplicate fingerprints are heuristic and require human review.",
+      "Near-duplicate relationships are heuristic and require human review.",
     ],
     elapsed: {
       wallElapsedMs: times.length > 1 ? times.at(-1) - times[0] : 0,
@@ -412,7 +805,7 @@ export function analyzeTrace(normalized) {
     workers: {
       launches: attempts.length,
       successfulByRole,
-      failedLaunches: failedAttempts,
+      failedLaunches: attempts.filter((attempt) => attempt.status === "failed").length,
       resumedLaunches: attempts.filter((attempt) => attempt.action === "resume").length,
       recoveredWorkers: recoveredWorkers.size,
       recoveryRatio: failedWorkers.size ? recoveredWorkers.size / failedWorkers.size : null,
@@ -420,15 +813,16 @@ export function analyzeTrace(normalized) {
     graphs: {
       count: graphs.length,
       dependencyWaves: allWaves.length,
-      parallelWaves: allWaves.filter((wave) => wave.nodeIds?.length > 1).length,
-      maxWaveWidth: Math.max(0, ...allWaves.map((wave) => wave.nodeIds?.length ?? 0)),
+      parallelWaves: allWaves.filter((wave) => wave.nodeAliases?.length > 1).length,
+      maxWaveWidth: Math.max(0, ...allWaves.map((wave) => wave.nodeAliases?.length ?? 0)),
       launchBatches,
     },
     repetition: {
-      exactAnchorPairs: duplicate.exactAnchors,
-      nearAnchorPairs: duplicate.nearAnchors,
-      exactLabelPairs: duplicate.exactLabels,
-      nearLabelPairs: duplicate.nearLabels,
+      exactAnchorPairs: repetition.exactAnchors ?? [],
+      nearAnchorPairs: repetition.nearAnchors ?? [],
+      exactLabelPairs: repetition.exactLabels ?? [],
+      nearLabelPairs: repetition.nearLabels ?? [],
+      truncated: repetition.truncated === true,
     },
     signals: {
       builderInvalidations: events.filter((event) => event.signals?.includes("builder_invalidation")).length,
@@ -437,6 +831,10 @@ export function analyzeTrace(normalized) {
       authDataBoundaries: events.filter((event) => event.signals?.includes("auth_data_boundary")).length,
     },
   };
+}
+
+function normalizedDescription(value) {
+  return String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 export function validateFixture(fixture, normalized) {
@@ -456,7 +854,9 @@ export function validateFixture(fixture, normalized) {
     }
     for (const dimension of dimensions) {
       if (!RUBRIC_DIMENSIONS.includes(dimension?.id)) errors.push(`unknown rubric dimension: ${dimension?.id}`);
-      if (typeof dimension?.weight !== "number" || dimension.weight <= 0) errors.push(`dimension ${dimension?.id ?? "unknown"} needs a positive weight`);
+      if (typeof dimension?.weight !== "number" || !Number.isFinite(dimension.weight) || dimension.weight <= 0) {
+        errors.push(`dimension ${dimension?.id ?? "unknown"} needs a positive weight`);
+      }
       if (!Array.isArray(dimension?.criteria) || !dimension.criteria.every((criterion) => typeof criterion === "string" && criterion.trim())) {
         errors.push(`dimension ${dimension?.id ?? "unknown"} needs non-empty criteria`);
       }
@@ -468,21 +868,40 @@ export function validateFixture(fixture, normalized) {
     errors.push("at least one checkpoint is required");
   } else {
     const eventIds = new Set(normalized?.events?.map((event) => event.id) ?? []);
+    const checkpointIds = new Set();
     for (const checkpoint of fixture.checkpoints) {
-      const prefix = `checkpoint ${checkpoint?.id ?? "unknown"}`;
-      if (typeof checkpoint?.id !== "string" || !checkpoint.id.trim()) errors.push(`${prefix} needs an id`);
+      const checkpointId = typeof checkpoint?.id === "string" ? checkpoint.id.trim() : "";
+      const prefix = `checkpoint ${checkpointId || "unknown"}`;
+      if (!checkpointId) errors.push(`${prefix} needs an id`);
+      else if (checkpointIds.has(checkpointId)) errors.push(`checkpoint IDs must be unique: ${checkpointId}`);
+      else checkpointIds.add(checkpointId);
       if (typeof checkpoint?.situation !== "string" || !checkpoint.situation.trim()) errors.push(`${prefix} needs a situation`);
       if (typeof checkpoint?.afterEvent !== "string") errors.push(`${prefix} needs afterEvent`);
       else if (normalized && !eventIds.has(checkpoint.afterEvent)) errors.push(`${prefix} references missing event ${checkpoint.afterEvent}`);
       if (!Array.isArray(checkpoint?.acceptableNextActions) || checkpoint.acceptableNextActions.length < 2) {
         errors.push(`${prefix} must allow at least two acceptable next actions`);
-      } else {
-        for (const action of checkpoint.acceptableNextActions) {
-          if (typeof action?.description !== "string" || !action.description.trim()) errors.push(`${prefix} has an action without a description`);
-          if (!Array.isArray(action?.supports) || !action.supports.length || action.supports.some((id) => !RUBRIC_DIMENSIONS.includes(id))) {
-            errors.push(`${prefix} action ${action?.id ?? "unknown"} has invalid supports dimensions`);
-          }
+        continue;
+      }
+      const actionIds = new Set();
+      const descriptions = new Set();
+      const signatures = new Set();
+      for (const action of checkpoint.acceptableNextActions) {
+        const actionId = typeof action?.id === "string" ? action.id.trim() : "";
+        if (!actionId) errors.push(`${prefix} has an action without an id`);
+        else if (actionIds.has(actionId)) errors.push(`${prefix} action IDs must be unique: ${actionId}`);
+        else actionIds.add(actionId);
+        const description = normalizedDescription(action?.description);
+        if (!description) errors.push(`${prefix} has an action without a description`);
+        else if (descriptions.has(description)) errors.push(`${prefix} has duplicate normalized action descriptions`);
+        else descriptions.add(description);
+        const supports = Array.isArray(action?.supports) ? action.supports : [];
+        if (!supports.length || supports.some((id) => !RUBRIC_DIMENSIONS.includes(id))) {
+          errors.push(`${prefix} action ${actionId || "unknown"} has invalid supports dimensions`);
         }
+        if (new Set(supports).size !== supports.length) errors.push(`${prefix} action ${actionId || "unknown"} repeats supports dimensions`);
+        const signature = `${description}\0${[...new Set(supports)].sort().join(",")}`;
+        if (signatures.has(signature)) errors.push(`${prefix} has duplicate acceptable actions`);
+        else signatures.add(signature);
       }
     }
   }
@@ -513,25 +932,27 @@ export function createRubricPacket(fixture, normalized, metrics = analyzeTrace(n
   };
 }
 
+function assertMetricReport(value, side) {
+  if (!isObject(value) || value.schemaVersion !== 1 || value.diagnosticOnly !== true) {
+    throw new Error(`Invalid ${side} metric report`);
+  }
+  for (const path of COMPARE_METRIC_PATHS) {
+    const metric = path.reduce((current, key) => current?.[key], value);
+    if (typeof metric !== "number" || !Number.isFinite(metric)) {
+      throw new Error(`Invalid ${side} metric: ${path.join(".")}`);
+    }
+  }
+}
+
 export function compareMetrics(left, right) {
-  const paths = [
-    ["elapsed", "activeElapsedMs"],
-    ["workers", "launches"],
-    ["workers", "failedLaunches"],
-    ["workers", "resumedLaunches"],
-    ["workers", "recoveredWorkers"],
-    ["graphs", "count"],
-    ["graphs", "parallelWaves"],
-    ["graphs", "maxWaveWidth"],
-    ["signals", "builderInvalidations"],
-    ["signals", "userRedirects"],
-    ["signals", "userStops"],
-  ];
+  assertMetricReport(left, "left");
+  assertMetricReport(right, "right");
   const read = (object, path) => path.reduce((value, key) => value?.[key], object);
   return {
     schemaVersion: 1,
     diagnosticOnly: true,
-    deltas: paths.map((path) => {
+    deltas: COMPARE_METRIC_PATHS.map((path) => {
+
       const leftValue = read(left, path);
       const rightValue = read(right, path);
       return { metric: path.join("."), left: leftValue, right: rightValue, delta: rightValue - leftValue };

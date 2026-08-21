@@ -10,7 +10,7 @@ workflow to be correct. It has four separate stages:
 
 ```bash
 npm run eval:advisor -- ingest /path/to/session.jsonl
-npm run eval:advisor -- analyze evals/local/session.normalized.json
+npm run eval:advisor -- analyze evals/local/<artifact-alias>.normalized.json
 npm run eval:advisor -- evaluate evals/cases/evidence-rich-routing-defect/fixture.json \
   --output evals/local/evidence-rich.packet.json
 npm run eval:advisor -- compare evals/local/left.metrics.json evals/local/right.metrics.json
@@ -22,22 +22,27 @@ browser state, or advisor runtime artifacts to Git.
 
 ## Privacy boundary
 
-Default ingestion never copies raw user/assistant message bodies, thinking, tool result
-text, raw tool payloads, working directories, transcript paths, or anchor text. It keeps
-only selected evaluation metadata: timestamps, tool names, graph IDs and dependency
-waves, worker role/model/sanitized label/status, launch versus resume, and small derived
-signals. Anchors become a one-way fingerprint, a similarity signature, and a word count.
+Ingestion never copies raw user/assistant message bodies, decision summaries, thinking,
+tool result text, raw tool payloads, working directories, transcript paths, labels, or
+anchor text. It does not attempt blacklist redaction. The persisted schema is a closed
+allowlist: timestamps and bounded counts; known tool, role, status, action, and signal
+categories; generated event IDs; and opaque aliases.
 
-Metadata text is length-bounded and redacts obvious paths, URLs, email addresses,
-ticket-like IDs, UUIDs, common token prefixes, and long opaque strings. This is not a
-complete proprietary-name detector. Review any artifact before sharing it.
+Graph IDs, node IDs, worker and attempt identities, model IDs, labels, and anchors become
+128-bit aliases derived from the full artifact digest plus the field category and value.
+Aliases are deterministic for correlation inside one artifact and change when the
+artifact changes. Raw tool-call IDs remain private in memory and are used only to attach
+ordered or out-of-order results to the correct attempt alias. Unknown tools, roles, and
+statuses collapse to the categorical values `other` or `unknown`.
 
-Decision summaries are opt-in. `--include-summaries` accepts only message lines prefixed
-with `EVAL_SUMMARY:` and applies the same sanitizer; it does not summarize arbitrary
-message bodies. A fixture may set `ingest.includeTaggedSummaries` for a reviewed
-synthetic trace. The parser may inspect message text locally to emit shallow boolean
-signals such as stop, redirect, builder invalidation, or auth/data boundary; the source
-text is not retained.
+Arbitrary `EVAL_SUMMARY:` prose is intentionally unsupported: even opt-in free text can
+contain proprietary names, paths, or secrets unknown to a sanitizer. The parser may
+inspect message text transiently to derive closed signals such as stop, redirect, builder
+invalidation, or auth/data boundary, and to derive repetition relationships between
+generated event IDs; source text and similarity fingerprints are not retained. Input
+entries, output events, serialized bytes, and repetition pairs have hard artifact-wide
+budgets. Review remains appropriate before sharing even though the normalized contract
+contains no user-controlled free text.
 
 ## Diagnostic metrics
 
@@ -58,8 +63,10 @@ Near-duplicate and text-signal detection is heuristic and requires human review.
 ## Fixture and judge boundary
 
 A fixture contains a weighted five-dimension rubric and checkpoints tied to normalized
-event IDs. Every checkpoint must offer at least two acceptable next actions, so fixture
-validation rejects a single golden plan. The dimensions are:
+event IDs. Checkpoint IDs and action IDs must be unique, and normalized duplicate action
+descriptions/support sets are rejected. Every checkpoint must offer at least two
+genuinely distinct acceptable next actions, so validation rejects a hidden golden plan.
+The dimensions are:
 
 - `outcomeCorrectness`
 - `informationValue`
