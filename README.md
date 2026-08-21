@@ -215,6 +215,17 @@ node scripts/meta-harness.mjs install --target /tmp/pi-meta-harness-test
 node scripts/meta-harness.mjs doctor --target /tmp/pi-meta-harness-test
 ```
 
+Normal tests validate that every Git package uses a syntactically exact 40-hex
+commit without requiring network access. Before publication or a live cutover,
+opt in to bounded remote fetch verification:
+
+```bash
+node scripts/meta-harness.mjs verify-git-pins
+```
+
+Each exact commit fetch has a 20-second timeout; this network check is not part
+of offline unit tests.
+
 Exact versions or full commits pin Pi packages. First-party harness files are copied from this repository. Third-party skills are fetched at full Git commits, verified against recorded tree IDs, copied instead of symlinked, and checked against per-skill SHA-256 hashes. The skills installer CLI is also pinned.
 
 The marketing and fal.ai groups intentionally use the last reviewed revisions that still contain the selected skill names; their newer upstream layouts renamed or removed those skills.

@@ -57,3 +57,8 @@ Configured `bg_agent` workers follow the opposite rule: they stay visible as pan
 Pi packages and first-party files are exact. Each third-party skill group records a full source commit and Git tree. The installer fetches that commit directly, verifies both IDs, copies the selected skills, and then verifies each installed folder against its SHA-256 lock.
 
 Host package managers remain an update boundary: Homebrew resolves current compatible Herdr and Engram builds, while the live doctor enforces the supported minimums. Pi and agent-browser use exact versions.
+
+Unit tests enforce full 40-hex Git package pins without network access. Run
+`node scripts/meta-harness.mjs verify-git-pins` as an explicit publication or
+cutover preflight to fetch each exact commit with a per-pin timeout. Keeping the
+network check opt-in preserves deterministic offline tests.

@@ -202,8 +202,22 @@ anchors provide the independence backstop.
 | `~/.pi/agent/advisor-intelligence.json` | Live copy of the selected guide |
 
 Doctor verifies fixed role shape, validates every named guide against configured
-role names, and requires the live guide to match a named profile. It does not
-inspect or reject an advisor's runtime model choice.
+role names, and requires `ACTIVE` to be present, nonempty, known, and
+byte-equivalent to the live guide. Missing pointers, stale pointer/live pairs,
+and interrupted switches fail precisely. Reinstall performs the same preflight
+before creating a backup or replacing files, so it never silently chooses one
+side of a mismatch.
+
+Repair selection drift explicitly with:
+
+```bash
+node "$HOME/.pi/agent/bin/intelligence-profile.mjs" <intended-name>
+node scripts/meta-harness.mjs doctor --live
+```
+
+A clean install selects `codex-max`; a legacy mixed configuration may migrate a
+known `ACTIVE` name when no split live guide exists. Doctor does not inspect or
+reject an advisor's runtime model choice.
 
 Related: [`advisor-runtime.md`](advisor-runtime.md),
 [`architecture.md`](architecture.md), and

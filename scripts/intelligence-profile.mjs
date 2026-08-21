@@ -197,15 +197,20 @@ export async function readJson(path) {
   }
 }
 
-export async function readActiveName(target) {
+export async function readActivePointer(target) {
   try {
     const contents = await readFile(activePath(target), "utf8");
     const name = contents.trim();
-    return name || undefined;
+    return name ? { status: "named", name } : { status: "empty" };
   } catch (error) {
-    if (error.code === "ENOENT") return undefined;
+    if (error.code === "ENOENT") return { status: "missing" };
     throw error;
   }
+}
+
+export async function readActiveName(target) {
+  const pointer = await readActivePointer(target);
+  return pointer.status === "named" ? pointer.name : undefined;
 }
 
 export async function configuredRoleNames(target) {
@@ -222,6 +227,54 @@ export async function inferProfileName(target, live) {
     if (Buffer.compare(bytes, candidate) === 0) return name;
   }
   return undefined;
+}
+
+export async function activeSelectionStatus(target) {
+  const errors = [];
+  let names;
+  try {
+    names = await listProfileNames(target);
+  } catch (error) {
+    return {
+      pointer: await readActivePointer(target),
+      liveMatch: undefined,
+      errors: [error instanceof Error ? error.message : String(error)],
+    };
+  }
+
+  const pointer = await readActivePointer(target);
+  if (pointer.status === "missing") {
+    errors.push("Missing active intelligence profile pointer: intelligence-profiles/ACTIVE");
+  } else if (pointer.status === "empty") {
+    errors.push("Active intelligence profile pointer is empty: intelligence-profiles/ACTIVE");
+  } else if (!names.includes(pointer.name)) {
+    errors.push(`ACTIVE names unknown installed intelligence profile: ${pointer.name}`);
+  }
+
+  let live;
+  try {
+    live = await readFile(liveGuidePath(target));
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      const suffix = pointer.status === "named" ? ` (ACTIVE names ${pointer.name})` : "";
+      errors.push(`Missing live advisor intelligence guide: advisor-intelligence.json${suffix}`);
+    } else {
+      throw error;
+    }
+  }
+
+  const liveMatch = live ? await inferProfileName(target, live) : undefined;
+  if (live && pointer.status === "named" && names.includes(pointer.name)) {
+    const selected = await readFile(join(profileDir(target), `${pointer.name}.json`));
+    if (Buffer.compare(live, selected) !== 0) {
+      const detail = liveMatch
+        ? `advisor-intelligence.json matches ${liveMatch}`
+        : "advisor-intelligence.json matches no installed named profile";
+      errors.push(`Active intelligence profile mismatch: ACTIVE names ${pointer.name}, but ${detail}`);
+    }
+  }
+
+  return { pointer, liveMatch, names, errors };
 }
 
 async function atomicCopy(source, destination) {
@@ -265,30 +318,24 @@ export async function applyNamedProfile(target, name, { backupLive = true } = {}
   return name;
 }
 
-export async function ensureActiveProfile(target) {
-  const names = await listProfileNames(target);
-  const recorded = await readActiveName(target);
-  if (recorded && names.includes(recorded)) {
-    return applyNamedProfile(target, recorded, { backupLive: false });
-  }
-  const inferred = await inferProfileName(target).catch(() => undefined);
-  const name = inferred && names.includes(inferred) ? inferred : DEFAULT_PROFILE;
+export async function materializeProfile(target, name = DEFAULT_PROFILE) {
   return applyNamedProfile(target, name, { backupLive: false });
 }
 
 export async function statusLines(target) {
   const names = await listProfileNames(target);
-  const recorded = await readActiveName(target);
-  const inferred = await inferProfileName(target).catch(() => undefined);
-  const active = inferred ?? "custom/unmatched";
+  const selection = await activeSelectionStatus(target);
+  const recorded = selection.pointer.status === "named" ? selection.pointer.name : `(${selection.pointer.status})`;
+  const active = selection.liveMatch ?? "custom/unmatched";
   const lines = [
     `Target: ${target}`,
-    `Active file: ${recorded ?? "(missing)"}`,
+    `Active file: ${recorded}`,
     `Live guide matches: ${active}`,
     `Profiles: ${names.join(", ")}`,
   ];
-  if (inferred) {
-    const guide = await readJson(join(profileDir(target), `${inferred}.json`));
+  for (const error of selection.errors) lines.push(`Integrity error: ${error}`);
+  if (selection.liveMatch) {
+    const guide = await readJson(join(profileDir(target), `${selection.liveMatch}.json`));
     for (const [role, choices] of Object.entries(guide.recommendations)) {
       const preferred = choices[0];
       lines.push(`Preferred ${role}: ${preferred.model} (${preferred.thinking}) — ${preferred.fit}`);

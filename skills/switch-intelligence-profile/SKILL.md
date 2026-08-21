@@ -40,6 +40,11 @@ not exhaustive or enforceable: choose outside it when task fit, availability,
 or capacity warrants, and include a concise rationale in the task packet or
 advisor record. Do not edit the fixed role config.
 
+The switcher is also the explicit repair path for a missing, stale, or
+interrupted ACTIVE/live selection. Pick the intended named profile and run it;
+do not manually copy one side over the other. Doctor and reinstall refuse an
+inconsistent pair rather than guessing which side is authoritative.
+
 ## After a switch
 
 - Report the active profile and preferred workhorse/reviewer shown by the switcher.

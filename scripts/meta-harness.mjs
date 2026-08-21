@@ -19,10 +19,14 @@ import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  ensureActiveProfile,
-  inferProfileName,
+  activeSelectionStatus,
+  DEFAULT_PROFILE,
   intelligenceGuideErrors,
   listProfileNames,
+  liveGuidePath,
+  materializeProfile,
+  profileDir,
+  readActivePointer,
   readJson as readProfileJson,
   roleConfigErrors,
 } from "./intelligence-profile.mjs";
@@ -40,6 +44,7 @@ const BACKUP_ROOT = join("backups", "pi-meta-harness");
 const HERDR_BACKUP_ROOT = join("backups", "pi-meta-harness-herdr");
 const SKILL_BACKUP_ROOT = join("backups", "pi-meta-harness-skills");
 const STATE_FILE = ".pi-meta-harness-state.json";
+const GIT_PIN_FETCH_TIMEOUT_MS = 20_000;
 const RUNTIME_SETTING_KEYS = new Set([
   "defaultProvider",
   "defaultModel",
@@ -114,6 +119,7 @@ Usage:
   node scripts/meta-harness.mjs skills-plan
   node scripts/meta-harness.mjs install-skills --live [--allow-active]
   node scripts/meta-harness.mjs install-herdr-integration --live [--allow-active]
+  node scripts/meta-harness.mjs verify-git-pins
 
 A real Pi target always requires --live. The installer never reloads Pi.`);
 }
@@ -346,9 +352,59 @@ function assertLiveSafety(options) {
   }
 }
 
+async function sourceProfileNames() {
+  const entries = await readdir(join(ROOT, "config", "intelligence-profiles"));
+  return entries
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => name.slice(0, -".json".length));
+}
+
+function activeSelectionRepairMessage(target) {
+  const switcher = join(target, "bin", "intelligence-profile.mjs");
+  return `Repair explicitly with: node ${JSON.stringify(switcher)} <profile> --target ${JSON.stringify(target)}`;
+}
+
+async function installProfileSelection(target) {
+  const pointer = await readActivePointer(target);
+  const livePresent = await exists(liveGuidePath(target));
+  const statePresent = await exists(join(target, STATE_FILE));
+  const namedProfilesPresent = await exists(profileDir(target));
+  const existingRoleConfig = await readJson(join(target, "bg-agent-profiles.json"), undefined);
+  const legacyMixedConfig = isObject(existingRoleConfig?.models);
+
+  if (
+    pointer.status === "missing" &&
+    !livePresent &&
+    !statePresent &&
+    !namedProfilesPresent &&
+    !legacyMixedConfig
+  ) {
+    return { name: DEFAULT_PROFILE, mode: "clean" };
+  }
+
+  if (legacyMixedConfig && pointer.status === "named" && !livePresent) {
+    const known = await sourceProfileNames();
+    if (!known.includes(pointer.name)) {
+      throw new Error(
+        `Cannot migrate legacy intelligence selection: ACTIVE names unknown profile ${pointer.name}.\n${activeSelectionRepairMessage(target)}`,
+      );
+    }
+    return { name: pointer.name, mode: "legacy" };
+  }
+
+  const selection = await activeSelectionStatus(target);
+  if (selection.errors.length) {
+    throw new Error(
+      `Refusing install because the active intelligence selection is inconsistent:\n- ${selection.errors.join("\n- ")}\n${activeSelectionRepairMessage(target)}`,
+    );
+  }
+  return { name: selection.pointer.name, mode: "existing" };
+}
+
 async function install(options) {
   const target = targetFor(options);
   assertLiveSafety(options);
+  const selection = await installProfileSelection(target);
   await mkdir(target, { recursive: true });
   const backup = await createBackup(target);
 
@@ -364,7 +420,7 @@ async function install(options) {
       : deepMerge(existing, overlay);
     await atomicJson(join(target, destination), merged);
   }
-  await ensureActiveProfile(target);
+  await materializeProfile(target, selection.name);
   await atomicJson(join(target, STATE_FILE), {
     schemaVersion: 1,
     installedAt: new Date().toISOString(),
@@ -372,6 +428,7 @@ async function install(options) {
     backup,
   });
   console.log(`Installed portable Pi harness into ${target}`);
+  console.log(`Intelligence selection: ${selection.name} (${selection.mode})`);
   console.log(`Backup: ${backup}`);
   console.log("Pi was not reloaded. Run doctor before any later activation.");
 }
@@ -387,6 +444,7 @@ async function plan(options) {
     console.log(`MERGE ${source} -> ${destination}`);
   }
   console.log("PRESERVE intelligence-profiles/ACTIVE when its named guide still exists");
+  console.log("REFUSE install before mutation when ACTIVE and advisor-intelligence.json are inconsistent");
   console.log("MATERIALIZE selected guide -> advisor-intelligence.json");
   console.log("NEVER mutate bg-agent-profiles.json during intelligence switching");
   console.log("BACKUP every managed destination before replacement or merge");
@@ -534,14 +592,14 @@ async function doctor(options) {
   const roleConfig = await readJson(join(target, "bg-agent-profiles.json"), {});
   errors.push(...roleConfigErrors(roleConfig));
   try {
-    const matched = await inferProfileName(target);
-    if (!matched) errors.push("Live advisor intelligence guide does not match a named profile");
     const roles = Object.keys(roleConfig.profiles ?? {});
     for (const name of await listProfileNames(target)) {
       const named = await readProfileJson(join(target, "intelligence-profiles", `${name}.json`));
       if (named.name !== name) errors.push(`Profile ${name}: name does not match file name`);
       for (const error of intelligenceGuideErrors(named, roles)) errors.push(`Profile ${name}: ${error}`);
     }
+    const selection = await activeSelectionStatus(target);
+    errors.push(...selection.errors);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
@@ -806,6 +864,49 @@ function runChecked(command, args, options = {}) {
   return result.stdout?.trim() ?? "";
 }
 
+function exactGitPin(source) {
+  if (typeof source !== "string") return undefined;
+  const match = source.match(/^git:(.+)@([0-9a-f]{40})$/);
+  return match ? { url: match[1], commit: match[2], source } : undefined;
+}
+
+async function verifyGitPins() {
+  const overlay = await readJson(join(ROOT, "config", "settings.overlay.json"), {});
+  const gitSources = (overlay.packages ?? [])
+    .map(packageSource)
+    .filter((source) => typeof source === "string" && source.startsWith("git:"));
+  const pins = gitSources.map(exactGitPin);
+  const invalid = gitSources.filter((_, index) => !pins[index]);
+  if (invalid.length) throw new Error(`Git package source is not pinned to a full commit: ${invalid.join(", ")}`);
+
+  const temporary = await mkdtemp(join(tmpdir(), "pi-meta-harness-git-pins-"));
+  try {
+    for (const [index, pin] of pins.entries()) {
+      const checkout = join(temporary, String(index));
+      await mkdir(checkout, { recursive: true });
+      runChecked("git", ["-C", checkout, "init", "--quiet"]);
+      const fetched = spawnSync(
+        "git",
+        ["-C", checkout, "fetch", "--quiet", "--depth", "1", pin.url, pin.commit],
+        { encoding: "utf8", timeout: GIT_PIN_FETCH_TIMEOUT_MS },
+      );
+      if (fetched.error?.code === "ETIMEDOUT") {
+        throw new Error(`Timed out fetching exact Git pin after ${GIT_PIN_FETCH_TIMEOUT_MS}ms: ${pin.source}`);
+      }
+      if (fetched.status !== 0) {
+        const detail = `${fetched.stderr ?? ""}${fetched.stdout ?? ""}`.trim();
+        throw new Error(`Could not fetch exact Git pin: ${pin.source}${detail ? `\n${detail}` : ""}`);
+      }
+      const actual = runChecked("git", ["-C", checkout, "rev-parse", "FETCH_HEAD"]);
+      if (actual !== pin.commit) throw new Error(`Fetched Git pin resolved to ${actual}, expected ${pin.commit}`);
+      console.log(`FETCHED ${pin.source}`);
+    }
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+  console.log(`Verified ${pins.length} exact Git package pin(s).`);
+}
+
 async function skillsPlan() {
   for (const group of await skillGroups()) {
     const command = skillInstallCommand(group, "<verified-checkout>");
@@ -877,6 +978,7 @@ async function main() {
     else if (options.command === "restore") await restore(options);
     else if (options.command === "install-herdr-config") await installHerdrConfig(options);
     else if (options.command === "restore-herdr") await restoreHerdr(options);
+    else if (options.command === "verify-git-pins") await verifyGitPins();
     else if (options.command === "skills-plan") await skillsPlan();
     else if (options.command === "install-skills") await installSkills(options);
     else if (options.command === "install-herdr-integration") installHerdrIntegration(options);

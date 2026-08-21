@@ -33,6 +33,7 @@ test("plan does not create the sandbox target", async () => {
   assert.match(result.stdout, /NO reload/);
   assert.match(result.stdout, /MATERIALIZE selected guide -> advisor-intelligence\.json/);
   assert.match(result.stdout, /NEVER mutate bg-agent-profiles\.json/);
+  assert.match(result.stdout, /REFUSE install before mutation when ACTIVE and advisor-intelligence\.json are inconsistent/);
   await assert.rejects(readFile(join(target, "settings.json")));
   await rm(parent, { recursive: true, force: true });
 });
@@ -173,7 +174,88 @@ test("doctor rejects invalid fixed roles and advisor guidance", async () => {
   assert.equal(doctor.status, 1);
   assert.match(doctor.stderr, /Role does not require an anchor: checker/);
   assert.match(doctor.stderr, /Role builder contains intelligence policy field: allowedModels/);
-  assert.match(doctor.stderr, /Live advisor intelligence guide does not match a named profile/);
+  assert.match(doctor.stderr, /Active intelligence profile mismatch: ACTIVE names codex-max, but advisor-intelligence\.json matches no installed named profile/);
+  await rm(target, { recursive: true, force: true });
+});
+
+test("doctor and reinstall reject a missing ACTIVE pointer", async () => {
+  const target = await temporaryTarget();
+  assert.equal(run("install", "--target", target).status, 0);
+  const livePath = join(target, "advisor-intelligence.json");
+  const liveBefore = await readFile(livePath);
+  await rm(join(target, "intelligence-profiles", "ACTIVE"));
+
+  const doctor = run("doctor", "--target", target);
+  assert.equal(doctor.status, 1);
+  assert.match(doctor.stderr, /Missing active intelligence profile pointer: intelligence-profiles\/ACTIVE/);
+  const reinstall = run("install", "--target", target);
+  assert.equal(reinstall.status, 1);
+  assert.match(reinstall.stderr, /Refusing install because the active intelligence selection is inconsistent/);
+  assert.match(reinstall.stderr, /Repair explicitly with:/);
+  assert.deepEqual(await readFile(livePath), liveBefore);
+  await assert.rejects(readFile(join(target, "intelligence-profiles", "ACTIVE")));
+  await rm(target, { recursive: true, force: true });
+});
+
+test("doctor rejects empty and unknown ACTIVE pointers", async () => {
+  const target = await temporaryTarget();
+  assert.equal(run("install", "--target", target).status, 0);
+  const active = join(target, "intelligence-profiles", "ACTIVE");
+
+  await writeFile(active, "\n");
+  const empty = run("doctor", "--target", target);
+  assert.equal(empty.status, 1);
+  assert.match(empty.stderr, /Active intelligence profile pointer is empty/);
+
+  await writeFile(active, "not-a-profile\n");
+  const unknown = run("doctor", "--target", target);
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /ACTIVE names unknown installed intelligence profile: not-a-profile/);
+  const reinstall = run("install", "--target", target);
+  assert.equal(reinstall.status, 1);
+  assert.match(reinstall.stderr, /ACTIVE names unknown installed intelligence profile: not-a-profile/);
+  await rm(target, { recursive: true, force: true });
+});
+
+test("doctor and reinstall reject a stale ACTIVE pointer without reversing live guidance", async () => {
+  const target = await temporaryTarget();
+  assert.equal(run("install", "--target", target).status, 0);
+  const active = join(target, "intelligence-profiles", "ACTIVE");
+  const live = join(target, "advisor-intelligence.json");
+  const liveBefore = await readFile(live);
+  await writeFile(active, "codex-lean\n");
+
+  const doctor = run("doctor", "--target", target);
+  assert.equal(doctor.status, 1);
+  assert.match(doctor.stderr, /Active intelligence profile mismatch: ACTIVE names codex-lean, but advisor-intelligence\.json matches codex-max/);
+  const reinstall = run("install", "--target", target);
+  assert.equal(reinstall.status, 1);
+  assert.match(reinstall.stderr, /Refusing install/);
+  assert.deepEqual(await readFile(live), liveBefore);
+  assert.equal(await readFile(active, "utf8"), "codex-lean\n");
+  const repair = spawnSync(process.execPath, [
+    join(ROOT, "scripts", "intelligence-profile.mjs"),
+    "codex-lean",
+    "--target",
+    target,
+  ], { encoding: "utf8" });
+  assert.equal(repair.status, 0, repair.stderr);
+  assert.equal(run("doctor", "--target", target).status, 0);
+  await rm(target, { recursive: true, force: true });
+});
+
+test("doctor catches an interrupted switch before reinstall", async () => {
+  const target = await temporaryTarget();
+  assert.equal(run("install", "--target", target).status, 0);
+  const live = join(target, "advisor-intelligence.json");
+  await cp(join(target, "intelligence-profiles", "codex-lean.json"), live);
+
+  const doctor = run("doctor", "--target", target);
+  assert.equal(doctor.status, 1);
+  assert.match(doctor.stderr, /Active intelligence profile mismatch: ACTIVE names codex-max, but advisor-intelligence\.json matches codex-lean/);
+  const reinstall = run("install", "--target", target);
+  assert.equal(reinstall.status, 1);
+  assert.deepEqual(await readFile(live), await readFile(join(target, "intelligence-profiles", "codex-lean.json")));
   await rm(target, { recursive: true, force: true });
 });
 
@@ -333,6 +415,16 @@ test("every managed Pi package uses an exact source", async () => {
   }
 });
 
+test("exact Git pin fetch verification is explicit and bounded", async () => {
+  const help = run("help");
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /meta-harness\.mjs verify-git-pins/);
+  const script = await readFile(SCRIPT, "utf8");
+  assert.match(script, /const GIT_PIN_FETCH_TIMEOUT_MS = 20_000/);
+  assert.match(script, /timeout: GIT_PIN_FETCH_TIMEOUT_MS/);
+  assert.match(script, /\["-C", checkout, "fetch", "--quiet", "--depth", "1", pin\.url, pin\.commit\]/);
+});
+
 test("reviewed pi-skill-tags metadata matches its managed commit pin", async () => {
   const settings = JSON.parse(await readFile(join(ROOT, "config", "settings.overlay.json"), "utf8"));
   const lock = JSON.parse(await readFile(join(ROOT, "config", "third-party-extensions.lock.json"), "utf8"));
@@ -423,6 +515,32 @@ test("bootstrap runs every required live stage without bypassing safety", async 
     previous = index;
   }
   assert(!bootstrap.includes("--allow-active"));
+});
+
+test("install migrates a legacy mixed config with a known ACTIVE selection and restore returns it", async () => {
+  const target = await temporaryTarget();
+  const legacyRoles = `${JSON.stringify({ defaultAgent: "pi", models: { "legacy/model": {} }, profiles: {} }, null, 2)}\n`;
+  await mkdir(join(target, "intelligence-profiles"), { recursive: true });
+  await writeFile(join(target, "bg-agent-profiles.json"), legacyRoles);
+  await writeFile(join(target, "intelligence-profiles", "ACTIVE"), "anthropic-heavy\n");
+
+  const install = run("install", "--target", target);
+  assert.equal(install.status, 0, install.stderr);
+  assert.match(install.stdout, /Intelligence selection: anthropic-heavy \(legacy\)/);
+  assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "anthropic-heavy\n");
+  assert.equal(
+    await readFile(join(target, "advisor-intelligence.json"), "utf8"),
+    await readFile(join(ROOT, "config", "intelligence-profiles", "anthropic-heavy.json"), "utf8"),
+  );
+  assert.equal(run("doctor", "--target", target).status, 0);
+
+  const state = JSON.parse(await readFile(join(target, ".pi-meta-harness-state.json"), "utf8"));
+  const restore = run("restore", "--target", target, "--backup", state.backup);
+  assert.equal(restore.status, 0, restore.stderr);
+  assert.equal(await readFile(join(target, "bg-agent-profiles.json"), "utf8"), legacyRoles);
+  assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "anthropic-heavy\n");
+  await assert.rejects(readFile(join(target, "advisor-intelligence.json")));
+  await rm(target, { recursive: true, force: true });
 });
 
 test("reinstall keeps a switched intelligence profile", async () => {
