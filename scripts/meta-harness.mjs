@@ -261,7 +261,7 @@ function union(overlay = [], base = []) {
   return [...new Set([...overlay, ...base])];
 }
 
-function mergeSettings(base, overlay, removedPackageSources = []) {
+function mergeSettings(base, overlay, removedPackageSources = [], removedModels = []) {
   const merged = deepMerge(base, overlay);
   for (const key of RUNTIME_SETTING_KEYS) {
     if (base[key] !== undefined) merged[key] = structuredClone(base[key]);
@@ -277,7 +277,9 @@ function mergeSettings(base, overlay, removedPackageSources = []) {
     }),
   ];
   merged.skills = union(overlay.skills, base.skills);
-  merged.enabledModels = union(overlay.enabledModels, base.enabledModels);
+  const removedModelIds = new Set(removedModels);
+  merged.enabledModels = union(overlay.enabledModels, base.enabledModels)
+    .filter((model) => !removedModelIds.has(model));
   return merged;
 }
 
@@ -412,11 +414,12 @@ async function install(options) {
     await copyReplacing(join(ROOT, source), join(target, destination));
   }
   const removedPackageSources = await readJson(join(ROOT, "config", "package-removals.json"), []);
+  const removedModels = await readJson(join(ROOT, "config", "model-removals.json"), []);
   for (const [source, destination, mode] of MERGE_ENTRIES) {
     const existing = await readJson(join(target, destination), {});
     const overlay = await readJson(join(ROOT, source), {});
     const merged = mode === "settings"
-      ? mergeSettings(existing, overlay, removedPackageSources)
+      ? mergeSettings(existing, overlay, removedPackageSources, removedModels)
       : deepMerge(existing, overlay);
     await atomicJson(join(target, destination), merged);
   }
@@ -624,6 +627,10 @@ async function doctor(options) {
   const removedPackageSources = await readJson(join(ROOT, "config", "package-removals.json"), []);
   for (const source of removedPackageSources) {
     if (installedIds.has(packageIdentity(source))) errors.push(`Retired Pi package still configured: ${source}`);
+  }
+  const removedModels = await readJson(join(ROOT, "config", "model-removals.json"), []);
+  for (const model of removedModels) {
+    if ((settings.enabledModels ?? []).includes(model)) errors.push(`Retired model still enabled: ${model}`);
   }
   const mcp = await readJson(join(target, "mcp.json"), {});
   const mcpOverlay = await readJson(join(ROOT, "config", "mcp.json"), {});

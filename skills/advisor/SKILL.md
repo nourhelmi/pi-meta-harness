@@ -115,7 +115,7 @@ come from the live guide:
   `codex-lean` when the UX is well-known; Sol in `codex-lean` when the UX is
   hard);
 - minor targeted tweaks to an existing UX may use the model whose character
-  includes that work (Terra in `codex-max`; Luna or Sonnet in `codex-lean`
+  includes that work (Sol medium in `codex-max`; Luna or Sonnet in `codex-lean`
   and `balanced`; otherwise Grok or Sonnet);
 - all UX implementation loads `frontend-design`; load the repository's normal
   frontend skill as well when one exists.
@@ -130,8 +130,8 @@ character note (Sol in `codex-max`, `codex-lean`, and `balanced`, Grok in
 `grok-cycle` and `anthropic-heavy`); workers still cannot silently change the
 advisor's active model.
 For non-UX work, normally pick the implementation workhorse from the live characters
-(Sol in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Sonnet
-default with Sol/Terra for hard backend in `balanced`; Grok in
+(Sol high or medium by task in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Sonnet
+default with Sol high or medium for hard backend in `balanced`; Grok in
 `grok-cycle`; Sonnet in `anthropic-heavy`). The shipped guides recommend Cursor
 only as `cursor/grok-4.6`; another Cursor identity is simply an outside-guide
 choice and needs only a concise rationale when material, not a transport

@@ -180,10 +180,10 @@ flowchart TD
 
 | Profile | When | Implementation | Adversarial review | Procedural |
 | --- | --- | --- | --- | --- |
-| `codex-max` | Codex weekly healthy | Sol | Terra | Luna |
-| `codex-lean` | Codex leftover; Grok is `grok-cycle` | Sol hard, Sonnet medium, Luna small | Terra | Luna, Sonnet |
+| `codex-max` | Codex weekly healthy | Sol high / medium by task | Sol medium | Luna |
+| `codex-lean` | Codex leftover; Grok is `grok-cycle` | Sol hard, Sonnet medium, Luna small | Sol medium | Luna, Sonnet |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet / Opus | Luna, else Grok |
-| `balanced` | No Grok; Codex builds hard, Anthropic checks | Sonnet default, Sol/Terra hard, Opus greenfield UX | Sonnet / Opus | Luna, Sonnet |
+| `balanced` | No Grok; Codex builds hard, Anthropic checks | Sonnet default, Sol high/medium hard, Opus greenfield UX | Sonnet / Opus | Luna, Sonnet |
 | `grok-cycle` | No Codex; Grok owns maker + review | Grok | Grok | Sonnet |
 
 ## Repository map

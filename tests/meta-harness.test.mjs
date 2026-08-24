@@ -40,9 +40,12 @@ test("plan does not create the sandbox target", async () => {
 
 test("install merges user settings, copies the harness, and is idempotent", async () => {
   const target = await temporaryTarget();
+  const removedModels = JSON.parse(
+    await readFile(join(ROOT, "config", "model-removals.json"), "utf8"),
+  );
   await writeFile(
     join(target, "settings.json"),
-    `${JSON.stringify({ packages: ["npm:custom-package@1.0.0", "npm:pi-footer@0.5.1", "git:https://github.com/nourhelmi/pi-powerline@old", "git:https://github.com/nourhelmi/pi-detach@old"], customSetting: true, defaultProvider: "openai-codex", defaultModel: "gpt-5.6-sol", defaultThinkingLevel: "high" }, null, 2)}\n`,
+    `${JSON.stringify({ packages: ["npm:custom-package@1.0.0", "npm:pi-footer@0.5.1", "git:https://github.com/nourhelmi/pi-powerline@old", "git:https://github.com/nourhelmi/pi-detach@old"], enabledModels: ["custom/model", ...removedModels], customSetting: true, defaultProvider: "openai-codex", defaultModel: "gpt-5.6-sol", defaultThinkingLevel: "high" }, null, 2)}\n`,
   );
   await writeFile(
     join(target, "mcp.json"),
@@ -59,6 +62,8 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(settings.defaultProvider, "openai-codex");
   assert.equal(settings.defaultModel, "gpt-5.6-sol");
   assert.equal(settings.defaultThinkingLevel, "high");
+  assert(settings.enabledModels.includes("custom/model"));
+  for (const model of removedModels) assert(!settings.enabledModels.includes(model));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
   assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@8d3a78f0fbbe2bfea2223e12b9555cf0abe426bd"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
@@ -107,7 +112,8 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-max");
   assert.equal(guide.recommendations.planner[0].model, "claude-bridge/claude-fable-5");
-  assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-5.6-terra");
+  assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-5.6-sol");
+  assert.equal(guide.recommendations.checker[0].thinking, "medium");
   assert.equal(guide.recommendations.builder[0].thinking, "high");
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-max\n");
   assert(settings.enabledModels.includes("claude-bridge/claude-sonnet-5"));

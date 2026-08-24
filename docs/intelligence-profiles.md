@@ -121,16 +121,17 @@ the detailed task and capacity guidance.
 | Role | Ordered recommendations |
 | --- | --- |
 | planner | Fable high, Sol high |
-| builder | Sol high, Opus medium, Terra xhigh, Luna max, Grok high |
-| checker | Terra xhigh, Sol medium, Luna max |
-| reducer | Terra xhigh |
-| scout | Luna max, Terra xhigh, Grok high |
-| browser-verifier | Luna max, Terra xhigh |
+| builder | Sol high, Opus medium, Sol medium, Luna max, Grok high |
+| checker | Sol medium, Luna max |
+| reducer | Sol medium |
+| scout | Luna max, Sol medium, Grok high |
+| browser-verifier | Luna max, Sol medium |
 
-Sol is the difficult implementation workhorse, Terra is the adversarial review
-and reduction tier, Luna handles procedural work, Opus covers greenfield UX, and
-Grok covers bounded research/mixed-stack/existing-UX work. Fable remains the
-advisor/planner default, with Sol as capacity fallback.
+Sol high is the difficult implementation workhorse, while Sol medium handles
+token-efficient adversarial review, reduction, bounded investigation, and
+targeted existing-UX updates. Luna handles procedural work, Opus covers
+greenfield UX, and Grok covers bounded research/mixed-stack/existing-UX work.
+Fable remains the advisor/planner default, with Sol high as capacity fallback.
 
 ### `codex-lean` — spend the Codex remainder carefully
 
@@ -138,14 +139,15 @@ advisor/planner default, with Sol as capacity fallback.
 | --- | --- |
 | planner | Sol high |
 | builder | Sol high, Sonnet high, Luna max |
-| checker | Terra xhigh, Sonnet high, Luna max |
-| reducer | Terra xhigh, Sonnet high, Luna max |
+| checker | Sol medium, Sonnet high, Luna max |
+| reducer | Sol medium, Sonnet high, Luna max |
 | scout | Luna max, Sonnet high |
 | browser-verifier | Luna max, Sonnet high |
 
-Sol plans and handles hard builds; Sonnet handles medium well-known work and
-review; Luna handles small/procedural work; Terra remains adversarial. Fable is
-advisor-session guidance rather than a worker recommendation in this profile.
+Sol high plans and handles hard builds, while Sol medium handles adversarial
+review and hefty reduction. Sonnet handles medium well-known work and ordinary
+review; Luna handles small/procedural work. Fable is advisor-session guidance
+rather than a worker recommendation in this profile.
 
 ### `anthropic-heavy` — spend the 5-hour window deliberately
 
@@ -167,14 +169,14 @@ the capacity fallback.
 | Role | Ordered recommendations |
 | --- | --- |
 | planner | Fable high, Sol high |
-| builder | Sonnet high, Sol high, Terra high, Opus medium, Luna max |
+| builder | Sonnet high, Sol high, Sol medium, Opus medium, Luna max |
 | checker | Sonnet high, Opus medium, Luna max |
 | reducer | Sonnet high, Opus medium, Luna max |
 | scout | Luna max, Sonnet high |
 | browser-verifier | Luna max, Sonnet high |
 
-Sonnet is the default maker and checker; Sol/Terra take hard backend work; Opus
-takes greenfield UX; Luna remains procedural. Grok is intentionally absent from
+Sonnet is the default maker and checker; Sol high or medium takes hard backend
+work by scope; Opus takes greenfield UX; Luna remains procedural. Grok is intentionally absent from
 the recommendations but is still not blocked at runtime.
 
 ### `grok-cycle` — no Codex recommendations

@@ -12,7 +12,6 @@
     "claude-bridge/claude-sonnet-5",
     "cursor/grok-4.6",
     "openai-codex/gpt-5.6-sol",
-    "openai-codex/gpt-5.6-terra",
     "openai-codex/gpt-5.6-luna"
   ],
   "skills": [

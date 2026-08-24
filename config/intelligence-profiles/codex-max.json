@@ -6,7 +6,7 @@
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Medium is recommended for checker use only for standard fresh-context review when Terra xhigh is unnecessary. Planning fallback and advisor use remain high. Frontend implementation routes to opus, grok, or terra by UX scope. Terra xhigh remains the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
+      "character": "Advisory: Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Use medium for token-efficient fresh-context review, synthesis, bounded investigation, ambiguous browser verification, and minor targeted updates to an existing UX. Planning fallback, advisor use, and substantial builds remain high. Frontend implementation otherwise routes to Opus or Grok by UX scope. Sol medium is also the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-luna": {
@@ -16,10 +16,6 @@
     "claude-bridge/claude-opus-5": {
       "character": "Advisory: Reserve for genuinely new or greenfield UX/frontend implementation when Anthropic session capacity is healthy, preferably with frontend-design loaded. Runs at medium reasoning. Grok is the automatic UX fallback when capacity is tight or an Opus launch hits a capacity limit. Not recommended for existing-UX tweaks, checking, review, reduction, planning, or backend.",
       "defaultThinking": "medium"
-    },
-    "openai-codex/gpt-5.6-terra": {
-      "character": "Advisory: The adversarial-tier reviewer at xhigh: schema, auth, security, money, and data-boundary checks, final whole-diff review before PR, rechecks after an overturned pass, reduction, test authoring, and minor targeted updates to an existing UX. Routine procedural checks and browser verification default to luna. 272K window — split whole-branch reviews per package or phase. Not recommended for planning, greenfield UX, or substantial feature implementation.",
-      "defaultThinking": "xhigh"
     },
     "cursor/grok-4.6": {
       "character": "Advisory: High-efficiency generalist at high reasoning. Preferred for research, bounded backend implementation, mixed-stack work, substantial changes to an existing UX, and UX implementation when Opus would consume scarce Anthropic/Fable session capacity. New UX uses Opus while capacity is healthy, then Grok automatically. Load frontend-design for UX work. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default. This guide recommends Cursor only as cursor/grok-4.6.",
@@ -34,8 +30,8 @@
         "fit": "Preferred for bounded investigation in this profile."
       },
       {
-        "model": "openai-codex/gpt-5.6-terra",
-        "thinking": "xhigh",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "medium",
         "fit": "Alternate for bounded investigation when task fit or capacity warrants."
       },
       {
@@ -58,8 +54,8 @@
     ],
     "reducer": [
       {
-        "model": "openai-codex/gpt-5.6-terra",
-        "thinking": "xhigh",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "medium",
         "fit": "Preferred for synthesis and conflict reduction in this profile."
       }
     ],
@@ -75,9 +71,9 @@
         "fit": "Alternate implementation choice; select by task character, risk, and capacity."
       },
       {
-        "model": "openai-codex/gpt-5.6-terra",
-        "thinking": "xhigh",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "medium",
+        "fit": "Token-efficient alternate for bounded implementation or a minor targeted update to an existing UX."
       },
       {
         "model": "openai-codex/gpt-5.6-luna",
@@ -92,14 +88,9 @@
     ],
     "checker": [
       {
-        "model": "openai-codex/gpt-5.6-terra",
-        "thinking": "xhigh",
-        "fit": "Preferred fresh-context review choice in this profile."
-      },
-      {
         "model": "openai-codex/gpt-5.6-sol",
         "thinking": "medium",
-        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+        "fit": "Preferred fresh-context review choice in this profile."
       },
       {
         "model": "openai-codex/gpt-5.6-luna",
@@ -114,8 +105,8 @@
         "fit": "Preferred for browser verification in this profile."
       },
       {
-        "model": "openai-codex/gpt-5.6-terra",
-        "thinking": "xhigh",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "medium",
         "fit": "Alternate for ambiguous visual or behavioral verification."
       }
     ]

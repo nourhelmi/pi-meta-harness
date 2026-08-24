@@ -6,20 +6,16 @@
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Planner by default, and the hard-implementation workhorse: long or difficult backend, data, service, mixed-stack, and genuinely hard debugging. Also the advisor-session fallback when Fable is at Anthropic capacity. high is enough for nearly all of that; escalate to xhigh or max only for genuinely difficult debugging. Generally avoid assigning scouting, browser verification, or short-leash chores — those are Luna or Sonnet. Frontend: hard or unfamiliar UX may use Sol with frontend-design loaded; medium well-known UX is Sonnet; tiny tweaks are Luna.",
+      "character": "Advisory: Planner by default, and the hard-implementation workhorse: long or difficult backend, data, service, mixed-stack, and genuinely hard debugging. Also the advisor-session fallback when Fable is at Anthropic capacity. Use medium for token-efficient adversarial schema/auth/security/money/final whole-diff review and hefty reduction. Use high for planning and substantial builds; escalate to xhigh or max only for genuinely difficult debugging. Generally avoid assigning scouting, browser verification, or short-leash chores — those are Luna or Sonnet. Frontend: hard or unfamiliar UX may use Sol with frontend-design loaded; medium well-known UX is Sonnet; tiny tweaks are Luna.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: Cheap enough to spend in this profile: medium well-known implementation, scouting when Luna is a poor fit, reduction, and review that is not adversarial-tier. Bounded Anthropic 5-hour bursts. Load frontend-design for UX work. Generally avoid assigning planning, genuinely hard or unfamiliar implementation (that is Sol), adversarial schema/auth/security/money/final whole-diff review (that is Terra), or tiny mechanical chores (that is Luna). Grok is not a fallback here — switch to grok-cycle instead.",
+      "character": "Advisory: Cheap enough to spend in this profile: medium well-known implementation, scouting when Luna is a poor fit, reduction, and review that is not adversarial-tier. Bounded Anthropic 5-hour bursts. Load frontend-design for UX work. Generally avoid assigning planning, genuinely hard or unfamiliar implementation (that is Sol high), adversarial schema/auth/security/money/final whole-diff review (that is Sol medium), or tiny mechanical chores (that is Luna). Grok is not a fallback here — switch to grok-cycle instead.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-luna": {
       "character": "Advisory: Extremely cheap Codex leftover: easy, concise, small implementation; scouting; mechanical chores; routine mid-phase checks; repair verification; test-harness findings; and browser verification — deterministic anchors backstop it. 272K window. Generally avoid assigning planning, hard implementation, or adversarial-tier checking. Recommended reasoning is max.",
       "defaultThinking": "max"
-    },
-    "openai-codex/gpt-5.6-terra": {
-      "character": "Advisory: The adversarial-tier reviewer at xhigh: schema, auth, security, money, and data-boundary checks, final whole-diff review before PR, rechecks after an overturned pass, and hefty reduction. Routine procedural checks and browser verification default to Luna; medium review/reduce defaults to Sonnet. 272K window — split whole-branch reviews per package or phase. Not recommended for planning, greenfield UX, or substantial feature implementation.",
-      "defaultThinking": "xhigh"
     }
   },
   "recommendations": {
@@ -44,8 +40,8 @@
     ],
     "reducer": [
       {
-        "model": "openai-codex/gpt-5.6-terra",
-        "thinking": "xhigh",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "medium",
         "fit": "Preferred for synthesis and conflict reduction in this profile."
       },
       {
@@ -78,8 +74,8 @@
     ],
     "checker": [
       {
-        "model": "openai-codex/gpt-5.6-terra",
-        "thinking": "xhigh",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "medium",
         "fit": "Preferred fresh-context review choice in this profile."
       },
       {
