@@ -52,6 +52,14 @@ Before each mutation, it creates a scoped backup. It does not reload Pi, migrate
 
 Configured `bg_agent` workers follow the opposite rule: they stay visible as panes in their owning advisor tab. Their labels are concise `role · <purpose>` values; run IDs remain in agent identities and notifications rather than pane titles.
 
+## Resumed advisor doctrine
+
+Pi preserves expanded skill text in session history, so `/reload` cannot rewrite an
+old advisor snapshot. When an initialized advisor resumes, `advisor-session.ts`
+compares that snapshot with the installed advisor skill. If it is stale or absent,
+the extension adds the current installed doctrine to the system prompt and marks the
+historical snapshot as archival. Current snapshots are not duplicated.
+
 ## Reproducibility boundary
 
 Pi packages and first-party files are exact. Each third-party skill group records a full source commit and Git tree. The installer fetches that commit directly, verifies both IDs, copies the selected skills, and then verifies each installed folder against its SHA-256 lock.

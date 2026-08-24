@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import advisorSessionExtension from "../extensions/advisor-session.ts";
@@ -37,6 +38,127 @@ function installedAdvisorLaunch(respond: (args: string[]) => ExecResult) {
   assert.ok(tool, "advisor_launch is registered");
   return { calls, tool };
 }
+
+interface SessionStartEvent {
+  reason: "resume";
+}
+
+interface BeforeAgentStartEvent {
+  systemPrompt: string;
+}
+
+function installedAdvisorResumeRuntime(branch: unknown[]) {
+  let sessionStart: ((event: SessionStartEvent, ctx: ExtensionContext) => Promise<void>) | undefined;
+  let beforeAgentStart:
+    | ((event: BeforeAgentStartEvent, ctx: ExtensionContext) => { systemPrompt: string } | undefined)
+    | undefined;
+  let sessionName: string | undefined;
+  const pi = {
+    exec: async () => ({ code: 0, stdout: "", stderr: "" }),
+    getSessionName: () => sessionName,
+    setSessionName: (value: string) => {
+      sessionName = value;
+    },
+    on: (name: string, handler: unknown) => {
+      if (name === "session_start") {
+        sessionStart = handler as (event: SessionStartEvent, ctx: ExtensionContext) => Promise<void>;
+      }
+      if (name === "before_agent_start") {
+        beforeAgentStart = handler as (
+          event: BeforeAgentStartEvent,
+          ctx: ExtensionContext,
+        ) => { systemPrompt: string } | undefined;
+      }
+    },
+    registerTool: () => undefined,
+  } as unknown as ExtensionAPI;
+  advisorSessionExtension(pi);
+  assert.ok(sessionStart, "session_start handler is registered");
+  assert.ok(beforeAgentStart, "before_agent_start handler is registered");
+  const ctx = {
+    cwd: process.cwd(),
+    sessionManager: {
+      getBranch: () => branch,
+      getSessionId: () => "session-12345678",
+    },
+    ui: { notify: () => undefined },
+  } as unknown as ExtensionContext;
+  return { beforeAgentStart, ctx, sessionStart };
+}
+
+test("resumed advisors receive current doctrine over stale expanded skill history", async () => {
+  const staleSkill = `<skill name="advisor" location="/old/skills/advisor/SKILL.md">
+References are relative to /old/skills/advisor.
+
+# Advisor
+
+Model character notes are binding. Fable takes no checker role.
+</skill>
+
+Review the current document.`;
+  const branch = [
+    {
+      type: "message",
+      message: { role: "user", content: [{ type: "text", text: staleSkill }] },
+    },
+    {
+      type: "custom",
+      customType: "advisor-session",
+      data: {
+        workstream: "document-review",
+        sessionId: "session-12345678",
+        initializedAt: "2026-01-01T00:00:00.000Z",
+      },
+    },
+  ];
+  const { beforeAgentStart, ctx, sessionStart } = installedAdvisorResumeRuntime(branch);
+
+  await sessionStart({ reason: "resume" }, ctx);
+  const result = beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
+
+  assert.ok(result);
+  assert.match(result.systemPrompt, /Current Advisor Doctrine/);
+  assert.match(result.systemPrompt, /never ask permission merely because/);
+  assert.match(result.systemPrompt, /Roles do not pin or allowlist\s+a model/);
+  assert.doesNotMatch(result.systemPrompt, /Model character notes are binding/);
+});
+
+test("resumed advisors do not duplicate the current expanded doctrine", async () => {
+  const source = await readFile(new URL("../skills/advisor/SKILL.md", import.meta.url), "utf8");
+  const currentDoctrine = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+  const branch = [
+    {
+      type: "message",
+      message: {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `<skill name="advisor" location="/current/skills/advisor/SKILL.md">
+References are relative to /current/skills/advisor.
+
+${currentDoctrine}
+</skill>`,
+          },
+        ],
+      },
+    },
+    {
+      type: "custom",
+      customType: "advisor-session",
+      data: {
+        workstream: "document-review",
+        sessionId: "session-12345678",
+        initializedAt: "2026-01-01T00:00:00.000Z",
+      },
+    },
+  ];
+  const { beforeAgentStart, ctx, sessionStart } = installedAdvisorResumeRuntime(branch);
+
+  await sessionStart({ reason: "resume" }, ctx);
+
+  assert.equal(beforeAgentStart({ systemPrompt: "base prompt" }, ctx), undefined);
+});
 
 async function withHerdrEnvironment<T>(fn: () => Promise<T>): Promise<T> {
   const previous = process.env.HERDR_ENV;

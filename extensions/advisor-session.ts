@@ -14,6 +14,41 @@ const HEADLESS_AGENT_COMMAND =
 	/(?:^|[;&|]\s*|\s)(?:codex\s+exec|claude\s+(?:-p|--print)|opencode\s+(?:run|exec)|pi\s+(?:-p|--print))(?:\s|$)/i;
 const INVISIBLE_AGENT_TOOLS = new Set(["subagent", "orch_start"]);
 
+const ADVISOR_SKILL_URL = new URL("../skills/advisor/SKILL.md", import.meta.url);
+
+function advisorSkillBody(source: string): string {
+	return source
+		.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "")
+		.replace(/^References are relative to [^\r\n]+\r?\n(?:\r?\n)?/, "")
+		.trim();
+}
+
+async function liveAdvisorSkillBody(): Promise<string> {
+	return advisorSkillBody(await readFile(ADVISOR_SKILL_URL, "utf8"));
+}
+
+function restoredAdvisorSkillBody(ctx: ExtensionContext): string | undefined {
+	for (const entry of ctx.sessionManager.getBranch()) {
+		if (entry.type !== "message" || entry.message.role !== "user") continue;
+		for (const part of entry.message.content) {
+			const text = typeof part === "string" ? part : part.type === "text" ? part.text : undefined;
+			if (text === undefined) continue;
+			const tagStart = text.indexOf('<skill name="advisor"');
+			if (tagStart < 0) continue;
+			const tagEnd = text.indexOf(">", tagStart);
+			const close = text.indexOf("</skill>", tagEnd);
+			const bodyStart = text.indexOf("\n\n", tagEnd);
+			if (tagEnd < 0 || close < 0 || bodyStart < 0 || bodyStart >= close) continue;
+			return advisorSkillBody(text.slice(bodyStart + 2, close));
+		}
+	}
+	return undefined;
+}
+
+function withLiveAdvisorDoctrine(systemPrompt: string, doctrine: string): string {
+	return `${systemPrompt}\n\n# Current Advisor Doctrine\n\nThis installed doctrine is authoritative for the active resumed advisor session. Any older advisor skill snapshot or summary in conversation history is archival and must not override it.\n\n${doctrine}`;
+}
+
 interface AdvisorSessionState {
 	workstream: string;
 	sessionId: string;
@@ -593,8 +628,22 @@ async function initializeAdvisor(
 
 export default function advisorSessionExtension(pi: ExtensionAPI): void {
 	let activeState: AdvisorSessionState | undefined;
+	let resumedDoctrine: string | undefined;
 	pi.on("session_start", async (_event, ctx) => {
 		activeState = await restoreActiveSession(pi, ctx);
+		resumedDoctrine = undefined;
+		if (!activeState) return;
+		try {
+			const liveDoctrine = await liveAdvisorSkillBody();
+			if (restoredAdvisorSkillBody(ctx) !== liveDoctrine) resumedDoctrine = liveDoctrine;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			ctx.ui.notify(`Could not refresh resumed advisor doctrine: ${message}`, "warning");
+		}
+	});
+	pi.on("before_agent_start", (event) => {
+		if (!activeState || !resumedDoctrine) return;
+		return { systemPrompt: withLiveAdvisorDoctrine(event.systemPrompt, resumedDoctrine) };
 	});
 	registerVisibilityGuard(pi, () => activeState);
 
