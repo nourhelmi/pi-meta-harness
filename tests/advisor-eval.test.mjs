@@ -1,23 +1,28 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   analyzeTrace,
-  compareMetrics,
-  createRubricPacket,
   normalizeSession,
   parseJsonl,
   validateFixture,
 } from "../scripts/advisor-eval-lib.mjs";
+import {
+  createAtifTrajectory,
+  createHarborTask,
+  HARBOR_VERSION,
+  REWARDKIT_VERSION,
+} from "../scripts/advisor-harbor-lib.mjs";
 import { runCli } from "../scripts/advisor-eval.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SCRIPT = join(ROOT, "scripts", "advisor-eval.mjs");
 const CASE_DIR = join(ROOT, "evals", "cases", "evidence-rich-routing-defect");
+const HARBOR_CASE_DIR = join(ROOT, "evals", "harbor", "evidence-rich-routing-defect");
 const ALIAS = /^(?:ar|g|n|w|a|m|l|h)_[0-9a-f]{32}$/;
 
 function run(...args) {
@@ -294,49 +299,51 @@ test("fixture validation rejects duplicate checkpoint and action semantics", asy
   assert.equal(validateFixture(sameSupportsButDistinct, normalized).valid, true);
 });
 
-test("rubric packet exposes an external judge without reintroducing trace text", async () => {
+test("Harbor task exposes a categorical ATIF trajectory and RewardKit rubric", async () => {
   const { fixture, normalized } = await syntheticInputs();
-  const packet = createRubricPacket(fixture, normalized);
-  assert.equal(packet.packetType, "advisor-rubric-judge-input");
-  assert.equal(packet.judgeBoundary.implementation, "external");
-  assert.match(packet.judgeBoundary.instruction, /Multiple checkpoint actions may be good/);
-  assert.equal(packet.judgeBoundary.outputSchema.dimensions.length, 5);
-  assert.equal(packet.sanitizedTrace.redaction.arbitraryTextCopied, false);
-  assert(!JSON.stringify(packet.sanitizedTrace).includes("EVAL_SUMMARY"));
+  const trajectory = createAtifTrajectory(normalized);
+  const task = createHarborTask(fixture, normalized);
+  const context = JSON.parse(task.files["environment/advisor-eval-context.json"]);
+  assert.equal(trajectory.schema_version, "ATIF-v1.7");
+  assert.equal(trajectory.agent.name, "pi-advisor");
+  assert.equal(trajectory.agent.extra.text_policy, "categorical-only");
+  assert.equal(trajectory.steps.length, normalized.events.length);
+  assert.equal(trajectory.steps.find((step) => step.extra.advisor_event.kind === "user_intervention").source, "user");
+  assert.equal(context.framework.version, HARBOR_VERSION);
+  assert.equal(context.framework.verifierVersion, REWARDKIT_VERSION);
+  assert.equal(context.judgeGuidance.noGoldenWorkflow, true);
+  assert.deepEqual(
+    { minimum: context.rubric.scale.minimum, maximum: context.rubric.scale.maximum },
+    { minimum: 1, maximum: 5 },
+  );
+  assert.match(task.files["tests/test.sh"], /harbor-rewardkit==0\.1/);
+  assert.match(task.files["tests/reward.toml"], /atif-trajectory = "\/app\/advisor-trajectory\.json"/);
+  assert.match(task.files["tests/reward.toml"], /name = "outcomeCorrectness"/);
+  assert.match(task.files["tests/reward.toml"], /type = "likert"/);
+  assert.match(task.files["tests/reward.toml"], /points = 5/);
+  assert.match(task.files["tests/run_rewardkit.py"], /os\.environ\.get\("REWARDKIT_JUDGE"\)/);
+  assert.equal(task.files["tests/advisor.toml"], undefined);
+  for (const [relativePath, contents] of Object.entries(task.files)) {
+    assert.equal(await readFile(join(HARBOR_CASE_DIR, relativePath), "utf8"), contents, relativePath);
+  }
+  assert(!JSON.stringify(trajectory).includes(fixture.title));
+  assert(!JSON.stringify(trajectory).includes("EVAL_SUMMARY"));
 });
 
-test("compareMetrics rejects malformed metric shapes", () => {
-  const valid = {
-    schemaVersion: 1,
-    diagnosticOnly: true,
-    elapsed: { activeElapsedMs: 0 },
-    workers: { launches: 0, failedLaunches: 0, resumedLaunches: 0, recoveredWorkers: 0 },
-    graphs: { count: 0, parallelWaves: 0, maxWaveWidth: 0 },
-    signals: { builderInvalidations: 0, userRedirects: 0, userStops: 0 },
-  };
-  assert.throws(() => compareMetrics({ diagnosticOnly: true, elapsed: {} }, valid), /Invalid left metric report/);
-  const invalid = structuredClone(valid);
-  invalid.workers.launches = "two";
-  assert.throws(() => compareMetrics(invalid, valid), /Invalid left metric: workers.launches/);
-});
-
-test("CLI flows pass and invalid metrics or command options fail closed", async () => {
+test("CLI prepares Harbor tasks and rejects retired evaluation commands", async () => {
   const temp = await mkdtemp(join(tmpdir(), "advisor-eval-test-"));
   const tracePath = join(temp, "proprietary-session-name.jsonl");
   const normalizedPath = join(temp, "normalized.json");
   const metricsPath = join(temp, "metrics.json");
-  const packetPath = join(temp, "packet.json");
-  const comparisonPath = join(temp, "comparison.json");
-  const invalidMetricPath = join(temp, "invalid-metric.json");
+  const harborTaskPath = join(temp, "harbor-task");
   await writeFile(
     tracePath,
     `${JSON.stringify({ type: "session", timestamp: "2026-01-01T00:00:00.000Z", cwd: "/workspaces/SecretProduct" })}\n`,
   );
-  await writeFile(invalidMetricPath, JSON.stringify({ schemaVersion: 1, diagnosticOnly: true, elapsed: {} }));
 
   const help = run("--help");
   assert.equal(help.status, 0, help.stderr);
-  assert.match(help.stdout, /Advisor Eval/);
+  assert.match(help.stdout, /Harbor/);
 
   const ingest = run("ingest", tracePath, "--output", normalizedPath);
   assert.equal(ingest.status, 0, ingest.stderr);
@@ -348,17 +355,22 @@ test("CLI flows pass and invalid metrics or command options fail closed", async 
   assert.equal(analyze.status, 0, analyze.stderr);
   assert.equal(JSON.parse(await readFile(metricsPath, "utf8")).diagnosticOnly, true);
 
-  const evaluate = run("evaluate", join(CASE_DIR, "fixture.json"), "--output", packetPath);
-  assert.equal(evaluate.status, 0, evaluate.stderr);
-  assert.equal(JSON.parse(await readFile(packetPath, "utf8")).packetType, "advisor-rubric-judge-input");
+  await mkdir(join(harborTaskPath, "tests"), { recursive: true });
+  await writeFile(join(harborTaskPath, "tests", "advisor.toml"), "retired config\n");
+  const harborTask = run("harbor-task", join(CASE_DIR, "fixture.json"), "--output", harborTaskPath);
+  assert.equal(harborTask.status, 0, harborTask.stderr);
+  assert.equal(harborTask.stdout.trim(), harborTaskPath);
+  const trajectory = JSON.parse(await readFile(join(harborTaskPath, "environment", "advisor-trajectory.json"), "utf8"));
+  assert.equal(trajectory.schema_version, "ATIF-v1.7");
+  assert.match(await readFile(join(harborTaskPath, "task.toml"), "utf8"), /schema_version = "1\.4"/);
+  assert((await stat(join(harborTaskPath, "tests", "test.sh"))).mode & 0o111);
+  await assert.rejects(readFile(join(harborTaskPath, "tests", "advisor.toml")), { code: "ENOENT" });
 
-  const compare = run("compare", metricsPath, metricsPath, "--output", comparisonPath);
-  assert.equal(compare.status, 0, compare.stderr);
-  assert(JSON.parse(await readFile(comparisonPath, "utf8")).deltas.every((entry) => entry.delta === 0));
-
-  const invalidMetric = run("compare", invalidMetricPath, metricsPath);
-  assert.equal(invalidMetric.status, 1);
-  assert.match(invalidMetric.stderr, /Invalid left metric: elapsed.activeElapsedMs/);
+  for (const retired of ["evaluate", "compare"]) {
+    const result = run(retired, join(CASE_DIR, "fixture.json"));
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, new RegExp(`Unknown command: ${retired}`));
+  }
   const invalidOption = run("ingest", tracePath, "--trace", tracePath);
   assert.equal(invalidOption.status, 1);
   assert.match(invalidOption.stderr, /Option --trace is not valid for ingest/);

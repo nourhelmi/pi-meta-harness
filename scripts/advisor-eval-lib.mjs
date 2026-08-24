@@ -83,19 +83,6 @@ const ALLOWED_STATUSES = new Set([
   "stopped",
   "unknown",
 ]);
-const COMPARE_METRIC_PATHS = [
-  ["elapsed", "activeElapsedMs"],
-  ["workers", "launches"],
-  ["workers", "failedLaunches"],
-  ["workers", "resumedLaunches"],
-  ["workers", "recoveredWorkers"],
-  ["graphs", "count"],
-  ["graphs", "parallelWaves"],
-  ["graphs", "maxWaveWidth"],
-  ["signals", "builderInvalidations"],
-  ["signals", "userRedirects"],
-  ["signals", "userStops"],
-];
 const ALLOWED_NORMALIZED_EVENT_KEYS = new Set([
   "id",
   "timestamp",
@@ -906,57 +893,4 @@ export function validateFixture(fixture, normalized) {
     }
   }
   return { valid: errors.length === 0, errors };
-}
-
-export function createRubricPacket(fixture, normalized, metrics = analyzeTrace(normalized)) {
-  const validation = validateFixture(fixture, normalized);
-  if (!validation.valid) throw new Error(`Invalid fixture:\n- ${validation.errors.join("\n- ")}`);
-  return {
-    schemaVersion: 1,
-    packetType: "advisor-rubric-judge-input",
-    case: { id: fixture.id, title: fixture.title, description: fixture.description },
-    metrics,
-    rubric: fixture.rubric,
-    checkpoints: fixture.checkpoints,
-    sanitizedTrace: normalized,
-    judgeBoundary: {
-      implementation: "external",
-      instruction: "Assess judgment against the rubric. Multiple checkpoint actions may be good; do not require one golden plan.",
-      outputSchema: {
-        dimensions: RUBRIC_DIMENSIONS.map((id) => ({ id, score: "number 0..4", rationale: "string", evidenceEventIds: "string[]" })),
-        checkpointAssessments: "{ checkpointId, assessment, evidenceEventIds }[]",
-        uncertainties: "string[]",
-        overallAssessment: "string",
-      },
-    },
-  };
-}
-
-function assertMetricReport(value, side) {
-  if (!isObject(value) || value.schemaVersion !== 1 || value.diagnosticOnly !== true) {
-    throw new Error(`Invalid ${side} metric report`);
-  }
-  for (const path of COMPARE_METRIC_PATHS) {
-    const metric = path.reduce((current, key) => current?.[key], value);
-    if (typeof metric !== "number" || !Number.isFinite(metric)) {
-      throw new Error(`Invalid ${side} metric: ${path.join(".")}`);
-    }
-  }
-}
-
-export function compareMetrics(left, right) {
-  assertMetricReport(left, "left");
-  assertMetricReport(right, "right");
-  const read = (object, path) => path.reduce((value, key) => value?.[key], object);
-  return {
-    schemaVersion: 1,
-    diagnosticOnly: true,
-    deltas: COMPARE_METRIC_PATHS.map((path) => {
-
-      const leftValue = read(left, path);
-      const rightValue = read(right, path);
-      return { metric: path.join("."), left: leftValue, right: rightValue, delta: rightValue - leftValue };
-    }),
-    note: "Deltas are descriptive and do not establish that either trace used a better workflow.",
-  };
 }

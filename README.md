@@ -77,7 +77,7 @@ runtime rules: [`docs/advisor-runtime.md`](docs/advisor-runtime.md)
 - [`docs/security.md`](docs/security.md) — portability boundary
 - [`docs/cutover.md`](docs/cutover.md) — updating an existing machine
 - [`docs/macos-tcc.md`](docs/macos-tcc.md) — grant Ghostty Full Disk Access so machine-wide searches do not modal-block
-- [`docs/advisor-evals.md`](docs/advisor-evals.md) — sanitized trace diagnostics and rubric/checkpoint fixtures
+- [`docs/advisor-evals.md`](docs/advisor-evals.md) — Harbor-based evaluation of privacy-safe advisor trajectories
 
 
 ## Fresh-machine setup
@@ -194,7 +194,8 @@ flowchart TD
 - `config/bg-agent-profiles.json` — fixed generic role launch guardrails; switching never changes it.
 - `~/.pi/agent/advisor-intelligence.json` — installed live copy of the selected advisory guide.
 - `scripts/intelligence-profile.mjs` — mid-session switcher.
-- `scripts/advisor-eval.mjs` — privacy-bounded advisor trace ingestion, diagnostics, and rubric packets.
+- `scripts/advisor-eval.mjs` — privacy-bounded advisor trace ingestion, diagnostics, and Harbor task generation.
+- `scripts/advisor-harbor-lib.mjs` — categorical ATIF and RewardKit task materialization for Harbor.
 - `docs/intelligence-profiles.md` — topology, quota pick tree, per-role recommendations.
 - `config/settings.overlay.json` — safe Pi defaults and exact package pins. Reinstall preserves the existing `defaultProvider`, `defaultModel`, and `defaultThinkingLevel` because `/model` owns that runtime preference.
 - `config/mcp.json` — MCP definitions with environment placeholders only.

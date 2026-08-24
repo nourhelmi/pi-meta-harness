@@ -1,0 +1,32 @@
+schema_version = "1.4"
+
+[task]
+name = "pi-meta-harness/evidence-rich-routing-defect"
+version = "1.0.0"
+description = "A synthetic advisor trace where strong ticket and browser evidence coexist with architectural ambiguity, deprecated-path risk, a low-information repeat, and a hard auth/data boundary."
+authors = []
+keywords = ["advisor", "orchestration", "trajectory", "privacy-safe"]
+
+[metadata]
+category = "advisor-orchestration"
+case_id = "evidence-rich-routing-defect"
+trace_policy = "categorical-only"
+
+[verifier]
+timeout_sec = 600.0
+
+[verifier.env]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
+CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+OPENAI_API_KEY = "${OPENAI_API_KEY:-}"
+REWARDKIT_JUDGE = "${REWARDKIT_JUDGE:-anthropic/claude-sonnet-4-6}"
+
+[agent]
+timeout_sec = 30.0
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 4096

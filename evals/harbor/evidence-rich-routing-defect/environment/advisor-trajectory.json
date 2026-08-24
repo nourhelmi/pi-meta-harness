@@ -1,0 +1,468 @@
+{
+  "schema_version": "ATIF-v1.7",
+  "session_id": "ar_6f4b12c2d3fbf25207303698f951aa52",
+  "agent": {
+    "name": "pi-advisor",
+    "version": "recorded",
+    "extra": {
+      "source_kind": "pi-session-jsonl",
+      "text_policy": "categorical-only",
+      "alias_scope": "deterministic-per-artifact"
+    }
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "timestamp": "2026-01-15T09:00:00.000Z",
+      "source": "system",
+      "message": "Advisor session started.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0001",
+          "timestamp": "2026-01-15T09:00:00.000Z",
+          "kind": "session_started"
+        }
+      }
+    },
+    {
+      "step_id": 2,
+      "timestamp": "2026-01-15T09:00:10.000Z",
+      "source": "user",
+      "message": "User intervention observed; categorical signals: auth_data_boundary.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0002",
+          "timestamp": "2026-01-15T09:00:10.000Z",
+          "kind": "user_intervention",
+          "signals": [
+            "auth_data_boundary"
+          ]
+        }
+      }
+    },
+    {
+      "step_id": 3,
+      "timestamp": "2026-01-15T09:01:00.000Z",
+      "source": "agent",
+      "message": "Advisor graph plan observed: 3 nodes across 2 dependency waves.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0003",
+          "timestamp": "2026-01-15T09:01:00.000Z",
+          "kind": "graph_plan",
+          "toolName": "advisor_graph_plan",
+          "graphAlias": "g_4964a88af114792173c9bebdd686ae66",
+          "nodeCount": 3,
+          "waves": [
+            {
+              "index": 1,
+              "nodeAliases": [
+                "n_a23aa04b737bc53d52216dd32809f639",
+                "n_fe25d9d188248aa0cdd27340c4702075"
+              ],
+              "roles": [
+                "scout",
+                "browser-verifier"
+              ]
+            },
+            {
+              "index": 2,
+              "nodeAliases": [
+                "n_10aeee4d291cad7547ec6223a19915ff"
+              ],
+              "roles": [
+                "planner"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step_id": 4,
+      "timestamp": "2026-01-15T09:01:00.000Z",
+      "source": "agent",
+      "message": "Worker launch requested for role scout; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0004",
+          "timestamp": "2026-01-15T09:01:00.000Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "launch",
+          "workerAlias": "w_d98f4c9f7e11077a2106abd4ec3fba74",
+          "attemptAlias": "a_fde79ecea92707bd27b10181dcdc63be",
+          "role": "scout",
+          "modelAlias": "m_943c6f798ed4f3b63a466d9cd0e52ea6",
+          "labelAlias": "l_2bfaf5ca3c7f071ea70f52ccc0e6f147",
+          "anchorAlias": "h_fefca55d77570d9f8708976784e8d5d0",
+          "anchorWordCount": 7,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 5,
+      "timestamp": "2026-01-15T09:01:00.000Z",
+      "source": "agent",
+      "message": "Worker launch requested for role browser-verifier; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0005",
+          "timestamp": "2026-01-15T09:01:00.000Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "launch",
+          "workerAlias": "w_3ce47b63a4a311d6c892dda909f1fb1a",
+          "attemptAlias": "a_5bdf7f6a0ab961b9275390cc48b10666",
+          "role": "browser-verifier",
+          "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
+          "labelAlias": "l_431842efaf567c9e1d7d1de236e985ee",
+          "anchorAlias": "h_9a0130574a7d2ca6a50d2d7da6b95ee3",
+          "anchorWordCount": 6,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 6,
+      "timestamp": "2026-01-15T09:01:02.000Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role scout; status running.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0006",
+          "timestamp": "2026-01-15T09:01:02.000Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_d98f4c9f7e11077a2106abd4ec3fba74",
+          "attemptAlias": "a_fde79ecea92707bd27b10181dcdc63be",
+          "role": "scout",
+          "modelAlias": "m_943c6f798ed4f3b63a466d9cd0e52ea6",
+          "status": "running"
+        }
+      }
+    },
+    {
+      "step_id": 7,
+      "timestamp": "2026-01-15T09:01:02.000Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role browser-verifier; status running.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0007",
+          "timestamp": "2026-01-15T09:01:02.000Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_3ce47b63a4a311d6c892dda909f1fb1a",
+          "attemptAlias": "a_5bdf7f6a0ab961b9275390cc48b10666",
+          "role": "browser-verifier",
+          "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
+          "status": "running"
+        }
+      }
+    },
+    {
+      "step_id": 8,
+      "timestamp": "2026-01-15T09:06:00.000Z",
+      "source": "agent",
+      "message": "Worker status observed: successful.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0008",
+          "timestamp": "2026-01-15T09:06:00.000Z",
+          "kind": "worker_status",
+          "toolName": "bg_agent",
+          "workerAlias": "w_d98f4c9f7e11077a2106abd4ec3fba74",
+          "attemptAlias": "a_fde79ecea92707bd27b10181dcdc63be",
+          "status": "successful",
+          "startedAt": "2026-01-15T09:01:00.000Z",
+          "endedAt": "2026-01-15T09:06:00.000Z"
+        }
+      }
+    },
+    {
+      "step_id": 9,
+      "timestamp": "2026-01-15T09:07:00.000Z",
+      "source": "agent",
+      "message": "Worker status observed: successful.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0009",
+          "timestamp": "2026-01-15T09:07:00.000Z",
+          "kind": "worker_status",
+          "toolName": "bg_agent",
+          "workerAlias": "w_3ce47b63a4a311d6c892dda909f1fb1a",
+          "attemptAlias": "a_5bdf7f6a0ab961b9275390cc48b10666",
+          "status": "successful",
+          "startedAt": "2026-01-15T09:01:00.000Z",
+          "endedAt": "2026-01-15T09:07:00.000Z"
+        }
+      }
+    },
+    {
+      "step_id": 10,
+      "timestamp": "2026-01-15T09:09:00.000Z",
+      "source": "agent",
+      "message": "Worker launch requested for role browser-verifier; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0010",
+          "timestamp": "2026-01-15T09:09:00.000Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "launch",
+          "workerAlias": "w_7970cdda774eeef43f2b8b4d926d6262",
+          "attemptAlias": "a_3e76bb481b3ddd45ad038f0a0343974a",
+          "role": "browser-verifier",
+          "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
+          "labelAlias": "l_493286a7ef10dcc7425e8a78aedbcccd",
+          "anchorAlias": "h_f569546e269aacefc534896543ccb7a7",
+          "anchorWordCount": 8,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 11,
+      "timestamp": "2026-01-15T09:09:01.000Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role browser-verifier; status running.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0011",
+          "timestamp": "2026-01-15T09:09:01.000Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_7970cdda774eeef43f2b8b4d926d6262",
+          "attemptAlias": "a_3e76bb481b3ddd45ad038f0a0343974a",
+          "role": "browser-verifier",
+          "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
+          "status": "running"
+        }
+      }
+    },
+    {
+      "step_id": 12,
+      "timestamp": "2026-01-15T09:12:00.000Z",
+      "source": "agent",
+      "message": "Worker status observed: failed.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0012",
+          "timestamp": "2026-01-15T09:12:00.000Z",
+          "kind": "worker_status",
+          "toolName": "bg_agent",
+          "workerAlias": "w_7970cdda774eeef43f2b8b4d926d6262",
+          "attemptAlias": "a_3e76bb481b3ddd45ad038f0a0343974a",
+          "status": "failed",
+          "startedAt": "2026-01-15T09:09:00.000Z",
+          "endedAt": "2026-01-15T09:12:00.000Z"
+        }
+      }
+    },
+    {
+      "step_id": 13,
+      "timestamp": "2026-01-15T09:13:00.000Z",
+      "source": "agent",
+      "message": "Worker resume requested for role browser-verifier; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0013",
+          "timestamp": "2026-01-15T09:13:00.000Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "resume",
+          "workerAlias": "w_7970cdda774eeef43f2b8b4d926d6262",
+          "attemptAlias": "a_dcb37af0c07572970c204b959c5ee0be",
+          "role": "browser-verifier",
+          "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
+          "labelAlias": "l_2a75247c997216cc3634ebd6f69a8f2d",
+          "anchorAlias": "h_10ff3766d3a4cb53f84ced73a4b68351",
+          "anchorWordCount": 10,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 14,
+      "timestamp": "2026-01-15T09:13:01.000Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role browser-verifier; status running.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0014",
+          "timestamp": "2026-01-15T09:13:01.000Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_7970cdda774eeef43f2b8b4d926d6262",
+          "attemptAlias": "a_dcb37af0c07572970c204b959c5ee0be",
+          "role": "browser-verifier",
+          "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
+          "status": "running"
+        }
+      }
+    },
+    {
+      "step_id": 15,
+      "timestamp": "2026-01-15T09:15:00.000Z",
+      "source": "agent",
+      "message": "Worker status observed: successful.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0015",
+          "timestamp": "2026-01-15T09:15:00.000Z",
+          "kind": "worker_status",
+          "toolName": "bg_agent",
+          "workerAlias": "w_7970cdda774eeef43f2b8b4d926d6262",
+          "attemptAlias": "a_dcb37af0c07572970c204b959c5ee0be",
+          "status": "successful",
+          "startedAt": "2026-01-15T09:13:00.000Z",
+          "endedAt": "2026-01-15T09:15:00.000Z"
+        }
+      }
+    },
+    {
+      "step_id": 16,
+      "timestamp": "2026-01-15T09:16:00.000Z",
+      "source": "agent",
+      "message": "Worker launch requested for role builder; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0016",
+          "timestamp": "2026-01-15T09:16:00.000Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "launch",
+          "workerAlias": "w_b3bd0387a988ce0ecf641e6f23118177",
+          "attemptAlias": "a_dc4f3f1fd5a9b3a24a611a30144e9adb",
+          "role": "builder",
+          "modelAlias": "m_890e01c70cb9cebfec51df9eb03262ef",
+          "labelAlias": "l_3f66b6bca2915eb72a30d782f4418fc7",
+          "anchorAlias": "h_6e0730c36af205639c9cb0e46c9b5bed",
+          "anchorWordCount": 8,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 17,
+      "timestamp": "2026-01-15T09:16:01.000Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role builder; status running.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0017",
+          "timestamp": "2026-01-15T09:16:01.000Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_b3bd0387a988ce0ecf641e6f23118177",
+          "attemptAlias": "a_dc4f3f1fd5a9b3a24a611a30144e9adb",
+          "role": "builder",
+          "modelAlias": "m_890e01c70cb9cebfec51df9eb03262ef",
+          "status": "running"
+        }
+      }
+    },
+    {
+      "step_id": 18,
+      "timestamp": "2026-01-15T09:25:00.000Z",
+      "source": "agent",
+      "message": "Worker status observed: successful.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0018",
+          "timestamp": "2026-01-15T09:25:00.000Z",
+          "kind": "worker_status",
+          "toolName": "bg_agent",
+          "workerAlias": "w_b3bd0387a988ce0ecf641e6f23118177",
+          "attemptAlias": "a_dc4f3f1fd5a9b3a24a611a30144e9adb",
+          "status": "successful",
+          "startedAt": "2026-01-15T09:16:00.000Z",
+          "endedAt": "2026-01-15T09:25:00.000Z"
+        }
+      }
+    },
+    {
+      "step_id": 19,
+      "timestamp": "2026-01-15T09:26:00.000Z",
+      "source": "user",
+      "message": "User intervention observed; categorical signals: stop, redirect, builder_invalidation, auth_data_boundary.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0019",
+          "timestamp": "2026-01-15T09:26:00.000Z",
+          "kind": "user_intervention",
+          "signals": [
+            "stop",
+            "redirect",
+            "builder_invalidation",
+            "auth_data_boundary"
+          ]
+        }
+      }
+    },
+    {
+      "step_id": 20,
+      "timestamp": "2026-01-15T09:27:00.000Z",
+      "source": "agent",
+      "message": "Advisor graph plan observed: 2 nodes across 2 dependency waves.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0020",
+          "timestamp": "2026-01-15T09:27:00.000Z",
+          "kind": "graph_plan",
+          "toolName": "advisor_graph_plan",
+          "graphAlias": "g_fd23c6b8dbb3d372ee84930ca8749ef1",
+          "nodeCount": 2,
+          "waves": [
+            {
+              "index": 1,
+              "nodeAliases": [
+                "n_58adea64f0241ddfca584219a1d66af5"
+              ],
+              "roles": [
+                "scout"
+              ]
+            },
+            {
+              "index": 2,
+              "nodeAliases": [
+                "n_0a1ff6d3f85a860e18197e64901a0c81"
+              ],
+              "roles": [
+                "planner"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "final_metrics": {
+    "total_steps": 20
+  },
+  "extra": {
+    "privacy": {
+      "rawMessageBodiesCopied": false,
+      "rawToolPayloadsCopied": false,
+      "arbitraryTextCopied": false,
+      "identityFieldsAliased": true,
+      "anchorTextStored": false
+    },
+    "relationships": {
+      "repetition": {
+        "exactAnchors": [],
+        "nearAnchors": [],
+        "exactLabels": [],
+        "nearLabels": [
+          [
+            "e0010",
+            "e0013"
+          ]
+        ],
+        "truncated": false
+      }
+    }
+  }
+}

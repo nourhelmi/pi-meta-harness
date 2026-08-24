@@ -6,6 +6,8 @@ node_modules/
 .tmp/
 coverage/
 *.log
+__pycache__/
+*.py[cod]
 
 # Advisor state is local workstream data, not portable configuration.
 .advisor/

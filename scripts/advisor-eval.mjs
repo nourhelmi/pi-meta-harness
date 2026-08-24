@@ -1,31 +1,25 @@
 #!/usr/bin/env node
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  analyzeTrace,
-  compareMetrics,
-  createRubricPacket,
-  normalizeSession,
-  parseJsonl,
-  validateFixture,
-} from "./advisor-eval-lib.mjs";
+import { analyzeTrace, normalizeSession, parseJsonl } from "./advisor-eval-lib.mjs";
+import { createHarborTask } from "./advisor-harbor-lib.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function usage() {
-  return `Advisor Eval
+  return `Advisor Trace Preparation for Harbor
 
 Usage:
   node scripts/advisor-eval.mjs ingest <session.jsonl> [--output <file>]
   node scripts/advisor-eval.mjs analyze <trace.json|session.jsonl> [--output <file>]
-  node scripts/advisor-eval.mjs evaluate <fixture.json> [--trace <trace.json|session.jsonl>] [--output <file>]
-  node scripts/advisor-eval.mjs compare <left.json> <right.json> [--output <file>]
+  node scripts/advisor-eval.mjs harbor-task <fixture.json> [--trace <trace.json|session.jsonl>] [--output <directory>]
 
 Real trace ingestion defaults to evals/local/, which is gitignored. Raw message bodies,
 summaries, raw tool payloads, and identity strings are never copied. Identity-like fields
-become deterministic per-artifact aliases; other retained fields use closed categories.`;
+become deterministic per-artifact aliases; other retained fields use closed categories.
+Harbor owns evaluation execution, rewards, result storage, viewing, and comparison.`;
 }
 
 function parseOptions(argv) {
@@ -83,6 +77,10 @@ function defaultIngestOutput(normalized) {
   return join(ROOT, "evals", "local", `${normalized.source.artifactAlias}.normalized.json`);
 }
 
+function defaultHarborOutput(fixture) {
+  return join(ROOT, "evals", "local", "harbor", fixture.id);
+}
+
 async function emitJson(value, output) {
   const contents = `${JSON.stringify(value, null, 2)}\n`;
   if (!output) {
@@ -95,6 +93,20 @@ async function emitJson(value, output) {
   let displayPath = output;
   if (path.startsWith(`${ROOT}/`)) displayPath = relative(ROOT, path);
   else if (isAbsolute(output)) displayPath = path;
+  process.stdout.write(`${displayPath}\n`);
+}
+
+async function writeHarborTask(task, output) {
+  const outputRoot = resolve(output);
+  await rm(join(outputRoot, "tests", "advisor.toml"), { force: true });
+  for (const [relativePath, contents] of Object.entries(task.files)) {
+    const path = resolve(outputRoot, relativePath);
+    if (!path.startsWith(`${outputRoot}/`)) throw new Error(`Unsafe Harbor task path: ${relativePath}`);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, contents, "utf8");
+  }
+  await chmod(join(outputRoot, "tests", "test.sh"), 0o755);
+  const displayPath = outputRoot.startsWith(`${ROOT}/`) ? relative(ROOT, outputRoot) : outputRoot;
   process.stdout.write(`${displayPath}\n`);
 }
 
@@ -125,28 +137,15 @@ export async function runCli(argv) {
     return;
   }
 
-  if (options.command === "evaluate") {
+  if (options.command === "harbor-task") {
     requireAllowedOptions(options, ["output", "trace"]);
-    requirePositionals(options, 1, "evaluate <fixture.json>");
+    requirePositionals(options, 1, "harbor-task <fixture.json>");
     const fixturePath = resolve(options.positional[0]);
     const fixture = await readJson(fixturePath, "fixture");
     const tracePath = resolve(dirname(fixturePath), options.trace ?? fixture.trace ?? "trace.jsonl");
     const normalized = await loadTrace(tracePath);
-    const validation = validateFixture(fixture, normalized);
-    if (!validation.valid) throw new Error(`Invalid fixture:\n- ${validation.errors.join("\n- ")}`);
-    await emitJson(createRubricPacket(fixture, normalized), options.output);
-    return;
-  }
-
-  if (options.command === "compare") {
-    requireAllowedOptions(options, ["output"]);
-    requirePositionals(options, 2, "compare <left.json> <right.json>");
-    const metrics = [];
-    for (const path of options.positional) {
-      const value = await readJson(resolve(path), "comparison input");
-      metrics.push(Array.isArray(value?.events) ? analyzeTrace(value) : value);
-    }
-    await emitJson(compareMetrics(metrics[0], metrics[1]), options.output);
+    const task = createHarborTask(fixture, normalized);
+    await writeHarborTask(task, options.output ?? defaultHarborOutput(fixture));
     return;
   }
 
