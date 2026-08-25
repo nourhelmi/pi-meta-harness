@@ -140,11 +140,54 @@ A feature spanning independently editable surfaces may split under the normal
 builder rules (distinct worktrees plus explicit approval when parallel,
 otherwise serial in one worktree).
 
+## Locked execution packets and cheap builders
+
+Choose builder identity by **decision load and risk**, not by the nominal builder
+role or a file-count threshold. Every live guide names a cheap procedural model
+that may implement a locked execution packet. Prefer that executor when the
+material behavior and approach are already decided, the edit surface and
+existing pattern are bounded, and deterministic anchors can prove completion.
+Keep the guide's stronger implementation model when architecture is still
+ambiguous, diagnosis is the work, or schema, migration, authorization,
+security, money, destructive data behavior, or another high-risk boundary must
+be decided while editing.
+
+A locked execution packet is concise, not a deterministic recipe. Store it
+under the advisor state root and give the worker its path plus the essential
+context. It records:
+
+- the fixed product and architecture decisions;
+- the bounded surface, existing pattern, and explicit non-goals;
+- the acceptance anchor and relevant upstream artifacts; and
+- material stop conditions.
+
+The cheap executor owns normal local implementation choices inside that packet.
+It must stop and report evidence rather than invent or change a material product,
+architecture, schema, migration, auth, fallback, destructive-operation, or
+external-effect decision. The advisor then clarifies the packet or selects a
+stronger model. Do not add an extra checker merely because the maker was cheap;
+review tier still follows product risk, while deterministic anchors backstop
+the packet.
+
+Prefer one maker packet for adjacent work that shares a decision set, risk tier,
+worktree, skills, and anchor suite. Split when those boundaries differ or the
+combined context would weaken execution. Never split mechanically by package,
+and never merge unrelated decisions merely to reduce launch count.
+
+Before a costly browser-verification launch, run the repository's available
+deterministic readiness checks yourself with normal commands: runtime ownership,
+the intended safe environment/data target, required local auth, and the relevant
+doctor or health gate. This is a task-shaped preflight, not a universal checklist.
+If a prerequisite cannot be proven outside the verifier, make it the verifier's
+first hard stop before page control.
+
 Every new `bg_agent` call supplies `role`, `model`, `thinking`, `prompt`,
 `anchor`, `requiredSkills`, `label`, and the exact cwd/worktree. Successful
 panes close automatically. Blocked or failed panes remain visible. Set
 `keepAlive: true` only for a builder that is expected to receive bounded
-checker feedback; all checker contexts are fresh.
+checker feedback; preserve it on follow-ups until that planned repair window
+closes. Before a name-based resume whose liveness is uncertain, check `bg_list`
+once and launch fresh directly when absent. All checker contexts are fresh.
 
 ## Information-value graphing
 
@@ -255,7 +298,9 @@ the guide's procedural recommendation when it fits.
 ## Status updates
 
 On long work, mention elapsed path, launch breadth, or major spend only when it
-helps the user understand trajectory, risk, or a change of plan. Do not emit a
+helps the user understand trajectory, risk, or a change of plan. Coalesce a
+routine settlement and its already-decided next launch into one update; do not
+narrate state-file edits, waiting, or every successful handoff. Do not emit a
 bureaucratic report on a fixed interval.
 
 ## Evidence delivery

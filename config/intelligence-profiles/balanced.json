@@ -6,11 +6,11 @@
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Hard-implementation workhorse for long or difficult backend, data, service, mixed-stack, and genuinely hard debugging, and the planning fallback when Fable is unavailable because Anthropic session capacity is reached. Use as the advisor model in the same capacity fallback. Use medium as a token-efficient alternate for bounded hard implementation and test authoring; use high for planning and substantial builds, escalating to xhigh or max only for genuinely difficult debugging. Frontend routes elsewhere: greenfield UX is Opus, all other UX is Sonnet. Checking, review, and reduction are Sonnet-tier, not Sol.",
+      "character": "Advisory: Hard-implementation workhorse for long or difficult backend, data, service, mixed-stack, and genuinely hard debugging, and the planning fallback when Fable is unavailable because Anthropic session capacity is reached. Use as the advisor model in the same capacity fallback. Use medium for bounded hard implementation or test design that still needs material judgment; use high for planning and substantial builds, escalating to xhigh or max only for genuinely difficult debugging. Prefer Luna when the approach and material decisions are already locked. Frontend routes elsewhere: greenfield UX is Opus, all other UX is Sonnet. Checking, review, and reduction are Sonnet-tier, not Sol.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: The default builder and the default adversarial-tier reviewer. Medium and well-known implementation, all existing-UX work, tests, reduction, schema/auth/security/money checks, and final whole-diff review before PR. Prefer a fresh Sonnet context for review of a Sonnet build; escalate to Opus when the risk is extreme. Load frontend-design for UX work. 1M window. Not recommended for planning; genuinely hard backend goes to Sol high or medium by scope; greenfield UX goes to Opus.",
+      "character": "Advisory: The default decision-bearing builder and the default adversarial-tier reviewer. Medium and well-known implementation that still needs material judgment, all existing-UX work, tests, reduction, schema/auth/security/money checks, and final whole-diff review before PR. Prefer Luna for a locked execution packet. Prefer a fresh Sonnet context for review of a Sonnet build; escalate to Opus when the risk is extreme. Load frontend-design for UX work. 1M window. Not recommended for planning; genuinely hard backend goes to Sol high or medium by scope; greenfield UX goes to Opus.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-opus-5": {
@@ -18,7 +18,7 @@
       "defaultThinking": "medium"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: Extremely cheap procedural-tier workhorse: easy, concise, small implementation; scouting; mechanical chores; routine mid-phase checks; repair verification; test-harness findings; and browser verification — deterministic anchors backstop it. 272K window. Generally avoid assigning planning, hard implementation, or adversarial-tier checking. Recommended reasoning is max.",
+      "character": "Advisory: Extremely cheap procedural-tier workhorse and preferred executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Luna owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. 272K window. Generally avoid planning, hard or decision-bearing implementation, and adversarial-tier checking. Recommended reasoning is max.",
       "defaultThinking": "max"
     }
   },
@@ -78,7 +78,7 @@
       {
         "model": "openai-codex/gpt-5.6-sol",
         "thinking": "medium",
-        "fit": "Token-efficient alternate for bounded hard implementation or test authoring."
+        "fit": "Use for bounded hard implementation or test design that still needs material local judgment; prefer Luna for a locked execution packet."
       },
       {
         "model": "claude-bridge/claude-opus-5",
@@ -88,7 +88,7 @@
       {
         "model": "openai-codex/gpt-5.6-luna",
         "thinking": "max",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+        "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
     "checker": [

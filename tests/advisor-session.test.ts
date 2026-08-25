@@ -86,6 +86,16 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
   return { beforeAgentStart, ctx, sessionStart };
 }
 
+test("advisor doctrine routes locked execution without weakening decision boundaries", async () => {
+  const source = await readFile(new URL("../skills/advisor/SKILL.md", import.meta.url), "utf8");
+  assert.match(source, /decision load and risk/);
+  assert.match(source, /locked execution packet/);
+  assert.match(source, /stop and report evidence rather than invent or change a material product/);
+  assert.match(source, /deterministic readiness checks/);
+  assert.match(source, /check `bg_list`\s+once/);
+  assert.match(source, /Coalesce a\s+routine settlement/);
+});
+
 test("resumed advisors receive current doctrine over stale expanded skill history", async () => {
   const staleSkill = `<skill name="advisor" location="/old/skills/advisor/SKILL.md">
 References are relative to /old/skills/advisor.

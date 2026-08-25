@@ -76,6 +76,35 @@ reasoning names, missing models, missing configured roles, and misspelled role
 references. This validates the guide itself; it does not turn the guide into a
 runtime allowlist.
 
+## Decision-bearing builders and locked executors
+
+Recommendation order applies **among choices that fit the task**; it is not a
+rule to spend the first model on every node. Builder routing starts with decision
+load and risk:
+
+- use the profile's strong builder when diagnosis, architecture, or a material
+  product/schema/migration/auth/security/destructive-operation decision remains;
+- use the profile's cheap executor when a concise execution packet has fixed the
+  approach, bounded the surface, named existing patterns and non-goals, and
+  provided deterministic anchors;
+- if the cheap executor discovers a missing material decision or contradictory
+  evidence, it stops and escalates rather than inventing a route.
+
+The shipped locked-packet executors are:
+
+| Profile | Cheap executor |
+| --- | --- |
+| `codex-max` | Luna max |
+| `codex-lean` | Luna max |
+| `balanced` | Luna max |
+| `anthropic-heavy` | Luna max while Codex capacity remains |
+| `grok-cycle` | Sonnet medium |
+
+This is advisory task-fit guidance, not a model allowlist or a deterministic
+small-file rule. A cheap maker does not automatically earn another checker;
+review tier follows the product risk and deterministic anchors remain the
+backstop.
+
 ## Topology
 
 ```mermaid
@@ -121,7 +150,7 @@ the detailed task and capacity guidance.
 | Role | Ordered recommendations |
 | --- | --- |
 | planner | Fable high, Sol high |
-| builder | Sol high, Opus medium, Sol medium, Luna max, Grok high |
+| builder | Sol high, Opus medium, Sol medium (bounded judgment), Luna max (locked packet), Grok high |
 | checker | Sol medium, Luna max |
 | reducer | Sol medium |
 | scout | Luna max, Sol medium, Grok high |
@@ -129,8 +158,10 @@ the detailed task and capacity guidance.
 
 Sol high is the difficult implementation workhorse, while Sol medium handles
 token-efficient adversarial review, reduction, bounded investigation, and
-targeted existing-UX updates. Luna handles procedural work, Opus covers
-greenfield UX, and Grok covers bounded research/mixed-stack/existing-UX work.
+bounded implementation that still needs material judgment. Luna max executes
+locked packets as well as procedural work; it stops instead of making material
+product or architecture decisions. Opus covers greenfield UX, and Grok covers
+bounded research/mixed-stack/existing-UX work.
 Fable remains the advisor/planner default, with Sol high as capacity fallback.
 
 ### `codex-lean` — spend the Codex remainder carefully
@@ -138,7 +169,7 @@ Fable remains the advisor/planner default, with Sol high as capacity fallback.
 | Role | Ordered recommendations |
 | --- | --- |
 | planner | Sol high |
-| builder | Sol high, Sonnet high, Luna max |
+| builder | Sol high, Sonnet high, Luna max (locked packet) |
 | checker | Sol medium, Sonnet high, Luna max |
 | reducer | Sol medium, Sonnet high, Luna max |
 | scout | Luna max, Sonnet high |
@@ -146,7 +177,7 @@ Fable remains the advisor/planner default, with Sol high as capacity fallback.
 
 Sol high plans and handles hard builds, while Sol medium handles adversarial
 review and hefty reduction. Sonnet handles medium well-known work and ordinary
-review; Luna handles small/procedural work. Fable is advisor-session guidance
+review; Luna handles locked execution packets and procedural work. Fable is advisor-session guidance
 rather than a worker recommendation in this profile.
 
 ### `anthropic-heavy` — spend the 5-hour window deliberately
@@ -154,29 +185,31 @@ rather than a worker recommendation in this profile.
 | Role | Ordered recommendations |
 | --- | --- |
 | planner | Fable high, Grok high |
-| builder | Sonnet high, Opus medium, Grok high, Luna max |
+| builder | Sonnet high, Opus medium, Grok high, Luna max (locked packet) |
 | checker | Sonnet high, Opus medium, Luna max, Grok high |
 | reducer | Sonnet high, Opus medium |
 | scout | Luna max, Grok high, Sonnet high |
 | browser-verifier | Luna max, Grok high |
 
-Sonnet is the implementation and review workhorse, Opus is the greenfield UX or
-extreme-risk option, Luna uses remaining Codex for procedural work, and Grok is
-the capacity fallback.
+Sonnet is the decision-bearing implementation and review workhorse, Opus is the
+greenfield UX or extreme-risk option, Luna uses remaining Codex for locked
+execution packets and procedural work, and Grok remains the profile's existing
+capacity fallback.
 
 ### `balanced` — Codex builds hard, Anthropic builds/checks the rest
 
 | Role | Ordered recommendations |
 | --- | --- |
 | planner | Fable high, Sol high |
-| builder | Sonnet high, Sol high, Sol medium, Opus medium, Luna max |
+| builder | Sonnet high, Sol high, Sol medium (bounded judgment), Opus medium, Luna max (locked packet) |
 | checker | Sonnet high, Opus medium, Luna max |
 | reducer | Sonnet high, Opus medium, Luna max |
 | scout | Luna max, Sonnet high |
 | browser-verifier | Luna max, Sonnet high |
 
-Sonnet is the default maker and checker; Sol high or medium takes hard backend
-work by scope; Opus takes greenfield UX; Luna remains procedural. Grok is intentionally absent from
+Sonnet is the default decision-bearing maker and checker; Sol high or medium
+takes hard backend work by scope; Opus takes greenfield UX; Luna executes locked
+packets and procedural work. Grok is intentionally absent from
 the recommendations but is still not blocked at runtime.
 
 ### `grok-cycle` — no Codex recommendations
@@ -184,14 +217,15 @@ the recommendations but is still not blocked at runtime.
 | Role | Ordered recommendations |
 | --- | --- |
 | planner | Fable high, Grok high |
-| builder | Grok high, Sonnet medium |
+| builder | Grok high, Sonnet medium (locked packet) |
 | checker | Grok high, Sonnet medium |
 | reducer | Grok high |
 | scout | Sonnet medium, Grok high |
 | browser-verifier | Sonnet medium, Grok high |
 
-Grok owns the hefty maker/review/reduction cycle. Sonnet handles short-leash
-procedural work. A fresh Grok review of a Grok build is expected; deterministic
+Grok owns the hefty decision-bearing maker/review/reduction cycle. Sonnet medium
+handles locked execution packets and short-leash procedural work. A fresh Grok
+review of a Grok build is expected; deterministic
 anchors provide the independence backstop.
 
 ## Files on disk

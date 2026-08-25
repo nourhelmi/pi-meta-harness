@@ -10,11 +10,11 @@
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: Cheap enough to spend in this profile: medium well-known implementation, scouting when Luna is a poor fit, reduction, and review that is not adversarial-tier. Bounded Anthropic 5-hour bursts. Load frontend-design for UX work. Generally avoid assigning planning, genuinely hard or unfamiliar implementation (that is Sol high), adversarial schema/auth/security/money/final whole-diff review (that is Sol medium), or tiny mechanical chores (that is Luna). Grok is not a fallback here — switch to grok-cycle instead.",
+      "character": "Advisory: Cheap enough to spend in this profile: medium well-known implementation that still needs material judgment, scouting when Luna is a poor fit, reduction, and review that is not adversarial-tier. Bounded Anthropic 5-hour bursts. Load frontend-design for UX work. Generally avoid assigning planning, genuinely hard or unfamiliar implementation (that is Sol high), adversarial schema/auth/security/money/final whole-diff review (that is Sol medium), or locked execution packets (those are Luna). Grok is not a fallback here — switch to grok-cycle instead.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: Extremely cheap Codex leftover: easy, concise, small implementation; scouting; mechanical chores; routine mid-phase checks; repair verification; test-harness findings; and browser verification — deterministic anchors backstop it. 272K window. Generally avoid assigning planning, hard implementation, or adversarial-tier checking. Recommended reasoning is max.",
+      "character": "Advisory: Extremely cheap Codex leftover: the preferred executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Luna owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. 272K window. Generally avoid planning, hard or decision-bearing implementation, and adversarial-tier checking. Recommended reasoning is max.",
       "defaultThinking": "max"
     }
   },
@@ -69,7 +69,7 @@
       {
         "model": "openai-codex/gpt-5.6-luna",
         "thinking": "max",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+        "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
     "checker": [

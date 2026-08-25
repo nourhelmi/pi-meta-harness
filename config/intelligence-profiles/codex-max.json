@@ -6,11 +6,11 @@
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Use medium for token-efficient fresh-context review, synthesis, bounded investigation, ambiguous browser verification, and minor targeted updates to an existing UX. Planning fallback, advisor use, and substantial builds remain high. Frontend implementation otherwise routes to Opus or Grok by UX scope. Sol medium is also the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging.",
+      "character": "Advisory: Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Use medium for token-efficient fresh-context review, synthesis, bounded investigation, ambiguous browser verification, and bounded implementation that still needs material local judgment. Planning fallback, advisor use, and substantial builds remain high. Frontend implementation otherwise routes to Opus or Grok by UX scope. Sol medium is also the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging. Prefer Luna, not Sol medium, when an execution packet has already locked the approach and material decisions.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: Extremely cheap; the procedural-tier workhorse: scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification — deterministic anchors backstop it. 272K window. Generally avoid assigning adversarial-tier checking: schema, auth, security, money, data boundaries, or final whole-diff reviews. Recommended reasoning is max.",
+      "character": "Advisory: Extremely cheap; the procedural-tier workhorse for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet. The packet must fix the material approach, bound the surface, and name deterministic anchors. Luna owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. 272K window. Generally avoid adversarial-tier checking and decision-bearing implementation. Recommended reasoning is max.",
       "defaultThinking": "max"
     },
     "claude-bridge/claude-opus-5": {
@@ -73,12 +73,12 @@
       {
         "model": "openai-codex/gpt-5.6-sol",
         "thinking": "medium",
-        "fit": "Token-efficient alternate for bounded implementation or a minor targeted update to an existing UX."
+        "fit": "Use for bounded implementation that still needs material local judgment; prefer Luna when the execution packet has locked the approach."
       },
       {
         "model": "openai-codex/gpt-5.6-luna",
         "thinking": "max",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+        "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       },
       {
         "model": "cursor/grok-4.6",

@@ -6,7 +6,7 @@
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: Use leftover Codex quota here first: the procedural-tier workhorse for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. Deterministic anchors backstop it. Recommended reasoning is max. If Codex is fully exhausted, procedural work moves to Grok.",
+      "character": "Advisory: Use leftover Codex quota here first: the procedural-tier workhorse and preferred executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Luna owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Recommended reasoning is max. If Codex is fully exhausted, existing profile fallback guidance still applies.",
       "defaultThinking": "max"
     },
     "claude-bridge/claude-opus-5": {
@@ -14,7 +14,7 @@
       "defaultThinking": "medium"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: The implementation workhorse and the default adversarial-tier reviewer. Backend, mixed-stack, substantial existing-UX, tests, reduction, schema/auth/security/money checks, and final whole-diff review. Prefer a fresh Sonnet context for review of a Sonnet build. Load frontend-design for UX work. 1M window. Not recommended for planning. Opus takes greenfield UX while the 5-hour window is fresh.",
+      "character": "Advisory: The decision-bearing implementation workhorse and the default adversarial-tier reviewer. Backend, mixed-stack, substantial existing-UX, tests, reduction, schema/auth/security/money checks, and final whole-diff review. Prefer Luna for a locked execution packet while Codex capacity is available. Prefer a fresh Sonnet context for review of a Sonnet build. Load frontend-design for UX work. 1M window. Not recommended for planning. Opus takes greenfield UX while the 5-hour window is fresh.",
       "defaultThinking": "high"
     },
     "cursor/grok-4.6": {
@@ -83,7 +83,7 @@
       {
         "model": "openai-codex/gpt-5.6-luna",
         "thinking": "max",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+        "fit": "Preferred cheap executor for a locked execution packet while Codex capacity remains: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
     "checker": [

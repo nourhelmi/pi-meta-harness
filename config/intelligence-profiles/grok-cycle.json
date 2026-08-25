@@ -6,11 +6,11 @@
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: Luna replacement: cheap short-leash procedural work. Scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification — deterministic anchors backstop it. Default reasoning is medium. Generally avoid assigning adversarial-tier checking, final whole-diff review, reduction, planning, or substantial implementation. Grok is the hefty-cycle model.",
+      "character": "Advisory: Luna replacement and preferred cheap executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Sonnet owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Default reasoning is medium. Generally avoid adversarial-tier checking, final whole-diff review, reduction, planning, or decision-bearing substantial implementation. Grok is the hefty-cycle model.",
       "defaultThinking": "medium"
     },
     "cursor/grok-4.6": {
-      "character": "Advisory: The hefty cycle: implementation workhorse and adversarial-tier reviewer. Backend, data, mixed-stack, substantial existing-UX, greenfield UX (load frontend-design), research, schema/auth/security/money checks, final whole-diff review before PR, rechecks after an overturned pass, and reduction. Also the planning/advisor fallback when Fable is at Anthropic capacity. 200K window — keep packets bounded and split oversized reviews per package or phase. A Grok review of a Grok build is expected in this profile; the deterministic anchors are the independence backstop, not a second model. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
+      "character": "Advisory: The hefty decision-bearing cycle: implementation workhorse and adversarial-tier reviewer. Backend, data, mixed-stack, substantial existing-UX, greenfield UX (load frontend-design), research, schema/auth/security/money checks, final whole-diff review before PR, rechecks after an overturned pass, and reduction. Prefer Sonnet medium when an execution packet has already locked material decisions. Grok is also the planning/advisor fallback when Fable is at Anthropic capacity. 200K window — keep packets bounded and split oversized reviews per package or phase. A Grok review of a Grok build is expected in this profile; deterministic anchors are the independence backstop, not a second model. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
       "defaultThinking": "high"
     }
   },
@@ -55,7 +55,7 @@
       {
         "model": "claude-bridge/claude-sonnet-5",
         "thinking": "medium",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+        "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
     "checker": [

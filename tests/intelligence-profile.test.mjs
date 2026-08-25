@@ -15,6 +15,13 @@ const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SCRIPT = join(ROOT, "scripts", "intelligence-profile.mjs");
 const HARNESS = join(ROOT, "scripts", "meta-harness.mjs");
 const NAMES = ["codex-max", "codex-lean", "anthropic-heavy", "balanced", "grok-cycle"];
+const LOCKED_EXECUTORS = {
+  "codex-max": ["openai-codex/gpt-5.6-luna", "max"],
+  "codex-lean": ["openai-codex/gpt-5.6-luna", "max"],
+  "anthropic-heavy": ["openai-codex/gpt-5.6-luna", "max"],
+  balanced: ["openai-codex/gpt-5.6-luna", "max"],
+  "grok-cycle": ["claude-bridge/claude-sonnet-5", "medium"],
+};
 
 test("fixed role configuration is standalone and model-free", async () => {
   const config = JSON.parse(await readFile(join(ROOT, "config", "bg-agent-profiles.json"), "utf8"));
@@ -47,6 +54,23 @@ test("named advisor guides are structurally valid and cover every role", async (
         assert(guide.models[choice.model]);
       }
     }
+  }
+});
+
+test("every guide names a cheap locked-packet executor", async () => {
+  for (const name of NAMES) {
+    const guide = JSON.parse(
+      await readFile(join(ROOT, "config", "intelligence-profiles", `${name}.json`), "utf8"),
+    );
+    const [model, thinking] = LOCKED_EXECUTORS[name];
+    const choice = guide.recommendations.builder.find(
+      (candidate) => candidate.model === model && candidate.thinking === thinking,
+    );
+    assert(choice, `${name} has no locked executor recommendation`);
+    assert.match(choice.fit, /locked execution packet/i, name);
+    assert.match(choice.fit, /stop-on-material-ambiguity/i, name);
+    assert.match(guide.models[model].character, /stops and escalates/i, name);
+    assert.match(guide.models[model].character, /deterministic anchors/i, name);
   }
 });
 
