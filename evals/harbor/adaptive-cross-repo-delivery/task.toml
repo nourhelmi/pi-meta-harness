@@ -1,0 +1,32 @@
+schema_version = "1.4"
+
+[task]
+name = "pi-meta-harness/adaptive-cross-repo-delivery"
+version = "1.0.0"
+description = "A privacy-safe trace of a complex, initially ambiguous migration with independent discovery, serial implementation gates, checker findings, runtime safety stops, targeted browser recapture, and an external-effect boundary."
+authors = []
+keywords = ["advisor", "orchestration", "trajectory", "privacy-safe"]
+
+[metadata]
+category = "advisor-orchestration"
+case_id = "adaptive-cross-repo-delivery"
+trace_policy = "categorical-only"
+
+[verifier]
+timeout_sec = 600.0
+
+[verifier.env]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
+CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+OPENAI_API_KEY = "${OPENAI_API_KEY:-}"
+REWARDKIT_JUDGE = "${REWARDKIT_JUDGE:-anthropic/claude-sonnet-4-6}"
+
+[agent]
+timeout_sec = 30.0
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 4096

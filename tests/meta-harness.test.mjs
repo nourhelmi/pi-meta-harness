@@ -504,6 +504,7 @@ test("npm archive excludes credentials and runtime state", async () => {
     );
     assert.deepEqual(forbidden, []);
     assert(archivePaths.includes("evals/harbor/evidence-rich-routing-defect/tests/run_rewardkit.py"));
+    assert(archivePaths.includes("evals/harbor/adaptive-cross-repo-delivery/tests/run_rewardkit.py"));
   } finally {
     await rm(join(ROOT, "evals", "harbor", "synthetic-cache"), { recursive: true, force: true });
   }

@@ -28,12 +28,12 @@
       "step_id": 2,
       "timestamp": "2026-01-15T09:00:10.000Z",
       "source": "user",
-      "message": "User intervention observed; categorical signals: auth_data_boundary.",
+      "message": "User message observed.",
       "extra": {
         "advisor_event": {
           "id": "e0002",
           "timestamp": "2026-01-15T09:00:10.000Z",
-          "kind": "user_intervention",
+          "kind": "user_message",
           "signals": [
             "auth_data_boundary"
           ]

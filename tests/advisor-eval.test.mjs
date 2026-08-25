@@ -23,6 +23,8 @@ const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SCRIPT = join(ROOT, "scripts", "advisor-eval.mjs");
 const CASE_DIR = join(ROOT, "evals", "cases", "evidence-rich-routing-defect");
 const HARBOR_CASE_DIR = join(ROOT, "evals", "harbor", "evidence-rich-routing-defect");
+const ADAPTIVE_CASE_DIR = join(ROOT, "evals", "cases", "adaptive-cross-repo-delivery");
+const ADAPTIVE_HARBOR_CASE_DIR = join(ROOT, "evals", "harbor", "adaptive-cross-repo-delivery");
 const ALIAS = /^(?:ar|g|n|w|a|m|l|h)_[0-9a-f]{32}$/;
 
 function run(...args) {
@@ -69,6 +71,13 @@ async function syntheticInputs() {
   const trace = parseJsonl(await readFile(join(CASE_DIR, "trace.jsonl"), "utf8"));
   const normalized = normalizeSession(trace);
   const fixture = JSON.parse(await readFile(join(CASE_DIR, "fixture.json"), "utf8"));
+  return { fixture, normalized };
+}
+
+async function caseInputs(caseDir, traceName) {
+  const traceSource = JSON.parse(await readFile(join(caseDir, traceName), "utf8"));
+  const normalized = Array.isArray(traceSource) ? normalizeSession(traceSource) : traceSource;
+  const fixture = JSON.parse(await readFile(join(caseDir, "fixture.json"), "utf8"));
   return { fixture, normalized };
 }
 
@@ -178,6 +187,25 @@ test("normalization emits only categorical metadata and opaque artifact-scoped a
   );
 });
 
+test("initial task constraints are not misclassified as a mid-session intervention", () => {
+  const normalized = normalizeSession([
+    {
+      type: "message",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      message: { role: "user", content: [{ type: "text", text: "Stop acting as a provisioning flow; do not use real data." }] },
+    },
+    {
+      type: "message",
+      timestamp: "2026-01-01T00:01:00.000Z",
+      message: { role: "user", content: [{ type: "text", text: "Stop and redirect the running builder." }] },
+    },
+  ]);
+  assert.equal(normalized.events[0].kind, "user_message");
+  assert(normalized.events[0].signals.includes("stop"));
+  assert.equal(normalized.events[1].kind, "user_intervention");
+  assert.equal(analyzeTrace(normalized).signals.userStops, 1);
+});
+
 test("saved normalized traces reject every field outside the closed schema", () => {
   const normalized = normalizeSession([{ type: "session", timestamp: "2026-01-01T00:00:00.000Z" }]);
   normalized.events[0].proprietaryPayload = "AcmeInternal";
@@ -265,6 +293,22 @@ test("synthetic case metrics match the regenerated deterministic baseline", asyn
   assert.equal(baseline.metrics.signals.userStops, 1);
 });
 
+test("adaptive delivery case preserves the reviewed positive trace and baseline", async () => {
+  const { fixture, normalized } = await caseInputs(ADAPTIVE_CASE_DIR, "trace.json");
+  const baseline = JSON.parse(await readFile(join(ADAPTIVE_CASE_DIR, "baseline-report.json"), "utf8"));
+  assert.deepEqual(validateFixture(fixture, normalized), { valid: true, errors: [] });
+  assert.deepEqual(analyzeTrace(normalized), baseline.metrics);
+  assert.equal(normalized.events.length, 177);
+  assert.equal(normalized.source.textPolicy, "categorical-only");
+  assert.equal(normalized.redaction.arbitraryTextCopied, false);
+  assert.equal(baseline.metrics.workers.launches, 33);
+  assert.equal(baseline.metrics.graphs.maxWaveWidth, 2);
+  assert.equal(baseline.metrics.graphs.launchBatches.length, 2);
+  assert.deepEqual(baseline.metrics.repetition.exactAnchorPairs, []);
+  assert.deepEqual(baseline.metrics.repetition.exactLabelPairs, []);
+  assert.equal(fixture.checkpoints.length, 7);
+});
+
 test("fixture validation rejects duplicate checkpoint and action semantics", async () => {
   const { fixture, normalized } = await syntheticInputs();
   const invalid = structuredClone(fixture);
@@ -328,6 +372,24 @@ test("Harbor task exposes a categorical ATIF trajectory and RewardKit rubric", a
   }
   assert(!JSON.stringify(trajectory).includes(fixture.title));
   assert(!JSON.stringify(trajectory).includes("EVAL_SUMMARY"));
+});
+
+test("adaptive delivery Harbor task stays synchronized and categorical", async () => {
+  const { fixture, normalized } = await caseInputs(ADAPTIVE_CASE_DIR, "trace.json");
+  const trajectory = createAtifTrajectory(normalized);
+  const task = createHarborTask(fixture, normalized);
+  const context = JSON.parse(task.files["environment/advisor-eval-context.json"]);
+  assert.equal(trajectory.schema_version, "ATIF-v1.7");
+  assert.equal(trajectory.steps.length, 177);
+  assert.equal(context.checkpoints.length, 7);
+  assert.equal(context.judgeGuidance.noGoldenWorkflow, true);
+  for (const [relativePath, contents] of Object.entries(task.files)) {
+    assert.equal(await readFile(join(ADAPTIVE_HARBOR_CASE_DIR, relativePath), "utf8"), contents, relativePath);
+  }
+  const serialized = JSON.stringify({ trajectory, context });
+  for (const forbidden of ["01a03597", "/Users/", "ai_tutor", "stride", "bitbucket"]) {
+    assert(!serialized.includes(forbidden), forbidden);
+  }
 });
 
 test("CLI prepares Harbor tasks and rejects retired evaluation commands", async () => {

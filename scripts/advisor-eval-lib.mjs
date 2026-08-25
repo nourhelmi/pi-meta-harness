@@ -452,6 +452,7 @@ export function normalizeSession(entries) {
   const descriptors = buildCallDescriptors(entries, alias);
   const events = [];
   const privateLaunches = [];
+  let userMessageCount = 0;
 
   const add = (entry, event) => {
     if (events.length >= MAX_OUTPUT_EVENTS) throw new Error(`Normalized trace exceeds the ${MAX_OUTPUT_EVENTS} event budget`);
@@ -495,8 +496,10 @@ export function normalizeSession(entries) {
 
     if (message.role === "user") {
       const signals = textSignals(text);
+      const isInitialRequest = userMessageCount === 0;
+      userMessageCount += 1;
       add(entry, {
-        kind: signals.length ? "user_intervention" : "user_message",
+        kind: signals.length && !isInitialRequest ? "user_intervention" : "user_message",
         ...(signals.length ? { signals } : {}),
       });
       continue;

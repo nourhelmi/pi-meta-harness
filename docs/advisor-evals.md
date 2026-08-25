@@ -15,8 +15,23 @@ Docker and `uv` are required. A global Harbor installation is not required.
 
 ## Run the committed dataset
 
-The public synthetic case is already materialized as a Harbor task under
-[`evals/harbor/evidence-rich-routing-defect`](../evals/harbor/evidence-rich-routing-defect).
+The committed dataset contains two complementary Harbor tasks:
+
+- [`evidence-rich-routing-defect`](../evals/harbor/evidence-rich-routing-defect)
+  is a synthetic negative case with architectural ambiguity, low-information
+  repetition, and a user safety redirect;
+- [`adaptive-cross-repo-delivery`](../evals/harbor/adaptive-cross-repo-delivery)
+  is a privacy-safe normalized trace from a successful complex workstream. It
+  covers baseline correction, serial high-risk repairs, a runtime data-safety
+  stop, defects found after static approval, targeted evidence recapture, and an
+  external-effect boundary.
+
+The positive case is intentionally long. Its worker count and elapsed time must not
+earn or lose reward by themselves: the judge must assess whether each gate produced
+new information, reduced risk, or closed a real dependency. It also retains observable
+coordination overhead so model and orchestration changes can improve quota efficiency
+without rewarding weaker delivery.
+
 The default RewardKit judge is `anthropic/claude-sonnet-4-6`.
 
 ```bash
@@ -67,8 +82,9 @@ node scripts/advisor-eval.mjs ingest /path/to/session.jsonl
 node scripts/advisor-eval.mjs analyze evals/local/<artifact-alias>.normalized.json
 ```
 
-Create a private fixture using the same rubric/checkpoint schema as
-[`evals/cases/evidence-rich-routing-defect/fixture.json`](../evals/cases/evidence-rich-routing-defect/fixture.json),
+Create a private fixture using the same rubric/checkpoint schema as either
+[`evidence-rich-routing-defect`](../evals/cases/evidence-rich-routing-defect/fixture.json)
+or [`adaptive-cross-repo-delivery`](../evals/cases/adaptive-cross-repo-delivery/fixture.json),
 then generate a Harbor task:
 
 ```bash
@@ -149,3 +165,18 @@ proxies, tool counts, worker outcomes and recoveries, graph waves, near-duplicat
 launches, and stop/redirect/invalidation/auth signals. These facts help a judge inspect
 the process, but they do not prove correctness, causation, communication quality, or
 user value. A parallel wave can be wasteful, and a serial step can be correct.
+
+## Cost and quota interpretation
+
+Recorded trajectories intentionally replace model identities with opaque aliases and do
+not persist provider billing, token counts, or account quota. Their efficiency score can
+therefore assess observable orchestration—launch breadth, dependency sequencing,
+repetition, repair targeting, and evidence reuse—but cannot prove that a particular
+model mix was cost-optimal. Review weekly-limit consumption alongside the Harbor result
+when judging a real session.
+
+The adaptive positive case is useful as a reference trajectory and regression corpus;
+it does not yet replay the task through a newly configured live Pi advisor. A future
+Harbor agent adapter is required for prospective setup-versus-setup evaluation. Until
+then, use scored recorded cases to calibrate the rubric and compare judge/configuration
+changes, not to claim that a new advisor policy has reproduced the outcome.
