@@ -7,7 +7,7 @@ This repository is designed for public access. Treat every tracked file as publi
 The repository can contain:
 
 - first-party TypeScript extensions and skills;
-- advisory model names and reasoning guidance, plus enforced role tool restrictions and prompt-cycle caps;
+- advisory model names and reasoning guidance, plus instructional role boundaries and prompt-cycle caps;
 - safe Pi settings and exact package versions or Git commits;
 - MCP command definitions that use environment placeholders;
 - third-party source URLs, licenses, versions, revisions, and content hashes;
@@ -63,7 +63,10 @@ Third-party skills are installed from full source commits. The installer verifie
 
 The installed `bg-agent-profiles.json` is role-only and carries no intelligence
 allowlist. `advisor-intelligence.json` contains recommendations only. Choosing an
-identity outside that guide does not weaken role skill, tool, anchor, or cycle
-guardrails and is retained in worker audit manifests.
+identity outside that guide does not weaken the instructional role skill, anchor,
+or cycle boundary and is retained in worker audit manifests. Role boundaries are
+prompt contracts rather than tool-removal policy. In native mode, unattended
+Codex and Claude workers therefore receive their harnesses' full-auto permission
+flags; use native mode only in a trusted repository and review each task packet.
 
 `pi-ui-pack`, `pi-codex-compaction`, `pi-mermaid`, and `pi-web-search` are installed from the exact sources recorded in the extension lock. OpenAI compaction can create provider-side compaction artifacts and local session metadata; it does not make session data portable through this repository. Web search sends queries to the active model provider's native search API and stores nothing in this repository.

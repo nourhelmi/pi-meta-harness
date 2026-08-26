@@ -65,7 +65,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(settings.enabledModels.includes("custom/model"));
   for (const model of removedModels) assert(!settings.enabledModels.includes(model));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@8d3a78f0fbbe2bfea2223e12b9555cf0abe426bd"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@4af8ea410c53e0fbae8bbd5e6bb977c9b8c6233f"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
@@ -107,8 +107,13 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(roles.profiles.planner.skill, "advisor-role-planner");
   assert.equal(roles.profiles.builder.maxTurns, 6);
   assert.equal(roles.profiles.checker.requireAnchor, true);
+  assert.equal(roles.profiles.scout.skillPath, "skills/advisor-worker/roles/scout/SKILL.md");
+  assert.equal(roles.profiles["browser-verifier"].skillPath, "skills/advisor-worker/roles/browser-verifier/SKILL.md");
+
   assert.equal("models" in roles, false);
   assert.equal("allowedModels" in roles.profiles.builder, false);
+  assert.match(await readFile(join(target, "skills", "advisor-native", "SKILL.md"), "utf8"), /workerHarness: "native"/);
+  assert.match(await readFile(join(target, "skills", "advisor-pi", "SKILL.md"), "utf8"), /workerHarness: "pi"/);
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-max");
   assert.equal(guide.recommendations.planner[0].model, "claude-bridge/claude-fable-5");
@@ -130,13 +135,11 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   await rm(target, { recursive: true, force: true });
 });
 
-test("worker runtime leaves filesystem tools available and blocks nested coordination", async () => {
+test("worker runtime uses instructional boundaries without tool blocking", async () => {
   const worker = await readFile(join(ROOT, "extensions", "advisor-worker.ts"), "utf8");
-  assert.match(worker, /COORDINATION_TOOLS\.has\(toolName\)/);
-  assert.match(worker, /HEADLESS_AGENT_COMMAND\.test\(command\)/);
-  assert.doesNotMatch(worker, /toolName !== "edit"/);
-  assert.doesNotMatch(worker, /toolName !== "write"/);
-  assert.doesNotMatch(worker, /role is read-only outside/);
+  assert.match(worker, /Never invoke \/advisor, advisor_session_init, another agent/);
+  assert.doesNotMatch(worker, /tool_call/);
+  assert.doesNotMatch(worker, /action: "handled"/);
 });
 
 test("advisor extension exposes new-tab launch and pane-label behavior", async () => {

@@ -5,16 +5,11 @@
       "description": "Read-only investigation with bounded, source-linked findings.",
       "agent": "pi",
       "skill": "advisor-role-scout",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
+      "skillPath": "skills/advisor-worker/roles/scout/SKILL.md",
       "cliArgs": [
         "--advisor-worker-role",
         "scout"
       ],
-      "turnCapFlag": "--advisor-worker-max-turns",
       "maxTurns": 3,
       "requireAnchor": true
     },
@@ -22,16 +17,11 @@
       "description": "Plan fixed work from verified code and product constraints.",
       "agent": "pi",
       "skill": "advisor-role-planner",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
+      "skillPath": "skills/advisor-worker/roles/planner/SKILL.md",
       "cliArgs": [
         "--advisor-worker-role",
         "planner"
       ],
-      "turnCapFlag": "--advisor-worker-max-turns",
       "maxTurns": 3,
       "requireAnchor": true
     },
@@ -39,16 +29,11 @@
       "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
       "agent": "pi",
       "skill": "advisor-role-reducer",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
+      "skillPath": "skills/advisor-worker/roles/reducer/SKILL.md",
       "cliArgs": [
         "--advisor-worker-role",
         "reducer"
       ],
-      "turnCapFlag": "--advisor-worker-max-turns",
       "maxTurns": 2,
       "requireAnchor": true
     },
@@ -56,16 +41,11 @@
       "description": "Implement fixed acceptance criteria in one assigned worktree.",
       "agent": "pi",
       "skill": "advisor-role-builder",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
+      "skillPath": "skills/advisor-worker/roles/builder/SKILL.md",
       "cliArgs": [
         "--advisor-worker-role",
         "builder"
       ],
-      "turnCapFlag": "--advisor-worker-max-turns",
       "maxTurns": 6,
       "requireAnchor": true
     },
@@ -73,16 +53,11 @@
       "description": "Fresh-context review of completed work with a bounded inline-repair mandate for small findings.",
       "agent": "pi",
       "skill": "advisor-role-checker",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
+      "skillPath": "skills/advisor-worker/roles/checker/SKILL.md",
       "cliArgs": [
         "--advisor-worker-role",
         "checker"
       ],
-      "turnCapFlag": "--advisor-worker-max-turns",
       "maxTurns": 5,
       "requireAnchor": true
     },
@@ -90,16 +65,11 @@
       "description": "Integrated browser verification and safe evidence capture.",
       "agent": "pi",
       "skill": "advisor-role-browser-verifier",
-      "excludeTools": [
-        "bg_agent",
-        "orch_start",
-        "advisor_session_init"
-      ],
+      "skillPath": "skills/advisor-worker/roles/browser-verifier/SKILL.md",
       "cliArgs": [
         "--advisor-worker-role",
         "browser-verifier"
       ],
-      "turnCapFlag": "--advisor-worker-max-turns",
       "maxTurns": 5,
       "requireAnchor": true
     }

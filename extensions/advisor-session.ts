@@ -48,11 +48,20 @@ function restoredAdvisorSkillBody(ctx: ExtensionContext): string | undefined {
 function withLiveAdvisorDoctrine(systemPrompt: string, doctrine: string): string {
 	return `${systemPrompt}\n\n# Current Advisor Doctrine\n\nThis installed doctrine is authoritative for the active resumed advisor session. Any older advisor skill snapshot or summary in conversation history is archival and must not override it.\n\n${doctrine}`;
 }
+function withWorkerHarnessDoctrine(systemPrompt: string, workerHarness: WorkerHarness): string {
+	const policy = workerHarness === "native"
+		? "Every configured bg_agent role launch uses the native worker harness. Keep semantic role names unchanged. Choose model and thinking from the live intelligence guide; OpenAI models route to Codex CLI and Anthropic/Claude models route to Claude Code. Cursor-only models have no native route here, so select a task-appropriate OpenAI or Anthropic recommendation from the same guide instead. The root advisor remains Pi."
+		: "Every configured bg_agent role launch uses the Pi worker harness. Keep semantic role names unchanged and choose model and thinking from the live intelligence guide. The root advisor remains Pi.";
+	return `${systemPrompt}\n\n# Advisor Worker Harness\n\nSession mode: **${workerHarness}**.\n\n${policy}`;
+}
+
+type WorkerHarness = "pi" | "native";
 
 interface AdvisorSessionState {
 	workstream: string;
 	sessionId: string;
 	initializedAt: string;
+	workerHarness: WorkerHarness;
 }
 
 interface AdvisorPaths {
@@ -138,12 +147,18 @@ function herdrTabIds(stdout: string): { tabId: string; paneId?: string } {
 	return { tabId, ...(typeof paneId === "string" ? { paneId } : {}) };
 }
 
-function advisorBootstrapPrompt(workstream: string | undefined, prompt: string | undefined): string {
+function advisorBootstrapPrompt(
+	workstream: string | undefined,
+	workerHarness: WorkerHarness | undefined,
+	prompt: string | undefined,
+): string {
+	const skill = workerHarness ? `advisor-${workerHarness}` : "advisor";
+	const harness = workerHarness ? ` and workerHarness \"${workerHarness}\"` : "";
 	const initialize = workstream
-		? `Call advisor_session_init with workstream \"${workstream}\" before any other tool.`
-		: "Call advisor_session_init without a workstream before any other tool so the user can name it.";
+		? `Call advisor_session_init with workstream \"${workstream}\"${harness} before any other tool.`
+		: `Call advisor_session_init without a workstream${harness} before any other tool so the user can name it.`;
 	const extra = prompt?.trim();
-	return `/skill:advisor\n\n${initialize}${extra ? `\n\nAdditional instructions:\n${extra}` : ""}`;
+	return `/skill:${skill}\n\n${initialize}${extra ? `\n\nAdditional instructions:\n${extra}` : ""}`;
 }
 
 async function delay(milliseconds: number): Promise<void> {
@@ -159,7 +174,12 @@ function restoredEntryState(ctx: ExtensionContext): AdvisorSessionState | undefi
 			typeof data.sessionId === "string" &&
 			typeof data.initializedAt === "string"
 		) {
-			return data as AdvisorSessionState;
+			return {
+				workstream: data.workstream,
+				sessionId: data.sessionId,
+				initializedAt: data.initializedAt,
+				workerHarness: isWorkerHarness(data.workerHarness) ? data.workerHarness : "pi",
+			};
 		}
 	}
 	return undefined;
@@ -244,7 +264,7 @@ async function restoredDiskState(
 	for (const path of candidates) {
 		const content = await readIfPresent(path);
 		const workstream = content ? workstreamFromSession(content) : undefined;
-		if (workstream) return { workstream, sessionId, initializedAt: "legacy-state" };
+		if (workstream) return { workstream, sessionId, initializedAt: "legacy-state", workerHarness: "pi" };
 	}
 	return undefined;
 }
@@ -422,8 +442,8 @@ async function renameHerdrPane(pi: ExtensionAPI, paneId: string, label: string):
 async function launchAdvisor(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	params: { cwd: string; workstream?: string; purpose?: string; prompt?: string },
-): Promise<{ tabId: string; paneId: string; label: string; cwd: string; workstream?: string }> {
+	params: { cwd: string; workstream?: string; workerHarness?: WorkerHarness; purpose?: string; prompt?: string },
+): Promise<{ tabId: string; paneId: string; label: string; cwd: string; workstream?: string; workerHarness?: WorkerHarness }> {
 	requireHerdrEnvironment();
 	const cwd = resolve(ctx.cwd, params.cwd);
 	let cwdStat;
@@ -438,6 +458,7 @@ async function launchAdvisor(
 	if (!cwdStat.isDirectory()) throw new Error(`Advisor cwd is not a directory: ${cwd}`);
 
 	const workstream = optionalWorkstream(params.workstream);
+	const workerHarness = params.workerHarness;
 	const purpose = params.purpose?.trim() || workstream || basename(cwd);
 	const label = advisorPaneLabel(purpose);
 	const created = await pi.exec("herdr", ["tab", "create", "--no-focus", "--cwd", cwd, "--label", label]);
@@ -461,14 +482,21 @@ async function launchAdvisor(
 			throw new Error(`Herdr could not start Pi in the advisor tab: ${herdrError(started.stderr, "unknown error")}`);
 		}
 
-		const bootstrap = advisorBootstrapPrompt(workstream, params.prompt);
+		const bootstrap = advisorBootstrapPrompt(workstream, workerHarness, params.prompt);
 		let lastError = "Pi did not become ready";
 		for (let attempt = 0; attempt < ADVISOR_READY_ATTEMPTS; attempt += 1) {
 			const ready = await pi.exec("herdr", ["agent", "get", paneId]);
 			if (ready.code === 0) {
 				const prompted = await pi.exec("herdr", ["agent", "prompt", paneId, bootstrap]);
 				if (prompted.code === 0) {
-					return { tabId, paneId, label, cwd, ...(workstream ? { workstream } : {}) };
+					return {
+						tabId,
+						paneId,
+						label,
+						cwd,
+						...(workstream ? { workstream } : {}),
+						...(workerHarness ? { workerHarness } : {}),
+					};
 				}
 				lastError = herdrError(prompted.stderr, "Herdr rejected the advisor bootstrap prompt");
 			} else {
@@ -514,6 +542,8 @@ async function restoreActiveSession(
 	const state = await restoredState(ctx);
 	if (!state) return undefined;
 	process.env.ADVISOR_WORKSTREAM = state.workstream;
+	process.env.ADVISOR_STATE_ROOT = await advisorStateRoot(ctx.cwd);
+	process.env.PI_DETACH_WORKER_HARNESS = state.workerHarness;
 	const sessionName = `advisor-${state.workstream}`;
 	if (pi.getSessionName() !== sessionName) pi.setSessionName(sessionName);
 	if (process.env.HERDR_ENV === "1" && process.env.HERDR_PANE_ID) {
@@ -531,16 +561,20 @@ async function restoreActiveSession(
 	return state;
 }
 
-function bgAgentGuardReason(input: unknown): string | undefined {
+function bgAgentGuardReason(input: unknown, workerHarness: WorkerHarness): string | undefined {
 	const params = input as {
 		role?: unknown;
 		anchor?: unknown;
 		agent?: unknown;
+		harness?: unknown;
 		name?: unknown;
 	};
 	if (typeof params.name === "string" && params.name) return undefined;
+	if (isWorkerHarness(params.harness) && params.harness !== workerHarness) {
+		return `Advisor session worker harness is ${workerHarness}; per-launch ${params.harness} is not allowed.`;
+	}
 	if (typeof params.agent === "string" && params.agent) {
-		return "Advisor workers must use configured Pi roles, not an explicit agent command.";
+		return "Advisor workers must use configured semantic roles, not an explicit agent command.";
 	}
 	if (typeof params.role !== "string" || !params.role) {
 		return "New advisor workers require a configured bg_agent role.";
@@ -564,7 +598,9 @@ function registerVisibilityGuard(
 			};
 		}
 		if (event.toolName === "bg_agent") {
-			const reason = bgAgentGuardReason(event.input);
+			const state = getState();
+			if (!state) return;
+			const reason = bgAgentGuardReason(event.input, state.workerHarness);
 			return reason ? { block: true, reason } : undefined;
 		}
 		if (event.toolName !== "bg_run") return;
@@ -576,6 +612,26 @@ function registerVisibilityGuard(
 			};
 		}
 	});
+}
+
+function isWorkerHarness(value: unknown): value is WorkerHarness {
+	return value === "pi" || value === "native";
+}
+
+async function requestedWorkerHarness(
+	ctx: ExtensionContext,
+	value: string | undefined,
+): Promise<WorkerHarness> {
+	if (isWorkerHarness(value)) return value;
+	if (value !== undefined) throw new Error(`Unknown worker harness: ${value}`);
+	if (!ctx.hasUI) throw new Error("A worker harness is required outside interactive Pi.");
+	const choice = await ctx.ui.select("Advisor worker harness", [
+		"Native harnesses (Codex / Claude Code)",
+		"Pi workers",
+	]);
+	if (choice === "Native harnesses (Codex / Claude Code)") return "native";
+	if (choice === "Pi workers") return "pi";
+	throw new Error("Choose a worker harness to initialize the advisor.");
 }
 
 async function requestedWorkstream(
@@ -595,18 +651,28 @@ async function requestedWorkstream(
 async function initializeAdvisor(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	value: string | undefined,
+	workstreamValue: string | undefined,
+	workerHarnessValue: string | undefined,
 ): Promise<{
 	state: AdvisorSessionState;
 	herdrName: string;
 	usedStoredWorkstream: boolean;
+	usedStoredWorkerHarness: boolean;
 	paths: AdvisorPaths;
 }> {
 	const sessionId = ctx.sessionManager.getSessionId();
 	const restored = await restoredState(ctx, sessionId);
-	const requested = restored ? slugify(value ?? restored.workstream) : await requestedWorkstream(ctx, value);
+	const requested = restored
+		? slugify(workstreamValue ?? restored.workstream)
+		: await requestedWorkstream(ctx, workstreamValue);
+	const requestedHarness = await requestedWorkerHarness(
+		ctx,
+		workerHarnessValue ?? restored?.workerHarness,
+	);
 	const usedStoredWorkstream = Boolean(restored && restored.workstream !== requested);
+	const usedStoredWorkerHarness = Boolean(restored && restored.workerHarness !== requestedHarness);
 	const workstream = restored?.workstream ?? requested;
+	const workerHarness = restored?.workerHarness ?? requestedHarness;
 	const paneId = await verifyHerdr(pi);
 	const paths = await claimWorkstream(ctx, workstream, sessionId);
 	const herdrName = await renameHerdrAgent(pi, paneId, workstream, sessionId);
@@ -619,11 +685,14 @@ async function initializeAdvisor(
 		workstream,
 		sessionId,
 		initializedAt: restored?.initializedAt ?? new Date().toISOString(),
+		workerHarness,
 	};
 	process.env.ADVISOR_WORKSTREAM = workstream;
+	process.env.ADVISOR_STATE_ROOT = paths.root;
+	process.env.PI_DETACH_WORKER_HARNESS = workerHarness;
 	pi.setSessionName(`advisor-${workstream}`);
 	if (!restoredEntryState(ctx)) pi.appendEntry(ENTRY_TYPE, state);
-	return { state, herdrName, usedStoredWorkstream, paths };
+	return { state, herdrName, usedStoredWorkstream, usedStoredWorkerHarness, paths };
 }
 
 export default function advisorSessionExtension(pi: ExtensionAPI): void {
@@ -642,8 +711,11 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		}
 	});
 	pi.on("before_agent_start", (event) => {
-		if (!activeState || !resumedDoctrine) return;
-		return { systemPrompt: withLiveAdvisorDoctrine(event.systemPrompt, resumedDoctrine) };
+		if (!activeState) return;
+		const doctrine = resumedDoctrine
+			? withLiveAdvisorDoctrine(event.systemPrompt, resumedDoctrine)
+			: event.systemPrompt;
+		return { systemPrompt: withWorkerHarnessDoctrine(doctrine, activeState.workerHarness) };
 	});
 	registerVisibilityGuard(pi, () => activeState);
 
@@ -659,6 +731,11 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 				Type.String({
 					description: "Optional short workstream slug passed to advisor_session_init.",
 					maxLength: MAX_WORKSTREAM_LENGTH,
+				}),
+			),
+			workerHarness: Type.Optional(
+				Type.Union([Type.Literal("pi"), Type.Literal("native")], {
+					description: "Worker harness mode for the new advisor session. Omit to ask in the Pi UI.",
 				}),
 			),
 			purpose: Type.Optional(
@@ -690,10 +767,10 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		label: "Advisor Session",
 		description:
 			"Initialize the current Pi session as one isolated advisor workstream. " +
-			"Names the Pi and Herdr agent, claims workstream state, and enables visible-agent guards.",
+			"Names the Pi and Herdr agent, claims workstream state, selects Pi or native worker harnesses, and enables visible-agent guards.",
 		promptSnippet: "Initialize an advisor workstream after the advisor skill is invoked",
 		promptGuidelines: [
-			"Call advisor_session_init before any other tool after the advisor skill is invoked. Omit workstream when the user must name it.",
+			"Call advisor_session_init before any other tool after the advisor skill is invoked. Omit workstream or workerHarness when the user must choose it in the Pi UI.",
 		],
 		parameters: Type.Object({
 			workstream: Type.Optional(
@@ -702,21 +779,32 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 					maxLength: MAX_WORKSTREAM_LENGTH,
 				}),
 			),
+			workerHarness: Type.Optional(
+				Type.Union([Type.Literal("pi"), Type.Literal("native")], {
+					description: "Use Pi workers or route selected OpenAI/Anthropic models through native harnesses. Omit to ask in the Pi UI.",
+				}),
+			),
 		}),
 		async execute(...args) {
 			const [, params, , , ctx] = args;
-			const initialized = await initializeAdvisor(pi, ctx, params.workstream);
+			const initialized = await initializeAdvisor(pi, ctx, params.workstream, params.workerHarness);
 			activeState = initialized.state;
 			if (initialized.usedStoredWorkstream) {
 				ctx.ui.notify(`Using stored workstream: ${initialized.state.workstream}`, "warning");
 			}
-			ctx.ui.notify(`Advisor ready: ${initialized.state.workstream}`, "info");
+			if (initialized.usedStoredWorkerHarness) {
+				ctx.ui.notify(`Using stored worker harness: ${initialized.state.workerHarness}`, "warning");
+			}
+			ctx.ui.notify(
+				`Advisor ready: ${initialized.state.workstream} · ${initialized.state.workerHarness} workers`,
+				"info",
+			);
 			return {
 				content: [
 					{
 						type: "text",
 						text:
-							`Initialized advisor workstream ${initialized.state.workstream}. Pi session ${initialized.state.sessionId.slice(0, 8)} is visible in Herdr as ${initialized.herdrName}.\n` +
+							`Initialized advisor workstream ${initialized.state.workstream} with ${initialized.state.workerHarness} workers. Root advisor Pi session ${initialized.state.sessionId.slice(0, 8)} is visible in Herdr as ${initialized.herdrName}.\n` +
 							`State root: ${initialized.paths.root}\n` +
 							`Workstream file: ${initialized.paths.workstream}\n` +
 							`Events: ${initialized.paths.events}\n` +

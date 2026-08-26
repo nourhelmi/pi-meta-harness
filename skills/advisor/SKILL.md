@@ -14,9 +14,13 @@ small.
 The user invokes only `/advisor` (or `/skill:advisor`). Never ask the user to run
 a shell launcher. Your first action is `advisor_session_init`. Pass a concise
 workstream slug when the topic is already clear; otherwise omit it so the Pi UI
-asks the user. This tool names the Pi session and Herdr agent, then creates the
-isolated state. If the user cancels the workstream prompt, stop. Never invent a
-generic workstream such as `engineering`.
+asks the user. Unless the bootstrap already selected `workerHarness`, omit it so
+the Pi UI asks whether this advisor uses Pi workers or native Codex/Claude
+workers. This tool names the Pi session and Herdr agent, then creates the
+isolated state and persists the worker harness choice. If the user cancels an
+initialization prompt, stop. Never invent a generic workstream such as
+`engineering`. Explicit shortcuts are `/skill:advisor-pi` and
+`/skill:advisor-native`; the root advisor remains Pi in every mode.
 
 Separate advisor sessions launch through `advisor_launch` into a new Herdr tab,
 never a pane split. Workers stay panes in their owning advisor tab. Root panes
@@ -27,7 +31,7 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
 1. **Never implement in this session.** No file edits beyond specs, prompts,
    advisor state, and driver scripts. Implementation belongs to workers.
 2. **Maker ≠ checker.** The agent that produced work never verifies it. A
-   builder is reviewed by a fresh checker through Pi. Choose each launch's model
+   builder is reviewed by a fresh checker through the session's worker harness. Choose each launch's model
    and reasoning with the live `advisor-intelligence.json` guide; do not
    hard-code identities here. One carve-out: a checker's small inline repairs
    under its role mandate are closed by deterministic anchor reruns and the
@@ -74,25 +78,46 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    paths. Do not read image files or large raw outputs directly in an advisor
    session.
 9. **Every helper agent is visible.** All delegated LLM work uses `bg_agent`
-   with a configured Pi `role`, which creates a sibling pane in the advisor's
+   with a configured semantic `role`, which creates a sibling pane in the advisor's
    Herdr tab and an Agents-list entry.
    Never use an explicit `agent`, `subagent`, taskplane/orchestrator lanes,
    `codex exec`, `claude --print`, or another headless agent path.
 
-## Pi role policy
+## Worker role policy
 
-`bg_agent` is the Herdr lifecycle transport. Every configured worker runtime is
-Pi, with normal skill discovery retained. The advisor skill is explicit-only;
-the worker runtime forces its hidden role skill, blocks nested delegation, and
-writes detailed output under the external advisor runs root.
+`bg_agent` is the Herdr lifecycle transport. The persisted session mode applies
+to every semantic role: `scout`, `planner`, `reducer`, `builder`, `checker`, and
+`browser-verifier`. In Pi mode, selected models run through Pi. In native mode,
+OpenAI models run through Codex CLI and Anthropic/Claude models run through
+Claude Code. Keep semantic role names unchanged; do not invent harness-specific
+role aliases. Every role packet includes the installed role-skill path and
+instructs the worker to load it before starting. The advisor skill remains
+explicit-only, and the root advisor always remains Pi.
 
-Roles fix guardrails only: the hidden role skill, coordination permissions,
-turn cap, and anchor requirement. Filesystem tools remain available to every
-role; role instructions define write boundaries. Roles do not pin or allowlist
-a model. The fixed `~/.pi/agent/bg-agent-profiles.json` contains role transport
-only. The separate `~/.pi/agent/advisor-intelligence.json` contains model
+Roles use instructional guardrails: the role skill, no-nested-delegation rule,
+write boundaries, and parent-prompt cap. Filesystem and coordination tools are
+not removed by the meta-harness. Anchor presence remains a launch-time structural
+requirement, while anchor success is proved by the advisor's deterministic rerun.
+Roles do not pin or allowlist a model. The fixed
+`~/.pi/agent/bg-agent-profiles.json` contains role transport only. The separate
+`~/.pi/agent/advisor-intelligence.json` contains model
 characters, default reasoning guidance, and ordered role recommendations.
 Choose `model` and `thinking` per launch after reading that guide.
+
+Pi workers receive the external advisor run directory from the worker extension.
+Native Codex and Claude role launches receive an automatically generated bounded
+`result.md` path from `bg_agent`; read that artifact after settlement and do not
+use the pane transcript as the durable result. The session's persisted worker
+mode is authoritative—never pass a conflicting per-launch harness. Native
+settlement validates the required result headings before closing; a missing,
+empty, or malformed artifact stalls the run and keeps its pane visible for repair.
+
+Native routing supports `openai-codex/*`/`openai/*` through Codex and
+`claude-bridge/*`/`anthropic/*` through Claude Code. A Cursor-only recommendation
+has no Codex/Claude native route. In native mode, choose a task-appropriate
+OpenAI or Anthropic recommendation from the same live guide instead; if none is
+fit, stop and report the transport mismatch rather than silently switching the
+session to Pi.
 
 Selection doctrine: choose the model and reasoning that best fit the node,
 whether listed in the guide or not. Treat model character, capability, cost,
@@ -407,9 +432,9 @@ overrides the root for tests.
   started before the home migration. Never write new state there.
 
 Use `PI_SESSION_ID` for the private filename and `ADVISOR_WORKSTREAM` for the
-slug. `advisor_session_init` sets both the workstream environment and persistent
-session entry. Do not manually create a second workstream in the same Pi
-session.
+slug. `advisor_session_init` sets the workstream environment, worker-harness
+environment, and persistent session entry. Do not manually create a second
+workstream or change worker harness in the same Pi session.
 
 Cross-session updates use `intercom` with named sessions. Send conclusions,
 constraints, file paths, and decisions only. Do not copy full transcripts or
@@ -442,8 +467,9 @@ conversation or a shared mutable state file.
 
 On `/advisor`:
 
-1. Call `advisor_session_init` before every other tool. The tool is idempotent
-   when this session is already initialized.
+1. Call `advisor_session_init` before every other tool. Pass the harness fixed
+   by an explicit bootstrap; otherwise omit it so the user chooses Pi or native
+   workers. The tool is idempotent when this session is already initialized.
 2. Read only this session's private file and owned workstream file.
 3. Read only the latest relevant immutable events; do not load every advisor
    session or run report.

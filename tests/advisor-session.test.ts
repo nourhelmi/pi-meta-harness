@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import advisorSessionExtension from "../extensions/advisor-session.ts";
@@ -14,11 +16,22 @@ interface AdvisorLaunchTool {
   name: string;
   execute(
     toolCallId: string,
-    params: { cwd: string; workstream?: string; purpose?: string; prompt?: string },
+    params: { cwd: string; workstream?: string; workerHarness?: "pi" | "native"; purpose?: string; prompt?: string },
     signal: AbortSignal | undefined,
     onUpdate: undefined,
     context: ExtensionContext,
-  ): Promise<{ details: { tabId: string; paneId: string; label: string; cwd: string; workstream?: string } }>;
+  ): Promise<{ details: { tabId: string; paneId: string; label: string; cwd: string; workstream?: string; workerHarness?: "pi" | "native" } }>;
+}
+
+interface AdvisorInitTool {
+  name: string;
+  execute(
+    toolCallId: string,
+    params: { workstream?: string; workerHarness?: "pi" | "native" },
+    signal: AbortSignal | undefined,
+    onUpdate: undefined,
+    context: ExtensionContext,
+  ): Promise<{ details: { workstream: string; workerHarness: "pi" | "native"; stateRoot: string } }>;
 }
 
 function installedAdvisorLaunch(respond: (args: string[]) => ExecResult) {
@@ -39,6 +52,32 @@ function installedAdvisorLaunch(respond: (args: string[]) => ExecResult) {
   return { calls, tool };
 }
 
+function installedAdvisorInit() {
+  let tool: AdvisorInitTool | undefined;
+  let sessionName: string | undefined;
+  const entries: Array<{ customType: string; data: unknown }> = [];
+  const calls: string[][] = [];
+  const pi = {
+    appendEntry: (customType: string, data: unknown) => entries.push({ customType, data }),
+    exec: async (_command: string, args: string[]) => {
+      calls.push(args);
+      return { code: 0, stdout: "", stderr: "" };
+    },
+    getSessionName: () => sessionName,
+    on: () => undefined,
+    registerTool: (candidate: AdvisorInitTool) => {
+      if (candidate.name === "advisor_session_init") tool = candidate;
+    },
+    setSessionName: (value: string) => {
+      sessionName = value;
+    },
+  } as unknown as ExtensionAPI;
+  advisorSessionExtension(pi);
+  assert.ok(tool, "advisor_session_init is registered");
+  return { calls, entries, getSessionName: () => sessionName, tool };
+}
+
+
 interface SessionStartEvent {
   reason: "resume";
 }
@@ -47,11 +86,17 @@ interface BeforeAgentStartEvent {
   systemPrompt: string;
 }
 
+interface ToolCallEvent {
+  toolName: string;
+  input: unknown;
+}
+
 function installedAdvisorResumeRuntime(branch: unknown[]) {
   let sessionStart: ((event: SessionStartEvent, ctx: ExtensionContext) => Promise<void>) | undefined;
   let beforeAgentStart:
     | ((event: BeforeAgentStartEvent, ctx: ExtensionContext) => { systemPrompt: string } | undefined)
     | undefined;
+  let toolCall: ((event: ToolCallEvent) => { block: boolean; reason: string } | undefined) | undefined;
   let sessionName: string | undefined;
   const pi = {
     exec: async () => ({ code: 0, stdout: "", stderr: "" }),
@@ -69,12 +114,16 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
           ctx: ExtensionContext,
         ) => { systemPrompt: string } | undefined;
       }
+      if (name === "tool_call") {
+        toolCall = handler as (event: ToolCallEvent) => { block: boolean; reason: string } | undefined;
+      }
     },
     registerTool: () => undefined,
   } as unknown as ExtensionAPI;
   advisorSessionExtension(pi);
   assert.ok(sessionStart, "session_start handler is registered");
   assert.ok(beforeAgentStart, "before_agent_start handler is registered");
+  assert.ok(toolCall, "tool_call handler is registered");
   const ctx = {
     cwd: process.cwd(),
     sessionManager: {
@@ -83,7 +132,7 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
     },
     ui: { notify: () => undefined },
   } as unknown as ExtensionContext;
-  return { beforeAgentStart, ctx, sessionStart };
+  return { beforeAgentStart, ctx, sessionStart, toolCall };
 }
 
 test("advisor doctrine routes locked execution without weakening decision boundaries", async () => {
@@ -95,6 +144,17 @@ test("advisor doctrine routes locked execution without weakening decision bounda
   assert.match(source, /check `bg_list`\s+once/);
   assert.match(source, /Coalesce a\s+routine settlement/);
 });
+
+test("advisor mode entrypoints select their worker harness before loading shared doctrine", async () => {
+  const native = await readFile(new URL("../skills/advisor-native/SKILL.md", import.meta.url), "utf8");
+  const pi = await readFile(new URL("../skills/advisor-pi/SKILL.md", import.meta.url), "utf8");
+
+  assert.match(native, /advisor_session_init[\s\S]+workerHarness[^\n]+native/i);
+  assert.match(native, /resolve `\.\.\/advisor\/SKILL\.md` relative[\s\S]+load it completely/);
+  assert.match(pi, /advisor_session_init[\s\S]+workerHarness[^\n]+pi/i);
+  assert.match(pi, /resolve `\.\.\/advisor\/SKILL\.md` relative[\s\S]+load it completely/);
+});
+
 
 test("resumed advisors receive current doctrine over stale expanded skill history", async () => {
   const staleSkill = `<skill name="advisor" location="/old/skills/advisor/SKILL.md">
@@ -118,10 +178,11 @@ Review the current document.`;
         workstream: "document-review",
         sessionId: "session-12345678",
         initializedAt: "2026-01-01T00:00:00.000Z",
+        workerHarness: "native",
       },
     },
   ];
-  const { beforeAgentStart, ctx, sessionStart } = installedAdvisorResumeRuntime(branch);
+  const { beforeAgentStart, ctx, sessionStart, toolCall } = installedAdvisorResumeRuntime(branch);
 
   await sessionStart({ reason: "resume" }, ctx);
   const result = beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
@@ -130,7 +191,19 @@ Review the current document.`;
   assert.match(result.systemPrompt, /Current Advisor Doctrine/);
   assert.match(result.systemPrompt, /never ask permission merely because/);
   assert.match(result.systemPrompt, /Roles do not pin or allowlist\s+a model/);
+  assert.match(result.systemPrompt, /Session mode: \*\*native\*\*/);
+  assert.match(result.systemPrompt, /OpenAI models route to Codex CLI/);
   assert.doesNotMatch(result.systemPrompt, /Model character notes are binding/);
+  assert.deepEqual(
+    toolCall({
+      toolName: "bg_agent",
+      input: { role: "scout", anchor: "findings are source-linked", harness: "pi" },
+    }),
+    {
+      block: true,
+      reason: "Advisor session worker harness is native; per-launch pi is not allowed.",
+    },
+  );
 });
 
 test("resumed advisors do not duplicate the current expanded doctrine", async () => {
@@ -163,11 +236,66 @@ ${currentDoctrine}
       },
     },
   ];
-  const { beforeAgentStart, ctx, sessionStart } = installedAdvisorResumeRuntime(branch);
+  const { beforeAgentStart, ctx, sessionStart, toolCall } = installedAdvisorResumeRuntime(branch);
 
   await sessionStart({ reason: "resume" }, ctx);
 
-  assert.equal(beforeAgentStart({ systemPrompt: "base prompt" }, ctx), undefined);
+  const result = beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
+  assert.ok(result);
+  assert.doesNotMatch(result.systemPrompt, /Current Advisor Doctrine/);
+  assert.match(result.systemPrompt, /Session mode: \*\*pi\*\*/);
+  assert.deepEqual(
+    toolCall({
+      toolName: "bg_agent",
+      input: { role: "checker", anchor: "review is evidence-backed", harness: "native" },
+    }),
+    {
+      block: true,
+      reason: "Advisor session worker harness is pi; per-launch native is not allowed.",
+    },
+  );
+});
+
+test("resumed native advisors restore the repository-scoped result root", async () => {
+  const stateDir = await mkdtemp(join(tmpdir(), "advisor-resume-root-"));
+  const previous = {
+    advisorStateDir: process.env.ADVISOR_STATE_DIR,
+    advisorStateRoot: process.env.ADVISOR_STATE_ROOT,
+    advisorWorkstream: process.env.ADVISOR_WORKSTREAM,
+    workerHarness: process.env.PI_DETACH_WORKER_HARNESS,
+  };
+  process.env.ADVISOR_STATE_DIR = stateDir;
+  process.env.ADVISOR_STATE_ROOT = "/tmp/stale-advisor-root";
+  const branch = [
+    {
+      type: "custom",
+      customType: "advisor-session",
+      data: {
+        workstream: "native-resume",
+        sessionId: "session-12345678",
+        initializedAt: "2026-01-01T00:00:00.000Z",
+        workerHarness: "native",
+      },
+    },
+  ];
+
+  try {
+    const { ctx, sessionStart } = installedAdvisorResumeRuntime(branch);
+    await sessionStart({ reason: "resume" }, ctx);
+    assert.equal(process.env.ADVISOR_STATE_ROOT, stateDir);
+    assert.equal(process.env.ADVISOR_WORKSTREAM, "native-resume");
+    assert.equal(process.env.PI_DETACH_WORKER_HARNESS, "native");
+  } finally {
+    const restore = (name: string, value: string | undefined) => {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    };
+    restore("ADVISOR_STATE_DIR", previous.advisorStateDir);
+    restore("ADVISOR_STATE_ROOT", previous.advisorStateRoot);
+    restore("ADVISOR_WORKSTREAM", previous.advisorWorkstream);
+    restore("PI_DETACH_WORKER_HARNESS", previous.workerHarness);
+    await rm(stateDir, { force: true, recursive: true });
+  }
 });
 
 async function withHerdrEnvironment<T>(fn: () => Promise<T>): Promise<T> {
@@ -183,6 +311,78 @@ async function withHerdrEnvironment<T>(fn: () => Promise<T>): Promise<T> {
 
 const ok = (stdout = ""): ExecResult => ({ code: 0, stdout, stderr: "" });
 
+test("advisor_session_init asks once and persists native worker mode", async () => {
+  const stateDir = await mkdtemp(join(tmpdir(), "advisor-native-mode-"));
+  const previous = {
+    advisorStateDir: process.env.ADVISOR_STATE_DIR,
+    advisorStateRoot: process.env.ADVISOR_STATE_ROOT,
+    advisorWorkstream: process.env.ADVISOR_WORKSTREAM,
+    herdrEnvironment: process.env.HERDR_ENV,
+    herdrPaneId: process.env.HERDR_PANE_ID,
+    workerHarness: process.env.PI_DETACH_WORKER_HARNESS,
+  };
+  process.env.ADVISOR_STATE_DIR = stateDir;
+  process.env.HERDR_ENV = "1";
+  process.env.HERDR_PANE_ID = "w1:p1";
+
+  try {
+    const { calls, entries, getSessionName, tool } = installedAdvisorInit();
+    const ctx = {
+      cwd: process.cwd(),
+      hasUI: true,
+      sessionManager: {
+        getBranch: () => [],
+        getSessionId: () => "session-native-12345678",
+      },
+      ui: {
+        notify: () => undefined,
+        select: async () => "Native harnesses (Codex / Claude Code)",
+      },
+    } as unknown as ExtensionContext;
+
+    const result = await tool.execute(
+      "test-call",
+      { workstream: "Native Routing" },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    assert.equal(result.details.workstream, "native-routing");
+    assert.equal(result.details.workerHarness, "native");
+    assert.equal(result.details.stateRoot, stateDir);
+    assert.equal(process.env.PI_DETACH_WORKER_HARNESS, "native");
+    assert.equal(getSessionName(), "advisor-native-routing");
+    assert.deepEqual(calls, [
+      ["agent", "get", "w1:p1"],
+      ["agent", "rename", "w1:p1", "advisor-native-routing"],
+      ["pane", "rename", "w1:p1", "advisor · native routing"],
+    ]);
+    assert.equal(entries.length, 1);
+    assert.deepEqual(entries[0], {
+      customType: "advisor-session",
+      data: {
+        initializedAt: (entries[0]?.data as { initializedAt: string }).initializedAt,
+        sessionId: "session-native-12345678",
+        workerHarness: "native",
+        workstream: "native-routing",
+      },
+    });
+  } finally {
+    const restore = (name: string, value: string | undefined) => {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    };
+    restore("ADVISOR_STATE_DIR", previous.advisorStateDir);
+    restore("ADVISOR_STATE_ROOT", previous.advisorStateRoot);
+    restore("ADVISOR_WORKSTREAM", previous.advisorWorkstream);
+    restore("HERDR_ENV", previous.herdrEnvironment);
+    restore("HERDR_PANE_ID", previous.herdrPaneId);
+    restore("PI_DETACH_WORKER_HARNESS", previous.workerHarness);
+    await rm(stateDir, { force: true, recursive: true });
+  }
+});
+
 test("advisor_launch creates an unfocused tab and sends the advisor bootstrap", async () => {
   const { calls, tool } = installedAdvisorLaunch((args) => {
     if (args[0] === "tab" && args[1] === "create") {
@@ -197,6 +397,7 @@ test("advisor_launch creates an unfocused tab and sends the advisor bootstrap", 
       {
         cwd: ".",
         workstream: "Close Controls",
+        workerHarness: "native",
         purpose: "advisor launch controls",
         prompt: "Inspect the final diff.",
       },
@@ -210,6 +411,7 @@ test("advisor_launch creates an unfocused tab and sends the advisor bootstrap", 
       label: "advisor · launch controls",
       cwd: process.cwd(),
       workstream: "close-controls",
+      workerHarness: "native",
     });
   });
 
@@ -222,7 +424,7 @@ test("advisor_launch creates an unfocused tab and sends the advisor bootstrap", 
       "agent",
       "prompt",
       "w1:p9",
-      "/skill:advisor\n\nCall advisor_session_init with workstream \"close-controls\" before any other tool.\n\nAdditional instructions:\nInspect the final diff.",
+      "/skill:advisor-native\n\nCall advisor_session_init with workstream \"close-controls\" and workerHarness \"native\" before any other tool.\n\nAdditional instructions:\nInspect the final diff.",
     ],
   ]);
 });

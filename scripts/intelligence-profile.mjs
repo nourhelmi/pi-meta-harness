@@ -21,14 +21,18 @@ const FORBIDDEN_ROLE_POLICY_FIELDS = new Set([
   "allowedModels",
   "allowedThinkingByModel",
 ]);
+const FORBIDDEN_ROLE_ENFORCEMENT_FIELDS = new Set([
+  "tools",
+  "excludeTools",
+  "turnCapFlag",
+]);
+
 const ROLE_FIELDS = new Set([
   "description",
   "agent",
   "skill",
-  "tools",
-  "excludeTools",
+  "skillPath",
   "cliArgs",
-  "turnCapFlag",
   "maxTurns",
   "requireAnchor",
 ]);
@@ -77,44 +81,47 @@ export function roleConfigErrors(config) {
   if (!Object.keys(profiles).length) errors.push("Advisor role configuration has no profiles");
 
   for (const role of REQUIRED_ROLES) {
-    const profile = profiles[role];
+    if (!isObject(profiles[role])) errors.push(`Missing advisor role: ${role}`);
+  }
+  for (const [role, profile] of Object.entries(profiles)) {
     if (!isObject(profile)) {
-      errors.push(`Missing advisor role: ${role}`);
+      errors.push(`Invalid advisor role: ${role}`);
       continue;
+    }
+    if (!REQUIRED_ROLES.includes(role)) {
+      errors.push(`Unknown advisor role: ${role}`);
     }
     for (const field of FORBIDDEN_ROLE_POLICY_FIELDS) {
       if (Object.hasOwn(profile, field)) errors.push(`Role ${role} contains intelligence policy field: ${field}`);
     }
+    for (const field of FORBIDDEN_ROLE_ENFORCEMENT_FIELDS) {
+      if (Object.hasOwn(profile, field)) errors.push(`Role ${role} contains deterministic enforcement field: ${field}`);
+    }
     for (const field of Object.keys(profile)) {
-      if (!ROLE_FIELDS.has(field) && !FORBIDDEN_ROLE_POLICY_FIELDS.has(field)) {
+      if (
+        !ROLE_FIELDS.has(field) &&
+        !FORBIDDEN_ROLE_POLICY_FIELDS.has(field) &&
+        !FORBIDDEN_ROLE_ENFORCEMENT_FIELDS.has(field)
+      ) {
         errors.push(`Role ${role} contains unknown field: ${field}`);
       }
     }
     if (!nonEmptyString(profile.description)) errors.push(`Role has no description: ${role}`);
     if (!nonEmptyString(profile.agent)) errors.push(`Role has no agent: ${role}`);
-    if (!nonEmptyString(profile.skill)) errors.push(`Role has no forced skill: ${role}`);
-    if (profile.tools !== undefined && !stringArray(profile.tools)) errors.push(`Role has invalid tools: ${role}`);
-    if (profile.excludeTools !== undefined && !stringArray(profile.excludeTools)) {
-      errors.push(`Role has invalid excludeTools: ${role}`);
-    }
-    if (profile.tools === undefined && profile.excludeTools === undefined) {
-      errors.push(`Role has no tools or excludeTools guardrail: ${role}`);
-    }
+    if (!nonEmptyString(profile.skill)) errors.push(`Role has no instructed skill: ${role}`);
+    if (!nonEmptyString(profile.skillPath)) errors.push(`Role has no skill path: ${role}`);
     if (!stringArray(profile.cliArgs)) errors.push(`Role has invalid CLI args: ${role}`);
-    if (!nonEmptyString(profile.turnCapFlag)) errors.push(`Role has no turn-cap flag: ${role}`);
     if (!Number.isInteger(profile.maxTurns) || profile.maxTurns < 1) {
       errors.push(`Invalid prompt-cycle cap for role: ${role}`);
     }
     if (profile.requireAnchor !== true) errors.push(`Role does not require an anchor: ${role}`);
-  }
-  for (const role of Object.keys(profiles)) {
-    if (!REQUIRED_ROLES.includes(role)) errors.push(`Unknown advisor role: ${role}`);
   }
   return errors;
 }
 
 export function intelligenceGuideErrors(config, configuredRoles = REQUIRED_ROLES) {
   const errors = [];
+  const recommendationRoles = configuredRoles.filter((role) => REQUIRED_ROLES.includes(role));
   if (!isObject(config)) return ["Advisor intelligence guide is not an object"];
   if (!nonEmptyString(config.name)) errors.push("Advisor intelligence guide has no name");
   for (const field of Object.keys(config)) {
@@ -142,7 +149,7 @@ export function intelligenceGuideErrors(config, configuredRoles = REQUIRED_ROLES
     }
   }
 
-  for (const role of configuredRoles) {
+  for (const role of recommendationRoles) {
     const choices = recommendations[role];
     if (!Array.isArray(choices) || choices.length === 0) {
       errors.push(`Role has no recommendations: ${role}`);
@@ -172,7 +179,7 @@ export function intelligenceGuideErrors(config, configuredRoles = REQUIRED_ROLES
     }
   }
   for (const role of Object.keys(recommendations)) {
-    if (!configuredRoles.includes(role)) errors.push(`Recommendations reference unknown role: ${role}`);
+    if (!recommendationRoles.includes(role)) errors.push(`Recommendations reference unknown role: ${role}`);
   }
   return errors;
 }

@@ -7,7 +7,7 @@ disable-model-invocation: true
 # Browser Verifier Worker
 
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
-Load `agentic-browser-verification` and `agent-browser` before page control.
+Load `agent-browser` before page control.
 
 Use the launch identity selected with the advisor intelligence guide. Do not edit
 product code. Baseline investigation before implementation and post-change

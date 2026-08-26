@@ -23,7 +23,7 @@ flowchart LR
 The harness owns:
 
 - first-party advisor extensions and skills;
-- fixed `bg_agent` role guardrails;
+- fixed `bg_agent` semantic role contracts and portable skill paths;
 - named advisor intelligence guides and the separate live guide they materialize
   (see [`intelligence-profiles.md`](intelligence-profiles.md));
 - safe Pi and MCP overlays;
@@ -37,7 +37,7 @@ Pi owns package installation and provider login. Herdr owns and regenerates its 
 
 The installer copies first-party files, deep-merges safe MCP settings, and merges package settings by package identity. A new exact pin replaces an old version of the same package without deleting unrelated user packages.
 
-`bg-agent-profiles.json` is installed as fixed, generic role transport
+`bg-agent-profiles.json` is installed as fixed, generic semantic role
 configuration. Named guides are refreshed under `intelligence-profiles/`, while
 the existing `ACTIVE` selection is preserved and rematerialized as
 `advisor-intelligence.json`. Switching a guide never rewrites role transport.
@@ -50,7 +50,15 @@ Before each mutation, it creates a scoped backup. It does not reload Pi, migrate
 
 `advisor_launch` is the canonical boundary for a separate advisor: it creates an unfocused Herdr tab at the requested cwd, labels the root pane `advisor · <purpose>`, starts Pi, and submits the advisor bootstrap. It never falls back to splitting the caller's tab. `advisor_session_init` also restores that root-pane label from workstream words.
 
-Configured `bg_agent` workers follow the opposite rule: they stay visible as panes in their owning advisor tab. Their labels are concise `role · <purpose>` values; run IDs remain in agent identities and notifications rather than pane titles.
+Configured `bg_agent` workers follow the opposite rule: they stay visible as
+panes in their owning advisor tab. Their labels are concise `role · <purpose>`
+values; run IDs remain in agent identities and notifications rather than pane
+titles. Each advisor persists one authoritative worker harness mode; conflicting
+per-launch overrides are rejected. Pi mode starts Pi workers;
+native mode maps the profile-selected OpenAI identity to Codex CLI or Anthropic
+identity to Claude Code. Root advisors remain Pi. Native result artifacts are
+reserved before launch and validated before close-on-settle; missing or malformed
+results keep the worker pane visible for repair.
 
 ## Resumed advisor doctrine
 

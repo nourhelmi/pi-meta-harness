@@ -50,9 +50,13 @@ inconsistent pair rather than guessing which side is authoritative.
 - Report the active profile and preferred workhorse/reviewer shown by the switcher.
 - Already-running workers keep their launch identity.
 - This advisor session's `/model` does not change.
+- This advisor session's persisted worker harness (`pi` or `native`) does not change.
+- In native mode, new OpenAI selections route to Codex CLI and Anthropic selections
+  route to Claude Code. Cursor/Grok selections need a task-fit OpenAI/Anthropic
+  alternative from the active guide or an explicit transport-mismatch report.
 - New workers do not reject outside-guide identities or later identity changes;
   manifests retain launch/current model and thinking for audit.
-- Role skill, no-advisor promotion, tool restrictions, anchors, and cycle caps
+- Role skill, no-advisor promotion instruction, anchors, and cycle-cap instructions
   remain hard regardless of the chosen identity.
 
 ## Profiles

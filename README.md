@@ -8,9 +8,10 @@ machine trust, caches, and advisor runtime stay on the machine.
 
 ## At a glance
 
-You sit in Ghostty. Herdr owns tabs. `/advisor` claims one isolated workstream.
-That Pi session stays Fable. It launches workers through `pi-detach` `bg_agent`
-into panes in the **same tab**. Fixed role configuration enforces skills, tools,
+You sit in Ghostty. Herdr owns tabs. `/advisor` claims one isolated workstream and
+asks whether its workers should use Pi or provider-native harnesses. The root
+advisor itself always remains Pi/Fable. It launches workers through `pi-detach`
+`bg_agent` into panes in the **same tab**. Fixed role configuration instructs skills and role boundaries,
 anchors, and cycle caps. A separate live intelligence guide recommends `model`
 + `thinking` choices to the advisor. Quota is not polled — you pick the guide.
 
@@ -114,18 +115,38 @@ The installer stops if an advisor or worker is active. It never copies credentia
 
 After bootstrap, export optional MCP credentials through your shell or secret manager, start Pi inside Herdr, use `/login` for each provider, and run `/advisor`.
 
-## Start an advisor and pick a guide
+## Start an advisor, choose a worker harness, and pick a guide
 
 `/advisor` is a skill invoke, not a CLI with flags. There is no
 `/advisor "task" --profile lean`. The intelligence guide is **machine-global**.
 
-In a fresh Pi tab inside Herdr (cwd already the repo):
+In a fresh Pi tab inside Herdr (cwd already the repo), use `/advisor` to choose
+the worker harness interactively:
 
 ```text
 /advisor
 
 my task here
 ```
+
+Or choose it directly with one of the explicit entrypoints:
+
+```text
+/skill:advisor-pi
+/skill:advisor-native
+```
+
+The choice is persisted and authoritative for that advisor session; conflicting
+per-launch overrides are rejected. In **Pi** mode, all semantic
+roles run as Pi workers. In **native** mode, the same role names and role skills
+remain in force, while the selected intelligence-profile identity determines the
+runtime: `openai-codex`/`openai` models use Codex CLI and
+`claude-bridge`/`anthropic` models use Claude Code. The root advisor never moves
+out of Pi. Native mode cannot directly launch a Cursor/Grok identity; the advisor
+must choose a task-fit OpenAI or Anthropic alternative from the active guide (or
+report that no appropriate native route exists). Native workers receive a
+reserved result path, and a missing or malformed result keeps the pane visible
+instead of being reported as successful.
 
 Pick the guide **before** workers launch:
 
@@ -191,7 +212,7 @@ flowchart TD
 - `extensions/` — first-party advisor extensions and the reviewed `unified-edit.ts` snapshot.
 - `skills/` — first-party advisor, worker-role, triage, and graph-driver skills.
 - `config/intelligence-profiles/` — named advisor intelligence guides (`codex-max`, `codex-lean`, `anthropic-heavy`, `balanced`, `grok-cycle`).
-- `config/bg-agent-profiles.json` — fixed generic role launch guardrails; switching never changes it.
+- `config/bg-agent-profiles.json` — fixed semantic role contracts and portable skill paths; switching never changes it.
 - `~/.pi/agent/advisor-intelligence.json` — installed live copy of the selected advisory guide.
 - `scripts/intelligence-profile.mjs` — mid-session switcher.
 - `scripts/advisor-eval.mjs` — privacy-bounded advisor trace ingestion, diagnostics, and Harbor task generation.

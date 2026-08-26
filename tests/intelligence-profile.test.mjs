@@ -30,12 +30,25 @@ test("fixed role configuration is standalone and model-free", async () => {
   assert.deepEqual(Object.keys(config.profiles), REQUIRED_ROLES);
   for (const profile of Object.values(config.profiles)) {
     assert.equal(typeof profile.skill, "string");
-    assert(!profile.excludeTools.includes("edit"));
-    assert(!profile.excludeTools.includes("write"));
+    assert.equal(typeof profile.skillPath, "string");
+    assert.equal("tools" in profile, false);
+    assert.equal("excludeTools" in profile, false);
+    assert.equal("turnCapFlag" in profile, false);
     assert.equal("model" in profile, false);
     assert.equal("allowedModels" in profile, false);
     assert.equal("allowedThinkingByModel" in profile, false);
   }
+});
+
+test("fixed role validation rejects deterministic tool and turn enforcement", async () => {
+  const config = JSON.parse(await readFile(join(ROOT, "config", "bg-agent-profiles.json"), "utf8"));
+  config.profiles.builder.tools = ["read"];
+  config.profiles.checker.excludeTools = ["edit"];
+  config.profiles.scout.turnCapFlag = "--max-turns";
+  const errors = roleConfigErrors(config).join("\n");
+  assert.match(errors, /builder contains deterministic enforcement field: tools/);
+  assert.match(errors, /checker contains deterministic enforcement field: excludeTools/);
+  assert.match(errors, /scout contains deterministic enforcement field: turnCapFlag/);
 });
 
 test("named advisor guides are structurally valid and cover every role", async () => {
@@ -53,6 +66,21 @@ test("named advisor guides are structurally valid and cover every role", async (
         assert.equal(typeof choice.fit, "string");
         assert(guide.models[choice.model]);
       }
+    }
+  }
+});
+
+test("every guide provides a native-routable choice for every semantic role", async () => {
+  const nativeProviders = new Set(["openai-codex", "openai", "claude-bridge", "anthropic"]);
+  for (const name of NAMES) {
+    const guide = JSON.parse(
+      await readFile(join(ROOT, "config", "intelligence-profiles", `${name}.json`), "utf8"),
+    );
+    for (const role of REQUIRED_ROLES) {
+      assert(
+        guide.recommendations[role].some((choice) => nativeProviders.has(choice.model.split("/")[0])),
+        `${name}/${role} has no Codex-or-Claude native route`,
+      );
     }
   }
 });

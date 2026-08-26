@@ -44,6 +44,11 @@
         "model": "cursor/grok-4.6",
         "thinking": "high",
         "fit": "Preferred for synthesis and conflict reduction in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "medium",
+        "fit": "Native-harness fallback for bounded synthesis and conflict reduction when Cursor/Grok transport is unavailable."
       }
     ],
     "builder": [

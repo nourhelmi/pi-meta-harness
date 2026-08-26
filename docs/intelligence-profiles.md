@@ -6,8 +6,8 @@ worker identity, or poll Codex weekly, Anthropic 5-hour, or Cursor spend.
 
 The split is deliberate:
 
-- `bg-agent-profiles.json` is fixed role transport: agent, forced skill, tools,
-  CLI flags, anchors, and cycle caps.
+- `bg-agent-profiles.json` is fixed semantic role configuration: instructed
+  skill and portable skill path, anchors, and instructional cycle caps.
 - `advisor-intelligence.json` is the live advisor-owned guide: model character,
   default reasoning guidance, and ordered role recommendations.
 
@@ -39,6 +39,15 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
 ```
 
 Names: `codex-max` | `codex-lean` | `anthropic-heavy` | `balanced` | `grok-cycle`.
+
+Choose worker transport separately. `/advisor` asks once and persists the answer;
+`/skill:advisor-pi` and `/skill:advisor-native` select it directly. The active
+guide still chooses model and reasoning in either mode. Pi mode forwards that
+identity to Pi. Native mode maps OpenAI providers to Codex CLI and Anthropic
+providers to Claude Code while retaining the same six semantic roles and skills.
+Cursor/Grok recommendations are not directly routable in native mode, so the
+advisor uses a task-fit OpenAI/Anthropic alternative from the same guide or
+reports the mismatch.
 
 The switcher validates the fixed role names and all guide references, copies the
 selected named guide to `~/.pi/agent/advisor-intelligence.json`, writes `ACTIVE`,
@@ -113,7 +122,8 @@ flowchart TB
   Switcher --> Active["ACTIVE"]
   Switcher --> Guide["advisor-intelligence.json"]
   Guide -.->|recommended model + thinking| Advisor[advisor]
-  Roles["fixed bg-agent-profiles.json"] -->|skill + tools + caps + anchor| Transport[bg_agent / pi-detach]
+  Roles["fixed bg-agent-profiles.json"] -->|role skill + caps + anchor| Transport[bg_agent / pi-detach]
+  Mode["advisor worker mode\npi or native"] --> Transport
   Advisor -->|chosen identity + role| Transport
   Transport --> Worker[worker pane]
 ```
@@ -219,12 +229,13 @@ the recommendations but is still not blocked at runtime.
 | planner | Fable high, Grok high |
 | builder | Grok high, Sonnet medium (locked packet) |
 | checker | Grok high, Sonnet medium |
-| reducer | Grok high |
+| reducer | Grok high, Sonnet medium (native fallback) |
 | scout | Sonnet medium, Grok high |
 | browser-verifier | Sonnet medium, Grok high |
 
 Grok owns the hefty decision-bearing maker/review/reduction cycle. Sonnet medium
-handles locked execution packets and short-leash procedural work. A fresh Grok
+handles locked execution packets, short-leash procedural work, and reduction
+when the session uses native harnesses without a Cursor route. A fresh Grok
 review of a Grok build is expected; deterministic
 anchors provide the independence backstop.
 
@@ -232,7 +243,7 @@ anchors provide the independence backstop.
 
 | Path | Role |
 | --- | --- |
-| `config/bg-agent-profiles.json` | Fixed role-only transport configuration |
+| `config/bg-agent-profiles.json` | Fixed semantic role configuration and portable skill paths |
 | `config/intelligence-profiles/<name>.json` | Named advisor guidance in this repository |
 | `scripts/intelligence-profile.mjs` | Guide validator, status command, and switcher |
 | `~/.pi/agent/bg-agent-profiles.json` | Installed fixed role configuration |

@@ -8,7 +8,7 @@ import advisorWorkerExtension from "../extensions/advisor-worker.ts";
 
 interface HookMap {
   session_start?: (event: unknown, ctx: ExtensionContext) => Promise<void>;
-  input?: (event: { text: string }, ctx: ExtensionContext) => { action: string; text?: string } | undefined;
+  before_agent_start?: (event: { systemPrompt: string }, ctx: ExtensionContext) => { systemPrompt: string } | undefined;
   agent_settled?: (event: unknown, ctx: ExtensionContext) => Promise<void>;
 }
 
@@ -49,18 +49,15 @@ test("worker accepts launch and changed identities outside advisor recommendatio
     } as unknown as ExtensionContext;
 
     await hooks.session_start?.({}, context);
-    const firstInput = hooks.input?.({ text: "implement the packet" }, context);
-    assert.deepEqual(firstInput, {
-      action: "transform",
-      text: "/skill:advisor-role-builder implement the packet",
-    });
+    const contract = hooks.before_agent_start?.({ systemPrompt: "base" }, context);
+    assert.match(contract?.systemPrompt ?? "", /Load each REQUIRED SKILLS entry before task work/);
+    assert.equal("input" in hooks, false);
 
     Object.assign(context, {
       model: { provider: "another-provider", id: "another-model" },
       thinkingLevel: "max",
     });
     await hooks.agent_settled?.({}, context);
-    assert.deepEqual(hooks.input?.({ text: "bounded repair" }, context), { action: "continue" });
 
     const [worktree] = await readdir(join(temp, "state", "runs"));
     assert.ok(worktree);
