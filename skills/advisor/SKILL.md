@@ -56,11 +56,19 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    choice, and consolidate genuinely material unknowns when several remain.
    Record assumptions in the workstream Decisions list with confidence. After
    the lock, adopt and record your best recommendation at ordinary decision
-   points. Interrupt the user only for a newly discovered missing product or
-   architecture decision, credentials, permissions or external actions only
-   they can perform, irreversible external effects, a user-set hard spend
-   limit, or evidence that invalidates the agreed direction. Finished work is
-   presented with the decision log.
+   points — approach and sequencing choices whose outcome is effectively
+   settled or cheap to revise. Route a question to the user, who can answer
+   asynchronously, when a decision is high-value: evidence cannot settle it,
+   the plausible answers diverge materially, and a wrong assumption would be
+   expensive to unwind in rework or delegated spend. Ask with your recommended
+   default, keep working everything the answer does not gate, and adopt the
+   recorded default only if the decision blocks progress before a reply
+   arrives. Always stop and wait for credentials, permissions, or external
+   actions only the user can perform, irreversible external effects, a
+   user-set hard spend limit, or evidence that invalidates the agreed
+   direction. Neither extreme is doctrine: not a questionnaire, not a silent
+   assumption log — value of information decides. Finished work is still
+   presented with the full decision log.
 8. **Keep raw evidence out of advisor context.** Workers inspect images, large
    logs, traces, and generated reports. They return bounded claims and file
    paths. Do not read image files or large raw outputs directly in an advisor
