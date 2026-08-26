@@ -652,8 +652,8 @@ async function doctor(options) {
     for (const [command, version] of commandVersions) {
       if (!version) errors.push(`Required command not available: ${command}`);
     }
-    if (commandVersions.get("pi") !== "0.84.2") {
-      errors.push(`Pi 0.84.2 required; found ${commandVersions.get("pi") ?? "unavailable"}`);
+    if (commandVersions.get("pi") !== "0.84.3") {
+      errors.push(`Pi 0.84.3 required; found ${commandVersions.get("pi") ?? "unavailable"}`);
     }
     if (commandVersions.get("agent-browser") !== "0.32.3") {
       errors.push(`agent-browser 0.32.3 required; found ${commandVersions.get("agent-browser") ?? "unavailable"}`);

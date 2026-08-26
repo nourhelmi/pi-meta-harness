@@ -7,7 +7,7 @@
     },
     "pi": {
       "package": "@earendil-works/pi-coding-agent",
-      "version": "0.84.2"
+      "version": "0.84.3"
     }
   },
   "required": {
