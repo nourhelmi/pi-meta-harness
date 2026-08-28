@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Advisor Control</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>Advisor</h1>
+            <p>Live work, without the noise</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span id="brokerState" class="connection-pill">Connecting</span>
+          <button id="openSessions" class="quiet-button" type="button">
+            All sessions
+          </button>
+        </div>
+      </header>
+
+      <section class="live-strip" aria-labelledby="liveHeading">
+        <div class="strip-label">
+          <span class="pulse-dot"></span>
+          <div>
+            <strong id="liveHeading">Active now</strong
+            ><span id="activeSummary"></span>
+          </div>
+        </div>
+        <div id="activeSessions" class="active-sessions"></div>
+      </section>
+
+      <main>
+        <section class="workspace-card">
+          <div class="workspace-layout">
+            <aside id="graphLibrary" class="graph-library" aria-label="Graph library">
+              <div class="graph-library-head">
+                <div><div class="eyebrow">Advisor plans</div><h2>Graphs</h2></div>
+                <button id="collapseGraphLibrary" class="icon-button" type="button" aria-label="Collapse graph library">‹</button>
+              </div>
+              <label class="graph-search"><span>Find a graph</span><input id="graphSearch" type="search" placeholder="Project or graph name" /></label>
+              <div id="graphLibraryList" class="graph-library-list"></div>
+              <select id="projectSelect" hidden aria-hidden="true"></select>
+              <select id="graphSelect" hidden aria-hidden="true"></select>
+            </aside>
+
+            <div class="graph-workspace">
+              <div class="graph-toolbar">
+                <button id="openGraphLibrary" class="quiet-button browse-graphs" type="button">Browse graphs</button>
+                <div class="graph-actions" aria-label="Graph controls">
+                  <button id="zoomOut" class="icon-button" type="button" title="Zoom out">−</button>
+                  <button id="zoomIn" class="icon-button" type="button" title="Zoom in">+</button>
+                  <button id="fitGraph" class="soft-button" type="button">Fit graph</button>
+                </div>
+              </div>
+
+              <div class="graph-heading">
+                <div>
+                  <div class="eyebrow" id="workstreamStatus">Work graph</div>
+                  <h2 id="graphTitle">Loading graph…</h2>
+                  <p id="graphGoal"></p>
+                </div>
+                <div id="graphStats" class="graph-stats"></div>
+              </div>
+
+              <div class="graph-stage">
+                <div id="graphCanvas" role="img" aria-label="Advisor work graph"></div>
+                <div id="graphLegend" class="graph-legend" aria-label="Node status legend"></div>
+                <div id="graphEmpty" class="empty-state" hidden>
+                  <strong>No graph selected</strong>
+                  <span>Choose a project with an advisor plan.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="runs-card" aria-labelledby="runsHeading">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">Execution history</div>
+              <h2 id="runsHeading">Recent worker runs</h2>
+            </div>
+            <button id="toggleRuns" class="quiet-button" type="button">
+              Show all
+            </button>
+          </div>
+          <div id="recentRuns" class="run-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="scrim" class="scrim" hidden></div>
+
+    <aside
+      id="sessionDrawer"
+      class="drawer"
+      aria-label="Sessions"
+      aria-hidden="true"
+    >
+      <div class="drawer-head">
+        <div>
+          <div class="eyebrow">Intercom</div>
+          <h2>Sessions</h2>
+        </div>
+        <button
+          class="icon-button close-drawer"
+          type="button"
+          aria-label="Close sessions"
+        >
+          ×
+        </button>
+      </div>
+      <p class="drawer-intro">
+        Only agents active in the last two minutes appear on the main screen.
+        Everything else stays here.
+      </p>
+      <label class="search-field"
+        ><span>Find a session</span
+        ><input
+          id="sessionSearch"
+          type="search"
+          placeholder="Name, project, or model"
+      /></label>
+      <div id="sessionGroups"></div>
+    </aside>
+
+    <aside
+      id="detailDrawer"
+      class="drawer detail-drawer"
+      aria-label="Details"
+      aria-hidden="true"
+    >
+      <div class="drawer-head">
+        <div>
+          <div id="detailEyebrow" class="eyebrow">Node</div>
+          <h2 id="detailTitle">Details</h2>
+        </div>
+        <button
+          class="icon-button close-detail"
+          type="button"
+          aria-label="Close details"
+        >
+          ×
+        </button>
+      </div>
+      <div id="detailBody"></div>
+      <form id="messageForm" class="message-form" hidden>
+        <label for="messageText">Message this agent</label>
+        <textarea
+          id="messageText"
+          rows="4"
+          placeholder="Ask for an update or send a correction…"
+        ></textarea>
+        <div class="message-actions">
+          <label class="check-label"
+            ><input id="expectsReply" type="checkbox" /> Expect a reply</label
+          >
+          <button id="sendMessage" class="primary-button" type="submit">
+            Send message
+          </button>
+        </div>
+        <div id="messageStatus" class="message-status" aria-live="polite"></div>
+      </form>
+      <div id="eventLog" class="event-log"></div>
+    </aside>
+
+    <script src="/vendor/cytoscape.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

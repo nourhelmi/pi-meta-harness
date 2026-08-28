@@ -47,6 +47,7 @@
   },
   "scripts": {
     "bootstrap": "bash scripts/bootstrap.sh",
+    "ui": "node scripts/advisor-ui/server.mjs",
     "plan": "node scripts/meta-harness.mjs plan",
     "doctor": "node scripts/meta-harness.mjs doctor",
     "eval:advisor": "uvx --from harbor==0.16.1 harbor run --path evals/harbor --agent nop --jobs-dir evals/local/harbor-jobs --yes",
@@ -64,5 +65,8 @@
     "tsx": "4.23.12",
     "typebox": "1.3.12",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "cytoscape": "^3.34.2"
   }
 }
