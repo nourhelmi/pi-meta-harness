@@ -65,7 +65,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(settings.enabledModels.includes("custom/model"));
   for (const model of removedModels) assert(!settings.enabledModels.includes(model));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@4af8ea410c53e0fbae8bbd5e6bb977c9b8c6233f"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@d49e5e00ec874dc75bc4df7445d83d046c990f94"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));

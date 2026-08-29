@@ -410,6 +410,10 @@ For each piece of work, in order:
 - **Trivial reading or a normal command** → do the reading yourself or use one
   bounded `bg_run`. `bg_run` is for tests, builds, and shell commands only. It
   must never launch an LLM or a script that launches LLMs.
+- **Waiting on external state** (CI pipelines, deployments, migrations, slow
+  services) → one `bg_await` with the probe, terminal patterns, and interval.
+  Never run sleep-and-check loops through `bg_run`; they burn context and
+  compactions while `bg_await` wakes this session exactly once.
 - **One delegated task** → use `bg_agent` with a self-contained prompt, a useful
   label, a model and reasoning chosen with the intelligence guide, the correct
   working directory or worktree, a cap, and a fixed anchor.
@@ -424,7 +428,9 @@ For each piece of work, in order:
   session. Use a non-LLM external monitor or a user-approved control process.
 
 Dev servers and watchers are `bg_watch`, one per worktree. Never poll a detached
-run or agent. Completion, failure, and blocked states wake the owning Pi
+run or agent. Give CI/deploy log watchers a `donePattern` for their terminal
+states so the terminal line wakes this session instead of inviting polls.
+Completion, failure, and blocked states wake the owning Pi
 session. If `bg_agent` cannot create a Herdr surface, stop and report the
 visibility failure; never fall back to an invisible agent.
 
