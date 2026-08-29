@@ -157,6 +157,15 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
       );
     });
 
+    await t.test("accepts a freeform node without a configured profile", async () => {
+      const result = await execute({
+        graphId: "freeform-node",
+        goal: "Blend scouting and synthesis in one role-less worker",
+        nodes: [node("blended-aide", "freeform")],
+      });
+      assert.deepEqual(result.details.waves, [["blended-aide"]]);
+    });
+
     await t.test("rejects missing dependencies and invalid concurrency", async () => {
       await rejected(
         {

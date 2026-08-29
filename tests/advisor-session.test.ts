@@ -204,6 +204,23 @@ Review the current document.`;
       reason: "Advisor session worker harness is native; per-launch pi is not allowed.",
     },
   );
+  assert.equal(
+    toolCall({
+      toolName: "bg_agent",
+      input: { anchor: "summary cites exact file paths", label: "freeform aide" },
+    }),
+    undefined,
+  );
+  assert.deepEqual(
+    toolCall({
+      toolName: "bg_agent",
+      input: { label: "freeform aide" },
+    }),
+    {
+      block: true,
+      reason: "New advisor workers require a concrete immutable anchor.",
+    },
+  );
 });
 
 test("resumed advisors do not duplicate the current expanded doctrine", async () => {

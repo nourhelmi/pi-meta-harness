@@ -11,7 +11,7 @@ The advisor coordinates parallel Pi sessions through per-repository state under 
 5. Treat legacy in-repo `.advisor/` directories as read-only history.
 6. Transfer ownership with an immutable handoff event.
 7. Use Intercom for short conclusions and paths, not transcripts or raw logs.
-8. Launch delegated LLM work only through a configured semantic `bg_agent` role. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code.
+8. Launch delegated LLM work only through `bg_agent` — usually a configured semantic role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi.
 9. Every role launch needs a concrete completion anchor and a bounded result file.
 10. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work.
 11. Parallel builders require explicit approval and separate worktrees.

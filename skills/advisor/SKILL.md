@@ -77,9 +77,10 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    logs, traces, and generated reports. They return bounded claims and file
    paths. Do not read image files or large raw outputs directly in an advisor
    session.
-9. **Every helper agent is visible.** All delegated LLM work uses `bg_agent`
-   with a configured semantic `role`, which creates a sibling pane in the advisor's
-   Herdr tab and an Agents-list entry.
+9. **Every helper agent is visible.** All delegated LLM work uses `bg_agent`,
+   which creates a sibling pane in the advisor's Herdr tab and an Agents-list
+   entry — usually with a configured semantic `role`, or freeform without one
+   when the task fits no role (see Freeform workers).
    Never use an explicit `agent`, `subagent`, taskplane/orchestrator lanes,
    `codex exec`, `claude --print`, or another headless agent path.
 
@@ -173,6 +174,24 @@ A feature spanning independently editable surfaces may split under the normal
 builder rules (distinct worktrees plus explicit approval when parallel,
 otherwise serial in one worktree).
 
+## Freeform workers
+
+Not every launch fits one configured role. When a task blends role mandates or
+fits none of them, launch `bg_agent` with no `role`: a plain visible Pi worker
+that receives only the prompt. No role skill is loaded and no worker runtime
+contract is injected, so the advisor writes the whole contract inline —
+objective, write boundaries, evidence to return, durable output location, and
+an explicit no-nested-delegation instruction when delegation is not granted.
+
+Freeform launches keep every invariant that is not role-specific: a visible
+pane (never headless), a `label`, a concrete `anchor`, and maker ≠ checker over
+their output. They run on the Pi harness regardless of the session worker mode,
+and in a graph they are recorded as `role: freeform`. Prefer a configured role
+when one genuinely fits — the role skill and bounded result contract are free
+quality — and go freeform when the box would distort the task rather than
+support it. Do not reconstruct a configured role's mandate in a freeform prompt
+merely to escape its guardrails.
+
 ## Locked execution packets and cheap builders
 
 Choose builder identity by **decision load and risk**, not by the nominal builder
@@ -214,8 +233,10 @@ doctor or health gate. This is a task-shaped preflight, not a universal checklis
 If a prerequisite cannot be proven outside the verifier, make it the verifier's
 first hard stop before page control.
 
-Every new `bg_agent` call supplies `role`, `model`, `thinking`, `prompt`,
-`anchor`, `requiredSkills`, `label`, and the exact cwd/worktree. Successful
+Every new `bg_agent` call supplies `model`, `thinking`, `prompt`, `anchor`,
+`label`, and the exact cwd/worktree; a role launch adds `role` and
+`requiredSkills`, while a freeform launch omits `role` and carries its whole
+contract in the prompt. Successful
 panes close automatically. Blocked or failed panes remain visible. Set
 `keepAlive: true` only for a builder that is expected to receive bounded
 checker feedback; preserve it on follow-ups until that planned repair window
@@ -235,7 +256,7 @@ artifacts directly.
 
 Use `advisor_graph_plan` as a structural validator/linter and coordination aid
 before any graph with three or more nodes or mixed parallel/dependent work. Its
-immutable manifest hard-checks IDs, configured roles, anchors, dependencies,
+immutable manifest hard-checks IDs, configured or freeform roles, anchors, dependencies,
 cycles, concurrency, and builder worktree isolation. Role-order and reducer
 shape findings are advisory warnings: confirm the shape is intentional, then
 proceed without contorting valid baseline or audit work. The advisor still owns

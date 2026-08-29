@@ -141,7 +141,10 @@ function nodeMap(nodes: GraphNode[]): Map<string, GraphNode> {
 
 function validateRoles(nodes: GraphNode[], roles: Set<string>): void {
 	for (const node of nodes) {
-		if (!roles.has(node.role)) throw new Error(`Node ${node.id} uses unknown role ${node.role}`);
+		if (node.role === "freeform") continue;
+		if (!roles.has(node.role)) {
+			throw new Error(`Node ${node.id} uses unknown role ${node.role}; use "freeform" for a role-less worker`);
+		}
 	}
 }
 

@@ -574,10 +574,7 @@ function bgAgentGuardReason(input: unknown, workerHarness: WorkerHarness): strin
 		return `Advisor session worker harness is ${workerHarness}; per-launch ${params.harness} is not allowed.`;
 	}
 	if (typeof params.agent === "string" && params.agent) {
-		return "Advisor workers must use configured semantic roles, not an explicit agent command.";
-	}
-	if (typeof params.role !== "string" || !params.role) {
-		return "New advisor workers require a configured bg_agent role.";
+		return "Advisor workers must use bg_agent's Pi runtime (a configured role or freeform), not an explicit agent command.";
 	}
 	if (typeof params.anchor !== "string" || !params.anchor.trim()) {
 		return "New advisor workers require a concrete immutable anchor.";
