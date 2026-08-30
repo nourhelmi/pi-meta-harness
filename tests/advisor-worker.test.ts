@@ -12,13 +12,13 @@ interface HookMap {
   agent_settled?: (event: unknown, ctx: ExtensionContext) => Promise<void>;
 }
 
-test("worker runtime grants bounded delegation only when its profile allows it", async () => {
+test("worker runtime grants bounded delegation only when its launch flag allows it", async () => {
   const temp = await mkdtemp(join(tmpdir(), "advisor-worker-delegation-"));
   const rolesPath = join(temp, "roles.json");
   await writeFile(rolesPath, `${JSON.stringify({
     profiles: {
       builder: { skill: "advisor-role-builder", maxTurns: 6 },
-      foreman: { skill: "advisor-role-foreman", maxTurns: 6, allowSubagents: true },
+      foreman: { skill: "advisor-role-foreman", maxTurns: 6 },
     },
   })}\n`);
 
@@ -31,7 +31,11 @@ test("worker runtime grants bounded delegation only when its profile allows it",
       const hooks: HookMap = {};
       const pi = {
         appendEntry: () => undefined,
-        getFlag: (name: string) => name === "advisor-worker-role" ? role : undefined,
+        getFlag: (name: string) => {
+          if (name === "advisor-worker-role") return role;
+          if (name === "advisor-worker-allow-subagents") return role === "foreman";
+          return undefined;
+        },
         on: (name: keyof HookMap, handler: HookMap[keyof HookMap]) => {
           Object.assign(hooks, { [name]: handler });
         },

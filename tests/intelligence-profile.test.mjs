@@ -28,7 +28,8 @@ test("fixed role configuration is standalone and model-free", async () => {
   assert.deepEqual(roleConfigErrors(config), []);
   assert.deepEqual(Object.keys(config).sort(), ["defaultAgent", "profiles"]);
   assert.deepEqual(Object.keys(config.profiles), REQUIRED_ROLES);
-  assert.equal(config.profiles.foreman.allowSubagents, true);
+  assert.equal(config.profiles.foreman.harness, "pi");
+  assert(config.profiles.foreman.cliArgs.includes("--advisor-worker-allow-subagents"));
   assert.equal("excludeTools" in config.profiles.foreman, false);
   assert.equal(config.profiles.foreman.cliArgs.includes("--exclude-tools"), false);
   for (const [role, profile] of Object.entries(config.profiles)) {
@@ -40,7 +41,8 @@ test("fixed role configuration is standalone and model-free", async () => {
     assert.equal("model" in profile, false);
     assert.equal("allowedModels" in profile, false);
     assert.equal("allowedThinkingByModel" in profile, false);
-    assert.equal(profile.allowSubagents === true, role === "foreman");
+    assert.equal("allowSubagents" in profile, false);
+    assert.equal(profile.harness === "pi", role === "foreman");
   }
 });
 
@@ -49,10 +51,12 @@ test("fixed role validation rejects deterministic tool and turn enforcement", as
   config.profiles.builder.tools = ["read"];
   config.profiles.checker.excludeTools = ["edit"];
   config.profiles.scout.turnCapFlag = "--max-turns";
+  config.profiles.planner.harness = "other";
   const errors = roleConfigErrors(config).join("\n");
   assert.match(errors, /builder contains deterministic enforcement field: tools/);
   assert.match(errors, /checker contains deterministic enforcement field: excludeTools/);
   assert.match(errors, /scout contains deterministic enforcement field: turnCapFlag/);
+  assert.match(errors, /invalid harness constraint: planner/);
 });
 
 test("named advisor guides are structurally valid and cover every role", async () => {

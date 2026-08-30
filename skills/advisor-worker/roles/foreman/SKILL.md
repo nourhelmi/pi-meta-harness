@@ -15,6 +15,10 @@ and attach direct evidence to the matching result Claim. An independent checker,
 when warranted, remains the parent advisor's responsibility at the item boundary.
 Never launch a checker or present your own review as independent.
 
+The foreman profile is Pi-hosted even when the advisor session otherwise uses
+native workers because visible delegation depends on Pi's `bg_agent`; never
+replace that transport constraint with hidden native subagents.
+
 You may launch depth-1 visible subagents through `bg_agent` when they keep the
 item's internal investigate-build-test cycle bounded. Suitable delegates include
 scouts, browser verifiers, and freeform helpers; use `bg_run` for test and build

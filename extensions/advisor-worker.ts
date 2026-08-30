@@ -9,7 +9,6 @@ const ENTRY_TYPE = "advisor-worker";
 interface RoleProfile {
 	skill?: string;
 	maxTurns?: number;
-	allowSubagents?: boolean;
 }
 
 interface WorkerConfig {
@@ -161,7 +160,7 @@ async function initializeWorker(
 		completedCycles: 0,
 		launchModel: actualModel(ctx),
 		launchThinking: String(ctx.thinkingLevel),
-		allowSubagents: profile.allowSubagents === true,
+		allowSubagents: pi.getFlag("advisor-worker-allow-subagents") === true,
 	};
 	pi.appendEntry(ENTRY_TYPE, {
 		role,
@@ -219,6 +218,11 @@ export default function advisorWorkerExtension(pi: ExtensionAPI): void {
 	pi.registerFlag("advisor-worker-max-turns", {
 		description: "Maximum parent-prompt cycles for this worker session",
 		type: "string",
+	});
+	pi.registerFlag("advisor-worker-allow-subagents", {
+		description: "Grant this advisor worker bounded depth-1 visible subagents",
+		type: "boolean",
+		default: false,
 	});
 	const runtime: WorkerRuntime = {};
 	registerSessionStart(pi, runtime);

@@ -65,7 +65,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(settings.enabledModels.includes("custom/model"));
   for (const model of removedModels) assert(!settings.enabledModels.includes(model));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@10bbc5d571c06d38150b506865cbaf939d3a4319"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@731590a516ea38bc8a14aafbfab5d8a4c22f0acf"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
@@ -107,7 +107,9 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(roles.profiles.planner.skill, "advisor-role-planner");
   assert.equal(roles.profiles.builder.maxTurns, 6);
   assert.equal(roles.profiles.foreman.skill, "advisor-role-foreman");
-  assert.equal(roles.profiles.foreman.allowSubagents, true);
+  assert.equal(roles.profiles.foreman.harness, "pi");
+  assert(roles.profiles.foreman.cliArgs.includes("--advisor-worker-allow-subagents"));
+  assert.equal("allowSubagents" in roles.profiles.foreman, false);
   assert.equal("excludeTools" in roles.profiles.foreman, false);
   assert.equal(roles.profiles.checker.requireAnchor, true);
   assert.equal(roles.profiles.scout.skillPath, "skills/advisor-worker/roles/scout/SKILL.md");

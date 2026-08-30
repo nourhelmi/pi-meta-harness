@@ -31,12 +31,12 @@ const FORBIDDEN_ROLE_ENFORCEMENT_FIELDS = new Set([
 const ROLE_FIELDS = new Set([
   "description",
   "agent",
+  "harness",
   "skill",
   "skillPath",
   "cliArgs",
   "maxTurns",
   "requireAnchor",
-  "allowSubagents",
 ]);
 
 function isObject(value) {
@@ -110,6 +110,9 @@ export function roleConfigErrors(config) {
     }
     if (!nonEmptyString(profile.description)) errors.push(`Role has no description: ${role}`);
     if (!nonEmptyString(profile.agent)) errors.push(`Role has no agent: ${role}`);
+    if (profile.harness !== undefined && !["pi", "native"].includes(profile.harness)) {
+      errors.push(`Role has invalid harness constraint: ${role}`);
+    }
     if (!nonEmptyString(profile.skill)) errors.push(`Role has no instructed skill: ${role}`);
     if (!nonEmptyString(profile.skillPath)) errors.push(`Role has no skill path: ${role}`);
     if (!stringArray(profile.cliArgs)) errors.push(`Role has invalid CLI args: ${role}`);

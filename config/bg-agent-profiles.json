@@ -52,15 +52,16 @@
     "foreman": {
       "description": "Own one bounded work item through planning, implementation, delegated internal steps, and self-verification.",
       "agent": "pi",
+      "harness": "pi",
       "skill": "advisor-role-foreman",
       "skillPath": "skills/advisor-worker/roles/foreman/SKILL.md",
       "cliArgs": [
         "--advisor-worker-role",
-        "foreman"
+        "foreman",
+        "--advisor-worker-allow-subagents"
       ],
       "maxTurns": 6,
-      "requireAnchor": true,
-      "allowSubagents": true
+      "requireAnchor": true
     },
     "checker": {
       "description": "Fresh-context review of completed work with a bounded inline-repair mandate for small findings.",

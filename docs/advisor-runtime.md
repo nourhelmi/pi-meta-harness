@@ -31,18 +31,19 @@ whether each node has enough information value remains the advisor's job.
 ## Roles and intelligence
 
 Configured roles are `scout`, `planner`, `reducer`, `builder`, `foreman`,
-`checker`, and `browser-verifier`; only a profile that explicitly grants
-delegation may launch depth-1 visible subagents, which inherit the full
-no-further-delegation prohibition.
+`checker`, and `browser-verifier`; only a meta-owned Pi launch flag grants
+depth-1 visible subagents, which inherit the full no-further-delegation
+prohibition. The generic transport profile merely forwards that flag.
 
 [`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json) is fixed
 semantic role configuration. It defines the instructed role skill and portable
 skill path, anchor requirement, and instructional cycle cap. It contains no model
 or reasoning policy and is never changed by intelligence switching.
 
-The persisted worker mode is authoritative for every configured role launch; a
-conflicting per-launch `harness` override is rejected. It changes transport, not
-roles or intelligence policy:
+The persisted worker mode is the default for every configured role launch and
+is authoritative over conflicting per-launch requests. A generic profile-level
+`harness` constraint takes precedence when a role depends on one runtime. It
+changes transport, not roles or intelligence policy:
 
 - `pi`: `bg_agent` starts Pi and forwards the selected provider/model/reasoning.
 - `native`: `openai-codex` and `openai` route to Codex CLI;
@@ -51,6 +52,11 @@ roles or intelligence policy:
   The path is reserved before launch. A successful settlement requires a
   nonempty artifact with the role-result headings; otherwise the run becomes
   `stalled` and its pane remains visible.
+
+The foreman profile is constrained to `harness: "pi"`, including in an advisor
+session whose other workers use native Codex/Claude. Its delegation permission
+is a separate advisor-worker CLI flag; pi-detach remains unaware of foreman or
+delegation semantics.
 
 Every shipped intelligence profile remains usable in either mode, but a specific
 recommendation is native-routable only when its provider maps to Codex or Claude.

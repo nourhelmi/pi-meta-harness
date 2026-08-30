@@ -104,10 +104,12 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
 
 ## Worker role policy
 
-`bg_agent` is the Herdr lifecycle transport. The persisted session mode applies
-to every semantic role: `scout`, `planner`, `reducer`, `builder`, `foreman`,
-`checker`, and `browser-verifier`. In Pi mode, selected models run through Pi.
-In native mode,
+`bg_agent` is the Herdr lifecycle transport. The persisted session mode is the
+default for every semantic role: `scout`, `planner`, `reducer`, `builder`,
+`foreman`, `checker`, and `browser-verifier`. A role profile may impose a
+stricter transport when its contract depends on a runtime capability: foremen
+are Pi-hosted because visible depth-1 delegation uses Pi's `bg_agent`. In Pi
+mode, selected models run through Pi. In native mode,
 OpenAI models run through Codex CLI and Anthropic/Claude models run through
 Claude Code. Keep semantic role names unchanged; do not invent harness-specific
 role aliases. Every role packet includes the installed role-skill path and
@@ -128,7 +130,9 @@ Pi workers receive the external advisor run directory from the worker extension.
 Native Codex and Claude role launches receive an automatically generated bounded
 `result.md` path from `bg_agent`; read that artifact after settlement and do not
 use the pane transcript as the durable result. The session's persisted worker
-mode is authoritative—never pass a conflicting per-launch harness. Native
+mode is authoritative over per-launch requests; an explicit role-profile
+transport constraint takes precedence. Never pass a conflicting per-launch
+harness. Native
 settlement validates the required result headings before closing; a missing,
 empty, or malformed artifact stalls the run and keeps its pane visible for repair.
 
@@ -201,7 +205,9 @@ investigate-build-test cycles are typical. The advisor stays at the boundaries:
 kickoff questions, the risk gate, and any independent checker at item completion
 under Checker economy. Foreman delegation is depth-1 only; its subagents never
 delegate. Parallel foremen follow the same approval and distinct-worktree rules
-as parallel builders.
+as parallel builders. Even in a native-worker advisor session, the foreman
+profile runs through Pi; its selected model still follows the active intelligence
+guide but is hosted by Pi rather than a provider-native CLI.
 
 ## Freeform workers
 

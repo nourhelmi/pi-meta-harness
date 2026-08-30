@@ -145,6 +145,8 @@ test("advisor doctrine routes locked execution without weakening decision bounda
   assert.match(source, /Coalesce a\s+routine settlement/);
   assert.match(source, /## Foreman delegation/);
   assert.match(source, /advisor stays at the boundaries[\s\S]+Checker economy/);
+  assert.match(source, /foremen\s+are Pi-hosted[\s\S]+visible depth-1 delegation/);
+  assert.match(source, /profile runs through Pi[\s\S]+provider-native CLI/);
   assert.match(source, /Deliberate criteria revision[\s\S]+new\s+packet revision/);
   assert.match(source, /criteria serve the\s+advisor's judgment, not the reverse/);
 });
