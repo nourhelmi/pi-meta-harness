@@ -15,7 +15,7 @@ Docker and `uv` are required. A global Harbor installation is not required.
 
 ## Run the committed dataset
 
-The committed dataset contains two complementary Harbor tasks:
+The committed dataset contains two broad trajectory tasks and three focused calibration tasks:
 
 - [`evidence-rich-routing-defect`](../evals/harbor/evidence-rich-routing-defect)
   is a synthetic negative case with architectural ambiguity, low-information
@@ -25,6 +25,21 @@ The committed dataset contains two complementary Harbor tasks:
   covers baseline correction, serial high-risk repairs, a runtime data-safety
   stop, defects found after static approval, targeted evidence recapture, and an
   external-effect boundary.
+
+The generic calibration tasks are:
+
+- [`calibration-false-fail`](../evals/harbor/calibration-false-fail), where complete criterion evidence must produce PASS (possibly with supported notes) rather than an invented blocking defect;
+- [`calibration-builder-self-verification`](../evals/harbor/calibration-builder-self-verification), where a builder catches a planted direct criterion violation before any independent checker; and
+- [`calibration-scoped-recheck`](../evals/harbor/calibration-scoped-recheck), where a repaired enumerated finding receives a delta-and-blast-radius recheck and a benign out-of-scope nitpick remains a note.
+
+These fixtures are deliberately task and project agnostic. Their `calibration` contract
+records the enumerated criteria, expected decision, and risk threshold. Criteria are
+frozen during one repair loop so evidence remains falsifiable; they may still be
+deliberately changed in a new packet revision when that revision states its rationale.
+Fixture validation enforces both parts of that contract. The committed Harbor directories
+make all three cases discoverable through the same `npm run eval:advisor` path as the
+broader trajectories; deterministic repository tests validate them without Harbor,
+network access, or a live judge.
 
 The positive case is intentionally long. Its worker count and elapsed time must not
 earn or lose reward by themselves: the judge must assess whether each gate produced

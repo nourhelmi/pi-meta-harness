@@ -25,6 +25,26 @@ const CASE_DIR = join(ROOT, "evals", "cases", "evidence-rich-routing-defect");
 const HARBOR_CASE_DIR = join(ROOT, "evals", "harbor", "evidence-rich-routing-defect");
 const ADAPTIVE_CASE_DIR = join(ROOT, "evals", "cases", "adaptive-cross-repo-delivery");
 const ADAPTIVE_HARBOR_CASE_DIR = join(ROOT, "evals", "harbor", "adaptive-cross-repo-delivery");
+const CALIBRATION_CASES = [
+  {
+    id: "calibration-false-fail",
+    behavior: "false-fail",
+    expectedDecision: "pass-with-notes",
+    expectedStatuses: ["successful", "successful"],
+  },
+  {
+    id: "calibration-builder-self-verification",
+    behavior: "builder-self-verification",
+    expectedDecision: "builder-reports-fail",
+    expectedStatuses: ["failed"],
+  },
+  {
+    id: "calibration-scoped-recheck",
+    behavior: "scoped-recheck",
+    expectedDecision: "scoped-pass",
+    expectedStatuses: ["failed", "successful", "successful"],
+  },
+];
 const ALIAS = /^(?:ar|g|n|w|a|m|l|h)_[0-9a-f]{32}$/;
 
 function run(...args) {
@@ -236,6 +256,16 @@ test("distinct long worker identities cannot collide or become false resumes", (
   assert.equal(metrics.workers.resumedLaunches, 0);
 });
 
+test("foreman launches remain a privacy-safe semantic role", () => {
+  const normalized = normalizeSession([
+    assistantEntry([workerCall("foreman-call", "generic-foreman", { role: "foreman" })]),
+    resultEntry("foreman-call"),
+  ]);
+  const launch = normalized.events.find((event) => event.kind === "worker_launch");
+  assert.equal(launch.role, "foreman");
+  assert.equal(analyzeTrace(normalized).workers.successfulByRole.foreman, 1);
+});
+
 test("ordered and out-of-order results correlate privately by toolCallId", () => {
   const calls = assistantEntry([
     workerCall("call-one", "worker-one"),
@@ -307,6 +337,47 @@ test("adaptive delivery case preserves the reviewed positive trace and baseline"
   assert.deepEqual(baseline.metrics.repetition.exactAnchorPairs, []);
   assert.deepEqual(baseline.metrics.repetition.exactLabelPairs, []);
   assert.equal(fixture.checkpoints.length, 7);
+});
+
+test("generic calibration cases validate, match baselines, and stay Harbor-synchronized", async () => {
+  for (const expected of CALIBRATION_CASES) {
+    const caseDir = join(ROOT, "evals", "cases", expected.id);
+    const harborDir = join(ROOT, "evals", "harbor", expected.id);
+    const { fixture, normalized } = await caseInputs(caseDir, "trace.json");
+    const baseline = JSON.parse(await readFile(join(caseDir, "baseline-report.json"), "utf8"));
+    const task = createHarborTask(fixture, normalized);
+    const context = JSON.parse(task.files["environment/advisor-eval-context.json"]);
+
+    assert.deepEqual(validateFixture(fixture, normalized), { valid: true, errors: [] });
+    assert.deepEqual(analyzeTrace(normalized), baseline.metrics);
+    assert.equal(fixture.calibration.behavior, expected.behavior);
+    assert.equal(fixture.calibration.expectedDecision, expected.expectedDecision);
+    assert.equal(fixture.calibration.riskThreshold, "medium");
+    assert.equal(fixture.calibration.criteriaRevision.frozenWithinLoop, true);
+    assert.equal(fixture.calibration.criteriaRevision.allowedWithRationale, true);
+    assert.deepEqual(context.calibration, fixture.calibration);
+    assert.deepEqual(
+      normalized.events
+        .filter((event) => ["worker_launch_result", "worker_status"].includes(event.kind))
+        .map((event) => event.status),
+      expected.expectedStatuses,
+    );
+    for (const [relativePath, contents] of Object.entries(task.files)) {
+      assert.equal(await readFile(join(harborDir, relativePath), "utf8"), contents, `${expected.id}/${relativePath}`);
+    }
+  }
+});
+
+test("calibration fixture validation rejects a rigid or incomplete criteria contract", async () => {
+  const caseDir = join(ROOT, "evals", "cases", CALIBRATION_CASES[0].id);
+  const { fixture, normalized } = await caseInputs(caseDir, "trace.json");
+  const invalid = structuredClone(fixture);
+  invalid.calibration.criteriaRevision.allowedWithRationale = false;
+  invalid.calibration.acceptanceCriteria = [];
+  const validation = validateFixture(invalid, normalized);
+  assert.equal(validation.valid, false);
+  assert(validation.errors.includes("calibration.acceptanceCriteria must contain non-empty criteria"));
+  assert(validation.errors.includes("calibration.criteriaRevision must freeze one loop and allow a reasoned packet revision"));
 });
 
 test("fixture validation rejects duplicate checkpoint and action semantics", async () => {

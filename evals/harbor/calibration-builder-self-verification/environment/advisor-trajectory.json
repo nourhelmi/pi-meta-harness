@@ -1,0 +1,129 @@
+{
+  "schema_version": "ATIF-v1.7",
+  "session_id": "ar_cee609d514217634a22e46c12e75a955",
+  "agent": {
+    "name": "pi-advisor",
+    "version": "recorded",
+    "extra": {
+      "source_kind": "pi-session-jsonl",
+      "text_policy": "categorical-only",
+      "alias_scope": "deterministic-per-artifact"
+    }
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "timestamp": "2026-02-01T00:00:00.000Z",
+      "source": "system",
+      "message": "Advisor session started.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0001",
+          "timestamp": "2026-02-01T00:00:00.000Z",
+          "kind": "session_started"
+        }
+      }
+    },
+    {
+      "step_id": 2,
+      "timestamp": "2026-02-01T00:00:01.000Z",
+      "source": "user",
+      "message": "User message observed.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0002",
+          "timestamp": "2026-02-01T00:00:01.000Z",
+          "kind": "user_message"
+        }
+      }
+    },
+    {
+      "step_id": 3,
+      "timestamp": "2026-02-01T00:00:02.000Z",
+      "source": "agent",
+      "message": "Advisor graph plan observed: 1 nodes across 1 dependency waves.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0003",
+          "timestamp": "2026-02-01T00:00:02.000Z",
+          "kind": "graph_plan",
+          "toolName": "advisor_graph_plan",
+          "graphAlias": "g_8e16b57eea59e6e127f037a02a3c21f1",
+          "nodeCount": 1,
+          "waves": [
+            {
+              "index": 1,
+              "nodeAliases": [
+                "n_2b58e72380566b03a5a64a8c40174bbb"
+              ],
+              "roles": [
+                "builder"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step_id": 4,
+      "timestamp": "2026-02-01T00:00:02.000Z",
+      "source": "agent",
+      "message": "Worker launch requested for role builder; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0004",
+          "timestamp": "2026-02-01T00:00:02.000Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "launch",
+          "workerAlias": "w_d5986efff8cb42344f57ab69add4eef5",
+          "attemptAlias": "a_937cec78aedd4f122d03c1a3e4cd90bd",
+          "role": "builder",
+          "labelAlias": "l_b6e731ca529c1e7aea60ebd4d45d7ba8",
+          "anchorAlias": "h_623c2195e5cd69627fea920b14f2cc9c",
+          "anchorWordCount": 7,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 5,
+      "timestamp": "2026-02-01T00:00:03.000Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role builder; status failed.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0005",
+          "timestamp": "2026-02-01T00:00:03.000Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_d5986efff8cb42344f57ab69add4eef5",
+          "attemptAlias": "a_937cec78aedd4f122d03c1a3e4cd90bd",
+          "role": "builder",
+          "status": "failed"
+        }
+      }
+    }
+  ],
+  "final_metrics": {
+    "total_steps": 5
+  },
+  "extra": {
+    "privacy": {
+      "rawMessageBodiesCopied": false,
+      "rawToolPayloadsCopied": false,
+      "arbitraryTextCopied": false,
+      "identityFieldsAliased": true,
+      "anchorTextStored": false
+    },
+    "relationships": {
+      "repetition": {
+        "exactAnchors": [],
+        "nearAnchors": [],
+        "exactLabels": [],
+        "nearLabels": [],
+        "truncated": false
+      }
+    }
+  }
+}

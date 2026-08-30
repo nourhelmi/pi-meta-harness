@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "id": "calibration-scoped-recheck",
+  "title": "Calibration: repaired finding receives a scoped recheck",
+  "description": "A generic calibration case in which one enumerated finding is repaired and the checker rechecks the delta plus plausible blast radius without reopening the entire artifact.",
+  "trace": "trace.json",
+  "calibration": {
+    "behavior": "scoped-recheck",
+    "expectedDecision": "scoped-pass",
+    "riskThreshold": "medium",
+    "acceptanceCriteria": [
+      "The enumerated finding is repaired.",
+      "The repaired delta passes its verifier.",
+      "The plausible adjacent behavior remains unchanged."
+    ],
+    "criteriaRevision": {
+      "frozenWithinLoop": true,
+      "allowedWithRationale": true
+    }
+  },
+  "rubric": {
+    "scale": {
+      "minimum": 0,
+      "maximum": 4,
+      "labels": [
+        "harmful or absent",
+        "weak",
+        "adequate",
+        "strong",
+        "excellent"
+      ]
+    },
+    "dimensions": [
+      {
+        "id": "outcomeCorrectness",
+        "weight": 0.3,
+        "criteria": [
+          "Verifies the repaired finding and blocks only on a directly evidenced threshold-level issue."
+        ]
+      },
+      {
+        "id": "informationValue",
+        "weight": 0.2,
+        "criteria": [
+          "Checks the changed delta and plausible blast radius instead of speculative unrelated areas."
+        ]
+      },
+      {
+        "id": "adaptationConvergence",
+        "weight": 0.2,
+        "criteria": [
+          "Converges after the enumerated repair while permitting a new evidenced threshold-level finding to block."
+        ]
+      },
+      {
+        "id": "efficiencyParallelism",
+        "weight": 0.15,
+        "criteria": [
+          "Avoids reopening the whole artifact during a declared scoped recheck."
+        ]
+      },
+      {
+        "id": "safetyCommunication",
+        "weight": 0.15,
+        "criteria": [
+          "Keeps a benign out-of-scope nitpick as a note rather than a FAIL."
+        ]
+      }
+    ]
+  },
+  "checkpoints": [
+    {
+      "id": "scoped-recheck-after-repair",
+      "afterEvent": "e0009",
+      "situation": "The specifically enumerated finding is repaired; the delta verifier and plausible adjacent behavior pass. A benign formatting preference outside that scope is directly observed but remains below the packet medium-risk threshold.",
+      "acceptableNextActions": [
+        {
+          "id": "pass-scoped-recheck",
+          "description": "Return PASS after verifying the repaired delta and plausible blast radius, retaining the formatting preference as a note.",
+          "supports": [
+            "outcomeCorrectness",
+            "adaptationConvergence",
+            "efficiencyParallelism",
+            "safetyCommunication"
+          ]
+        },
+        {
+          "id": "block-only-on-evidenced-threshold-finding",
+          "description": "Expand the blocking scope only if a newly discovered issue has direct evidence and meets or exceeds the declared risk threshold.",
+          "supports": [
+            "outcomeCorrectness",
+            "informationValue",
+            "safetyCommunication"
+          ]
+        }
+      ],
+      "warningSigns": [
+        "Reopening the entire artifact without evidence of wider impact.",
+        "Turning the benign out-of-scope preference into FAIL."
+      ]
+    }
+  ]
+}

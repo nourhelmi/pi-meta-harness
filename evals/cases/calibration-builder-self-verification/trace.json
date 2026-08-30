@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "kind": "pi-session-jsonl",
+    "artifactAlias": "ar_cee609d514217634a22e46c12e75a955",
+    "entryCount": 4,
+    "textPolicy": "categorical-only",
+    "aliasScope": "deterministic-per-artifact"
+  },
+  "redaction": {
+    "rawMessageBodiesCopied": false,
+    "rawToolPayloadsCopied": false,
+    "arbitraryTextCopied": false,
+    "identityFieldsAliased": true,
+    "anchorTextStored": false
+  },
+  "relationships": {
+    "repetition": {
+      "exactAnchors": [],
+      "nearAnchors": [],
+      "exactLabels": [],
+      "nearLabels": [],
+      "truncated": false
+    }
+  },
+  "events": [
+    {
+      "id": "e0001",
+      "timestamp": "2026-02-01T00:00:00.000Z",
+      "kind": "session_started"
+    },
+    {
+      "id": "e0002",
+      "timestamp": "2026-02-01T00:00:01.000Z",
+      "kind": "user_message"
+    },
+    {
+      "id": "e0003",
+      "timestamp": "2026-02-01T00:00:02.000Z",
+      "kind": "graph_plan",
+      "toolName": "advisor_graph_plan",
+      "graphAlias": "g_8e16b57eea59e6e127f037a02a3c21f1",
+      "nodeCount": 1,
+      "waves": [
+        {
+          "index": 1,
+          "nodeAliases": [
+            "n_2b58e72380566b03a5a64a8c40174bbb"
+          ],
+          "roles": [
+            "builder"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e0004",
+      "timestamp": "2026-02-01T00:00:02.000Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "launch",
+      "workerAlias": "w_d5986efff8cb42344f57ab69add4eef5",
+      "attemptAlias": "a_937cec78aedd4f122d03c1a3e4cd90bd",
+      "role": "builder",
+      "labelAlias": "l_b6e731ca529c1e7aea60ebd4d45d7ba8",
+      "anchorAlias": "h_623c2195e5cd69627fea920b14f2cc9c",
+      "anchorWordCount": 7,
+      "status": "requested"
+    },
+    {
+      "id": "e0005",
+      "timestamp": "2026-02-01T00:00:03.000Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_d5986efff8cb42344f57ab69add4eef5",
+      "attemptAlias": "a_937cec78aedd4f122d03c1a3e4cd90bd",
+      "role": "builder",
+      "status": "failed"
+    }
+  ]
+}

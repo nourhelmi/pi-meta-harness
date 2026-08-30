@@ -19,11 +19,23 @@ const RUBRIC_DIMENSIONS = [
   "efficiencyParallelism",
   "safetyCommunication",
 ];
+const CALIBRATION_BEHAVIORS = new Set([
+  "false-fail",
+  "builder-self-verification",
+  "scoped-recheck",
+]);
+const CALIBRATION_DECISIONS = new Set([
+  "pass-with-notes",
+  "builder-reports-fail",
+  "scoped-pass",
+]);
+const RISK_THRESHOLDS = new Set(["low", "medium", "high"]);
 const ALLOWED_ROLES = new Set([
   "scout",
   "planner",
   "reducer",
   "builder",
+  "foreman",
   "checker",
   "browser-verifier",
   "unknown",
@@ -827,12 +839,34 @@ function normalizedDescription(value) {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function validateCalibration(calibration, errors) {
+  if (calibration === undefined) return;
+  if (!isObject(calibration)) {
+    errors.push("calibration must be an object");
+    return;
+  }
+  if (!CALIBRATION_BEHAVIORS.has(calibration.behavior)) errors.push("calibration.behavior is invalid");
+  if (!CALIBRATION_DECISIONS.has(calibration.expectedDecision)) errors.push("calibration.expectedDecision is invalid");
+  if (!RISK_THRESHOLDS.has(calibration.riskThreshold)) errors.push("calibration.riskThreshold is invalid");
+  if (!Array.isArray(calibration.acceptanceCriteria)
+    || !calibration.acceptanceCriteria.length
+    || calibration.acceptanceCriteria.some((criterion) => typeof criterion !== "string" || !criterion.trim())) {
+    errors.push("calibration.acceptanceCriteria must contain non-empty criteria");
+  }
+  if (!isObject(calibration.criteriaRevision)
+    || calibration.criteriaRevision.frozenWithinLoop !== true
+    || calibration.criteriaRevision.allowedWithRationale !== true) {
+    errors.push("calibration.criteriaRevision must freeze one loop and allow a reasoned packet revision");
+  }
+}
+
 export function validateFixture(fixture, normalized) {
   const errors = [];
   if (!isObject(fixture)) return { valid: false, errors: ["Fixture must be an object"] };
   if (fixture.schemaVersion !== FIXTURE_SCHEMA_VERSION) errors.push(`schemaVersion must be ${FIXTURE_SCHEMA_VERSION}`);
   if (typeof fixture.id !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(fixture.id)) errors.push("id must be a lowercase slug");
   if (typeof fixture.title !== "string" || !fixture.title.trim()) errors.push("title is required");
+  validateCalibration(fixture.calibration, errors);
   if (!isObject(fixture.rubric) || !Array.isArray(fixture.rubric.dimensions)) {
     errors.push("rubric.dimensions must be an array");
   } else {

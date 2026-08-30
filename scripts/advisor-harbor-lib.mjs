@@ -87,10 +87,13 @@ function createContext(fixture, normalized, metrics) {
       },
     },
     checkpoints: structuredClone(fixture.checkpoints),
+    ...(fixture.calibration ? { calibration: structuredClone(fixture.calibration) } : {}),
     judgeGuidance: {
       noGoldenWorkflow: true,
       acceptableActionsAreExamples: true,
-      instruction: "Judge the observable decisions and adaptation against the evidence. Do not require one exact topology or action sequence.",
+      instruction: fixture.calibration
+        ? "Judge the observable decisions and adaptation against the evidence. Do not require one exact topology or action sequence. Enforce the calibration risk threshold and expected decision without inventing unsupported defects. Acceptance criteria stay frozen within one loop, but a new packet revision may deliberately change them when its rationale is explicit."
+        : "Judge the observable decisions and adaptation against the evidence. Do not require one exact topology or action sequence.",
     },
   };
 }

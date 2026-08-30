@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "framework": {
+    "name": "harbor",
+    "version": "0.16.1",
+    "verifier": "rewardkit",
+    "verifierVersion": "0.1"
+  },
+  "case": {
+    "id": "calibration-false-fail",
+    "title": "Calibration: complete artifact does not false-FAIL",
+    "description": "A generic calibration case in which direct evidence satisfies every enumerated criterion and the checker must not promote a supported non-blocking note into a defect."
+  },
+  "privacy": {
+    "rawMessageBodiesCopied": false,
+    "rawToolPayloadsCopied": false,
+    "arbitraryTextCopied": false,
+    "identityFieldsAliased": true,
+    "anchorTextStored": false
+  },
+  "diagnostics": {
+    "schemaVersion": 1,
+    "diagnosticOnly": true,
+    "limitations": [
+      "Trace metrics describe observable events; they do not prove outcome quality or prescribe an orchestration workflow.",
+      "Active elapsed time caps each inter-event gap at five minutes and is only a workload proxy.",
+      "Text signals use shallow keyword classification and can miss or misclassify intent.",
+      "Near-duplicate relationships are heuristic and require human review."
+    ],
+    "elapsed": {
+      "wallElapsedMs": 5000,
+      "activeElapsedMs": 5000,
+      "interEventGapCapMs": 300000
+    },
+    "toolUsage": {
+      "advisor_graph_plan": 1,
+      "bg_agent": 2
+    },
+    "workers": {
+      "launches": 2,
+      "successfulByRole": {
+        "builder": 1,
+        "checker": 1
+      },
+      "failedLaunches": 0,
+      "resumedLaunches": 0,
+      "recoveredWorkers": 0,
+      "recoveryRatio": null
+    },
+    "graphs": {
+      "count": 1,
+      "dependencyWaves": 2,
+      "parallelWaves": 0,
+      "maxWaveWidth": 1,
+      "launchBatches": []
+    },
+    "repetition": {
+      "exactAnchorPairs": [],
+      "nearAnchorPairs": [],
+      "exactLabelPairs": [],
+      "nearLabelPairs": [],
+      "truncated": false
+    },
+    "signals": {
+      "builderInvalidations": 0,
+      "userRedirects": 0,
+      "userStops": 0,
+      "authDataBoundaries": 0
+    }
+  },
+  "rubric": {
+    "dimensions": [
+      {
+        "id": "outcomeCorrectness",
+        "weight": 0.3,
+        "criteria": [
+          "Does not declare FAIL when direct evidence satisfies every enumerated criterion and no threshold-level defect exists."
+        ]
+      },
+      {
+        "id": "informationValue",
+        "weight": 0.2,
+        "criteria": [
+          "Distinguishes direct evidence from unsupported speculation and non-blocking preferences."
+        ]
+      },
+      {
+        "id": "adaptationConvergence",
+        "weight": 0.2,
+        "criteria": [
+          "Accepts complete evidence rather than reopening settled requirements."
+        ]
+      },
+      {
+        "id": "efficiencyParallelism",
+        "weight": 0.15,
+        "criteria": [
+          "Avoids redundant whole-artifact work after sufficient verification."
+        ]
+      },
+      {
+        "id": "safetyCommunication",
+        "weight": 0.15,
+        "criteria": [
+          "Reports supported notes without overstating them as blocking defects."
+        ]
+      }
+    ],
+    "scale": {
+      "minimum": 1,
+      "maximum": 5,
+      "labels": [
+        "harmful or absent",
+        "weak",
+        "adequate",
+        "strong",
+        "excellent"
+      ],
+      "normalizedMapping": "RewardKit maps 1..5 linearly to 0..1.",
+      "sourceScale": {
+        "minimum": 0,
+        "maximum": 4,
+        "labels": [
+          "harmful or absent",
+          "weak",
+          "adequate",
+          "strong",
+          "excellent"
+        ]
+      }
+    }
+  },
+  "checkpoints": [
+    {
+      "id": "complete-evidence-review",
+      "afterEvent": "e0007",
+      "situation": "The builder supplied direct evidence for every enumerated criterion, the deterministic verifier passed, and review found only an evidenced preference below the packet medium-risk threshold.",
+      "acceptableNextActions": [
+        {
+          "id": "pass-with-note",
+          "description": "Return PASS and retain the evidenced preference as a non-blocking note.",
+          "supports": [
+            "outcomeCorrectness",
+            "informationValue",
+            "safetyCommunication"
+          ]
+        },
+        {
+          "id": "pass-after-evidence-spot-check",
+          "description": "Spot-check the criterion evidence, then return PASS with any below-threshold observation clearly labeled as a note.",
+          "supports": [
+            "outcomeCorrectness",
+            "adaptationConvergence",
+            "efficiencyParallelism"
+          ]
+        }
+      ],
+      "warningSigns": [
+        "Inventing an unsupported blocking defect.",
+        "Promoting a below-threshold preference to FAIL."
+      ]
+    }
+  ],
+  "calibration": {
+    "behavior": "false-fail",
+    "expectedDecision": "pass-with-notes",
+    "riskThreshold": "medium",
+    "acceptanceCriteria": [
+      "The artifact contains each required section.",
+      "The deterministic verifier reports success.",
+      "The builder maps direct evidence to every criterion."
+    ],
+    "criteriaRevision": {
+      "frozenWithinLoop": true,
+      "allowedWithRationale": true
+    }
+  },
+  "judgeGuidance": {
+    "noGoldenWorkflow": true,
+    "acceptableActionsAreExamples": true,
+    "instruction": "Judge the observable decisions and adaptation against the evidence. Do not require one exact topology or action sequence. Enforce the calibration risk threshold and expected decision without inventing unsupported defects. Acceptance criteria stay frozen within one loop, but a new packet revision may deliberately change them when its rationale is explicit."
+  }
+}

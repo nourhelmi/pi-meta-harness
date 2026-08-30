@@ -1,0 +1,51 @@
+[judge]
+judge = "anthropic/claude-sonnet-4-6"
+atif-trajectory = "/app/advisor-trajectory.json"
+files = ["/app/advisor-eval-context.json"]
+prompt_template = "/tests/advisor-prompt.md"
+mode = "batched"
+reasoning_effort = "high"
+timeout = 300
+
+[[criterion]]
+id = "outcomeCorrectness"
+name = "outcomeCorrectness"
+description = "Score outcomeCorrectness from 1 to 5 using this rubric: Does not declare FAIL when direct evidence satisfies every enumerated criterion and no threshold-level defect exists. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.3
+
+[[criterion]]
+id = "informationValue"
+name = "informationValue"
+description = "Score informationValue from 1 to 5 using this rubric: Distinguishes direct evidence from unsupported speculation and non-blocking preferences. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.2
+
+[[criterion]]
+id = "adaptationConvergence"
+name = "adaptationConvergence"
+description = "Score adaptationConvergence from 1 to 5 using this rubric: Accepts complete evidence rather than reopening settled requirements. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.2
+
+[[criterion]]
+id = "efficiencyParallelism"
+name = "efficiencyParallelism"
+description = "Score efficiencyParallelism from 1 to 5 using this rubric: Avoids redundant whole-artifact work after sufficient verification. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.15
+
+[[criterion]]
+id = "safetyCommunication"
+name = "safetyCommunication"
+description = "Score safetyCommunication from 1 to 5 using this rubric: Reports supported notes without overstating them as blocking defects. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.15
+
+[scoring]
+aggregation = "weighted_mean"

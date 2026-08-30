@@ -1,0 +1,232 @@
+{
+  "schema_version": "ATIF-v1.7",
+  "session_id": "ar_8a544f0e398f87b7eab54bd58e3f3494",
+  "agent": {
+    "name": "pi-advisor",
+    "version": "recorded",
+    "extra": {
+      "source_kind": "pi-session-jsonl",
+      "text_policy": "categorical-only",
+      "alias_scope": "deterministic-per-artifact"
+    }
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "timestamp": "2026-02-01T00:00:00.000Z",
+      "source": "system",
+      "message": "Advisor session started.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0001",
+          "timestamp": "2026-02-01T00:00:00.000Z",
+          "kind": "session_started"
+        }
+      }
+    },
+    {
+      "step_id": 2,
+      "timestamp": "2026-02-01T00:00:01.000Z",
+      "source": "user",
+      "message": "User message observed.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0002",
+          "timestamp": "2026-02-01T00:00:01.000Z",
+          "kind": "user_message"
+        }
+      }
+    },
+    {
+      "step_id": 3,
+      "timestamp": "2026-02-01T00:00:02.000Z",
+      "source": "agent",
+      "message": "Advisor graph plan observed: 3 nodes across 3 dependency waves.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0003",
+          "timestamp": "2026-02-01T00:00:02.000Z",
+          "kind": "graph_plan",
+          "toolName": "advisor_graph_plan",
+          "graphAlias": "g_f902c5339e271b88170f9912ea5eb1ad",
+          "nodeCount": 3,
+          "waves": [
+            {
+              "index": 1,
+              "nodeAliases": [
+                "n_f5ce1c846ef93cb3681d22c4471f90b7"
+              ],
+              "roles": [
+                "checker"
+              ]
+            },
+            {
+              "index": 2,
+              "nodeAliases": [
+                "n_5c035a7e691e6996c8f36c332f4af323"
+              ],
+              "roles": [
+                "builder"
+              ]
+            },
+            {
+              "index": 3,
+              "nodeAliases": [
+                "n_a770b56a447b9c4bdda13552a05d92c0"
+              ],
+              "roles": [
+                "checker"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "step_id": 4,
+      "timestamp": "2026-02-01T00:00:02.000Z",
+      "source": "agent",
+      "message": "Worker launch requested for role checker; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0004",
+          "timestamp": "2026-02-01T00:00:02.000Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "launch",
+          "workerAlias": "w_e6ade7d03f5f8d9caa5c747b36b7e32f",
+          "attemptAlias": "a_e69b858280923105566b2b9c98740413",
+          "role": "checker",
+          "labelAlias": "l_2a107ac237122b51fbc3def2bacdd7e6",
+          "anchorAlias": "h_53ee30bc2b05a1c56738e98bb31fa712",
+          "anchorWordCount": 8,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 5,
+      "timestamp": "2026-02-01T00:00:03.000Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role checker; status failed.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0005",
+          "timestamp": "2026-02-01T00:00:03.000Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_e6ade7d03f5f8d9caa5c747b36b7e32f",
+          "attemptAlias": "a_e69b858280923105566b2b9c98740413",
+          "role": "checker",
+          "status": "failed"
+        }
+      }
+    },
+    {
+      "step_id": 6,
+      "timestamp": "2026-02-01T00:00:04.000Z",
+      "source": "agent",
+      "message": "Worker launch requested for role builder; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0006",
+          "timestamp": "2026-02-01T00:00:04.000Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "launch",
+          "workerAlias": "w_61367d4aa0acca21a5321d7b58a5e782",
+          "attemptAlias": "a_628df8e08de17adfd104f74fd444925f",
+          "role": "builder",
+          "labelAlias": "l_10a866d84c6bc27b65097513d4e4c735",
+          "anchorAlias": "h_a5395ea8a1d429062e48fc0ae0505afe",
+          "anchorWordCount": 10,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 7,
+      "timestamp": "2026-02-01T00:00:05.000Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role builder; status successful.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0007",
+          "timestamp": "2026-02-01T00:00:05.000Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_61367d4aa0acca21a5321d7b58a5e782",
+          "attemptAlias": "a_628df8e08de17adfd104f74fd444925f",
+          "role": "builder",
+          "status": "successful"
+        }
+      }
+    },
+    {
+      "step_id": 8,
+      "timestamp": "2026-02-01T00:00:06.000Z",
+      "source": "agent",
+      "message": "Worker resume requested for role checker; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0008",
+          "timestamp": "2026-02-01T00:00:06.000Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "resume",
+          "workerAlias": "w_e6ade7d03f5f8d9caa5c747b36b7e32f",
+          "attemptAlias": "a_0c057d6fc01bbef78b9b41c4c27fba82",
+          "role": "checker",
+          "labelAlias": "l_2a107ac237122b51fbc3def2bacdd7e6",
+          "anchorAlias": "h_2b06f357e2e63a2d99fa99b0a7a3a5ff",
+          "anchorWordCount": 8,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 9,
+      "timestamp": "2026-02-01T00:00:07.000Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role checker; status successful.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0009",
+          "timestamp": "2026-02-01T00:00:07.000Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_e6ade7d03f5f8d9caa5c747b36b7e32f",
+          "attemptAlias": "a_0c057d6fc01bbef78b9b41c4c27fba82",
+          "role": "checker",
+          "status": "successful"
+        }
+      }
+    }
+  ],
+  "final_metrics": {
+    "total_steps": 9
+  },
+  "extra": {
+    "privacy": {
+      "rawMessageBodiesCopied": false,
+      "rawToolPayloadsCopied": false,
+      "arbitraryTextCopied": false,
+      "identityFieldsAliased": true,
+      "anchorTextStored": false
+    },
+    "relationships": {
+      "repetition": {
+        "exactAnchors": [],
+        "nearAnchors": [],
+        "exactLabels": [
+          [
+            "e0004",
+            "e0008"
+          ]
+        ],
+        "nearLabels": [],
+        "truncated": false
+      }
+    }
+  }
+}

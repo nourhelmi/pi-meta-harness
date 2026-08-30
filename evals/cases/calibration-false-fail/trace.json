@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "kind": "pi-session-jsonl",
+    "artifactAlias": "ar_51fec202705ef3cd439f1c2686b0def2",
+    "entryCount": 6,
+    "textPolicy": "categorical-only",
+    "aliasScope": "deterministic-per-artifact"
+  },
+  "redaction": {
+    "rawMessageBodiesCopied": false,
+    "rawToolPayloadsCopied": false,
+    "arbitraryTextCopied": false,
+    "identityFieldsAliased": true,
+    "anchorTextStored": false
+  },
+  "relationships": {
+    "repetition": {
+      "exactAnchors": [],
+      "nearAnchors": [],
+      "exactLabels": [],
+      "nearLabels": [],
+      "truncated": false
+    }
+  },
+  "events": [
+    {
+      "id": "e0001",
+      "timestamp": "2026-02-01T00:00:00.000Z",
+      "kind": "session_started"
+    },
+    {
+      "id": "e0002",
+      "timestamp": "2026-02-01T00:00:01.000Z",
+      "kind": "user_message"
+    },
+    {
+      "id": "e0003",
+      "timestamp": "2026-02-01T00:00:02.000Z",
+      "kind": "graph_plan",
+      "toolName": "advisor_graph_plan",
+      "graphAlias": "g_13e2869c6a8950cc1dfcc1662a97d31f",
+      "nodeCount": 2,
+      "waves": [
+        {
+          "index": 1,
+          "nodeAliases": [
+            "n_c26d29292d294ad3331936415b7c3487"
+          ],
+          "roles": [
+            "builder"
+          ]
+        },
+        {
+          "index": 2,
+          "nodeAliases": [
+            "n_391680f14a27fd457a17b14f93c63664"
+          ],
+          "roles": [
+            "checker"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e0004",
+      "timestamp": "2026-02-01T00:00:02.000Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "launch",
+      "workerAlias": "w_db95e00fc3b1a413deeaaa80520132bb",
+      "attemptAlias": "a_fc4c674d417235ebe2d44a1c09bd1748",
+      "role": "builder",
+      "labelAlias": "l_d4ada11601c5bf77f3a1e6fa7516e19f",
+      "anchorAlias": "h_6c2b9352d6a6ad0850fc7110d4ae72ff",
+      "anchorWordCount": 6,
+      "status": "requested"
+    },
+    {
+      "id": "e0005",
+      "timestamp": "2026-02-01T00:00:03.000Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_db95e00fc3b1a413deeaaa80520132bb",
+      "attemptAlias": "a_fc4c674d417235ebe2d44a1c09bd1748",
+      "role": "builder",
+      "status": "successful"
+    },
+    {
+      "id": "e0006",
+      "timestamp": "2026-02-01T00:00:04.000Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "launch",
+      "workerAlias": "w_dd64b42dce738fd6109af3d495ab6289",
+      "attemptAlias": "a_3a355870311d2c2aa9db2ce7065f5a85",
+      "role": "checker",
+      "labelAlias": "l_82448b6617f59e5acbf160d8832b5feb",
+      "anchorAlias": "h_ed600ac18913abf0196e08d995a50e26",
+      "anchorWordCount": 7,
+      "status": "requested"
+    },
+    {
+      "id": "e0007",
+      "timestamp": "2026-02-01T00:00:05.000Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_dd64b42dce738fd6109af3d495ab6289",
+      "attemptAlias": "a_3a355870311d2c2aa9db2ce7065f5a85",
+      "role": "checker",
+      "status": "successful"
+    }
+  ]
+}

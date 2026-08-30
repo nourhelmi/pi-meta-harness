@@ -1,0 +1,32 @@
+schema_version = "1.4"
+
+[task]
+name = "pi-meta-harness/calibration-false-fail"
+version = "1.0.0"
+description = "A generic calibration case in which direct evidence satisfies every enumerated criterion and the checker must not promote a supported non-blocking note into a defect."
+authors = []
+keywords = ["advisor", "orchestration", "trajectory", "privacy-safe"]
+
+[metadata]
+category = "advisor-orchestration"
+case_id = "calibration-false-fail"
+trace_policy = "categorical-only"
+
+[verifier]
+timeout_sec = 600.0
+
+[verifier.env]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
+CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+OPENAI_API_KEY = "${OPENAI_API_KEY:-}"
+REWARDKIT_JUDGE = "${REWARDKIT_JUDGE:-anthropic/claude-sonnet-4-6}"
+
+[agent]
+timeout_sec = 30.0
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 4096

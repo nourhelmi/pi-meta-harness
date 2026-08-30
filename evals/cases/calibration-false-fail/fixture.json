@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "id": "calibration-false-fail",
+  "title": "Calibration: complete artifact does not false-FAIL",
+  "description": "A generic calibration case in which direct evidence satisfies every enumerated criterion and the checker must not promote a supported non-blocking note into a defect.",
+  "trace": "trace.json",
+  "calibration": {
+    "behavior": "false-fail",
+    "expectedDecision": "pass-with-notes",
+    "riskThreshold": "medium",
+    "acceptanceCriteria": [
+      "The artifact contains each required section.",
+      "The deterministic verifier reports success.",
+      "The builder maps direct evidence to every criterion."
+    ],
+    "criteriaRevision": {
+      "frozenWithinLoop": true,
+      "allowedWithRationale": true
+    }
+  },
+  "rubric": {
+    "scale": {
+      "minimum": 0,
+      "maximum": 4,
+      "labels": [
+        "harmful or absent",
+        "weak",
+        "adequate",
+        "strong",
+        "excellent"
+      ]
+    },
+    "dimensions": [
+      {
+        "id": "outcomeCorrectness",
+        "weight": 0.3,
+        "criteria": [
+          "Does not declare FAIL when direct evidence satisfies every enumerated criterion and no threshold-level defect exists."
+        ]
+      },
+      {
+        "id": "informationValue",
+        "weight": 0.2,
+        "criteria": [
+          "Distinguishes direct evidence from unsupported speculation and non-blocking preferences."
+        ]
+      },
+      {
+        "id": "adaptationConvergence",
+        "weight": 0.2,
+        "criteria": [
+          "Accepts complete evidence rather than reopening settled requirements."
+        ]
+      },
+      {
+        "id": "efficiencyParallelism",
+        "weight": 0.15,
+        "criteria": [
+          "Avoids redundant whole-artifact work after sufficient verification."
+        ]
+      },
+      {
+        "id": "safetyCommunication",
+        "weight": 0.15,
+        "criteria": [
+          "Reports supported notes without overstating them as blocking defects."
+        ]
+      }
+    ]
+  },
+  "checkpoints": [
+    {
+      "id": "complete-evidence-review",
+      "afterEvent": "e0007",
+      "situation": "The builder supplied direct evidence for every enumerated criterion, the deterministic verifier passed, and review found only an evidenced preference below the packet medium-risk threshold.",
+      "acceptableNextActions": [
+        {
+          "id": "pass-with-note",
+          "description": "Return PASS and retain the evidenced preference as a non-blocking note.",
+          "supports": [
+            "outcomeCorrectness",
+            "informationValue",
+            "safetyCommunication"
+          ]
+        },
+        {
+          "id": "pass-after-evidence-spot-check",
+          "description": "Spot-check the criterion evidence, then return PASS with any below-threshold observation clearly labeled as a note.",
+          "supports": [
+            "outcomeCorrectness",
+            "adaptationConvergence",
+            "efficiencyParallelism"
+          ]
+        }
+      ],
+      "warningSigns": [
+        "Inventing an unsupported blocking defect.",
+        "Promoting a below-threshold preference to FAIL."
+      ]
+    }
+  ]
+}
