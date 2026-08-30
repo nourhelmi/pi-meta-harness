@@ -10,6 +10,7 @@ export const REQUIRED_ROLES = [
   "planner",
   "reducer",
   "builder",
+  "foreman",
   "checker",
   "browser-verifier",
 ];
@@ -35,6 +36,7 @@ const ROLE_FIELDS = new Set([
   "cliArgs",
   "maxTurns",
   "requireAnchor",
+  "allowSubagents",
 ]);
 
 function isObject(value) {

@@ -106,6 +106,9 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.deepEqual(Object.keys(roles).sort(), ["defaultAgent", "profiles"]);
   assert.equal(roles.profiles.planner.skill, "advisor-role-planner");
   assert.equal(roles.profiles.builder.maxTurns, 6);
+  assert.equal(roles.profiles.foreman.skill, "advisor-role-foreman");
+  assert.equal(roles.profiles.foreman.allowSubagents, true);
+  assert.equal("excludeTools" in roles.profiles.foreman, false);
   assert.equal(roles.profiles.checker.requireAnchor, true);
   assert.equal(roles.profiles.scout.skillPath, "skills/advisor-worker/roles/scout/SKILL.md");
   assert.equal(roles.profiles["browser-verifier"].skillPath, "skills/advisor-worker/roles/browser-verifier/SKILL.md");

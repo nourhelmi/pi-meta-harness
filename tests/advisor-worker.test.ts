@@ -12,6 +12,60 @@ interface HookMap {
   agent_settled?: (event: unknown, ctx: ExtensionContext) => Promise<void>;
 }
 
+test("worker runtime grants bounded delegation only when its profile allows it", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "advisor-worker-delegation-"));
+  const rolesPath = join(temp, "roles.json");
+  await writeFile(rolesPath, `${JSON.stringify({
+    profiles: {
+      builder: { skill: "advisor-role-builder", maxTurns: 6 },
+      foreman: { skill: "advisor-role-foreman", maxTurns: 6, allowSubagents: true },
+    },
+  })}\n`);
+
+  const previousProfiles = process.env.PI_DETACH_AGENT_PROFILES;
+  const previousState = process.env.ADVISOR_STATE_DIR;
+  process.env.PI_DETACH_AGENT_PROFILES = rolesPath;
+  process.env.ADVISOR_STATE_DIR = join(temp, "state");
+  try {
+    const contractFor = async (role: "builder" | "foreman") => {
+      const hooks: HookMap = {};
+      const pi = {
+        appendEntry: () => undefined,
+        getFlag: (name: string) => name === "advisor-worker-role" ? role : undefined,
+        on: (name: keyof HookMap, handler: HookMap[keyof HookMap]) => {
+          Object.assign(hooks, { [name]: handler });
+        },
+        registerFlag: () => undefined,
+      } as unknown as ExtensionAPI;
+      advisorWorkerExtension(pi);
+      const context = {
+        cwd: temp,
+        model: { provider: "test", id: "model" },
+        thinkingLevel: "low",
+        sessionManager: { getSessionId: () => `${role}-session` },
+        ui: { notify: () => undefined, setStatus: () => undefined },
+      } as unknown as ExtensionContext;
+      await hooks.session_start?.({}, context);
+      return hooks.before_agent_start?.({ systemPrompt: "base" }, context)?.systemPrompt ?? "";
+    };
+
+    const builderContract = await contractFor("builder");
+    assert.match(builderContract, /advisor_session_init, another agent, a graph/);
+    assert.doesNotMatch(builderContract, /depth-1 visible subagents/);
+
+    const foremanContract = await contractFor("foreman");
+    assert.match(foremanContract, /only depth-1 visible subagents through bg_agent/);
+    assert.match(foremanContract, /each subagent that it must never launch another agent, graph, orchestrator/);
+    assert.doesNotMatch(foremanContract, /advisor_session_init, another agent, a graph/);
+  } finally {
+    if (previousProfiles === undefined) delete process.env.PI_DETACH_AGENT_PROFILES;
+    else process.env.PI_DETACH_AGENT_PROFILES = previousProfiles;
+    if (previousState === undefined) delete process.env.ADVISOR_STATE_DIR;
+    else process.env.ADVISOR_STATE_DIR = previousState;
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
 test("worker accepts launch and changed identities outside advisor recommendations", async () => {
   const temp = await mkdtemp(join(tmpdir(), "advisor-worker-"));
   const rolesPath = join(temp, "roles.json");

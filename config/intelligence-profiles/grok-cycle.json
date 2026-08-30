@@ -63,6 +63,18 @@
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
+    "foreman": [
+      {
+        "model": "cursor/grok-4.6",
+        "thinking": "high",
+        "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
+      },
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "medium",
+        "fit": "Native-harness fallback for bounded end-to-end work with delegated internal steps."
+      }
+    ],
     "checker": [
       {
         "model": "cursor/grok-4.6",

@@ -34,7 +34,8 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    user-approved push via `bg_run` — is advisor work; never launch a builder
    just to commit.
 2. **Maker ≠ checker.** The agent that produced work never performs its own
-   independent review. Builders still self-verify every acceptance criterion —
+   independent review. Builders and foremen still self-verify every acceptance
+   criterion —
    that is their contract, not a checker's job. When independent review is
    warranted, a fresh checker through the session's worker harness performs it
    at the Checker economy cadence, not automatically after every builder.
@@ -46,9 +47,9 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
 3. **One workstream owner.** Two advisor sessions must not own the same
    workstream. Transfer ownership with an explicit handoff event before a new
    session continues it.
-4. **One builder per workstream at a time.** Parallel builders require different
-   git worktrees and explicit user approval for the added spend. Two workers
-   writing the same checkout is a design error.
+4. **One maker per workstream at a time.** Parallel builders or foremen require
+   different git worktrees and explicit user approval for the added spend. Two
+   workers writing the same checkout is a design error.
 5. **Acceptance criteria are frozen.** "Done" means every criterion in the
    packet was verified, not that an agent said so: the named checks actually
    ran and passed, deploys succeeded, or tests pass in the worktree. Never
@@ -56,6 +57,12 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    is the trivial-node exception; nontrivial packets enumerate `acceptance`
    criteria — falsifiable claims, each with its proof method, including how
    the work must fail.
+   **Deliberate criteria revision.** Criteria are frozen within one loop so
+   failure can never become success by weakening them. They contract the current
+   packet, not the project spec. When execution reveals new information,
+   deliberately revise criteria in a new packet revision and record the change
+   and reason in the workstream file. Understand the deviation and choose its
+   correct handling; criteria serve the advisor's judgment, not the reverse.
 6. **Bound delegated work.** Put task-appropriate token budgets on `/goal`,
    repair caps on loops, node caps on graphs, and spend limits on recurring
    work. These are ceilings for bounded attempts, not rigid global elapsed-time
@@ -98,15 +105,16 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
 ## Worker role policy
 
 `bg_agent` is the Herdr lifecycle transport. The persisted session mode applies
-to every semantic role: `scout`, `planner`, `reducer`, `builder`, `checker`, and
-`browser-verifier`. In Pi mode, selected models run through Pi. In native mode,
+to every semantic role: `scout`, `planner`, `reducer`, `builder`, `foreman`,
+`checker`, and `browser-verifier`. In Pi mode, selected models run through Pi.
+In native mode,
 OpenAI models run through Codex CLI and Anthropic/Claude models run through
 Claude Code. Keep semantic role names unchanged; do not invent harness-specific
 role aliases. Every role packet includes the installed role-skill path and
 instructs the worker to load it before starting. The advisor skill remains
 explicit-only, and the root advisor always remains Pi.
 
-Roles use instructional guardrails: the role skill, no-nested-delegation rule,
+Roles use instructional guardrails: the role skill, bounded-delegation rule,
 write boundaries, and parent-prompt cap. Filesystem and coordination tools are
 not removed by the meta-harness. Criterion presence remains a launch-time structural
 requirement, while criterion success is proved by the advisor's deterministic rerun.
@@ -184,6 +192,16 @@ override.
 A feature spanning independently editable surfaces may split under the normal
 builder rules (distinct worktrees plus explicit approval when parallel,
 otherwise serial in one worktree).
+
+## Foreman delegation
+
+Use a foreman when one bounded work item's internal steps would otherwise each
+round-trip through the advisor: multi-file feature slices and
+investigate-build-test cycles are typical. The advisor stays at the boundaries:
+kickoff questions, the risk gate, and any independent checker at item completion
+under Checker economy. Foreman delegation is depth-1 only; its subagents never
+delegate. Parallel foremen follow the same approval and distinct-worktree rules
+as parallel builders.
 
 ## Freeform workers
 
@@ -295,7 +313,7 @@ whether the graph is useful. Execute only the returned deterministic waves:
    overturned a prior pass, unless the bounded inline-repair mandate already
    closed it. Never exceed the manifest repair-loop cap (default
    two); the convergence judgment may stop earlier.
-8. Parallel builders require explicit user approval and distinct worktrees.
+8. Parallel builders or foremen require explicit user approval and distinct worktrees.
 
 No driver script may spawn LLMs. The advisor directly owns every visible graph
 node and its cost.

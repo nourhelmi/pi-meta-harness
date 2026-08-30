@@ -43,6 +43,8 @@ interface GraphWarning {
 	message: string;
 }
 
+const MAKER_ROLES = new Set(["builder", "foreman"]);
+
 interface RoleProfiles {
 	profiles?: Record<string, unknown>;
 }
@@ -181,22 +183,22 @@ function roleOrderWarnings(nodes: GraphNode[], byId: Map<string, GraphNode>): Gr
 	for (const node of nodes) {
 		const dependencies = dependencyClosure(node, byId);
 		if (node.role === "checker") {
-			const checksBuilder = [...dependencies].some((id) => byId.get(id)?.role === "builder");
+			const checksBuilder = [...dependencies].some((id) => MAKER_ROLES.has(byId.get(id)?.role ?? ""));
 			if (!checksBuilder) {
 				warnings.push({
 					code: "checker-without-builder",
 					nodeId: node.id,
-					message: `Checker ${node.id} has no builder ancestor; confirm this is an intentional baseline or audit review.`,
+					message: `Checker ${node.id} has no builder or foreman ancestor; confirm this is an intentional baseline or audit review.`,
 				});
 			}
 		}
 		if (node.role === "browser-verifier") {
-			const verifiesBuilder = [...dependencies].some((id) => byId.get(id)?.role === "builder");
+			const verifiesBuilder = [...dependencies].some((id) => MAKER_ROLES.has(byId.get(id)?.role ?? ""));
 			if (!verifiesBuilder) {
 				warnings.push({
 					code: "browser-without-builder",
 					nodeId: node.id,
-					message: `Browser verifier ${node.id} has no builder ancestor; confirm this is intentional baseline investigation.`,
+					message: `Browser verifier ${node.id} has no builder or foreman ancestor; confirm this is intentional baseline investigation.`,
 				});
 			}
 		}
@@ -239,20 +241,20 @@ function executionWaves(nodes: GraphNode[], maxParallel: number): string[][] {
 	return waves;
 }
 
-function validateBuilders(
+function validateMakers(
 	waves: string[][],
 	byId: Map<string, GraphNode>,
 	allowParallelBuilders: boolean,
 ): void {
 	for (const wave of waves) {
-		const builders = wave.map((id) => byId.get(id)).filter((node) => node?.role === "builder");
-		if (builders.length < 2) continue;
+		const makers = wave.map((id) => byId.get(id)).filter((node) => MAKER_ROLES.has(node?.role ?? ""));
+		if (makers.length < 2) continue;
 		if (!allowParallelBuilders) {
-			throw new Error("Parallel builders require explicit user approval and allowParallelBuilders=true");
+			throw new Error("Parallel builders or foremen require explicit user approval and allowParallelBuilders=true");
 		}
-		const worktrees = builders.map((node) => node?.worktree).filter((path): path is string => Boolean(path));
-		if (worktrees.length !== builders.length || new Set(worktrees).size !== builders.length) {
-			throw new Error("Parallel builders require distinct explicit worktrees");
+		const worktrees = makers.map((node) => node?.worktree).filter((path): path is string => Boolean(path));
+		if (worktrees.length !== makers.length || new Set(worktrees).size !== makers.length) {
+			throw new Error("Parallel builders or foremen require distinct explicit worktrees");
 		}
 	}
 }
@@ -304,7 +306,7 @@ async function planGraph(params: GraphParams, ctx: ExtensionContext): Promise<Ag
 	validateDependencies(params.nodes, byId);
 	const warnings = roleOrderWarnings(params.nodes, byId);
 	const waves = executionWaves(params.nodes, params.maxParallel ?? 3);
-	validateBuilders(waves, byId, params.allowParallelBuilders ?? false);
+	validateMakers(waves, byId, params.allowParallelBuilders ?? false);
 	const manifestPath = await saveManifest(params, ctx, waves, warnings);
 	const warningText = warnings.length
 		? `\nAdvisory warnings (${warnings.length}; non-blocking):\n${warnings.map((warning) => `- [${warning.code}] ${warning.message}`).join("\n")}\nConfirm these graph shapes are intentional before launch.`
@@ -325,7 +327,7 @@ export default function advisorGraphExtension(pi: ExtensionAPI): void {
 		name: "advisor_graph_plan",
 		label: "Advisor Graph",
 		description:
-			"Structurally validate, lint, and persist a bounded DAG of visible Pi role agents. Malformed structure and unsafe builder concurrency are rejected; role-order and reducer-shape concerns are returned as non-blocking warnings. It never launches hidden agents.",
+			"Structurally validate, lint, and persist a bounded DAG of visible Pi role agents. Malformed structure and unsafe builder or foreman concurrency are rejected; role-order and reducer-shape concerns are returned as non-blocking warnings. It never launches hidden agents.",
 		parameters: GraphParameters,
 		async execute(...args) {
 			const [, params, , , ctx] = args;

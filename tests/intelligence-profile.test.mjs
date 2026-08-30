@@ -28,7 +28,10 @@ test("fixed role configuration is standalone and model-free", async () => {
   assert.deepEqual(roleConfigErrors(config), []);
   assert.deepEqual(Object.keys(config).sort(), ["defaultAgent", "profiles"]);
   assert.deepEqual(Object.keys(config.profiles), REQUIRED_ROLES);
-  for (const profile of Object.values(config.profiles)) {
+  assert.equal(config.profiles.foreman.allowSubagents, true);
+  assert.equal("excludeTools" in config.profiles.foreman, false);
+  assert.equal(config.profiles.foreman.cliArgs.includes("--exclude-tools"), false);
+  for (const [role, profile] of Object.entries(config.profiles)) {
     assert.equal(typeof profile.skill, "string");
     assert.equal(typeof profile.skillPath, "string");
     assert.equal("tools" in profile, false);
@@ -37,6 +40,7 @@ test("fixed role configuration is standalone and model-free", async () => {
     assert.equal("model" in profile, false);
     assert.equal("allowedModels" in profile, false);
     assert.equal("allowedThinkingByModel" in profile, false);
+    assert.equal(profile.allowSubagents === true, role === "foreman");
   }
 });
 

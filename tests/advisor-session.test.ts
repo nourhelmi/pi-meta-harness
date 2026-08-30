@@ -143,6 +143,10 @@ test("advisor doctrine routes locked execution without weakening decision bounda
   assert.match(source, /deterministic readiness checks/);
   assert.match(source, /check `bg_list`\s+once/);
   assert.match(source, /Coalesce a\s+routine settlement/);
+  assert.match(source, /## Foreman delegation/);
+  assert.match(source, /advisor stays at the boundaries[\s\S]+Checker economy/);
+  assert.match(source, /Deliberate criteria revision[\s\S]+new\s+packet revision/);
+  assert.match(source, /criteria serve the\s+advisor's judgment, not the reverse/);
 });
 
 test("advisor mode entrypoints select their worker harness before loading shared doctrine", async () => {

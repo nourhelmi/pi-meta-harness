@@ -91,6 +91,13 @@
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
+    "foreman": [
+      {
+        "model": "claude-bridge/claude-sonnet-5",
+        "thinking": "high",
+        "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
+      }
+    ],
     "checker": [
       {
         "model": "claude-bridge/claude-sonnet-5",

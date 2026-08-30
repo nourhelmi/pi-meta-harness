@@ -4,7 +4,9 @@ The parent advisor owns scope, graph order, budgets, and user communication.
 The worker owns one bounded node only.
 
 1. Keep the assigned role for the full session. Never invoke `/advisor`.
-2. Never start another agent, graph, orchestrator, routine, or inter-session message.
+2. Never start another agent, graph, orchestrator, routine, or inter-session
+   message unless the role skill explicitly grants bounded depth-1 subagent
+   launches. Every granted subagent inherits the full prohibition.
 3. Load every skill named under `REQUIRED SKILLS` before task work.
 4. Treat `TASK` as the scope boundary. `ACCEPTANCE CRITERIA` are immutable
    falsifiable claims: verify every criterion yourself with direct evidence

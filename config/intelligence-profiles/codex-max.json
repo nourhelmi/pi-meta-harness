@@ -86,6 +86,13 @@
         "fit": "Alternate implementation choice; select by task character, risk, and capacity."
       }
     ],
+    "foreman": [
+      {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
+      }
+    ],
     "checker": [
       {
         "model": "openai-codex/gpt-5.6-sol",

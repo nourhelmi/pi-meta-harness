@@ -30,6 +30,11 @@ whether each node has enough information value remains the advisor's job.
 
 ## Roles and intelligence
 
+Configured roles are `scout`, `planner`, `reducer`, `builder`, `foreman`,
+`checker`, and `browser-verifier`; only a profile that explicitly grants
+delegation may launch depth-1 visible subagents, which inherit the full
+no-further-delegation prohibition.
+
 [`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json) is fixed
 semantic role configuration. It defines the instructed role skill and portable
 skill path, anchor requirement, and instructional cycle cap. It contains no model

@@ -64,6 +64,7 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
       planner: {},
       reducer: {},
       builder: {},
+      foreman: {},
       checker: {},
       "browser-verifier": {},
     },
@@ -134,6 +135,20 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
       assert.deepEqual(result.details.warnings, []);
       assert.deepEqual(result.details.waves, [["build"], ["browser", "check"], ["reduce"]]);
       assert.match(resultText(result), /Advisory warnings: none/);
+    });
+
+    await t.test("accepts a foreman as an implementation ancestor", async () => {
+      const result = await execute({
+        graphId: "foreman-review",
+        goal: "Complete and independently verify one delegated work item",
+        nodes: [
+          node("item", "foreman", { worktree: join(temp, "item") }),
+          node("check", "checker", { dependsOn: ["item"] }),
+        ],
+      });
+
+      assert.deepEqual(result.details.warnings, []);
+      assert.deepEqual(result.details.waves, [["item"], ["check"]]);
     });
 
     const rejected = async (params: Record<string, unknown>, expected: RegExp) => {
@@ -231,7 +246,23 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
             node("builder-right", "builder", { worktree: checkout }),
           ],
         },
-        /Parallel builders require distinct explicit worktrees/,
+        /Parallel builders or foremen require distinct explicit worktrees/,
+      );
+    });
+
+    await t.test("applies builder worktree isolation to parallel foremen", async () => {
+      const checkout = join(temp, "shared-foreman-checkout");
+      await rejected(
+        {
+          graphId: "shared-foremen",
+          goal: "invalid",
+          allowParallelBuilders: true,
+          nodes: [
+            node("foreman-left", "foreman", { worktree: checkout }),
+            node("foreman-right", "foreman", { worktree: checkout }),
+          ],
+        },
+        /Parallel builders or foremen require distinct explicit worktrees/,
       );
     });
   } finally {

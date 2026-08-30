@@ -72,6 +72,13 @@
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
+    "foreman": [
+      {
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
+      }
+    ],
     "checker": [
       {
         "model": "openai-codex/gpt-5.6-sol",
