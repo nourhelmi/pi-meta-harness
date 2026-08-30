@@ -565,6 +565,7 @@ function bgAgentGuardReason(input: unknown, workerHarness: WorkerHarness): strin
 	const params = input as {
 		role?: unknown;
 		anchor?: unknown;
+		acceptance?: unknown;
 		agent?: unknown;
 		harness?: unknown;
 		name?: unknown;
@@ -576,8 +577,12 @@ function bgAgentGuardReason(input: unknown, workerHarness: WorkerHarness): strin
 	if (typeof params.agent === "string" && params.agent) {
 		return "Advisor workers must use bg_agent's Pi runtime (a configured role or freeform), not an explicit agent command.";
 	}
-	if (typeof params.anchor !== "string" || !params.anchor.trim()) {
-		return "New advisor workers require a concrete immutable anchor.";
+	const hasAnchor = typeof params.anchor === "string" && Boolean(params.anchor.trim());
+	const hasAcceptance =
+		Array.isArray(params.acceptance) &&
+		params.acceptance.some((criterion) => typeof criterion === "string" && criterion.trim());
+	if (!hasAnchor && !hasAcceptance) {
+		return "New advisor workers require at least one concrete acceptance criterion (acceptance[] or anchor).";
 	}
 	return undefined;
 }

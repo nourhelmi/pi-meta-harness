@@ -12,7 +12,7 @@ The advisor coordinates parallel Pi sessions through per-repository state under 
 6. Transfer ownership with an immutable handoff event.
 7. Use Intercom for short conclusions and paths, not transcripts or raw logs.
 8. Launch delegated LLM work only through `bg_agent` — usually a configured semantic role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi.
-9. Every role launch needs a concrete completion anchor and a bounded result file.
+9. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. Builders self-verify every criterion; checkers audit evidence with scoped verdicts.
 10. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work.
 11. Parallel builders require explicit approval and separate worktrees.
 12. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.

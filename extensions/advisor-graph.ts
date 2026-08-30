@@ -11,7 +11,8 @@ const GraphNodeSchema = Type.Object({
 	id: Type.String({ pattern: "^[a-z][a-z0-9-]{0,47}$" }),
 	role: Type.String({ pattern: "^[a-z][a-z0-9-]{0,47}$" }),
 	task: Type.String({ minLength: 1 }),
-	anchor: Type.String({ minLength: 1 }),
+	anchor: Type.Optional(Type.String({ minLength: 1 })),
+	acceptance: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { maxItems: 12 })),
 	requiredSkills: Type.Optional(Type.Array(Type.String(), { maxItems: 12 })),
 	dependsOn: Type.Optional(Type.Array(Type.String(), { maxItems: 12 })),
 	worktree: Type.Optional(Type.String()),
@@ -127,6 +128,12 @@ function validateStructuralParameters(params: GraphParams): void {
 	for (const node of params.nodes) {
 		if (!GRAPH_IDENTIFIER.test(node.id)) throw new Error(`Malformed graph node id: ${node.id}`);
 		if (!GRAPH_IDENTIFIER.test(node.role)) throw new Error(`Malformed graph role: ${node.role}`);
+		const criteria = [...(node.acceptance ?? []), ...(node.anchor ? [node.anchor] : [])].filter(
+			(criterion) => criterion.trim(),
+		);
+		if (criteria.length === 0) {
+			throw new Error(`Node ${node.id} needs at least one acceptance criterion (acceptance or anchor)`);
+		}
 	}
 }
 

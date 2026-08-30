@@ -166,6 +166,30 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
       assert.deepEqual(result.details.waves, [["blended-aide"]]);
     });
 
+    await t.test("accepts acceptance criteria in place of an anchor and rejects criterion-less nodes", async () => {
+      const accepted = await execute({
+        graphId: "acceptance-node",
+        goal: "Criteria-first node",
+        nodes: [
+          {
+            id: "criteria-only",
+            role: "scout",
+            task: "Survey the auth module",
+            acceptance: ["Findings cite exact files", "Open questions are enumerated"],
+          },
+        ],
+      });
+      assert.deepEqual(accepted.details.waves, [["criteria-only"]]);
+      await rejected(
+        {
+          graphId: "criterion-less",
+          goal: "invalid",
+          nodes: [{ id: "bare", role: "scout", task: "Survey" }],
+        },
+        /needs at least one acceptance criterion/,
+      );
+    });
+
     await t.test("rejects missing dependencies and invalid concurrency", async () => {
       await rejected(
         {

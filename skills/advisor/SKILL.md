@@ -30,21 +30,32 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
 
 1. **Never implement in this session.** No file edits beyond specs, prompts,
    advisor state, and driver scripts. Implementation belongs to workers.
-2. **Maker ≠ checker.** The agent that produced work never verifies it. A
-   builder is reviewed by a fresh checker through the session's worker harness. Choose each launch's model
-   and reasoning with the live `advisor-intelligence.json` guide; do not
-   hard-code identities here. One carve-out: a checker's small inline repairs
-   under its role mandate are closed by deterministic anchor reruns and the
-   next natural gate, not by a dedicated fresh checker.
+   Mechanical git bookkeeping on worker output — add, commit, branch, and
+   user-approved push via `bg_run` — is advisor work; never launch a builder
+   just to commit.
+2. **Maker ≠ checker.** The agent that produced work never performs its own
+   independent review. Builders still self-verify every acceptance criterion —
+   that is their contract, not a checker's job. When independent review is
+   warranted, a fresh checker through the session's worker harness performs it
+   at the Checker economy cadence, not automatically after every builder.
+   Choose each launch's model and reasoning with the live
+   `advisor-intelligence.json` guide; do not hard-code identities here. One
+   carve-out: a checker's small inline repairs under its role mandate are
+   closed by deterministic criterion reruns and the next natural gate, not by
+   a dedicated fresh checker.
 3. **One workstream owner.** Two advisor sessions must not own the same
    workstream. Transfer ownership with an explicit handoff event before a new
    session continues it.
 4. **One builder per workstream at a time.** Parallel builders require different
    git worktrees and explicit user approval for the added spend. Two workers
    writing the same checkout is a design error.
-5. **Anchors are frozen.** "Done" means the anchor passed, not that an agent said
-   so: the named check actually ran and passed, deploys succeeded, or tests pass
-   in the worktree. Never weaken an anchor to make a loop finish.
+5. **Acceptance criteria are frozen.** "Done" means every criterion in the
+   packet was verified, not that an agent said so: the named checks actually
+   ran and passed, deploys succeeded, or tests pass in the worktree. Never
+   weaken or drop a criterion to make a loop finish. A single shallow anchor
+   is the trivial-node exception; nontrivial packets enumerate `acceptance`
+   criteria — falsifiable claims, each with its proof method, including how
+   the work must fail.
 6. **Bound delegated work.** Put task-appropriate token budgets on `/goal`,
    repair caps on loops, node caps on graphs, and spend limits on recurring
    work. These are ceilings for bounded attempts, not rigid global elapsed-time
@@ -97,8 +108,8 @@ explicit-only, and the root advisor always remains Pi.
 
 Roles use instructional guardrails: the role skill, no-nested-delegation rule,
 write boundaries, and parent-prompt cap. Filesystem and coordination tools are
-not removed by the meta-harness. Anchor presence remains a launch-time structural
-requirement, while anchor success is proved by the advisor's deterministic rerun.
+not removed by the meta-harness. Criterion presence remains a launch-time structural
+requirement, while criterion success is proved by the advisor's deterministic rerun.
 Roles do not pin or allowlist a model. The fixed
 `~/.pi/agent/bg-agent-profiles.json` contains role transport only. The separate
 `~/.pi/agent/advisor-intelligence.json` contains model
@@ -184,7 +195,7 @@ objective, write boundaries, evidence to return, durable output location, and
 an explicit no-nested-delegation instruction when delegation is not granted.
 
 Freeform launches keep every invariant that is not role-specific: a visible
-pane (never headless), a `label`, a concrete `anchor`, and maker ≠ checker over
+pane (never headless), a `label`, concrete acceptance criteria, and maker ≠ checker over
 their output. They run on the Pi harness regardless of the session worker mode,
 and in a graph they are recorded as `role: freeform`. Prefer a configured role
 when one genuinely fits — the role skill and bounded result contract are free
@@ -198,7 +209,7 @@ Choose builder identity by **decision load and risk**, not by the nominal builde
 role or a file-count threshold. Every live guide names a cheap procedural model
 that may implement a locked execution packet. Prefer that executor when the
 material behavior and approach are already decided, the edit surface and
-existing pattern are bounded, and deterministic anchors can prove completion.
+existing pattern are bounded, and deterministic criteria can prove completion.
 Keep the guide's stronger implementation model when architecture is still
 ambiguous, diagnosis is the work, or schema, migration, authorization,
 security, money, destructive data behavior, or another high-risk boundary must
@@ -210,7 +221,7 @@ context. It records:
 
 - the fixed product and architecture decisions;
 - the bounded surface, existing pattern, and explicit non-goals;
-- the acceptance anchor and relevant upstream artifacts; and
+- the acceptance criteria and relevant upstream artifacts; and
 - material stop conditions.
 
 The cheap executor owns normal local implementation choices inside that packet.
@@ -218,11 +229,11 @@ It must stop and report evidence rather than invent or change a material product
 architecture, schema, migration, auth, fallback, destructive-operation, or
 external-effect decision. The advisor then clarifies the packet or selects a
 stronger model. Do not add an extra checker merely because the maker was cheap;
-review tier still follows product risk, while deterministic anchors backstop
+review tier still follows product risk, while deterministic criteria backstop
 the packet.
 
 Prefer one maker packet for adjacent work that shares a decision set, risk tier,
-worktree, skills, and anchor suite. Split when those boundaries differ or the
+worktree, skills, and criterion suite. Split when those boundaries differ or the
 combined context would weaken execution. Never split mechanically by package,
 and never merge unrelated decisions merely to reduce launch count.
 
@@ -233,10 +244,14 @@ doctor or health gate. This is a task-shaped preflight, not a universal checklis
 If a prerequisite cannot be proven outside the verifier, make it the verifier's
 first hard stop before page control.
 
-Every new `bg_agent` call supplies `model`, `thinking`, `prompt`, `anchor`,
+Every new `bg_agent` call supplies `model`, `thinking`, `prompt`, enumerated
+`acceptance` criteria (or a single-criterion `anchor` for trivial nodes),
 `label`, and the exact cwd/worktree; a role launch adds `role` and
 `requiredSkills`, while a freeform launch omits `role` and carries its whole
-contract in the prompt. Successful
+contract in the prompt. When the launch belongs to a graph or repair loop,
+include a `GRAPH` block in the prompt: node id, upstream result paths,
+downstream consumers, repair round with its enumerated findings, and risk
+tier — workers act on their position instead of rediscovering it. Successful
 panes close automatically. Blocked or failed panes remain visible. Set
 `keepAlive: true` only for a builder that is expected to receive bounded
 checker feedback; preserve it on follow-ups until that planned repair window
@@ -256,7 +271,7 @@ artifacts directly.
 
 Use `advisor_graph_plan` as a structural validator/linter and coordination aid
 before any graph with three or more nodes or mixed parallel/dependent work. Its
-immutable manifest hard-checks IDs, configured or freeform roles, anchors, dependencies,
+immutable manifest hard-checks IDs, configured or freeform roles, acceptance criteria, dependencies,
 cycles, concurrency, and builder worktree isolation. Role-order and reducer
 shape findings are advisory warnings: confirm the shape is intentional, then
 proceed without contorting valid baseline or audit work. The advisor still owns
@@ -271,12 +286,14 @@ whether the graph is useful. Execute only the returned deterministic waves:
    browser investigation may precede any builder, and a checker may perform a
    bounded audit without one. Post-change browser verification is equally valid.
    Never relabel browser work as scouting to silence a graph warning.
-6. Run deterministic anchors with normal commands. An LLM approval is never an
-   anchor.
+6. Run deterministic criteria with normal commands. An LLM approval is never a
+   criterion's proof.
 7. Feed actionable checker findings back to the kept-alive builder only when
-   another attempt has a concrete new strategy or information source. Review
-   revised maker output with a fresh checker unless the bounded inline-repair
-   mandate already closed it. Never exceed the manifest repair-loop cap (default
+   another attempt has a concrete new strategy or information source. Verify
+   the repair by rerunning the failed criteria and reading the targeted diff;
+   launch a fresh checker only when the repair touched a high-risk surface or
+   overturned a prior pass, unless the bounded inline-repair mandate already
+   closed it. Never exceed the manifest repair-loop cap (default
    two); the convergence judgment may stop earlier.
 8. Parallel builders require explicit user approval and distinct worktrees.
 
@@ -315,25 +332,25 @@ the guide's procedural recommendation when it fits.
    merged deliverable, plus one final whole-diff review before PR. Give an
    individual node its own checker only when it is high-risk: schema, data
    migration, security, auth, or money.
-2. Verify repairs with the anchor commands and a targeted diff read of the
+2. Verify repairs with the criterion reruns and a targeted diff read of the
    changed surface. A full fresh checker re-review of a repair is the
    exception, not the default.
 3. A checker repairs qualifying findings inline under its role mandate.
    Product findings qualify when at most three findings exist, none High,
-   inside reviewed files, anchors rerun green. Test-only, metadata, and
+   inside reviewed files, criteria rerun green. Test-only, metadata, and
    mechanical findings qualify regardless of severity when the fix stays in
-   non-product reviewed files and anchors rerun green. Close inline-repaired
-   findings with the rerun anchor evidence plus a targeted diff read. Never
+   non-product reviewed files and criteria rerun green. Close inline-repaired
+   findings with the rerun criterion evidence plus a targeted diff read. Never
    launch a repair maker or a fresh checker for them.
 4. Checking is tiered by risk, not uniform. Pick models from the live guide:
    the adversarial-tier reviewer (character says schema/auth/security/money
    and final whole-diff review) for those checks, rechecks after an overturned
    pass, and reduction; the procedural-tier model (character says routine
    mid-phase checks and browser verification) for the rest. Deterministic
-   anchors are the backstop. When a whole-diff review approaches the chosen
+   criteria are the backstop. When a whole-diff review approaches the chosen
    reviewer's window, split it per package or phase instead of one giant pass;
    never substitute a weaker model to make a diff fit.
-5. When a checker verdict and a deterministic anchor disagree, the anchor wins
+5. When a checker verdict and a deterministic criterion disagree, the criterion wins
    and the discrepancy is logged.
 6. Independent read-only checks of the same frozen diff, such as whole-diff
    review and browser verification, may run in parallel when their expected
@@ -386,7 +403,7 @@ Evidence is captured while verifying and submitted at delivery.
    range-diff all `=`, byte-identical aggregate diffs, empty changed-path
    intersection. That proof carries every prior verdict and evidence manifest
    forward. Do not relaunch checkers or verifiers over a proven-equivalent
-   rebase; the rebase node's own single anchor rerun is the maximum.
+   rebase; the rebase node's own single criterion rerun is the maximum.
 
 ## Settlement ground truth
 
@@ -400,8 +417,10 @@ not a failure — never launch a recovery builder before this check.
 
 Blocked means a missing product decision, permission, credential, or external
 action only. Metadata-only defects and guard-path rejections are findings or
-notes, never blockers. Never assign a worker a result path: anchors reference
-the worker's own run directory only.
+notes, never blockers. A checker FAIL binds only when tied to a violated
+acceptance criterion or the packet's declared risk tier; unscoped findings are
+notes and never flip a verdict. Never assign a worker a result path: criteria
+reference the worker's own run directory only.
 
 ## Delegation decision tree
 
@@ -416,14 +435,15 @@ For each piece of work, in order:
   compactions while `bg_await` wakes this session exactly once.
 - **One delegated task** → use `bg_agent` with a self-contained prompt, a useful
   label, a model and reasoning chosen with the intelligence guide, the correct
-  working directory or worktree, a cap, and a fixed anchor.
+  working directory or worktree, a cap, and fixed acceptance criteria.
 - **Needs supervision or dialogue** → use `bg_agent`. It wakes this session when
   it settles. Answer blocked agents with the same agent name.
 - **Wide independent work** → fan out several `bg_agent` calls in one turn.
   Each agent writes detailed output to its own run file and returns only bounded
   claims and paths. Do not hide agent processes inside a graph-driver command.
-- **Dependent work** → run visible `bg_agent` stages serially. A fresh visible
-  checker reviews the maker output.
+- **Dependent work** → run visible `bg_agent` stages serially. Independent
+  review follows the Checker economy cadence — item boundaries and high-risk
+  surfaces, not every stage.
 - **Recurring** → do not inject a Pi routine into an interactive advisor
   session. Use a non-LLM external monitor or a user-approved control process.
 
@@ -470,7 +490,7 @@ unless the current owner created a handoff event.
 
 ## Context budget
 
-- Before a wide or long run, write the goal, cap, anchor, and run ID to the
+- Before a wide or long run, write the goal, cap, acceptance criteria, and run ID to the
   private session file.
 - Keep tool reads bounded. Delegate image analysis and log reduction.
 - When context use reaches about 60%, checkpoint the workstream and use

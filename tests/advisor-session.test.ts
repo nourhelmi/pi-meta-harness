@@ -211,6 +211,17 @@ Review the current document.`;
     }),
     undefined,
   );
+  assert.equal(
+    toolCall({
+      toolName: "bg_agent",
+      input: {
+        role: "builder",
+        acceptance: ["focused suites pass", "diff stays inside packages/api"],
+        label: "criteria builder",
+      },
+    }),
+    undefined,
+  );
   assert.deepEqual(
     toolCall({
       toolName: "bg_agent",
@@ -218,7 +229,7 @@ Review the current document.`;
     }),
     {
       block: true,
-      reason: "New advisor workers require a concrete immutable anchor.",
+      reason: "New advisor workers require at least one concrete acceptance criterion (acceptance[] or anchor).",
     },
   );
 });
