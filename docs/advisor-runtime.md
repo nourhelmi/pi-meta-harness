@@ -12,12 +12,33 @@ The advisor coordinates parallel Pi sessions through per-repository state under 
 6. Transfer ownership with an immutable handoff event.
 7. Use Intercom for short conclusions and paths, not transcripts or raw logs.
 8. Launch delegated LLM work only through `bg_agent` — usually a configured semantic role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi.
-9. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. Builders self-verify every criterion; checkers audit evidence with scoped verdicts.
-10. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work.
+9. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. Give makers every known threat-model and risk invariant before implementation. Makers own cohesive diagnosis, implementation, task-shaped tests, and ordinary browser exercise; checkers, when justified, audit the same contract and high-value evidence with scoped verdicts.
+10. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work, but create a graph only for real independent ownership or dependency boundaries.
 11. Parallel builders require explicit approval and separate worktrees.
 12. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
 13. Keep a builder alive only for a planned bounded repair. Every checker starts fresh and may repair small qualifying findings inline under its role mandate.
 14. Keep global advisor routines paused because open Pi processes share routine state.
+
+## Adaptive topology
+
+For small and cohesive-medium work with one decision set, presume one empowered
+maker rather than automatically splitting scouting, planning, building, tests,
+or browser exercise. This is a presumption against ceremony, not a target worker
+count. Optimize marginal evidence value and critical-path latency: add a foreman,
+graph, checker, browser verifier, or freeform worker whenever it materially
+resolves uncertainty, parallelizes real work, or adds useful independent
+confidence. Foremen require useful depth-1 delegation; graphs require genuine
+ownership or dependency boundaries; dedicated checkers and browser verifiers
+require a risk or information-value rationale. Stop adding launches when another
+would mostly replay existing evidence.
+
+Makers prove every criterion with task-shaped command evidence. The advisor
+inspects it and chooses the smallest independent authoritative rerun appropriate
+to cost, risk, and oracle strength. Optional checkers independently probe the
+critical or contested evidence rather than replaying every command. Delivery
+runs the repository's actual required merge or CI gates once, without unrelated
+repository-wide sweeps. New evidence that changes success criteria requires an
+explicit recorded packet revision, never a hidden stricter checker contract.
 
 The planner rejects malformed structure, cycles, invalid concurrency, and unsafe
 parallel-builder checkout conflicts. Checker or browser nodes without builder

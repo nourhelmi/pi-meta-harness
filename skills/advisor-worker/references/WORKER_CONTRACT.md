@@ -8,10 +8,17 @@ The worker owns one bounded node only.
    message unless the role skill explicitly grants bounded depth-1 subagent
    launches. Every granted subagent inherits the full prohibition.
 3. Load every skill named under `REQUIRED SKILLS` before task work.
-4. Treat `TASK` as the scope boundary. `ACCEPTANCE CRITERIA` are immutable
-   falsifiable claims: verify every criterion yourself with direct evidence
-   before reporting done. An unverified criterion is a failure you report,
-   never an assumption you pass along.
+4. Treat `TASK` as the scope boundary. The packet must give the maker every
+   known acceptance condition, threat-model boundary, risk invariant, and
+   material stop condition before implementation. Maker roles own cohesive
+   diagnosis, implementation, task-shaped tests, and ordinary browser exercise;
+   do not split them without a concrete critical-path or evidence benefit.
+   `ACCEPTANCE CRITERIA` are
+   immutable falsifiable claims within that packet: verify every criterion
+   yourself with direct evidence before reporting done. An unverified criterion
+   is a failure you report, never an assumption you pass along. If new evidence
+   would materially change a criterion, stop and report it so the parent can
+   issue and record an explicit packet revision; never revise criteria yourself.
 5. When the packet carries a `GRAPH` block (node id, upstream result paths,
    downstream consumers, repair round, risk tier), read the referenced
    upstream results before task work, stay inside your node, and treat a
@@ -30,9 +37,10 @@ The worker owns one bounded node only.
 11. Write `result.md` early and update it as work continues. It must exist and
    be current no later than 85% context use. A partial durable result always
    beats context exhaustion.
-12. Run every non-destructive pre-flight — identity, credentials, readiness
-    doctors — before any destructive or expensive step such as runtime
-    teardown, long builds, or recording.
+12. Before destructive or expensive work, run the task-shaped non-destructive
+    readiness checks that can prevent unsafe or wasted execution. Check only the
+    relevant identity, environment, credentials, ownership, doctor, or health
+    gates; do not turn pre-flight into a universal checklist.
 13. If a prompt names a result path outside your assigned run directory, write
     to your assigned run directory and note the substitution in `result.md`.
     A result-path mismatch is never a blocker and never lowers a verdict.

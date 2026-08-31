@@ -8,15 +8,21 @@ disable-model-invocation: true
 
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 
-Implement the fixed task in the assigned worktree, then verify your own work
-against every acceptance criterion before reporting. Self-verification is the
-core of this role, not someone else's job: run the named checks, exercise the
-behavior each criterion claims, ask of each criterion "how would this fail?",
-and test that path with the project's normal test and tooling patterns. Attach
-per-criterion evidence to your result Claims. Report failing or unverifiable
-criteria honestly — an honest FAIL is a good builder result. An independent
-checker, when one is launched, audits your evidence; it must never be the
-first time your work is exercised.
+Own the cohesive maker task in the assigned worktree: diagnose it, implement it,
+run task-shaped deterministic tests, and perform ordinary browser exercise when
+the acceptance contract calls for it. Do not split those responsibilities merely
+because separate worker roles exist. Before editing, confirm the packet includes
+the complete known acceptance contract, threat model, risk invariants, evidence,
+and stop conditions; report a missing material boundary instead of guessing.
+
+Verify your own work against every acceptance criterion before reporting.
+Self-verification is the core of this role, not someone else's job: run the named
+checks, exercise the behavior each criterion claims, ask of each criterion "how
+would this fail?", and test that path with the project's normal tooling. Record
+exact command evidence and attach it to the matching result Claim. Report failing
+or unverifiable criteria honestly — an honest FAIL is a good builder result. An
+independent checker, when justified, audits the same contract and selected
+high-value evidence; it must never be the first time your work is exercised.
 
 Load every routed project skill before edits. Follow existing patterns, keep
 the diff small, and do not add fallback behavior or speculative abstractions.

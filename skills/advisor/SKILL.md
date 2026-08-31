@@ -33,12 +33,11 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    Mechanical git bookkeeping on worker output — add, commit, branch, and
    user-approved push via `bg_run` — is advisor work; never launch a builder
    just to commit.
-2. **Maker ≠ checker.** The agent that produced work never performs its own
-   independent review. Builders and foremen still self-verify every acceptance
-   criterion —
-   that is their contract, not a checker's job. When independent review is
-   warranted, a fresh checker through the session's worker harness performs it
-   at the Checker economy cadence, not automatically after every builder.
+2. **Maker ≠ checker.** The agent that produced work never presents its own
+   review as independent. Builders and foremen still prove every acceptance
+   criterion; that is their contract, not a checker's job. Launch a fresh
+   checker only when independent review has material expected value under
+   Checker economy, never automatically after a builder, phase, or before a PR.
    Choose each launch's model and reasoning with the live
    `advisor-intelligence.json` guide; do not hard-code identities here. One
    carve-out: a checker's small inline repairs under its role mandate are
@@ -118,9 +117,10 @@ explicit-only, and the root advisor always remains Pi.
 
 Roles use instructional guardrails: the role skill, bounded-delegation rule,
 write boundaries, and parent-prompt cap. Filesystem and coordination tools are
-not removed by the meta-harness. Criterion presence remains a launch-time structural
-requirement, while criterion success is proved by the advisor's deterministic rerun.
-Roles do not pin or allowlist a model. The fixed
+not removed by the meta-harness. Criterion presence remains a launch-time
+structural requirement. Makers prove criterion success with direct evidence;
+the advisor inspects it and chooses any independent authoritative rerun in
+proportion to cost and risk. Roles do not pin or allowlist a model. The fixed
 `~/.pi/agent/bg-agent-profiles.json` contains role transport only. The separate
 `~/.pi/agent/advisor-intelligence.json` contains model
 characters, default reasoning guidance, and ordered role recommendations.
@@ -156,6 +156,31 @@ switch. Named profiles live in `~/.pi/agent/intelligence-profiles/`
 (`codex-max`, `codex-lean`, `anthropic-heavy`, `balanced`, `grok-cycle`). When the user asks to switch
 guides, load `switch-intelligence-profile` and run the switcher. Switching must
 not change `bg-agent-profiles.json`.
+
+# Adaptive topology and the single-maker fast path
+
+Topology is a judgment about marginal evidence value and critical-path latency,
+not an objective to minimize or maximize worker count. For small and cohesive-
+medium implementation with one decision set, default to one empowered maker.
+That maker owns diagnosis, implementation, task-shaped deterministic tests, and
+ordinary browser exercise. Do not automatically split scouting, planning,
+building, testing, or browser work into separate launches.
+
+This fast path is a presumption against ceremony, not a one-agent target. Add a
+foreman, graph, checker, browser verifier, or freeform worker whenever it will
+materially resolve uncertainty, shorten genuinely parallel work, or add useful
+independent confidence. Use a foreman only when bounded depth-1 delegation will
+shorten the critical path or materially improve evidence. Use a graph only for
+real independent ownership or dependency boundaries. Use a dedicated checker
+or browser verifier only when its independent evidence has positive value.
+Stop expanding the route when another launch would mostly replay evidence
+already available. Never optimize topology at the expense of correctness.
+
+Before implementation, give the maker the complete known acceptance contract,
+threat model, risk invariants, relevant evidence, and material stop conditions.
+Do not reserve stricter known success conditions for a later checker. If new
+evidence changes the criteria, issue and record a deliberate packet revision;
+never silently judge the maker against a hidden contract.
 
 Frontend routing is scope- and capacity-aware guidance, and the preferred IDs
 come from the live guide:
@@ -199,15 +224,16 @@ otherwise serial in one worktree).
 
 ## Foreman delegation
 
-Use a foreman when one bounded work item's internal steps would otherwise each
-round-trip through the advisor: multi-file feature slices and
-investigate-build-test cycles are typical. The advisor stays at the boundaries:
-kickoff questions, the risk gate, and any independent checker at item completion
-under Checker economy. Foreman delegation is depth-1 only; its subagents never
-delegate. Parallel foremen follow the same approval and distinct-worktree rules
-as parallel builders. Even in a native-worker advisor session, the foreman
-profile runs through Pi; its selected model still follows the active intelligence
-guide but is hosted by Pi rather than a provider-native CLI.
+Use a foreman only when depth-1 delegation inside one bounded work item will
+shorten the critical path or materially improve evidence, rather than merely
+reproduce a conventional investigate-build-test sequence. The foreman remains
+the maker and owns integration and every acceptance criterion. The advisor stays at the boundaries
+of the item; any independent checker is a separate risk- and
+value-based decision under Checker economy. Foreman delegation is depth-1 only;
+its subagents never delegate. Parallel foremen follow the same approval and
+distinct-worktree rules as parallel builders. Even in a native-worker advisor
+session, the foreman profile runs through Pi; its selected model still follows
+the active intelligence guide but is hosted by Pi rather than a provider-native CLI.
 
 ## Freeform workers
 
@@ -257,9 +283,11 @@ review tier still follows product risk, while deterministic criteria backstop
 the packet.
 
 Prefer one maker packet for adjacent work that shares a decision set, risk tier,
-worktree, skills, and criterion suite. Split when those boundaries differ or the
-combined context would weaken execution. Never split mechanically by package,
-and never merge unrelated decisions merely to reduce launch count.
+worktree, skills, and criterion suite. Split when those boundaries differ, the
+combined context would weaken execution, or real parallel ownership shortens
+the critical path. This is a cohesion presumption, not a worker-count target.
+Never split mechanically by package, and never merge unrelated decisions merely
+to reduce launch count.
 
 Before a costly browser-verification launch, run the repository's available
 deterministic readiness checks yourself with normal commands: runtime ownership,
@@ -284,10 +312,13 @@ once and launch fresh directly when absent. All checker contexts are fresh.
 
 ## Information-value graphing
 
-Prefer the smallest graph sufficient to resolve the work. Every node needs a
-reason to exist: its task should state the uncertainty, decision, or durable
-artifact it unlocks. A dependency means the downstream node actually consumes
-upstream output; never add one merely to express conventional role order.
+Use a graph only when work has real independent ownership or dependency
+boundaries. Prefer the smallest graph sufficient to resolve those boundaries,
+without treating node count as an objective. Every node needs a reason to exist:
+its task should state the uncertainty, decision, confidence, critical-path
+reduction, or durable artifact it unlocks. A dependency means the downstream
+node actually consumes upstream output; never add one merely to express
+conventional role order.
 Independent ticket triage, source analysis, and baseline runtime observation
 belong in the same launch wave when each can change the route. Add a reducer only
 when evidence conflicts or synthesis is substantial; otherwise read the bounded
@@ -367,49 +398,62 @@ baseline, or satisfy delivery evidence. Do not inventory every screenshot, log,
 or acceptance artifact by default. One strong witness may be sufficient; repeat
 flaky or racy behavior when repetition materially changes confidence.
 
+## Verification ownership
+
+The maker proves every acceptance criterion and records the exact commands and
+task-shaped evidence. The advisor reads that evidence, inspects the changed
+surface, and chooses the smallest independent authoritative rerun appropriate to
+cost, risk, and oracle strength. It need not replay every expensive criterion.
+When justified, a checker audits the same acceptance contract and declared risk
+tier, then independently probes critical, weak, residual-risk, conflicting, or
+contested evidence instead of blindly replaying all maker commands. Delivery
+runs the repository's actual required merge or CI gates once; it does not add
+unrelated repository-wide sweeps or duplicate gates already authoritative for
+the delivered revision.
+
 ## Checker economy
 
-Checking must not dominate the work. Browser verifiers and scouts are
-read-only; checkers are read-mostly with a bounded inline-repair mandate. Use
-the guide's procedural recommendation when it fits.
+Checking must add confidence rather than ceremony. Browser verifiers and scouts
+are read-only; checkers are read-mostly with a bounded inline-repair mandate.
+Use the guide's procedural recommendation when it fits.
 
-1. Not every node earns a fresh checker. Default to one checker per phase or
-   merged deliverable, plus one final whole-diff review before PR. Give an
-   individual node its own checker only when it is high-risk: schema, data
-   migration, security, auth, or money.
-2. Verify repairs with the criterion reruns and a targeted diff read of the
-   changed surface. A full fresh checker re-review of a repair is the
-   exception, not the default.
-3. A checker repairs qualifying findings inline under its role mandate.
+1. No phase, merged deliverable, or PR universally requires a checker. Launch
+   one when independent review has positive expected value: schema or migration,
+   auth, security, privacy, money, destructive or external effects, broad change
+   with a weak oracle, conflicting evidence, material residual maker risk, or an
+   explicit user request. High-risk boundaries normally receive independent
+   review. A genuinely new finding at or above the declared risk tier remains
+   valid even though it was not known to the maker.
+2. Give the checker the same acceptance contract, declared risk tier, known
+   threat model, maker claims, and command evidence. Never hide a stricter known
+   success contract for review. The checker validates high-value evidence and
+   independently probes critical or contested risks; it does not blindly replay
+   every deterministic command.
+3. Verify repairs with the affected criterion reruns and a targeted diff read
+   of the changed surface. A full fresh checker re-review is justified only when
+   the repair leaves material independent risk or overturns prior evidence.
+4. A checker repairs qualifying findings inline under its role mandate.
    Product findings qualify when at most three findings exist, none High,
-   inside reviewed files, criteria rerun green. Test-only, metadata, and
-   mechanical findings qualify regardless of severity when the fix stays in
-   non-product reviewed files and criteria rerun green. Close inline-repaired
-   findings with the rerun criterion evidence plus a targeted diff read. Never
-   launch a repair maker or a fresh checker for them.
-4. Checking is tiered by risk, not uniform. Pick models from the live guide:
-   the adversarial-tier reviewer (character says schema/auth/security/money
-   and final whole-diff review) for those checks, rechecks after an overturned
-   pass, and reduction; the procedural-tier model (character says routine
-   mid-phase checks and browser verification) for the rest. Deterministic
-   criteria are the backstop. When a whole-diff review approaches the chosen
-   reviewer's window, split it per package or phase instead of one giant pass;
-   never substitute a weaker model to make a diff fit.
-5. When a checker verdict and a deterministic criterion disagree, the criterion wins
-   and the discrepancy is logged.
-6. Independent read-only checks of the same frozen diff, such as whole-diff
-   review and browser verification, may run in parallel when their expected
-   information value beats the risk that one finding invalidates the other's
-   evidence. Serialize a likely high-impact security review first when its
-   findings would make parallel browser evidence stale or unsafe.
+   inside reviewed files, and affected criteria rerun green. Test-only,
+   metadata, and mechanical findings qualify regardless of severity when the
+   fix stays in non-product reviewed files and affected criteria rerun green.
+   Close inline-repaired findings with the rerun evidence plus a targeted diff
+   read. Never launch a repair maker or fresh checker for already closed work.
+5. Choose review depth and model by risk, oracle strength, uncertainty, and
+   expected information gain. Deterministic evidence is authoritative for the
+   claim it actually proves; when a checker verdict conflicts with it, inspect
+   scope and log the discrepancy rather than treating either as universal proof.
+6. Independent read-only checks of the same frozen diff may run in parallel when
+   they materially shorten the critical path and neither is likely to invalidate
+   the other's evidence. Serialize a likely high-impact safety review first when
+   its findings would make parallel browser evidence stale or unsafe.
 7. Any verifying agent that launches a browser records evidence during that
    same run and registers it in an evidence manifest in its run directory:
-   capture commit SHA, flows covered, artifact paths. Verifiers never upload
-   and never need artifact-upload credentials. Never schedule a separate
-   browser pass whose only purpose is evidence capture.
-8. The gate before PR creation runs the repository's CI-equivalent checks —
-   repo-wide gates and code-quality sweeps included — not only the localized
-   checks used during building. A localized pass is not a PR gate.
+   capture commit SHA, flows covered, and artifact paths. Verifiers never upload
+   and never need artifact-upload credentials. Never schedule a separate browser
+   pass whose only purpose is evidence capture.
+8. At delivery, run the repository's actual required merge or CI gates once for
+   the delivered revision. Do not mandate unrelated repository-wide sweeps.
 
 ## Status updates
 
@@ -486,9 +530,9 @@ For each piece of work, in order:
 - **Wide independent work** → fan out several `bg_agent` calls in one turn.
   Each agent writes detailed output to its own run file and returns only bounded
   claims and paths. Do not hide agent processes inside a graph-driver command.
-- **Dependent work** → run visible `bg_agent` stages serially. Independent
-  review follows the Checker economy cadence — item boundaries and high-risk
-  surfaces, not every stage.
+- **Dependent work** → run visible `bg_agent` stages serially. Add independent
+  review only when Checker economy predicts material confidence value, not as a
+  fixed stage.
 - **Recurring** → do not inject a Pi routine into an interactive advisor
   session. Use a non-LLM external monitor or a user-approved control process.
 
