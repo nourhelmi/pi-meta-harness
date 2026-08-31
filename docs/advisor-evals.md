@@ -1,12 +1,20 @@
-# Advisor evaluations with Harbor
+# Advisor evaluations
 
-Advisor evaluations run on [Harbor](https://github.com/harbor-framework/harbor).
-The repository owns only the Pi-specific preparation boundary: privacy-safe trace
-normalization, descriptive diagnostics, fixture validation, and conversion to a Harbor
-task. Harbor owns jobs, trials, sandbox execution, rewards, result storage, viewing,
-and comparison. RewardKit owns the trajectory judge.
+The harness has two complementary evaluation tracks:
 
-The toolchain is pinned and invoked lazily through `uvx`:
+| Track | Subject | Execution and review |
+| --- | --- | --- |
+| Recorded calibration | Privacy-normalized advisor trajectories | Harbor jobs plus an API-backed RewardKit judge and Harbor viewer |
+| Live prospective | The current advisor setup running hermetic cases | Existing Pi and native CLI subscriptions, deterministic hidden checks, and the localhost workbench |
+
+The recorded track runs on
+[Harbor](https://github.com/harbor-framework/harbor). This repository owns the
+Pi-specific preparation boundary: privacy-safe trace normalization, descriptive
+diagnostics, fixture validation, and conversion to a Harbor task. Harbor owns
+jobs, trials, sandbox execution, rewards, result storage, viewing, and
+comparison. RewardKit owns the trajectory judge.
+
+The Harbor toolchain is pinned and invoked lazily through `uvx`:
 
 - Harbor `0.16.1`
 - Harbor RewardKit `0.1`
@@ -83,10 +91,12 @@ fixtures: changing advisor skills, extensions, profiles, or worker policy does n
 change their input. Use the prospective suite to run the current checkout through the
 real advisor and measure a setup change.
 
-This path is local, deterministic, and subscription-compatible. It uses the existing
-Pi OpenAI login for the root advisor and the existing Codex ChatGPT login for native
-OpenAI workers. It does **not** call RewardKit or an API-billed LLM judge. It still uses
-the normal allowance of the subscriptions that execute the advisor and workers.
+This path is local, subscription-compatible, and deterministically graded. The
+advisor and worker behavior remains stochastic, so important releases need repeated
+trials. The runner uses the existing Pi OpenAI login for the root advisor and the
+existing Codex ChatGPT login for native OpenAI workers. It does **not** call RewardKit
+or an API-billed LLM judge. It still uses the normal allowance of the subscriptions
+that execute the advisor and workers.
 
 Authenticate once:
 
@@ -105,7 +115,8 @@ npm run eval:advisor:prospective -- builder-self-verification \
 For that run, the harness:
 
 1. copies the case's hermetic workspace into `evals/local/prospective-runs/`;
-2. fingerprints both the advisor candidate and the prospective evaluator in the current checkout;
+2. fingerprints both the advisor candidate and the prospective evaluator in the
+   current checkout;
 3. stages the checkout as an isolated temporary Pi agent directory;
 4. stages a minimal temporary Codex home that trusts only the disposable workspace,
    disables hooks/plugins, copies both subscription credentials with mode `0600`, and
@@ -194,6 +205,10 @@ silently mixing setup versions when the working tree changes during a long suite
 aggregates clean runs and passed checks for each outcome dimension plus useful-width
 utilization states. Use repeated trials for important releases because one stochastic run
 cannot establish reliability.
+
+The suite command is a data-collection runner: inspect `suite.json`, the CLI summary,
+or the dashboard because the process can complete successfully while individual cases
+record failed rewards.
 
 To validate a clean, committed local `pi-detach` change before publishing a new pin,
 set `ADVISOR_EVAL_PI_DETACH_SOURCE=/absolute/path/to/pi-detach`. The staged Pi settings
@@ -292,7 +307,7 @@ npm run eval:advisor:prospective:view
 ```
 
 Open <http://127.0.0.1:4318>. The workbench scans files on demand and provides case/run
-search, baseline-to-newer-run selectors, deterministic criterion evidence, setup
+search, baseline-to-newer-run selectors, deterministic criterion evidence, candidate
 fingerprints, and a trajectory ruler. It is localhost-only and read-only; the CLI owns
 execution and baseline promotion.
 

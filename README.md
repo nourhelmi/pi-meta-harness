@@ -1,19 +1,33 @@
 # Pi Meta Harness
 
-One Ghostty window. One Herdr multiplexer. A Fable advisor that fans work into
-named worker panes. Switchable advisor guidance. Fixed role guardrails. Exact pins. No secrets in Git.
+An opinionated, reproducible macOS setup for running Pi coding advisors in
+Ghostty and Herdr. It installs adaptive role-aware orchestration, switchable
+model guidance, exact package and skill pins, and a local evaluation workbench
+without putting credentials or runtime state in Git.
 
-The repository is configuration and policy only. Credentials, sessions, memories,
-machine trust, caches, and advisor runtime stay on the machine.
+> [!IMPORTANT]
+> This is a source-installed personal harness, not a generic framework or a
+> published npm package. `npm run bootstrap` changes the live Pi and Herdr
+> configuration on the current machine after creating scoped backups.
+
+The repository contains configuration and policy only. Credentials, sessions,
+memories, machine trust, caches, and advisor runtime state stay on the machine.
 
 ## At a glance
 
-You sit in Ghostty. Herdr owns tabs. `/advisor` claims one isolated workstream and
-asks whether its workers should use Pi or provider-native harnesses. The root
-advisor itself always remains Pi/Fable. It launches workers through `pi-detach`
-`bg_agent` into panes in the **same tab**. Fixed role configuration instructs skills and role boundaries,
-anchors, and cycle caps. A separate live intelligence guide recommends `model`
-+ `thinking` choices to the advisor. Quota is not polled — you pick the guide.
+You work in Ghostty while Herdr owns the tabs. `/advisor` claims one isolated
+workstream and chooses the smallest useful topology for the task. Cohesive work
+normally stays with one empowered maker; scouts, planners, foremen, checkers,
+reducers, browser verifiers, and validated graphs are added only when they
+reduce uncertainty, expose real parallelism, or add worthwhile independent
+evidence.
+
+The root advisor always runs as a Pi process and does not implement product
+changes itself. A fresh install defaults that Pi session to Fable, while an
+existing install keeps its runtime model preference and may use a documented
+fallback. Workers run through either Pi or provider-native Codex/Claude
+harnesses, selected once per advisor session. `pi-detach` keeps every worker
+visible in a named pane inside the advisor's tab.
 
 ```mermaid
 ---
@@ -28,31 +42,35 @@ flowchart TB
 
   subgraph tab ["Advisor tab — one workstream"]
     direction TB
-    Adv["Pi  /advisor\nFable plans and launches"]
-    Guide[("advisor guidance\nadvisor-intelligence.json")]
-    Roles[("role guardrails\nbg-agent-profiles.json")]
-    Guide -.->|recommended model + thinking| Adv
-    Roles -.->|role launch policy| Adv
+    Adv["Pi root advisor\nchooses the route"]
+    Guide[("model guidance\nadvisor-intelligence.json")]
+    Roles[("role contracts\nbg-agent-profiles.json")]
+    Route{"smallest useful topology"}
+    Guide -.-> Adv
+    Roles -.-> Adv
+    Adv --> Route
   end
 
   Herdr --> Adv
 
-  subgraph panes ["Worker panes — same tab, via pi-detach"]
+  subgraph panes ["Optional worker panes — same tab, via pi-detach"]
     direction LR
     Scout[scout]
     Plan[planner]
     Build[builder]
+    Foreman[foreman]
     Check[checker]
     Reduce[reducer]
-    Browser[browser]
+    Browser[browser-verifier]
   end
 
-  Adv -->|bg_agent| Scout
-  Adv --> Plan
-  Adv --> Build
-  Adv --> Check
-  Adv --> Reduce
-  Adv --> Browser
+  Route -->|resolve uncertainty| Scout
+  Route -->|material planning| Plan
+  Route -->|cohesive implementation| Build
+  Route -->|useful delegated depth| Foreman
+  Route -->|risk-triggered review| Check
+  Route -->|merge independent evidence| Reduce
+  Route -->|independent UI evidence| Browser
 
   classDef you fill:#e94560,stroke:#e94560,color:#fff
   classDef mux fill:#16213e,stroke:#533483,color:#eee
@@ -62,9 +80,9 @@ flowchart TB
 
   class You you
   class Ghostty,Herdr mux
-  class Adv advisor
+  class Adv,Route advisor
   class Guide,Roles map
-  class Scout,Plan,Build,Check,Reduce,Browser worker
+  class Scout,Plan,Build,Foreman,Check,Reduce,Browser worker
 ```
 
 Deep dive: [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md) ·
@@ -72,27 +90,32 @@ runtime rules: [`docs/advisor-runtime.md`](docs/advisor-runtime.md)
 
 ## Docs
 
-- [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md) — advisory guides, quota pick tree, `/advisor` vs switcher, per-role recommendations
+- [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md) — advisory
+  guides, quota pick tree, `/advisor` vs switcher, and per-role recommendations
 - [`docs/advisor-runtime.md`](docs/advisor-runtime.md) — workstream isolation, `advisor_launch`, pane labels
 - [`docs/architecture.md`](docs/architecture.md) — installer topology
 - [`docs/security.md`](docs/security.md) — portability boundary
 - [`docs/cutover.md`](docs/cutover.md) — updating an existing machine
-- [`docs/macos-tcc.md`](docs/macos-tcc.md) — grant Ghostty Full Disk Access so machine-wide searches do not modal-block
-- [`docs/advisor-evals.md`](docs/advisor-evals.md) — fixed Harbor calibration plus subscription-backed live setup evaluation
-
+- [`docs/macos-tcc.md`](docs/macos-tcc.md) — prevent macOS permission
+  dialogs from blocking unattended machine-wide searches
+- [`docs/advisor-evals.md`](docs/advisor-evals.md) — Harbor calibration and
+  subscription-backed live setup evaluation
 
 ## Fresh-machine setup
 
-Install Node.js 22.19 or newer and the host tools first:
+The bootstrap targets macOS and expects Ghostty, Git, Node.js 22.19 or newer,
+Herdr, Engram, Pi, and Claude Code. Install the host tools first:
 
 ```bash
 brew install herdr
 brew install gentleman-programming/tap/engram
-npm install -g @earendil-works/pi-coding-agent@0.84.1
-# Install Claude Code through its supported installer, then log in locally.
+npm install -g @earendil-works/pi-coding-agent@0.84.3
+# Install Claude Code through its supported installer, then authenticate locally.
+# For native OpenAI workers, also install Codex CLI and run `codex login`.
 ```
 
-Clone the harness and run one command:
+Review [`scripts/bootstrap.sh`](scripts/bootstrap.sh) before running it. Then
+clone the harness and run the live bootstrap:
 
 ```bash
 git clone https://github.com/nourhelmi/pi-meta-harness.git
@@ -113,7 +136,10 @@ The bootstrap command:
 
 The installer stops if an advisor or worker is active. It never copies credentials or reloads Pi.
 
-After bootstrap, export optional MCP credentials through your shell or secret manager, start Pi inside Herdr, use `/login` for each provider, and run `/advisor`.
+After bootstrap, export optional MCP credentials through your shell or secret
+manager. Start Pi inside Herdr, use `/login` for each Pi provider, confirm Claude
+Code authentication, run `codex login` if you want native OpenAI workers, and
+then invoke `/advisor`.
 
 ## Start an advisor, choose a worker harness, and pick a guide
 
@@ -167,65 +193,77 @@ per-role recommendations): [`docs/intelligence-profiles.md`](docs/intelligence-p
 
 ## Intelligence guidance
 
-Second figure: which wallet pays. Shipped default **`codex-max`**. Reinstall
-keeps `intelligence-profiles/ACTIVE`. The shipped guides recommend Cursor only
-as `cursor/grok-4.6`. Character and reasoning notes are advisory, not exhaustive.
+Named profiles answer one operational question: which available model capacity
+should the advisor prefer for each role today? They never rewrite role contracts,
+poll quota, or act as model allowlists. The shipped default is **`codex-max`**,
+and reinstall preserves the selected `intelligence-profiles/ACTIVE` name.
 
-```mermaid
----
-config:
-  theme: dark
----
-flowchart LR
-  named["named JSON"] --> switcher["intelligence-profile.mjs"]
-  switcher --> live["live advisor-intelligence.json"]
-  live --> advisor["advisor chooses next launch identity"]
-  roles["fixed bg-agent-profiles.json"] --> launches["bg_agent role launch"]
-  advisor --> launches
+| Profile | Use it when |
+| --- | --- |
+| `codex-max` | Codex weekly capacity is healthy. |
+| `codex-lean` | Codex capacity is low but still available for the hardest work. |
+| `anthropic-heavy` | You intentionally want Anthropic to carry implementation and review. |
+| `balanced` | Codex handles hard builds while Anthropic carries ordinary builds and checks. |
+| `grok-cycle` | Codex is unavailable and Grok should own the substantial maker/review cycle. |
+
+The detailed model order, reasoning guidance, fallback behavior, and quota pick
+tree live in [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md).
+
+## Evaluate setup changes
+
+Run deterministic repository checks before touching the live setup:
+
+```bash
+npm ci
+npm test
 ```
 
-```mermaid
----
-config:
-  theme: dark
----
-flowchart TD
-  Start[Quota check — you decide] --> CodexQ{Codex weekly healthy?}
-  CodexQ -->|yes| UseCM[codex-max]
-  CodexQ -->|dying leftover still usable| UseCL[codex-lean]
-  CodexQ -->|leftover for hard builds Anthropic checks no Grok| UseBA[balanced]
-  CodexQ -->|dead| AnthQ{Burn Anthropic 5h as the workhorse?}
-  AnthQ -->|yes Sonnet or Opus implement| UseAH[anthropic-heavy]
-  AnthQ -->|no Fable plans Grok does build plus review| UseGC[grok-cycle]
+To exercise the current advisor with existing Pi and native CLI subscriptions,
+run one targeted prospective case and open the local workbench:
+
+```bash
+npm run eval:advisor:prospective -- single-maker-fast-path --name my-change
+npm run eval:advisor:prospective:view
 ```
 
-| Profile | When | Implementation | Adversarial review | Procedural |
-| --- | --- | --- | --- | --- |
-| `codex-max` | Codex weekly healthy | Sol high / medium by task | Sol medium | Luna |
-| `codex-lean` | Codex leftover; Grok is `grok-cycle` | Sol hard, Sonnet medium, Luna small | Sol medium | Luna, Sonnet |
-| `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet / Opus | Luna, else Grok |
-| `balanced` | No Grok; Codex builds hard, Anthropic checks | Sonnet default, Sol high/medium hard, Opus greenfield UX | Sonnet / Opus | Luna, Sonnet |
-| `grok-cycle` | No Codex; Grok owns maker + review | Grok | Grok | Sonnet |
+Open <http://127.0.0.1:4318>. Prospective execution is stochastic, but hidden
+workspace and orchestration checks grade it deterministically. The separate
+Harbor track scores privacy-normalized recorded trajectories with an API-backed
+judge. See [`docs/advisor-evals.md`](docs/advisor-evals.md) before running a full
+suite or promoting a comparison baseline.
 
 ## Repository map
 
-- `extensions/` — first-party advisor extensions and the reviewed `unified-edit.ts` snapshot.
-- `skills/` — first-party advisor, worker-role, triage, and graph-driver skills.
-- `config/intelligence-profiles/` — named advisor intelligence guides (`codex-max`, `codex-lean`, `anthropic-heavy`, `balanced`, `grok-cycle`).
-- `config/bg-agent-profiles.json` — fixed semantic role contracts and portable skill paths; switching never changes it.
-- `~/.pi/agent/advisor-intelligence.json` — installed live copy of the selected advisory guide.
-- `scripts/intelligence-profile.mjs` — mid-session switcher.
-- `scripts/advisor-eval.mjs` — privacy-bounded advisor trace ingestion, diagnostics, and Harbor task generation.
-- `scripts/advisor-harbor-lib.mjs` — categorical ATIF and RewardKit task materialization for Harbor.
-- `docs/intelligence-profiles.md` — topology, quota pick tree, per-role recommendations.
-- `config/settings.overlay.json` — safe Pi defaults and exact package pins. Reinstall preserves the existing `defaultProvider`, `defaultModel`, and `defaultThinkingLevel` because `/model` owns that runtime preference.
-- `config/mcp.json` — MCP definitions with environment placeholders only.
-- `config/skill-sources.json` — selected third-party skills at exact source commits and trees.
+- `extensions/` — first-party advisor/runtime extensions and the reviewed
+  `unified-edit.ts` snapshot.
+- `skills/` — advisor doctrine, semantic worker roles, triage, and graph-driver
+  skills.
+- `config/bg-agent-profiles.json` — fixed role contracts, portable skill paths,
+  and instructional caps.
+- `config/intelligence-profiles/` — switchable model and reasoning guidance.
+- `config/settings.overlay.json` — safe Pi defaults and exact package pins;
+  reinstall preserves the user's existing runtime model preference.
+- `config/mcp.json` — MCP definitions containing environment placeholders only.
+- `config/skill-sources.json` — reviewed third-party skills at exact commits,
+  trees, and content hashes.
+- `evals/harbor/` — fixed recorded-trajectory calibration tasks.
+- `evals/prospective/` — hermetic live advisor cases and hidden verifiers.
+- `evals/baselines/prospective/` — tracked privacy-safe comparison baselines.
+- `scripts/advisor-prospective*.mjs` — live run, verification, suite, baseline,
+  and comparison tooling.
+- `scripts/advisor-eval-dashboard/` — localhost prospective-run workbench.
+- `scripts/advisor-eval.mjs` and `scripts/advisor-harbor-lib.mjs` —
+  privacy-bounded trace normalization and Harbor task materialization.
+- `scripts/intelligence-profile.mjs` — guide validator and mid-session switcher.
+- `scripts/meta-harness.mjs` and `scripts/bootstrap.sh` — install, doctor,
+  restore, validation, and fresh-machine bootstrap.
 - `herdr/` — portable Herdr theme, UI, keybindings, and notification sounds.
-- `scripts/meta-harness.mjs` — plan, install, doctor, restore, and skill commands.
-- `scripts/bootstrap.sh` — the one-command fresh-machine install.
+- `docs/` — runtime, architecture, security, cutover, intelligence, and eval
+  references.
 
-`pi-detach` stays in its own public repository and is installed from a full Git commit. This harness is the single bootstrap entry that composes it with the rest of the setup.
+`pi-detach` stays in its own public repository and is installed from a full Git
+commit. This harness is the single bootstrap entry that composes it with the
+rest of the setup.
 
 ## Safety and reproducibility
 
@@ -249,9 +287,14 @@ node scripts/meta-harness.mjs verify-git-pins
 Each exact commit fetch has a 20-second timeout; this network check is not part
 of offline unit tests.
 
-Exact versions or full commits pin Pi packages. First-party harness files are copied from this repository. Third-party skills are fetched at full Git commits, verified against recorded tree IDs, copied instead of symlinked, and checked against per-skill SHA-256 hashes. The skills installer CLI is also pinned.
+Exact versions or full commits pin Pi packages. First-party harness files are
+copied from this repository. Third-party skills are fetched at full Git commits,
+verified against recorded tree IDs, copied instead of symlinked, and checked
+against per-skill SHA-256 hashes. The skills installer CLI is also pinned.
 
-The marketing and fal.ai groups intentionally use the last reviewed revisions that still contain the selected skill names; their newer upstream layouts renamed or removed those skills.
+The marketing and fal.ai groups intentionally use the last reviewed revisions
+that still contain the selected skill names; newer upstream layouts renamed or
+removed those skills.
 
 Real Pi targets always require `--live`. Each install creates a restorable backup under:
 
@@ -274,10 +317,16 @@ node scripts/meta-harness.mjs restore-herdr --live --backup <herdr-backup-path>
 
 ## Credentials
 
-Copy only variable names from [`.env.example`](.env.example). Never commit values. Rotate a credential immediately if it enters a transcript, diff, shell history, or repository.
+Copy only variable names from [`.env.example`](.env.example). Never commit
+values. Rotate a credential immediately if it enters a transcript, diff, shell
+history, or repository.
 
-See [`docs/security.md`](docs/security.md) for the complete portability boundary and [`docs/cutover.md`](docs/cutover.md) for controlled updates to an existing machine.
+See [`docs/security.md`](docs/security.md) for the complete portability boundary
+and [`docs/cutover.md`](docs/cutover.md) for controlled updates to an existing
+machine.
 
 ## License
 
-MIT. Third-party components keep their own licenses and notices; see [`NOTICE.md`](NOTICE.md) and [`config/third-party-extensions.lock.json`](config/third-party-extensions.lock.json).
+MIT. Third-party components keep their own licenses and notices; see
+[`NOTICE.md`](NOTICE.md) and
+[`config/third-party-extensions.lock.json`](config/third-party-extensions.lock.json).

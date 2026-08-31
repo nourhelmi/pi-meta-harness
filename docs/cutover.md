@@ -26,8 +26,9 @@ Do not continue while an advisor or worker uses the current setup.
 13. Restart Pi or use `/reload` only after doctor passes.
 14. Confirm `node ~/.pi/agent/bin/intelligence-profile.mjs --list` reports the
     intended active guide and preferred recommendations.
-15. Start a fresh advisor workstream and launch one bounded Scout, recording a
-    concise rationale if its identity is outside the active guide.
+15. Start a fresh advisor workstream and run one bounded, read-only task that
+    exercises worker transport. Let the advisor choose the task-fit role, and
+    record a concise rationale if its identity is outside the active guide.
 16. Keep both installer backups until a real workstream completes.
 
 If doctor or install reports an ACTIVE/live mismatch, do not choose either side

@@ -44,7 +44,7 @@ Choose worker transport separately. `/advisor` asks once and persists the answer
 `/skill:advisor-pi` and `/skill:advisor-native` select it directly. The active
 guide still chooses model and reasoning in either mode. Pi mode forwards that
 identity to Pi. Native mode maps OpenAI providers to Codex CLI and Anthropic
-providers to Claude Code while retaining the same six semantic roles and skills.
+providers to Claude Code while retaining the same seven semantic roles and skills.
 Cursor/Grok recommendations are not directly routable in native mode, so the
 advisor uses a task-fit OpenAI/Anthropic alternative from the same guide or
 reports the mismatch.
@@ -187,8 +187,8 @@ Fable remains the advisor/planner default, with Sol high as capacity fallback.
 
 Sol high plans and handles hard builds, while Sol medium handles adversarial
 review and hefty reduction. Sonnet handles medium well-known work and ordinary
-review; Luna handles locked execution packets and procedural work. Fable is advisor-session guidance
-rather than a worker recommendation in this profile.
+review; Luna handles locked execution packets and procedural work. Fable is
+advisor-session guidance rather than a worker recommendation in this profile.
 
 ### `anthropic-heavy` — spend the 5-hour window deliberately
 
@@ -233,11 +233,12 @@ the recommendations but is still not blocked at runtime.
 | scout | Sonnet medium, Grok high |
 | browser-verifier | Sonnet medium, Grok high |
 
-Grok owns the hefty decision-bearing maker/review/reduction cycle. Sonnet medium
-handles locked execution packets, short-leash procedural work, and reduction
-when the session uses native harnesses without a Cursor route. A fresh Grok
-review of a Grok build is expected; deterministic
-anchors provide the independence backstop.
+Grok is the preferred model for hefty decision-bearing implementation, review,
+and reduction when those roles are justified. Sonnet medium handles locked
+execution packets, short-leash procedural work, and reduction when the session
+uses native harnesses without a Cursor route. When risk warrants independent
+review of a Grok build, use a fresh invocation and preserve deterministic anchors
+as the independence backstop.
 
 ## Files on disk
 
