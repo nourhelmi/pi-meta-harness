@@ -78,7 +78,7 @@ runtime rules: [`docs/advisor-runtime.md`](docs/advisor-runtime.md)
 - [`docs/security.md`](docs/security.md) — portability boundary
 - [`docs/cutover.md`](docs/cutover.md) — updating an existing machine
 - [`docs/macos-tcc.md`](docs/macos-tcc.md) — grant Ghostty Full Disk Access so machine-wide searches do not modal-block
-- [`docs/advisor-evals.md`](docs/advisor-evals.md) — Harbor-based evaluation of privacy-safe advisor trajectories
+- [`docs/advisor-evals.md`](docs/advisor-evals.md) — fixed Harbor calibration plus subscription-backed live setup evaluation
 
 
 ## Fresh-machine setup

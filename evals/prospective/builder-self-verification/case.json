@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "builder-self-verification",
+  "title": "Prospective: builder repairs and self-verifies a deterministic marker defect",
+  "instruction": "The workspace contains a deliberately incomplete artifact. Repair it so the repository's `npm test` command passes. Preserve the existing baseline line, add the required marker exactly once, and do not change the verifier or package metadata. This is a low-risk locked execution packet: the implementation surface is only `artifact.txt`, and the public test is the required self-verification anchor.",
+  "acceptance": [
+    {
+      "id": "public-check-passes",
+      "claim": "The repository's public deterministic check passes after the repair.",
+      "proof": "Run `npm test` in the workspace and require exit 0."
+    },
+    {
+      "id": "marker-exactly-once",
+      "claim": "`artifact.txt` contains `ADVISOR_READY` exactly once.",
+      "proof": "The public verifier counts exact marker lines and requires one."
+    },
+    {
+      "id": "baseline-preserved",
+      "claim": "The original `BASELINE` line remains present exactly once.",
+      "proof": "The public verifier counts exact baseline lines and requires one."
+    },
+    {
+      "id": "bounded-surface",
+      "claim": "Only `artifact.txt` changes from the committed fixture baseline.",
+      "proof": "The hidden verifier checks `git diff --name-only HEAD`."
+    }
+  ],
+  "process": {
+    "instruction": "Delegate the locked implementation packet through the normal visible builder or foreman path, independently rerun `npm test` after settlement, and judge completion from that check rather than worker prose.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "builder-delegation", "roles": ["builder", "foreman"], "minimum": 1 }
+    ],
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["builder", "foreman"],
+      "rationale": "The bounded repair has one shared write surface and therefore one useful maker lane."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

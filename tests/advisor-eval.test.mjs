@@ -266,6 +266,131 @@ test("foreman launches remain a privacy-safe semantic role", () => {
   assert.equal(analyzeTrace(normalized).workers.successfulByRole.foreman, 1);
 });
 
+test("worker launch failures retain only an allowlisted diagnostic category", () => {
+  const call = workerCall("blocked-call", "private-worker-name", { role: "scout" });
+  const result = resultEntry("blocked-call", "failed");
+  result.message.content[0].text = "agent private-worker-name is blocked during startup and is not ready for prompts";
+  const normalized = normalizeSession([assistantEntry([call]), result]);
+  const event = normalized.events.find((candidate) => candidate.kind === "worker_launch_result");
+  assert.equal(event?.failureKind, "startup-blocked");
+  assert(!JSON.stringify(normalized).includes("private-worker-name"));
+});
+
+test("non-error stalled worker results retain a diagnostic category", () => {
+  const call = workerCall("stalled-call", "private-worker-name", { role: "scout" });
+  const result = resultEntry("stalled-call", "running");
+  result.message.details.agentState = "stalled";
+  result.message.content[0].text = "agent failed to start before prompt delivery";
+  const normalized = normalizeSession([assistantEntry([call]), result]);
+  const event = normalized.events.find((candidate) => candidate.kind === "worker_launch_result");
+  assert.equal(event?.status, "failed");
+  assert.equal(event?.failureKind, "startup-failed");
+  assert(!JSON.stringify(normalized).includes("private-worker-name"));
+});
+
+test("worker results use semantic agent settlement over registry exit status", () => {
+  const call = workerCall("settled-call", "settled-checker", { role: "checker" });
+  const result = resultEntry("settled-call", "exited");
+  result.message.details.agentState = "done";
+  const successful = normalizeSession([assistantEntry([call]), result]);
+  assert.equal(
+    successful.events.find((event) => event.kind === "worker_launch_result")?.status,
+    "successful",
+  );
+
+  const stalled = resultEntry("settled-call", "exited");
+  stalled.message.details.agentState = "stalled";
+  const failed = normalizeSession([assistantEntry([call]), stalled]);
+  assert.equal(failed.events.find((event) => event.kind === "worker_launch_result")?.status, "failed");
+});
+
+test("promoted settlement notifications reconnect to their launch attempt", () => {
+  const call = workerCall("promoted-call", "ignored", { role: "checker", label: "review evidence" });
+  const promoted = resultEntry("promoted-call", "running");
+  promoted.message.details.agentName = "checker-review-evidence-abc123";
+  promoted.message.details.label = "checker · review evidence";
+  const normalized = normalizeSession([
+    assistantEntry([call]),
+    promoted,
+    {
+      type: "custom_message",
+      customType: "detach_agent_settled",
+      timestamp: "2026-01-01T00:00:03.000Z",
+      details: {
+        agentName: "checker-review-evidence-abc123",
+        label: "checker · review evidence",
+        agentState: "done",
+      },
+    },
+  ]);
+  const launch = normalized.events.find((event) => event.kind === "worker_launch");
+  const settlement = normalized.events.find((event) => event.kind === "worker_status");
+  assert.equal(settlement.attemptAlias, launch.attemptAlias);
+  assert.equal(settlement.workerAlias, launch.workerAlias);
+  assert.equal(settlement.role, "checker");
+  assert.equal(settlement.status, "successful");
+});
+
+test("settlement notifications correlate by stable run id when labels change", () => {
+  const call = workerCall("run-id-call", "ignored", { role: "checker", label: "first label" });
+  const promoted = resultEntry("run-id-call", "running");
+  promoted.message.details.agentName = "generated-agent-name";
+  promoted.message.details.runId = "stable-run-id";
+  const normalized = normalizeSession([
+    assistantEntry([call]),
+    promoted,
+    {
+      type: "custom_message",
+      customType: "detach_agent_settled",
+      timestamp: "2026-01-01T00:00:03.000Z",
+      details: { id: "stable-run-id", label: "renamed label", agentState: "done" },
+    },
+  ]);
+  const launch = normalized.events.find((event) => event.kind === "worker_launch");
+  const settlement = normalized.events.find((event) => event.kind === "worker_status");
+  assert.equal(settlement.attemptAlias, launch.attemptAlias);
+  assert.equal(settlement.workerAlias, launch.workerAlias);
+  assert.equal(settlement.role, "checker");
+  assert.equal(settlement.status, "successful");
+});
+
+test("resumed workers inherit semantic identity and receive stable-id settlement", () => {
+  const initial = workerCall("initial-call", "ignored", { role: "checker", label: "review evidence" });
+  const promoted = resultEntry("initial-call", "running");
+  promoted.message.details.agentName = "generated-checker";
+  promoted.message.details.runId = "stable-run-id";
+  const resume = workerCall("resume-call", "generated-checker", {
+    role: undefined,
+    model: undefined,
+    label: undefined,
+    anchor: undefined,
+  });
+  const resumeResult = resultEntry("resume-call", "running", "2026-01-01T00:00:04.000Z");
+  resumeResult.message.details.runId = "stable-run-id";
+  const normalized = normalizeSession([
+    assistantEntry([initial]),
+    promoted,
+    assistantEntry([resume], "2026-01-01T00:00:03.000Z"),
+    resumeResult,
+    {
+      type: "custom_message",
+      customType: "detach_agent_settled",
+      timestamp: "2026-01-01T00:00:05.000Z",
+      details: { id: "stable-run-id", agentState: "done" },
+    },
+  ]);
+  const launches = normalized.events.filter((event) => event.kind === "worker_launch");
+  const settlement = normalized.events.find((event) => event.kind === "worker_status");
+  assert.equal(launches.length, 2);
+  assert.equal(launches[1].action, "resume");
+  assert.equal(launches[1].workerAlias, launches[0].workerAlias);
+  assert.equal(launches[1].role, "checker");
+  assert.equal(settlement.attemptAlias, launches[1].attemptAlias);
+  assert.equal(settlement.workerAlias, launches[0].workerAlias);
+  assert.equal(settlement.role, "checker");
+  assert.equal(settlement.status, "successful");
+});
+
 test("ordered and out-of-order results correlate privately by toolCallId", () => {
   const calls = assistantEntry([
     workerCall("call-one", "worker-one"),

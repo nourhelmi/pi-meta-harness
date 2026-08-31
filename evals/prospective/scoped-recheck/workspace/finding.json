@@ -1,0 +1,6 @@
+{
+  "enumeratedFinding": "timeout must be positive and bounded",
+  "repair": { "from": 0, "to": 5000 },
+  "blastRadius": ["retries"],
+  "outOfScopeNote": { "field": "logFormat", "severity": "low", "blocking": false }
+}

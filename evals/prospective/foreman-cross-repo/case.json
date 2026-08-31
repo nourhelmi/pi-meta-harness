@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "foreman-cross-repo",
+  "title": "Prospective: foreman coordinates a cross-repository contract update",
+  "instruction": "Two repository-shaped directories share a versioned contract. Upgrade the schema and service consumers from `v1` to `v2`, and record schema-before-service ordering in `delivery-plan.json`. This packet is explicitly foreman-shaped: delegate the coordinated implementation to a visible foreman, require self-verification across both directories, and independently rerun the root `npm test`. Do not publish or push anything.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The integrated cross-repository verifier passes.", "proof": "Run root `npm test` and require exit 0." },
+    { "id": "versions-aligned", "claim": "Schema and service both consume version `v2`.", "proof": "The verifier reads both repository-shaped directories." },
+    { "id": "delivery-order-recorded", "claim": "The plan records schema-before-service ordering with no external effects.", "proof": "The verifier checks `delivery-plan.json`." },
+    { "id": "bounded-surface", "claim": "Only the two version files and delivery plan change.", "proof": "The hidden verifier checks the Git diff." }
+  ],
+  "process": {
+    "instruction": "Delegate the coordinated multi-surface implementation to a visible foreman and let the foreman use its normal bounded subdelegation; independently rerun the root `npm test` after settlement.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "foreman-delegation", "roles": ["foreman"], "minimum": 1 }
+    ],
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["foreman"],
+      "rationale": "One foreman owns the ordered schema-before-service contract update."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-08-30T17-37-26-702Z--builder-self-verification--aad8d614",
+  "case": {
+    "id": "builder-self-verification",
+    "title": "Prospective: builder repairs and self-verifies a deterministic marker defect"
+  },
+  "candidate": {
+    "revision": "10ece579299b6fbded47753e9aaa83e0b4bc5b2e",
+    "dirty": true,
+    "profile": "codex-lean",
+    "model": "openai-codex/gpt-5.6-sol",
+    "thinking": "high"
+  },
+  "execution": {
+    "kind": "herdr-visible-pi-advisor",
+    "workerHarness": "native",
+    "timeoutMinutes": 10,
+    "credentialPolicy": "temporary-copy-removed-after-run",
+    "rawSessionPolicy": "normalize-then-delete"
+  }
+}

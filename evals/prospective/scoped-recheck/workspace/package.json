@@ -1,0 +1,6 @@
+{
+  "name": "prospective-scoped-recheck",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node verify-public.mjs" }
+}

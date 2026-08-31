@@ -1,0 +1,6 @@
+{
+  "name": "prospective-false-fail-review",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node verify-public.mjs" }
+}

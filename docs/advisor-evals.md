@@ -76,6 +76,219 @@ Use Harbor jobs and the viewer to compare models, judge variants, attempts, dura
 and reward details. The former custom `evaluate` and `compare` commands no longer
 exist.
 
+## Run the actual advisor prospectively
+
+The Harbor tasks above score fixed recorded trajectories. They are stable calibration
+fixtures: changing advisor skills, extensions, profiles, or worker policy does not
+change their input. Use the prospective suite to run the current checkout through the
+real advisor and measure a setup change.
+
+This path is local, deterministic, and subscription-compatible. It uses the existing
+Pi OpenAI login for the root advisor and the existing Codex ChatGPT login for native
+OpenAI workers. It does **not** call RewardKit or an API-billed LLM judge. It still uses
+the normal allowance of the subscriptions that execute the advisor and workers.
+
+Authenticate once:
+
+```bash
+pi                    # /login → OpenAI ChatGPT/Codex
+codex login           # Sign in with ChatGPT for native OpenAI workers
+```
+
+Run commands from a Pi session inside Herdr. A single run:
+
+```bash
+npm run eval:advisor:prospective -- builder-self-verification \
+  --name after-checker-skill-change
+```
+
+For that run, the harness:
+
+1. copies the case's hermetic workspace into `evals/local/prospective-runs/`;
+2. fingerprints the advisor-managed files in the current checkout;
+3. stages the checkout as an isolated temporary Pi agent directory;
+4. stages a minimal temporary Codex home that trusts only the disposable workspace,
+   disables hooks/plugins, copies both subscription credentials with mode `0600`, and
+   runs a bounded `codex doctor` preflight before concurrent native workers start;
+5. launches the root Pi advisor in a visible, unfocused Herdr tab;
+6. lets the advisor delegate through its normal configured workers;
+7. waits for a bounded lifecycle signal, then independently grades the workspace;
+8. normalizes the root trajectory and records process checks; and
+9. closes the tab and deletes both credential-bearing temporary directories.
+
+The hidden verifier, not the model-authored completion signal, decides the reward. A
+run passes only when every check passes, but the result and dashboard keep three dimensions
+separate: functional workspace outcome, orchestration/completion settlement, and
+measurement/control validity. Orchestration requirements are case-specific, such as
+observing a successful checker, planner, scout, builder, or foreman settlement. Failed
+launch evidence retains only an allowlisted category such as `startup-blocked`, `quota`,
+or `artifact-invalid`; arbitrary worker output and identities remain excluded. Worker
+attempts and duration are explanatory rather than quality rewards.
+
+### Live cases
+
+The prospective suite has eight cases:
+
+| Case | Starting state | Behavior under test | Required delegation |
+| --- | --- | --- | --- |
+| `builder-self-verification` | Failing | A builder makes the exact marker repair and runs the public check before handoff. | builder or foreman |
+| `false-fail-review` | Passing | A reviewer accepts complete evidence instead of inventing a blocking defect; the workspace stays unchanged. | checker |
+| `scoped-recheck` | Passing | A repaired enumerated finding receives a delta-and-blast-radius recheck while an unrelated low-risk note stays non-blocking. | checker |
+| `criteria-revision` | Failing | A later authorized packet deliberately supersedes a frozen legacy criterion with a recorded rationale and bounded repair. | planner, then builder or foreman |
+| `safety-redirect` | Failing | An unsafe production-data/credential request is redirected to a synthetic, no-effects local plan. | planner, then builder or foreman |
+| `routing-ambiguity` | Failing | A scout resolves current-versus-legacy ownership before a bounded router repair, without changing providers. | scout, then builder or foreman |
+| `foreman-cross-repo` | Failing | A foreman coordinates schema-before-service delivery across two repository-shaped directories and records the plan. | foreman |
+| `parallel-evidence-merge` | Failing | Two independent evidence scouts launch together before one dependent maker merges their contract and runtime conclusions. | two parallel scouts, then builder or foreman |
+
+Repository tests prove the two passing cases start and remain read-only passes, and
+prove each mutation case fails before and passes after its exact expected repair. Those
+tests validate fixtures and verifiers without consuming subscription quota; live runs
+evaluate the real advisor behavior.
+
+Every case declares its maximum **useful** worker width. Seven cases correctly have
+width `1` because their stages share a write surface or have real dependencies. Only
+`parallel-evidence-merge` exposes width `2`. The result and dashboard report same-turn
+launch width, observable worker-interval overlap, successful settlement coverage, and
+utilization against that declared width. These measurements are diagnostic and never
+change reward: raw worker count or gratuitous fan-out cannot earn a pass. The outer suite
+still runs cases sequentially to avoid cross-case subscription contention; parallelism is
+measured inside the one case where it is actually available.
+
+### Run a suite or repeat trials
+
+Run every discovered case once, sequentially:
+
+```bash
+npm run eval:advisor:prospective:suite -- \
+  --name after-checker-skill-change \
+  --trials 1
+```
+
+Or select cases and repeat them to see variance:
+
+```bash
+npm run eval:advisor:prospective:suite -- \
+  false-fail-review scoped-recheck routing-ambiguity \
+  --name after-checker-skill-change \
+  --trials 3 \
+  --profile codex-max \
+  --model openai-codex/gpt-5.6-sol \
+  --thinking high \
+  --timeout-minutes 30
+```
+
+Suites run sequentially to avoid competing advisor tabs and subscription load. At suite
+start, the runner copies the managed advisor setup and every prospective case into an
+immutable `setup-snapshot/`. Every trial installs from that snapshot, records the same
+setup and evaluator fingerprints, and aborts if the snapshot drifts. A suite summary
+and its setup identity are stored under `evals/local/prospective-runs/suites/`. This avoids
+silently mixing setup versions when the working tree changes during a long suite. The summary
+aggregates clean runs and passed checks for each outcome dimension plus useful-width
+utilization states. Use repeated trials for important releases because one stochastic run
+cannot establish reliability.
+
+To validate a clean, committed local `pi-detach` change before publishing a new pin,
+set `ADVISOR_EVAL_PI_DETACH_SOURCE=/absolute/path/to/pi-detach`. The staged Pi settings
+use a tracked-file snapshot of that local package, and its commit is folded into the setup
+fingerprint and manifest. Dirty dependency checkouts are rejected so comparisons remain
+identifiable.
+
+### Storage and setup identity
+
+Each run is stored locally at:
+
+```text
+evals/local/prospective-runs/<timestamp>--<case>--<id>/
+├── manifest.json       # setup name, content fingerprint, profile, and model
+├── prompt.md           # frozen packet sent to the root advisor
+├── workspace/          # disposable repository after the run
+├── advisor-state/      # isolated advisor and worker artifacts
+├── completion.json     # lifecycle signal; never authoritative evidence
+├── trace.json          # privacy-normalized root Pi trajectory
+├── trajectory.json     # ATIF v1.7 trajectory
+└── result.json         # authoritative reward and per-check evidence
+```
+
+`evals/local/` is gitignored. A setup name is human-readable; the SHA-256 content
+fingerprint covers the managed setup (`config/`, `extensions/`, `skills/`, key runner
+scripts, and package metadata), so dirty working-tree versions remain distinguishable.
+
+Re-run only the deterministic verifier for an existing run:
+
+```bash
+npm run eval:advisor:prospective:verify -- \
+  evals/local/prospective-runs/<run-directory>
+```
+
+### List, compare, and promote baselines
+
+List all local runs and tracked baselines:
+
+```bash
+npm run eval:advisor:prospective:list
+```
+
+Compare a baseline or prior run with a newer run. References may be full paths, IDs,
+baseline names, or unambiguous ID prefixes:
+
+```bash
+npm run eval:advisor:prospective:compare -- \
+  phase0-canary <newer-run-id> \
+  --format markdown \
+  --output evals/local/comparison.md
+```
+
+Comparison reports the three outcome dimensions, criterion regressions and improvements,
+trajectory-event deltas, launch-count deltas, and role-launch deltas. Compare artifacts
+from the same case. Added or removed checks are labeled as a changed check contract instead
+of being falsely scored as regressions; only shared checks determine that comparison's
+direction, and simultaneous improvements/regressions are reported as `mixed` with a
+per-dimension direction. Incomplete runs remain visible in the inventory but are disabled in comparison
+selectors until `result.json` exists.
+
+After reviewing a representative passing run, promote only its privacy-safe evidence:
+
+```bash
+npm run eval:advisor:prospective:baseline -- \
+  <newer-run-id> --name after-checker-skill-change
+```
+
+Promoted baselines live at
+`evals/baselines/prospective/<case>/<baseline-name>/` and are tracked. Promotion copies
+only the manifest, frozen prompt, completion signal, result, normalized trace, and ATIF
+trajectory—never the workspace, advisor state, raw session, or credentials. Existing
+baselines are protected unless `--force` is explicit.
+
+### Review in the local dashboard
+
+Start the purpose-built viewer:
+
+```bash
+npm run eval:advisor:prospective:view
+```
+
+Open <http://127.0.0.1:4318>. The workbench scans files on demand and provides case/run
+search, baseline-to-newer-run selectors, deterministic criterion evidence, setup
+fingerprints, and a trajectory ruler. It is localhost-only and read-only; the CLI owns
+execution and baseline promotion.
+
+Harbor's viewer does not show these live prospective artifacts. Harbor remains the UI
+for the fixed API-judged calibration jobs:
+
+```bash
+uvx --from harbor==0.16.1 harbor view evals/local/harbor-jobs
+```
+
+The two viewers serve different evaluation subjects rather than duplicating each other:
+Harbor reviews stable recorded-trajectory judge calibration, while the local workbench
+reviews current-setup deterministic live runs.
+
+Only run trusted local cases. The root Pi process and native workers necessarily receive
+their own subscription credentials while active. The isolated Codex home prevents fresh
+synthetic workspaces from blocking on or polluting the user's persistent project-trust list.
+Credentials are never written to
+committed fixtures, normalized traces, manifests, prompts, results, or baselines.
+
 ## Deterministic smoke run
 
 This verifies that Harbor can load the local dataset, build its environment, and run
@@ -191,7 +404,6 @@ model mix was cost-optimal. Review weekly-limit consumption alongside the Harbor
 when judging a real session.
 
 The adaptive positive case is useful as a reference trajectory and regression corpus;
-it does not yet replay the task through a newly configured live Pi advisor. A future
-Harbor agent adapter is required for prospective setup-versus-setup evaluation. Until
-then, use scored recorded cases to calibrate the rubric and compare judge/configuration
-changes, not to claim that a new advisor policy has reproduced the outcome.
+it does not replay that task through a newly configured live Pi advisor. Use the local
+prospective runner for setup-versus-setup evaluation and its workbench for comparisons.
+Harbor's viewer remains scoped to the recorded, scored calibration cases.

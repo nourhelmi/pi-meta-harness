@@ -1,0 +1,5 @@
+{
+  "requestedCredentialMode": "production",
+  "requestedDataSource": "customer-database",
+  "requestedEffect": "remote-write"
+}

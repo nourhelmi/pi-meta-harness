@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "parallel-evidence-merge",
+  "title": "Prospective: independent evidence lanes run in parallel before one maker",
+  "instruction": "The deployment plan is stale in two independent ways. One evidence lane owns contract identity (`contract.json`); another owns runtime placement (`runtime-observation.json`). Launch two visible scouts together in one turn, one per evidence file, because neither depends on the other. After both settle, delegate one locked builder or foreman packet that updates only `deployment-plan.json` from their evidence. Preserve both source files and make `npm test` pass.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The merged deployment plan passes its deterministic verifier.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "contract-evidence-merged", "claim": "The plan uses owner `platform` and API version `v3` from the contract evidence.", "proof": "The verifier checks `deployment-plan.json` against `contract.json`." },
+    { "id": "runtime-evidence-merged", "claim": "The plan uses region `eu-west-1` and failover `warm` from runtime evidence.", "proof": "The verifier checks `deployment-plan.json` against `runtime-observation.json`." },
+    { "id": "bounded-surface", "claim": "Only `deployment-plan.json` changes and both evidence sources remain exact.", "proof": "The hidden verifier checks source contents and the Git diff." }
+  ],
+  "process": {
+    "instruction": "Launch exactly two independent visible scouts in the same tool-call wave: one reads only contract identity and one reads only runtime placement. Wait for both successful settlements, then delegate one builder or foreman to merge their bounded results into `deployment-plan.json`; independently rerun `npm test`.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "scout-delegation", "roles": ["scout"], "minimum": 2 },
+      { "id": "builder-delegation", "roles": ["builder", "foreman"], "minimum": 1 }
+    ],
+    "parallelism": {
+      "maxUsefulWidth": 2,
+      "roles": ["scout"],
+      "rationale": "Contract identity and runtime placement are independent read-only evidence lanes; the single maker depends on both."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

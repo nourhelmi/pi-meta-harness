@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "status": "completed",
+  "criteria": [
+    { "id": "public-check-passes", "status": "passed" },
+    { "id": "marker-exactly-once", "status": "passed" },
+    { "id": "baseline-preserved", "status": "passed" },
+    { "id": "bounded-surface", "status": "passed" }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "routes": {
+    "account-sync": {
+      "owner": "current",
+      "deprecatedProvider": "legacy"
+    }
+  }
+}

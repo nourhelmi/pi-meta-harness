@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "scoped-recheck",
+  "title": "Prospective: repaired finding receives a scoped recheck",
+  "instruction": "A previously enumerated timeout finding is already repaired. Recheck the repaired delta and its declared adjacent retry behavior without reopening unrelated files. The formatting preference in `finding.json` is low-risk and outside the repair scope. Do not modify the workspace. Delegate the bounded recheck to a visible checker, rerun `npm test`, and complete when the repaired and adjacent anchors pass.",
+  "acceptance": [
+    { "id": "repair-verified", "claim": "The repaired timeout value is exactly 5000 milliseconds.", "proof": "The public verifier checks `service-config.json`." },
+    { "id": "adjacent-behavior-stable", "claim": "The adjacent retry count remains exactly 3.", "proof": "The public verifier checks the declared blast radius." },
+    { "id": "public-check-passes", "claim": "The scoped deterministic check passes.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "workspace-unchanged", "claim": "A read-only recheck does not reopen or mutate the artifact.", "proof": "The hidden verifier requires a clean Git diff." }
+  ],
+  "process": {
+    "instruction": "Delegate only the delta-and-blast-radius review to a visible checker, independently rerun `npm test`, and keep the unrelated low-risk formatting preference as a note rather than a blocker.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "checker-delegation", "roles": ["checker"], "minimum": 1 }
+    ],
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["checker"],
+      "rationale": "The repaired delta and adjacent behavior form one bounded recheck packet."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

@@ -1,0 +1,8 @@
+{
+  "riskThreshold": "medium",
+  "observation": {
+    "kind": "wording-preference",
+    "severity": "low",
+    "blocking": false
+  }
+}

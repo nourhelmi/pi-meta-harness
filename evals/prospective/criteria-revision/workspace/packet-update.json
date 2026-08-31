@@ -1,0 +1,7 @@
+{
+  "revision": 2,
+  "authorized": true,
+  "supersedes": 1,
+  "requiredMarker": "CURRENT_READY",
+  "rationale": "The legacy integration was retired before implementation."
+}

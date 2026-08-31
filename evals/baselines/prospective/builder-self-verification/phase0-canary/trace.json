@@ -1,0 +1,469 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "kind": "pi-session-jsonl",
+    "artifactAlias": "ar_dd9fe9d2aca85c9d6a5cb952fb1ff894",
+    "entryCount": 82,
+    "textPolicy": "categorical-only",
+    "aliasScope": "deterministic-per-artifact"
+  },
+  "redaction": {
+    "rawMessageBodiesCopied": false,
+    "rawToolPayloadsCopied": false,
+    "arbitraryTextCopied": false,
+    "identityFieldsAliased": true,
+    "anchorTextStored": false
+  },
+  "relationships": {
+    "repetition": {
+      "exactAnchors": [
+        [
+          "e0009",
+          "e0012"
+        ],
+        [
+          "e0009",
+          "e0019"
+        ],
+        [
+          "e0009",
+          "e0024"
+        ],
+        [
+          "e0009",
+          "e0026"
+        ],
+        [
+          "e0012",
+          "e0019"
+        ],
+        [
+          "e0012",
+          "e0024"
+        ],
+        [
+          "e0012",
+          "e0026"
+        ],
+        [
+          "e0019",
+          "e0024"
+        ],
+        [
+          "e0019",
+          "e0026"
+        ],
+        [
+          "e0024",
+          "e0026"
+        ]
+      ],
+      "nearAnchors": [],
+      "exactLabels": [
+        [
+          "e0009",
+          "e0012"
+        ],
+        [
+          "e0009",
+          "e0019"
+        ],
+        [
+          "e0012",
+          "e0019"
+        ]
+      ],
+      "nearLabels": [],
+      "truncated": false
+    }
+  },
+  "events": [
+    {
+      "id": "e0001",
+      "timestamp": "2026-08-30T17:37:29.309Z",
+      "kind": "session_started"
+    },
+    {
+      "id": "e0002",
+      "timestamp": "2026-08-30T17:42:41.153Z",
+      "kind": "user_message",
+      "signals": [
+        "auth_data_boundary"
+      ]
+    },
+    {
+      "id": "e0003",
+      "timestamp": "2026-08-30T17:42:44.400Z",
+      "kind": "tool_call",
+      "toolName": "advisor_session_init"
+    },
+    {
+      "id": "e0004",
+      "timestamp": "2026-08-30T17:42:52.053Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0005",
+      "timestamp": "2026-08-30T17:42:58.665Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0006",
+      "timestamp": "2026-08-30T17:43:02.311Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0007",
+      "timestamp": "2026-08-30T17:43:05.815Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0008",
+      "timestamp": "2026-08-30T17:43:12.129Z",
+      "kind": "graph_plan",
+      "toolName": "advisor_graph_plan",
+      "graphAlias": "g_9dac7df6d9f53be5423edeb64519cb60",
+      "nodeCount": 1,
+      "waves": [
+        {
+          "index": 1,
+          "nodeAliases": [
+            "n_6200e57be92ba0aa0f54abbf403ed033"
+          ],
+          "roles": [
+            "builder"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e0009",
+      "timestamp": "2026-08-30T17:43:19.007Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "launch",
+      "workerAlias": "w_b4ccee17f3b046ff89fc3f6842d07aad",
+      "attemptAlias": "a_ec788ce1759f4202aab6c33f2e559558",
+      "role": "builder",
+      "labelAlias": "l_7b9562970893ecd89a92ed8140619086",
+      "anchorAlias": "h_6eab04c7692b04bc9f640cc5607f5cc0",
+      "anchorWordCount": 13,
+      "status": "requested"
+    },
+    {
+      "id": "e0010",
+      "timestamp": "2026-08-30T17:43:19.015Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_b4ccee17f3b046ff89fc3f6842d07aad",
+      "attemptAlias": "a_ec788ce1759f4202aab6c33f2e559558",
+      "role": "builder",
+      "status": "failed"
+    },
+    {
+      "id": "e0011",
+      "timestamp": "2026-08-30T17:43:22.924Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0012",
+      "timestamp": "2026-08-30T17:43:34.451Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "resume",
+      "workerAlias": "w_b4ccee17f3b046ff89fc3f6842d07aad",
+      "attemptAlias": "a_1a729ffe001326c4ed089f6901263448",
+      "role": "builder",
+      "modelAlias": "m_ce0404db90cd6e075ff335beead2704d",
+      "labelAlias": "l_7b9562970893ecd89a92ed8140619086",
+      "anchorAlias": "h_6eab04c7692b04bc9f640cc5607f5cc0",
+      "anchorWordCount": 13,
+      "status": "requested"
+    },
+    {
+      "id": "e0013",
+      "timestamp": "2026-08-30T17:43:40.447Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_b4ccee17f3b046ff89fc3f6842d07aad",
+      "attemptAlias": "a_1a729ffe001326c4ed089f6901263448",
+      "role": "builder",
+      "modelAlias": "m_ce0404db90cd6e075ff335beead2704d",
+      "status": "failed"
+    },
+    {
+      "id": "e0014",
+      "timestamp": "2026-08-30T17:43:44.137Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0015",
+      "timestamp": "2026-08-30T17:43:50.030Z",
+      "kind": "tool_call",
+      "toolName": "intercom"
+    },
+    {
+      "id": "e0016",
+      "timestamp": "2026-08-30T17:43:50.205Z",
+      "kind": "tool_error",
+      "toolName": "intercom",
+      "status": "failed"
+    },
+    {
+      "id": "e0017",
+      "timestamp": "2026-08-30T17:43:54.401Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "launch",
+      "workerAlias": "w_1d2954fedf6e52b106e89cf9a93af0cd",
+      "attemptAlias": "a_54e93ea9641b50f061c52296355daae7",
+      "role": "unknown",
+      "anchorWordCount": 0,
+      "status": "requested"
+    },
+    {
+      "id": "e0018",
+      "timestamp": "2026-08-30T17:43:54.411Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_1d2954fedf6e52b106e89cf9a93af0cd",
+      "attemptAlias": "a_54e93ea9641b50f061c52296355daae7",
+      "role": "unknown",
+      "status": "failed"
+    },
+    {
+      "id": "e0019",
+      "timestamp": "2026-08-30T17:44:08.398Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "resume",
+      "workerAlias": "w_b4ccee17f3b046ff89fc3f6842d07aad",
+      "attemptAlias": "a_bdd59a5f9fbfaba3f87ab997f0bd5edb",
+      "role": "builder",
+      "modelAlias": "m_407862714c90c1aacde99bb3a9941652",
+      "labelAlias": "l_7b9562970893ecd89a92ed8140619086",
+      "anchorAlias": "h_6eab04c7692b04bc9f640cc5607f5cc0",
+      "anchorWordCount": 13,
+      "status": "requested"
+    },
+    {
+      "id": "e0020",
+      "timestamp": "2026-08-30T17:44:13.810Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_b4ccee17f3b046ff89fc3f6842d07aad",
+      "attemptAlias": "a_bdd59a5f9fbfaba3f87ab997f0bd5edb",
+      "role": "builder",
+      "modelAlias": "m_407862714c90c1aacde99bb3a9941652",
+      "status": "failed"
+    },
+    {
+      "id": "e0021",
+      "timestamp": "2026-08-30T17:44:19.718Z",
+      "kind": "tool_call",
+      "toolName": "bg_list"
+    },
+    {
+      "id": "e0022",
+      "timestamp": "2026-08-30T17:44:25.600Z",
+      "kind": "tool_call",
+      "toolName": "fffind"
+    },
+    {
+      "id": "e0023",
+      "timestamp": "2026-08-30T17:44:28.663Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0024",
+      "timestamp": "2026-08-30T17:44:45.360Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "launch",
+      "workerAlias": "w_274820de623057add8a3686f0003e9f5",
+      "attemptAlias": "a_232f857c571e4f2e960d8dd1109c1480",
+      "role": "unknown",
+      "labelAlias": "l_4f442c918a32967b4e384a182dda404d",
+      "anchorAlias": "h_6eab04c7692b04bc9f640cc5607f5cc0",
+      "anchorWordCount": 13,
+      "status": "requested"
+    },
+    {
+      "id": "e0025",
+      "timestamp": "2026-08-30T17:44:45.361Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_274820de623057add8a3686f0003e9f5",
+      "attemptAlias": "a_232f857c571e4f2e960d8dd1109c1480",
+      "role": "unknown",
+      "status": "failed"
+    },
+    {
+      "id": "e0026",
+      "timestamp": "2026-08-30T17:44:53.514Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "launch",
+      "workerAlias": "w_0c7a556592cdbae74812219283208a97",
+      "attemptAlias": "a_c6dfd78dbe562dfb8b883562b535baf9",
+      "role": "unknown",
+      "modelAlias": "m_ce0404db90cd6e075ff335beead2704d",
+      "labelAlias": "l_00426efb77c42ca6e4174a3839fe67c0",
+      "anchorAlias": "h_6eab04c7692b04bc9f640cc5607f5cc0",
+      "anchorWordCount": 13,
+      "status": "requested"
+    },
+    {
+      "id": "e0027",
+      "timestamp": "2026-08-30T17:44:59.016Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_0c7a556592cdbae74812219283208a97",
+      "attemptAlias": "a_c6dfd78dbe562dfb8b883562b535baf9",
+      "role": "unknown",
+      "modelAlias": "m_ce0404db90cd6e075ff335beead2704d",
+      "status": "failed"
+    },
+    {
+      "id": "e0028",
+      "timestamp": "2026-08-30T17:45:03.037Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0029",
+      "timestamp": "2026-08-30T17:45:16.363Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0030",
+      "timestamp": "2026-08-30T17:45:21.407Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0031",
+      "timestamp": "2026-08-30T17:45:28.572Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0032",
+      "timestamp": "2026-08-30T17:45:28.587Z",
+      "kind": "tool_error",
+      "toolName": "bash",
+      "status": "failed"
+    },
+    {
+      "id": "e0033",
+      "timestamp": "2026-08-30T17:45:32.384Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0034",
+      "timestamp": "2026-08-30T17:45:32.397Z",
+      "kind": "tool_error",
+      "toolName": "bash",
+      "status": "failed"
+    },
+    {
+      "id": "e0035",
+      "timestamp": "2026-08-30T17:45:37.817Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0036",
+      "timestamp": "2026-08-30T17:45:46.979Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0037",
+      "timestamp": "2026-08-30T17:45:57.248Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0038",
+      "timestamp": "2026-08-30T17:46:03.801Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0039",
+      "timestamp": "2026-08-30T17:46:12.288Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0040",
+      "timestamp": "2026-08-30T17:46:15.548Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0041",
+      "timestamp": "2026-08-30T17:46:22.453Z",
+      "kind": "tool_call",
+      "toolName": "bg_run"
+    },
+    {
+      "id": "e0042",
+      "timestamp": "2026-08-30T17:46:22.453Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0043",
+      "timestamp": "2026-08-30T17:46:33.058Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0044",
+      "timestamp": "2026-08-30T17:46:53.149Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0045",
+      "timestamp": "2026-08-30T17:47:00.230Z",
+      "kind": "tool_call",
+      "toolName": "bg_run"
+    },
+    {
+      "id": "e0046",
+      "timestamp": "2026-08-30T17:47:00.230Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0047",
+      "timestamp": "2026-08-30T17:47:05.213Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0048",
+      "timestamp": "2026-08-30T17:47:10.314Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0049",
+      "timestamp": "2026-08-30T17:47:16.358Z",
+      "kind": "tool_call",
+      "toolName": "write"
+    }
+  ]
+}

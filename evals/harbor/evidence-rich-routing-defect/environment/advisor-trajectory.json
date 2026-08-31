@@ -175,6 +175,8 @@
           "toolName": "bg_agent",
           "workerAlias": "w_d98f4c9f7e11077a2106abd4ec3fba74",
           "attemptAlias": "a_fde79ecea92707bd27b10181dcdc63be",
+          "role": "scout",
+          "modelAlias": "m_943c6f798ed4f3b63a466d9cd0e52ea6",
           "status": "successful",
           "startedAt": "2026-01-15T09:01:00.000Z",
           "endedAt": "2026-01-15T09:06:00.000Z"
@@ -194,6 +196,8 @@
           "toolName": "bg_agent",
           "workerAlias": "w_3ce47b63a4a311d6c892dda909f1fb1a",
           "attemptAlias": "a_5bdf7f6a0ab961b9275390cc48b10666",
+          "role": "browser-verifier",
+          "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
           "status": "successful",
           "startedAt": "2026-01-15T09:01:00.000Z",
           "endedAt": "2026-01-15T09:07:00.000Z"
@@ -255,6 +259,8 @@
           "toolName": "bg_agent",
           "workerAlias": "w_7970cdda774eeef43f2b8b4d926d6262",
           "attemptAlias": "a_3e76bb481b3ddd45ad038f0a0343974a",
+          "role": "browser-verifier",
+          "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
           "status": "failed",
           "startedAt": "2026-01-15T09:09:00.000Z",
           "endedAt": "2026-01-15T09:12:00.000Z"
@@ -316,6 +322,8 @@
           "toolName": "bg_agent",
           "workerAlias": "w_7970cdda774eeef43f2b8b4d926d6262",
           "attemptAlias": "a_dcb37af0c07572970c204b959c5ee0be",
+          "role": "browser-verifier",
+          "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
           "status": "successful",
           "startedAt": "2026-01-15T09:13:00.000Z",
           "endedAt": "2026-01-15T09:15:00.000Z"
@@ -377,6 +385,8 @@
           "toolName": "bg_agent",
           "workerAlias": "w_b3bd0387a988ce0ecf641e6f23118177",
           "attemptAlias": "a_dc4f3f1fd5a9b3a24a611a30144e9adb",
+          "role": "builder",
+          "modelAlias": "m_890e01c70cb9cebfec51df9eb03262ef",
           "status": "successful",
           "startedAt": "2026-01-15T09:16:00.000Z",
           "endedAt": "2026-01-15T09:25:00.000Z"

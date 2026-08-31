@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "name": "phase0-canary",
+  "case": {
+    "id": "builder-self-verification",
+    "title": "Prospective: builder repairs and self-verifies a deterministic marker defect"
+  },
+  "sourceRunId": "2026-08-30T17-37-26-702Z--builder-self-verification--aad8d614",
+  "promotedAt": "2026-08-30T18:50:46.318Z",
+  "safeFiles": [
+    "manifest.json",
+    "prompt.md",
+    "completion.json",
+    "result.json",
+    "trace.json",
+    "trajectory.json"
+  ]
+}

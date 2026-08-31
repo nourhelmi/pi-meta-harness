@@ -1,0 +1,9 @@
+{
+  "name": "advisor-prospective-builder-self-verification",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node verify-public.mjs"
+  }
+}

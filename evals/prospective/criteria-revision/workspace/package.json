@@ -1,0 +1,6 @@
+{
+  "name": "prospective-criteria-revision",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node verify-public.mjs" }
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "routing-ambiguity",
+  "title": "Prospective: ambiguous provider routing is resolved before repair",
+  "instruction": "The `account-sync` request is routed to a plausible but deprecated provider. Establish ownership from `contract.json` and the provider modules before implementation. Use a visible scout for discriminating evidence, then a builder or foreman to repair only `router.mjs`. Preserve both provider implementations and make `npm test` pass.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The provider routing check passes.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "current-provider-selected", "claim": "`account-sync` resolves to the current provider.", "proof": "The verifier exercises `routeProvider`." },
+    { "id": "providers-preserved", "claim": "Neither provider implementation is modified or removed.", "proof": "The hidden verifier hashes and exercises both modules." },
+    { "id": "bounded-surface", "claim": "Only `router.mjs` changes.", "proof": "The hidden verifier checks the Git diff." }
+  ],
+  "process": {
+    "instruction": "Delegate discriminating ownership discovery to a visible scout before delegating the bounded router repair to a builder or foreman; independently rerun `npm test` after settlement. A scout transport failure does not end the safe task: inspect ground truth, make at most one changed compatible scout retry, then use bounded root source reads to lock ownership and continue the maker without pretending the required scout settlement passed.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "scout-delegation", "roles": ["scout"], "minimum": 1 },
+      { "id": "builder-delegation", "roles": ["builder", "foreman"], "minimum": 1 }
+    ],
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["scout", "builder", "foreman"],
+      "rationale": "Ownership discovery must settle before the single bounded router repair begins."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

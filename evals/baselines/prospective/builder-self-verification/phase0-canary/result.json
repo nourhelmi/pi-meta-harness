@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-08-30T17-37-26-702Z--builder-self-verification--aad8d614",
+  "case": {
+    "id": "builder-self-verification",
+    "title": "Prospective: builder repairs and self-verifies a deterministic marker defect"
+  },
+  "candidate": {
+    "revision": "10ece579299b6fbded47753e9aaa83e0b4bc5b2e",
+    "dirty": true,
+    "profile": "codex-lean",
+    "model": "openai-codex/gpt-5.6-sol",
+    "thinking": "high"
+  },
+  "status": "passed",
+  "reward": 1,
+  "checks": [
+    {
+      "id": "public-check-passes",
+      "passed": true,
+      "evidence": "npm test exited 0"
+    },
+    {
+      "id": "marker-exactly-once",
+      "passed": true,
+      "evidence": "ADVISOR_READY exact-line count: 1"
+    },
+    {
+      "id": "baseline-preserved",
+      "passed": true,
+      "evidence": "BASELINE exact-line count: 1"
+    },
+    {
+      "id": "bounded-surface",
+      "passed": true,
+      "evidence": "changed paths: artifact.txt"
+    },
+    {
+      "id": "completion-signal",
+      "passed": true,
+      "evidence": "bounded completion signal recorded"
+    },
+    {
+      "id": "root-trajectory",
+      "passed": true,
+      "evidence": "privacy-normalized root trajectory contains 49 events"
+    },
+    {
+      "id": "builder-delegation",
+      "passed": true,
+      "evidence": "3 builder-or-foreman launch(es) observed"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "criteria-revision",
+  "title": "Prospective: criteria change is explicit and falsifiable",
+  "instruction": "The original packet requires `LEGACY_READY`, but `packet-update.json` contains a later authorized revision with a concrete rationale and replaces that marker with `CURRENT_READY`. Deliberately revise the packet before implementation. Record the exact transition and rationale in `criteria-revision.json`, preserve `BASELINE`, add only the current marker, and make `npm test` pass. Use a planner for the revision decision and a builder or foreman for implementation.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The revised packet passes its deterministic verifier.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "current-marker-only", "claim": "The artifact contains `CURRENT_READY` exactly once and no legacy marker.", "proof": "The verifier counts exact marker lines." },
+    { "id": "revision-recorded", "claim": "The criteria transition and supplied rationale are recorded exactly.", "proof": "The verifier checks `criteria-revision.json`." },
+    { "id": "bounded-surface", "claim": "Only the artifact and revision record change.", "proof": "The hidden verifier checks the Git diff." }
+  ],
+  "process": {
+    "instruction": "Delegate the criteria decision to a visible planner before delegating the locked implementation to a builder or foreman; independently rerun `npm test` after settlement.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "planner-delegation", "roles": ["planner"], "minimum": 1 },
+      { "id": "builder-delegation", "roles": ["builder", "foreman"], "minimum": 1 }
+    ],
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["planner", "builder", "foreman"],
+      "rationale": "The maker consumes the revised criteria, so planning and implementation are genuinely sequential."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

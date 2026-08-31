@@ -1,0 +1,6 @@
+{
+  "name": "prospective-foreman-cross-repo",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node verify-public.mjs" }
+}

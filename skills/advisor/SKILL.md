@@ -324,6 +324,27 @@ whether the graph is useful. Execute only the returned deterministic waves:
 No driver script may spawn LLMs. The advisor directly owns every visible graph
 node and its cost.
 
+## Worker transport recovery
+
+A worker that fails before producing evidence is a transport/runtime failure, not
+evidence that the task route was wrong. Before retrying, read the bounded tool error,
+check `bg_list` once, and inspect the expected result path or worktree ground truth.
+Resume the same live worker when it exists; otherwise make at most one fresh changed
+retry for that role with a compatible model from the live guide. The retry must change
+a plausible failure variable — model/provider availability, malformed packet, or stale
+agent identity — rather than repeat the same launch.
+
+If the changed retry also fails before work starts, do not abandon an otherwise safe
+workstream or pretend delegation succeeded. When repository evidence can settle a
+read-only discovery boundary, the advisor may perform bounded source reads itself,
+record the fallback and its lower independence, lock the decision, and continue to the
+maker. The advisor still never edits implementation. If independent role evidence is an
+explicit acceptance requirement, report that requirement as unsatisfied even when the
+functional repair proceeds. Stop instead when the missing worker guards a material
+decision the available evidence cannot settle, or when every compatible route is
+unavailable. Never launch a recovery maker until settlement ground truth has ruled out a
+late worker success.
+
 ## Convergence judgment
 
 A repair loop is justified only while it can produce new information or apply a

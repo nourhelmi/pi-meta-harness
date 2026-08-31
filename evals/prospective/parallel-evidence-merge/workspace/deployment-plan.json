@@ -1,0 +1,6 @@
+{
+  "owner": "legacy-ops",
+  "apiVersion": "v2",
+  "region": "us-east-1",
+  "failover": "cold"
+}

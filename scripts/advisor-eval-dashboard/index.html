@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>Advisor eval workbench</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="nav" aria-label="Dashboard navigation">
+    <a class="brand" href="/" aria-label="Advisor eval workbench home">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <span>Advisor evals</span>
+    </a>
+    <button class="search-pill" id="open-search" type="button" aria-haspopup="dialog" aria-label="Find a run or case">
+      <span aria-hidden="true">⌕</span>
+      <span class="search-pill__label">Find a run or case</span>
+      <kbd>⌘K</kbd>
+    </button>
+    <div class="nav__meta"><span id="refresh-state">Loading runs…</span></div>
+  </header>
+
+  <main id="page" class="page" inert>
+    <section class="brief" aria-labelledby="page-title">
+      <div>
+        <p class="utility">Local prospective evidence</p>
+        <h1 id="page-title">Decide whether the setup regressed.</h1>
+      </div>
+      <p class="brief__copy">Select a baseline and a newer setup run from the same case. Deterministic checks decide the verdict; trajectory measurements explain the process.</p>
+    </section>
+
+    <section class="summary-strip" aria-label="Suite summary">
+      <div><strong id="summary-cases">—</strong><span>live cases</span></div>
+      <div><strong id="summary-runs">—</strong><span>stored runs</span></div>
+      <div><strong id="summary-baselines">—</strong><span>baselines</span></div>
+      <div><strong id="summary-pass-rate">—</strong><span>run pass rate</span></div>
+    </section>
+
+    <section class="workbench" aria-label="Run comparison workbench">
+      <aside class="library" aria-labelledby="library-title">
+        <div class="panel-head">
+          <div><p class="utility">Inventory</p><h2 id="library-title">Runs</h2></div>
+          <button class="icon-button" id="refresh" type="button" aria-label="Refresh run inventory">↻</button>
+        </div>
+        <label class="field-label" for="case-filter">Case</label>
+        <select id="case-filter"><option value="">All cases</option></select>
+        <div id="run-list" class="run-list" aria-live="polite"></div>
+      </aside>
+
+      <section class="comparison" aria-labelledby="comparison-title">
+        <div class="panel-head comparison__head">
+          <div><p class="utility">Baseline → newer setup</p><h2 id="comparison-title">Comparison</h2></div>
+          <span class="verdict" id="verdict" data-verdict="empty">Select two runs</span>
+        </div>
+
+        <div class="selectors">
+          <label>Before<select id="before-select"><option value="">Choose baseline or run</option></select></label>
+          <span class="selectors__arrow" aria-hidden="true">→</span>
+          <label>After<select id="after-select"><option value="">Choose newer run</option></select></label>
+        </div>
+
+        <div id="comparison-empty" class="empty-state">
+          <span class="empty-state__glyph" aria-hidden="true">↔</span>
+          <h3>No comparison selected</h3>
+          <p>Choose two artifacts from the same case. Start with a promoted baseline on the left.</p>
+        </div>
+
+        <div id="comparison-content" class="comparison-content" hidden>
+          <section class="trajectory-ruler" aria-labelledby="ruler-title">
+            <div class="section-title"><h3 id="ruler-title">Trajectory ruler</h3><p>Outcome first. Process second.</p></div>
+            <div id="trajectory-ruler"></div>
+          </section>
+          <section aria-labelledby="checks-title">
+            <div class="section-title"><h3 id="checks-title">Criterion evidence</h3><p>Every deterministic decision, aligned.</p></div>
+            <div id="checks-table" class="checks-table"></div>
+          </section>
+        </div>
+      </section>
+
+      <aside class="evidence" aria-labelledby="evidence-title">
+        <div class="panel-head"><div><p class="utility">Selected artifact</p><h2 id="evidence-title">Evidence</h2></div></div>
+        <div id="evidence-empty" class="evidence-empty">Select a run to inspect its setup fingerprint, checks, timing, and role launches.</div>
+        <dl id="evidence-list" class="evidence-list" hidden></dl>
+      </aside>
+    </section>
+  </main>
+
+  <dialog id="search-dialog" class="command-dialog" aria-labelledby="search-title">
+    <div class="command-field">
+      <label id="search-title" for="search-input">Find a run or case</label>
+      <input id="search-input" type="search" autocomplete="off" placeholder="Type a case, setup name, or run ID">
+      <kbd>esc</kbd>
+    </div>
+    <div id="search-results" class="command-results" role="listbox" aria-live="polite"></div>
+    <div class="command-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> inspect</span></div>
+  </dialog>
+
+  <footer class="footer"><span>Local files only</span><span>Deterministic checks remain authoritative</span><span id="generated-at">Not loaded</span></footer>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

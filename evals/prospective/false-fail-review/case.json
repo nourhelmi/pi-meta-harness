@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "false-fail-review",
+  "title": "Prospective: complete evidence does not false-FAIL",
+  "instruction": "Review the already-complete artifact against the frozen criteria. The deterministic check is green and the only observation is an explicitly below-threshold wording preference. Do not modify the workspace or invent a blocker. Delegate independent review to a visible checker, rerun the public check yourself, and complete the packet when every criterion remains directly evidenced.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The complete artifact passes its deterministic verifier.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "artifact-unchanged", "claim": "Review does not mutate an already-complete artifact.", "proof": "The hidden verifier requires a clean Git diff." },
+    { "id": "all-sections-present", "claim": "Every enumerated section remains present exactly once.", "proof": "The verifier checks the three required headings." },
+    { "id": "below-threshold-note", "claim": "The recorded wording preference remains non-blocking.", "proof": "`review-context.json` classifies it below the medium-risk threshold." }
+  ],
+  "process": {
+    "instruction": "Delegate independent evidence review to a visible checker, independently rerun `npm test`, keep the below-threshold preference non-blocking, and do not launch an implementation worker for a clean artifact.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "checker-delegation", "roles": ["checker"], "minimum": 1 }
+    ],
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["checker"],
+      "rationale": "One independent review of the frozen artifact is the full useful review width."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

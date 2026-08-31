@@ -31,7 +31,10 @@ interface AdvisorInitTool {
     signal: AbortSignal | undefined,
     onUpdate: undefined,
     context: ExtensionContext,
-  ): Promise<{ details: { workstream: string; workerHarness: "pi" | "native"; stateRoot: string } }>;
+  ): Promise<{
+    content: Array<{ type: "text"; text: string }>;
+    details: { workstream: string; workerHarness: "pi" | "native"; stateRoot: string };
+  }>;
 }
 
 function installedAdvisorLaunch(respond: (args: string[]) => ExecResult) {
@@ -149,6 +152,10 @@ test("advisor doctrine routes locked execution without weakening decision bounda
   assert.match(source, /profile runs through Pi[\s\S]+provider-native CLI/);
   assert.match(source, /Deliberate criteria revision[\s\S]+new\s+packet revision/);
   assert.match(source, /criteria serve the\s+advisor's judgment, not the reverse/);
+  assert.match(source, /## Worker transport recovery/);
+  assert.match(source, /at most one fresh changed\s+retry/);
+  assert.match(source, /bounded source reads itself[\s\S]+continue to the\s+maker/);
+  assert.match(source, /explicit acceptance requirement[\s\S]+unsatisfied/);
 });
 
 test("advisor mode entrypoints select their worker harness before loading shared doctrine", async () => {
@@ -157,8 +164,12 @@ test("advisor mode entrypoints select their worker harness before loading shared
 
   assert.match(native, /advisor_session_init[\s\S]+workerHarness[^\n]+native/i);
   assert.match(native, /resolve `\.\.\/advisor\/SKILL\.md` relative[\s\S]+load it completely/);
+  assert.match(native, /advisor-intelligence\.json[\s\S]+Do not call\s+`bg_agent` until both reads are complete/);
+  assert.match(native, /every `bg_agent` launch[\s\S]+explicit `model` and `thinking`/);
   assert.match(pi, /advisor_session_init[\s\S]+workerHarness[^\n]+pi/i);
   assert.match(pi, /resolve `\.\.\/advisor\/SKILL\.md` relative[\s\S]+load it completely/);
+  assert.match(pi, /advisor-intelligence\.json[\s\S]+Do not call\s+`bg_agent` until both reads are complete/);
+  assert.match(pi, /every `bg_agent` launch[\s\S]+explicit `model` and `thinking`/);
 });
 
 
@@ -385,6 +396,11 @@ test("advisor_session_init asks once and persists native worker mode", async () 
     assert.equal(result.details.workstream, "native-routing");
     assert.equal(result.details.workerHarness, "native");
     assert.equal(result.details.stateRoot, stateDir);
+    assert.match(result.content[0]?.text ?? "", /Required next actions before planning or delegation/);
+    assert.match(result.content[0]?.text ?? "", /advisor\/SKILL\.md/);
+    assert.match(result.content[0]?.text ?? "", /advisor-intelligence\.json/);
+    assert.match(result.content[0]?.text ?? "", /Every bg_agent launch must include an explicit model and thinking level/);
+    assert.match(result.content[0]?.text ?? "", /OpenAI models route to Codex CLI/);
     assert.equal(process.env.PI_DETACH_WORKER_HARNESS, "native");
     assert.equal(getSessionName(), "advisor-native-routing");
     assert.deepEqual(calls, [

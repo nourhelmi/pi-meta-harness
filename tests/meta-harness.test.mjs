@@ -65,7 +65,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(settings.enabledModels.includes("custom/model"));
   for (const model of removedModels) assert(!settings.enabledModels.includes(model));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@731590a516ea38bc8a14aafbfab5d8a4c22f0acf"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@c4cfb4c807d75247a310c703ca426dc37346e63a"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
@@ -513,6 +513,18 @@ test("npm archive excludes credentials and runtime state", async () => {
     assert.deepEqual(forbidden, []);
     assert(archivePaths.includes("evals/harbor/evidence-rich-routing-defect/tests/run_rewardkit.py"));
     assert(archivePaths.includes("evals/harbor/adaptive-cross-repo-delivery/tests/run_rewardkit.py"));
+    assert(archivePaths.includes("scripts/advisor-prospective.mjs"));
+    assert(archivePaths.includes("scripts/advisor-prospective-manage.mjs"));
+    assert(archivePaths.includes("scripts/advisor-prospective-results.mjs"));
+    assert(archivePaths.includes("scripts/advisor-eval-dashboard/server.mjs"));
+    assert(archivePaths.includes("scripts/advisor-eval-dashboard/index.html"));
+    assert(archivePaths.includes("scripts/advisor-eval-dashboard/app.js"));
+    assert(archivePaths.includes("scripts/advisor-eval-dashboard/styles.css"));
+    assert(archivePaths.includes("evals/prospective/foreman-cross-repo/case.json"));
+    assert(archivePaths.includes("evals/prospective/false-fail-review/tests/verify.mjs"));
+    assert(archivePaths.includes("evals/baselines/prospective/builder-self-verification/phase0-canary/baseline.json"));
+    assert(archivePaths.includes("evals/prospective/builder-self-verification/case.json"));
+    assert(archivePaths.includes("evals/prospective/builder-self-verification/tests/verify.mjs"));
   } finally {
     await rm(join(ROOT, "evals", "harbor", "synthetic-cache"), { recursive: true, force: true });
   }

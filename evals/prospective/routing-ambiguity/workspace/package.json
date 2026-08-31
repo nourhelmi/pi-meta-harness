@@ -1,0 +1,6 @@
+{
+  "name": "prospective-routing-ambiguity",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node verify-public.mjs" }
+}

@@ -95,6 +95,17 @@ const ALLOWED_STATUSES = new Set([
   "stopped",
   "unknown",
 ]);
+const ALLOWED_WORKER_FAILURE_KINDS = new Set([
+  "startup-blocked",
+  "startup-failed",
+  "quota",
+  "authentication",
+  "model-unavailable",
+  "timeout",
+  "artifact-invalid",
+  "worker-missing",
+  "tool-error",
+]);
 const ALLOWED_NORMALIZED_EVENT_KEYS = new Set([
   "id",
   "timestamp",
@@ -113,6 +124,7 @@ const ALLOWED_NORMALIZED_EVENT_KEYS = new Set([
   "anchorAlias",
   "anchorWordCount",
   "status",
+  "failureKind",
   "startedAt",
   "endedAt",
 ]);
@@ -228,10 +240,23 @@ function safeToolName(value) {
   return ALLOWED_TOOLS.has(value) ? value : "other";
 }
 
+function workerFailureKind(message) {
+  const text = messageText(message).toLowerCase();
+  if (text.includes("blocked during startup") || text.includes("not ready for prompts")) return "startup-blocked";
+  if (text.includes("usage limit") || text.includes("rate limit") || text.includes("quota")) return "quota";
+  if (text.includes("oauth") || text.includes("authentication") || text.includes("login")) return "authentication";
+  if (text.includes("unsupported model") || text.includes("model unavailable") || text.includes("model not found")) return "model-unavailable";
+  if (text.includes("timed out") || text.includes("timeout")) return "timeout";
+  if (text.includes("required result artifact")) return "artifact-invalid";
+  if (text.includes("no live herdr agent") || text.includes("agent not found")) return "worker-missing";
+  if (text.includes("failed to start") || text.includes("agent start failed")) return "startup-failed";
+  return "tool-error";
+}
+
 function normalizedStatus(value) {
   const status = String(value ?? "unknown").toLowerCase();
   if (["completed", "complete", "succeeded", "success", "passed", "done"].includes(status)) return "successful";
-  if (["failed", "failure", "error", "errored", "rejected"].includes(status)) return "failed";
+  if (["failed", "failure", "error", "errored", "rejected", "stalled"].includes(status)) return "failed";
   if (["running", "started", "promoted", "pending", "requested"].includes(status)) return "running";
   if (["blocked", "cancelled", "canceled", "stopped"].includes(status)) return status === "canceled" ? "cancelled" : status;
   return "unknown";
@@ -342,6 +367,7 @@ function buildCallDescriptors(entries, alias) {
   const byItem = new Map();
   const byToolCallId = new Map();
   const workerLookup = new Map();
+  const workerDescriptors = [];
   const seenWorkers = new Set();
   let callOrder = 0;
 
@@ -392,6 +418,7 @@ function buildCallDescriptors(entries, alias) {
           rawAnchor,
         };
         seenWorkers.add(rawWorker);
+        workerDescriptors.push(descriptor);
         registerWorkerLookup(rawWorker, descriptor);
         registerWorkerLookup(rawLabel, descriptor);
       } else {
@@ -404,18 +431,50 @@ function buildCallDescriptors(entries, alias) {
       }
     }
   }
+  // Promoted bg_agent calls receive their generated agent name only in the
+  // initial tool result. Register it before normalizing later settlement
+  // notifications so those notifications retain the launch attempt identity.
+  for (const entry of entries) {
+    if (entry.type !== "message" || entry.message.role !== "toolResult") continue;
+    const linked = typeof entry.message.toolCallId === "string"
+      ? byToolCallId.get(entry.message.toolCallId)
+      : undefined;
+    if (linked?.kind !== "worker_launch" || !isObject(entry.message.details)) continue;
+    for (const raw of [
+      entry.message.details.agentName,
+      entry.message.details.label,
+      entry.message.details.runId,
+      entry.message.details.id,
+    ]) registerWorkerLookup(raw, linked);
+  }
+  // A resumed call identifies the live worker by generated name and normally
+  // omits role/model. Reconnect it to the latest earlier descriptor registered
+  // under that name so semantic role and worker identity survive the resume.
+  for (const descriptor of workerDescriptors) {
+    const prior = (workerLookup.get(descriptor.rawWorker) ?? [])
+      .filter((candidate) => candidate !== descriptor && candidate.sourceIndex < descriptor.sourceIndex)
+      .sort((left, right) => left.sourceIndex - right.sourceIndex)
+      .at(-1);
+    if (!prior) continue;
+    descriptor.action = "resume";
+    descriptor.workerAlias = prior.workerAlias;
+    if (descriptor.role === "unknown") descriptor.role = prior.role;
+    descriptor.modelAlias ??= prior.modelAlias;
+    descriptor.labelAlias ??= prior.labelAlias;
+  }
   return { byItem, byToolCallId, workerLookup };
 }
 
 function settlementDescriptor(details, sourceIndex, workerLookup) {
   const candidates = [];
-  for (const raw of [details.agentName, details.label]) {
+  for (const raw of [details.agentName, details.label, details.runId, details.id]) {
     if (typeof raw !== "string") continue;
     for (const descriptor of workerLookup.get(raw) ?? []) {
       if (!candidates.includes(descriptor)) candidates.push(descriptor);
     }
   }
   const preceding = candidates.filter((candidate) => candidate.sourceIndex <= sourceIndex);
+  preceding.sort((left, right) => left.sourceIndex - right.sourceIndex);
   return preceding.at(-1) ?? candidates[0];
 }
 
@@ -495,6 +554,8 @@ export function normalizeSession(entries) {
         toolName: "bg_agent",
         workerAlias: linked?.workerAlias ?? alias("worker", fallbackRaw),
         attemptAlias: linked?.attemptAlias ?? alias("attempt", `settlement-${sourceIndex}-${fallbackRaw}`),
+        ...(linked?.role ? { role: linked.role } : {}),
+        ...(linked?.modelAlias ? { modelAlias: linked.modelAlias } : {}),
         status: normalizedStatus(details.agentState ?? details.status),
         startedAt: timestampOf({ timestamp: details.startedAt }),
         endedAt: timestampOf({ timestamp: details.endedAt }),
@@ -562,6 +623,9 @@ export function normalizeSession(entries) {
         ? descriptors.byToolCallId.get(message.toolCallId)
         : undefined;
       if (linked?.kind === "worker_launch") {
+        const status = message.isError
+          ? "failed"
+          : normalizedStatus(message.details?.agentState ?? message.details?.status ?? "running");
         add(entry, {
           kind: "worker_launch_result",
           toolName: "bg_agent",
@@ -569,7 +633,8 @@ export function normalizeSession(entries) {
           attemptAlias: linked.attemptAlias,
           role: linked.role,
           modelAlias: linked.modelAlias,
-          status: message.isError ? "failed" : normalizedStatus(message.details?.status ?? "running"),
+          status,
+          ...(status === "failed" ? { failureKind: workerFailureKind(message) } : {}),
         });
       } else if (message.isError) {
         add(entry, {
@@ -673,6 +738,9 @@ function assertNormalizedTrace(normalized) {
     if (event.toolName !== undefined && !ALLOWED_TOOLS.has(event.toolName)) throw new Error("Normalized toolName is not categorical");
     if (event.role !== undefined && !ALLOWED_ROLES.has(event.role)) throw new Error("Normalized role is not categorical");
     if (event.status !== undefined && !ALLOWED_STATUSES.has(event.status)) throw new Error("Normalized status is not categorical");
+    if (event.failureKind !== undefined && !ALLOWED_WORKER_FAILURE_KINDS.has(event.failureKind)) {
+      throw new Error("Normalized worker failure kind is not categorical");
+    }
     if (event.action !== undefined && !["launch", "resume"].includes(event.action)) throw new Error("Normalized action is not categorical");
     if (event.signals !== undefined
       && (!Array.isArray(event.signals)

@@ -1,0 +1,5 @@
+{
+  "targetVersion": "v2",
+  "deploymentOrder": ["schema", "service"],
+  "externalEffectsAllowed": false
+}

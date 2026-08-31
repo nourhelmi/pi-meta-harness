@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 
 const ENTRY_TYPE = "advisor-session";
@@ -15,6 +16,14 @@ const HEADLESS_AGENT_COMMAND =
 const INVISIBLE_AGENT_TOOLS = new Set(["subagent", "orch_start"]);
 
 const ADVISOR_SKILL_URL = new URL("../skills/advisor/SKILL.md", import.meta.url);
+
+function advisorContinuation(workerHarness: WorkerHarness): string {
+	const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+	const route = workerHarness === "native"
+		? "OpenAI models route to Codex CLI and Anthropic/Claude models route to Claude Code."
+		: "Selected worker models run through Pi.";
+	return `Required next actions before planning or delegation: use read to load ${fileURLToPath(ADVISOR_SKILL_URL)} completely, then read ${join(agentDir, "advisor-intelligence.json")} completely. Do not call bg_agent until both reads are complete. Every bg_agent launch must include an explicit model and thinking level selected with that live guide; omission is invalid. ${route}`;
+}
 
 function advisorSkillBody(source: string): string {
 	return source
@@ -31,7 +40,9 @@ function restoredAdvisorSkillBody(ctx: ExtensionContext): string | undefined {
 	for (const entry of ctx.sessionManager.getBranch()) {
 		if (entry.type !== "message" || entry.message.role !== "user") continue;
 		for (const part of entry.message.content) {
-			const text = typeof part === "string" ? part : part.type === "text" ? part.text : undefined;
+			let text: string | undefined;
+			if (typeof part === "string") text = part;
+			else if (part.type === "text") text = part.text;
 			if (text === undefined) continue;
 			const tagStart = text.indexOf('<skill name="advisor"');
 			if (tagStart < 0) continue;
@@ -216,7 +227,8 @@ async function repoAnchor(cwd: string): Promise<RepoAnchor | undefined> {
 		const info = await stat(dotGit).catch(() => undefined);
 		if (info?.isDirectory()) return { commonDir: dotGit, worktreeRoot: dir };
 		if (info?.isFile()) {
-			const pointer = (await readFile(dotGit, "utf8")).match(/^gitdir:\s*(.+?)\s*$/m)?.[1];
+			const dotGitContents = await readFile(dotGit, "utf8");
+			const pointer = dotGitContents.match(/^gitdir:\s*(.+?)\s*$/m)?.[1];
 			if (pointer) {
 				const gitDir = resolve(dir, pointer);
 				const marker = gitDir.lastIndexOf("/.git/worktrees/");
@@ -810,7 +822,8 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 							`State root: ${initialized.paths.root}\n` +
 							`Workstream file: ${initialized.paths.workstream}\n` +
 							`Events: ${initialized.paths.events}\n` +
-							`Runs and graphs live under the same root. Legacy in-repo .advisor/ directories are read-only history.`,
+							`Runs and graphs live under the same root. Legacy in-repo .advisor/ directories are read-only history.\n\n` +
+							advisorContinuation(initialized.state.workerHarness),
 					},
 				],
 				details: { ...initialized.state, stateRoot: initialized.paths.root },

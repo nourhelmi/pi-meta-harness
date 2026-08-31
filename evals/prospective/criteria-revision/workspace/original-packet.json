@@ -1,0 +1,5 @@
+{
+  "revision": 1,
+  "requiredMarker": "LEGACY_READY",
+  "frozenWithinRepairLoop": true
+}
