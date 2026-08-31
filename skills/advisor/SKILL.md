@@ -101,6 +101,15 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    Never use an explicit `agent`, `subagent`, taskplane/orchestrator lanes,
    `codex exec`, `claude --print`, or another headless agent path.
 
+In a native session, a request to use Codex or Claude Code directly means a
+configured semantic `role` plus an explicit provider model and `thinking`
+level; `bg_agent` then routes the role through that provider-native CLI. Never
+translate the request into `agent: "codex"` or `agent: "claude"`: `agent` is a
+generic compatibility escape hatch and advisor sessions block it so role
+contracts, turn caps, managed result artifacts, and launch provenance remain
+intact. A no-role freeform worker is Pi-hosted and therefore does not satisfy a
+provider-native execution requirement.
+
 ## Worker role policy
 
 `bg_agent` is the Herdr lifecycle transport. The persisted session mode is the

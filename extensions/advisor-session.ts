@@ -587,7 +587,18 @@ function bgAgentGuardReason(input: unknown, workerHarness: WorkerHarness): strin
 		return `Advisor session worker harness is ${workerHarness}; per-launch ${params.harness} is not allowed.`;
 	}
 	if (typeof params.agent === "string" && params.agent) {
-		return "Advisor workers must use bg_agent's Pi runtime (a configured role or freeform), not an explicit agent command.";
+		if (workerHarness === "native") {
+			return (
+				"Advisor session mode is native. Do not pass bg_agent.agent. To use Claude Code directly, " +
+				"launch a configured semantic role with an explicit claude-bridge/* or anthropic/* model and " +
+				"thinking level; bg_agent routes that role to Claude Code and preserves its managed result " +
+				"artifact. Freeform workers remain Pi-hosted."
+			);
+		}
+		return (
+			"Advisor session mode is pi. Do not pass bg_agent.agent. Use a configured role or freeform " +
+			"worker; start a native advisor session if provider-native Codex or Claude Code execution is required."
+		);
 	}
 	const hasAnchor = typeof params.anchor === "string" && Boolean(params.anchor.trim());
 	const hasAcceptance =

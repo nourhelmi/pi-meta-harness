@@ -91,6 +91,9 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   assert.match(source, /Never implement in this session/);
   assert.match(source, /Deliberate criteria revision[\s\S]*new packet revision/);
   assert.match(source, /Every helper agent is visible[\s\S]*All delegated LLM work uses `bg_agent`/);
+  assert.match(source, /request to use Codex or Claude Code directly means a[\s\S]+configured semantic `role`/);
+  assert.match(source, /Never[\s\S]+`agent: "codex"` or `agent: "claude"`/);
+  assert.match(source, /no-role freeform worker is Pi-hosted/);
   assert.match(source, /## Freeform workers/);
   assert.match(source, /Use a graph only when work has real independent ownership or dependency/);
   assert.match(source, /Foreman delegation is depth-1 only/);

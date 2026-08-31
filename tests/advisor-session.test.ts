@@ -221,6 +221,20 @@ Review the current document.`;
       reason: "Advisor session worker harness is native; per-launch pi is not allowed.",
     },
   );
+  assert.deepEqual(
+    toolCall({
+      toolName: "bg_agent",
+      input: { agent: "claude", anchor: "plan is evidence-backed" },
+    }),
+    {
+      block: true,
+      reason:
+        "Advisor session mode is native. Do not pass bg_agent.agent. To use Claude Code directly, " +
+        "launch a configured semantic role with an explicit claude-bridge/* or anthropic/* model and " +
+        "thinking level; bg_agent routes that role to Claude Code and preserves its managed result " +
+        "artifact. Freeform workers remain Pi-hosted.",
+    },
+  );
   assert.equal(
     toolCall({
       toolName: "bg_agent",
@@ -297,6 +311,18 @@ ${currentDoctrine}
     {
       block: true,
       reason: "Advisor session worker harness is pi; per-launch native is not allowed.",
+    },
+  );
+  assert.deepEqual(
+    toolCall({
+      toolName: "bg_agent",
+      input: { agent: "claude", anchor: "review is evidence-backed" },
+    }),
+    {
+      block: true,
+      reason:
+        "Advisor session mode is pi. Do not pass bg_agent.agent. Use a configured role or freeform " +
+        "worker; start a native advisor session if provider-native Codex or Claude Code execution is required.",
     },
   );
 });
