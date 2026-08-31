@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-08-31T19-57-27-370Z--cohesive-medium-maker--a442121d",
+  "case": {
+    "id": "cohesive-medium-maker",
+    "title": "Prospective routing: one maker owns a cohesive medium feature",
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": [
+        "builder"
+      ],
+      "rationale": "Both adjacent modules share one decision set, worktree, and criterion suite."
+    }
+  },
+  "candidate": {
+    "revision": "f0cb41836665aae01e570efd446ed2c30ab965d1",
+    "dirty": false,
+    "label": "pre-adaptive-routing",
+    "fingerprint": {
+      "algorithm": "sha256-candidate-tree-v1",
+      "value": "5ff3ab3806e094ec34388a77fcd0e200a03d2b4e2dc484bc380ff3bf13c5e2d7",
+      "files": 39
+    },
+    "profile": "codex-lean",
+    "model": "openai-codex/gpt-5.6-sol",
+    "thinking": "high"
+  },
+  "evaluation": {
+    "fingerprint": {
+      "algorithm": "sha256-prospective-suite-tree-v1",
+      "value": "74f917cfb1c168071949bf40307bc5ea3b91867f962b9fe820c30b0220aa76b0",
+      "files": 119
+    }
+  },
+  "execution": {
+    "kind": "herdr-visible-pi-advisor",
+    "workerHarness": "native",
+    "timeoutMinutes": 15,
+    "credentialPolicy": "temporary-isolated-copies-removed-after-run",
+    "rawSessionPolicy": "normalize-then-delete",
+    "nativeWorkerEnvironment": "isolated-codex-home-with-doctor-preflight"
+  }
+}

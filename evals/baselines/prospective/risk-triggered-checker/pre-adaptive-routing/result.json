@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-08-31T20-04-19-790Z--risk-triggered-checker--296c0d6f",
+  "case": {
+    "id": "risk-triggered-checker",
+    "title": "Prospective routing: authorization risk triggers independent review",
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": [
+        "builder",
+        "checker"
+      ],
+      "rationale": "Independent review consumes the completed authorization repair, so maker and checker are sequential."
+    }
+  },
+  "candidate": {
+    "revision": "f0cb41836665aae01e570efd446ed2c30ab965d1",
+    "dirty": false,
+    "label": "pre-adaptive-routing",
+    "fingerprint": {
+      "algorithm": "sha256-candidate-tree-v1",
+      "value": "5ff3ab3806e094ec34388a77fcd0e200a03d2b4e2dc484bc380ff3bf13c5e2d7",
+      "files": 39
+    },
+    "profile": "codex-lean",
+    "model": "openai-codex/gpt-5.6-sol",
+    "thinking": "high"
+  },
+  "status": "failed",
+  "reward": 0,
+  "checks": [
+    {
+      "id": "public-check-passes",
+      "passed": true,
+      "evidence": "npm test exited 0"
+    },
+    {
+      "id": "cross-tenant-denied",
+      "passed": true,
+      "evidence": "same-owner cross-tenant request denied"
+    },
+    {
+      "id": "wrong-owner-denied",
+      "passed": true,
+      "evidence": "same-tenant wrong-owner request denied"
+    },
+    {
+      "id": "missing-identity-denied",
+      "passed": true,
+      "evidence": "missing request/resource identity failed closed"
+    },
+    {
+      "id": "bounded-surface",
+      "passed": true,
+      "evidence": "changed paths: authorize.mjs"
+    },
+    {
+      "id": "completion-signal",
+      "passed": true,
+      "evidence": "bounded completed signal recorded"
+    },
+    {
+      "id": "root-trajectory",
+      "passed": true,
+      "evidence": "privacy-normalized root trajectory contains 40 events"
+    },
+    {
+      "id": "builder-delegation",
+      "passed": true,
+      "evidence": "1 successful builder settlement(s) from 1 launch(es); required 1"
+    },
+    {
+      "id": "checker-delegation",
+      "passed": false,
+      "evidence": "0 successful checker settlement(s) from 1 launch(es); required 1"
+    },
+    {
+      "id": "orchestration-allowed-roles",
+      "passed": true,
+      "evidence": "2 worker launch(es); roles: builder, checker; unexpected: none"
+    },
+    {
+      "id": "orchestration-successful-worker-budget",
+      "passed": true,
+      "evidence": "1 distinct successful worker(s); maximum 2"
+    },
+    {
+      "id": "orchestration-graph-budget",
+      "passed": true,
+      "evidence": "0 graph plan(s); maximum 0"
+    },
+    {
+      "id": "orchestration-maker-before-checker",
+      "passed": true,
+      "evidence": "successful builder settlement event index 22; first checker launch event index 28"
+    },
+    {
+      "id": "lifecycle",
+      "passed": true,
+      "evidence": "root advisor lifecycle completed within the bounded runner"
+    }
+  ],
+  "dimensions": {
+    "workspace": {
+      "passed": 5,
+      "total": 5,
+      "status": "passed"
+    },
+    "orchestration": {
+      "passed": 6,
+      "total": 7,
+      "status": "failed"
+    },
+    "measurement": {
+      "passed": 2,
+      "total": 2,
+      "status": "passed"
+    }
+  },
+  "parallelism": {
+    "diagnosticOnly": true,
+    "expectedMaxUsefulWidth": 1,
+    "roles": [
+      "builder",
+      "checker"
+    ],
+    "rationale": "Independent review consumes the completed authorization repair, so maker and checker are sequential.",
+    "observedLaunchBatchWidth": 1,
+    "observedConcurrentWidth": 1,
+    "observedUsefulWidth": 1,
+    "successfulSettlements": 1,
+    "widthUtilization": 1,
+    "settlementCoverage": 1,
+    "status": "utilized",
+    "limitation": "Concurrency is observable only when launch timestamps or worker start/end timestamps are present; this diagnostic never overrides outcome checks."
+  }
+}

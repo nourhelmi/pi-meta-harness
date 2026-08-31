@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "name": "pre-adaptive-routing",
+  "case": {
+    "id": "single-maker-fast-path",
+    "title": "Prospective routing: a small deterministic repair stays with one maker",
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": [
+        "builder"
+      ],
+      "rationale": "The one-file deterministic repair has one useful maker lane."
+    }
+  },
+  "sourceRunId": "2026-08-31T19-50-54-721Z--single-maker-fast-path--1dfedc15",
+  "sourceStatus": "passed",
+  "admission": "passing",
+  "evaluationFingerprint": {
+    "algorithm": "sha256-prospective-suite-tree-v1",
+    "value": "74f917cfb1c168071949bf40307bc5ea3b91867f962b9fe820c30b0220aa76b0",
+    "files": 119
+  },
+  "promotedAt": "2026-08-31T20:16:49.915Z",
+  "safeFiles": [
+    "manifest.json",
+    "prompt.md",
+    "completion.json",
+    "result.json",
+    "trace.json",
+    "trajectory.json"
+  ]
+}

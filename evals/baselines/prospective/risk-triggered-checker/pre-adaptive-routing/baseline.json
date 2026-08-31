@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "name": "pre-adaptive-routing",
+  "case": {
+    "id": "risk-triggered-checker",
+    "title": "Prospective routing: authorization risk triggers independent review",
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": [
+        "builder",
+        "checker"
+      ],
+      "rationale": "Independent review consumes the completed authorization repair, so maker and checker are sequential."
+    }
+  },
+  "sourceRunId": "2026-08-31T20-04-19-790Z--risk-triggered-checker--296c0d6f",
+  "sourceStatus": "failed",
+  "admission": "explicit-failed-orchestration",
+  "evaluationFingerprint": {
+    "algorithm": "sha256-prospective-suite-tree-v1",
+    "value": "74f917cfb1c168071949bf40307bc5ea3b91867f962b9fe820c30b0220aa76b0",
+    "files": 119
+  },
+  "promotedAt": "2026-08-31T20:16:50.217Z",
+  "safeFiles": [
+    "manifest.json",
+    "prompt.md",
+    "completion.json",
+    "result.json",
+    "trace.json",
+    "trajectory.json"
+  ]
+}

@@ -1,0 +1,637 @@
+{
+  "schema_version": "ATIF-v1.7",
+  "session_id": "ar_8f7c7e6c5b576154a4da7cbe812163c9",
+  "agent": {
+    "name": "pi-advisor",
+    "version": "recorded",
+    "extra": {
+      "source_kind": "pi-session-jsonl",
+      "text_policy": "categorical-only",
+      "alias_scope": "deterministic-per-artifact"
+    }
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "timestamp": "2026-08-31T20:04:32.051Z",
+      "source": "system",
+      "message": "Advisor session started.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0001",
+          "timestamp": "2026-08-31T20:04:32.051Z",
+          "kind": "session_started"
+        }
+      }
+    },
+    {
+      "step_id": 2,
+      "timestamp": "2026-08-31T20:04:37.144Z",
+      "source": "user",
+      "message": "User message observed.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0002",
+          "timestamp": "2026-08-31T20:04:37.144Z",
+          "kind": "user_message",
+          "signals": [
+            "auth_data_boundary"
+          ]
+        }
+      }
+    },
+    {
+      "step_id": 3,
+      "timestamp": "2026-08-31T20:04:42.273Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: advisor_session_init.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0003",
+          "timestamp": "2026-08-31T20:04:42.273Z",
+          "kind": "tool_call",
+          "toolName": "advisor_session_init"
+        }
+      }
+    },
+    {
+      "step_id": 4,
+      "timestamp": "2026-08-31T20:04:50.914Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0004",
+          "timestamp": "2026-08-31T20:04:50.914Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 5,
+      "timestamp": "2026-08-31T20:04:50.914Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0005",
+          "timestamp": "2026-08-31T20:04:50.914Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 6,
+      "timestamp": "2026-08-31T20:05:07.289Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: bash.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0006",
+          "timestamp": "2026-08-31T20:05:07.289Z",
+          "kind": "tool_call",
+          "toolName": "bash"
+        }
+      }
+    },
+    {
+      "step_id": 7,
+      "timestamp": "2026-08-31T20:05:07.289Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: bg_list.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0007",
+          "timestamp": "2026-08-31T20:05:07.289Z",
+          "kind": "tool_call",
+          "toolName": "bg_list"
+        }
+      }
+    },
+    {
+      "step_id": 8,
+      "timestamp": "2026-08-31T20:05:07.289Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0008",
+          "timestamp": "2026-08-31T20:05:07.289Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 9,
+      "timestamp": "2026-08-31T20:05:15.941Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0009",
+          "timestamp": "2026-08-31T20:05:15.941Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 10,
+      "timestamp": "2026-08-31T20:05:15.941Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0010",
+          "timestamp": "2026-08-31T20:05:15.941Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 11,
+      "timestamp": "2026-08-31T20:05:15.941Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0011",
+          "timestamp": "2026-08-31T20:05:15.941Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 12,
+      "timestamp": "2026-08-31T20:05:15.941Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0012",
+          "timestamp": "2026-08-31T20:05:15.941Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 13,
+      "timestamp": "2026-08-31T20:05:15.941Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0013",
+          "timestamp": "2026-08-31T20:05:15.941Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 14,
+      "timestamp": "2026-08-31T20:05:25.571Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: todo.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0014",
+          "timestamp": "2026-08-31T20:05:25.571Z",
+          "kind": "tool_call",
+          "toolName": "todo"
+        }
+      }
+    },
+    {
+      "step_id": 15,
+      "timestamp": "2026-08-31T20:05:29.542Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: todo.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0015",
+          "timestamp": "2026-08-31T20:05:29.542Z",
+          "kind": "tool_call",
+          "toolName": "todo"
+        }
+      }
+    },
+    {
+      "step_id": 16,
+      "timestamp": "2026-08-31T20:05:33.673Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: todo.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0016",
+          "timestamp": "2026-08-31T20:05:33.673Z",
+          "kind": "tool_call",
+          "toolName": "todo"
+        }
+      }
+    },
+    {
+      "step_id": 17,
+      "timestamp": "2026-08-31T20:05:37.435Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: todo.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0017",
+          "timestamp": "2026-08-31T20:05:37.435Z",
+          "kind": "tool_call",
+          "toolName": "todo"
+        }
+      }
+    },
+    {
+      "step_id": 18,
+      "timestamp": "2026-08-31T20:05:58.445Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: edit.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0018",
+          "timestamp": "2026-08-31T20:05:58.445Z",
+          "kind": "tool_call",
+          "toolName": "edit"
+        }
+      }
+    },
+    {
+      "step_id": 19,
+      "timestamp": "2026-08-31T20:06:08.774Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: bg_run.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0019",
+          "timestamp": "2026-08-31T20:06:08.774Z",
+          "kind": "tool_call",
+          "toolName": "bg_run"
+        }
+      }
+    },
+    {
+      "step_id": 20,
+      "timestamp": "2026-08-31T20:06:14.820Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0020",
+          "timestamp": "2026-08-31T20:06:14.820Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 21,
+      "timestamp": "2026-08-31T20:06:34.669Z",
+      "source": "agent",
+      "message": "Worker launch requested for role builder; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0021",
+          "timestamp": "2026-08-31T20:06:34.669Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "launch",
+          "workerAlias": "w_5b6295f8851b85faa1f9592769f294b4",
+          "attemptAlias": "a_cdb6f403bed1d5401aafce4b3407e42f",
+          "role": "builder",
+          "modelAlias": "m_9ff9d185a9a4c191351aa1ee7948f6c3",
+          "labelAlias": "l_956a19498c3c496bd9a95cee2af73a4e",
+          "anchorWordCount": 0,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 22,
+      "timestamp": "2026-08-31T20:07:10.275Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role builder; status running.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0022",
+          "timestamp": "2026-08-31T20:07:10.275Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_5b6295f8851b85faa1f9592769f294b4",
+          "attemptAlias": "a_cdb6f403bed1d5401aafce4b3407e42f",
+          "role": "builder",
+          "modelAlias": "m_9ff9d185a9a4c191351aa1ee7948f6c3",
+          "status": "running"
+        }
+      }
+    },
+    {
+      "step_id": 23,
+      "timestamp": "2026-08-31T20:10:24.483Z",
+      "source": "agent",
+      "message": "Worker status observed: successful.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0023",
+          "timestamp": "2026-08-31T20:10:24.483Z",
+          "kind": "worker_status",
+          "toolName": "bg_agent",
+          "workerAlias": "w_5b6295f8851b85faa1f9592769f294b4",
+          "attemptAlias": "a_cdb6f403bed1d5401aafce4b3407e42f",
+          "role": "builder",
+          "modelAlias": "m_9ff9d185a9a4c191351aa1ee7948f6c3",
+          "status": "successful",
+          "startedAt": "2026-08-31T20:06:34.681Z",
+          "endedAt": "2026-08-31T20:10:24.482Z"
+        }
+      }
+    },
+    {
+      "step_id": 24,
+      "timestamp": "2026-08-31T20:10:36.522Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0024",
+          "timestamp": "2026-08-31T20:10:36.522Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 25,
+      "timestamp": "2026-08-31T20:10:36.522Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: bash.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0025",
+          "timestamp": "2026-08-31T20:10:36.522Z",
+          "kind": "tool_call",
+          "toolName": "bash"
+        }
+      }
+    },
+    {
+      "step_id": 26,
+      "timestamp": "2026-08-31T20:10:40.718Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: todo.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0026",
+          "timestamp": "2026-08-31T20:10:40.718Z",
+          "kind": "tool_call",
+          "toolName": "todo"
+        }
+      }
+    },
+    {
+      "step_id": 27,
+      "timestamp": "2026-08-31T20:10:43.840Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: todo.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0027",
+          "timestamp": "2026-08-31T20:10:43.840Z",
+          "kind": "tool_call",
+          "toolName": "todo"
+        }
+      }
+    },
+    {
+      "step_id": 28,
+      "timestamp": "2026-08-31T20:10:49.127Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0028",
+          "timestamp": "2026-08-31T20:10:49.127Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 29,
+      "timestamp": "2026-08-31T20:11:08.704Z",
+      "source": "agent",
+      "message": "Worker launch requested for role checker; status requested.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0029",
+          "timestamp": "2026-08-31T20:11:08.704Z",
+          "kind": "worker_launch",
+          "toolName": "bg_agent",
+          "action": "launch",
+          "workerAlias": "w_7184523942605ef7c97d3d53fff28752",
+          "attemptAlias": "a_77cc274127a214ba158e0587460b8998",
+          "role": "checker",
+          "modelAlias": "m_9ff9d185a9a4c191351aa1ee7948f6c3",
+          "labelAlias": "l_e83b8a8beb785add6f0debd81a4295c2",
+          "anchorWordCount": 0,
+          "status": "requested"
+        }
+      }
+    },
+    {
+      "step_id": 30,
+      "timestamp": "2026-08-31T20:11:44.334Z",
+      "source": "agent",
+      "message": "Worker launch result observed for role checker; status running.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0030",
+          "timestamp": "2026-08-31T20:11:44.334Z",
+          "kind": "worker_launch_result",
+          "toolName": "bg_agent",
+          "workerAlias": "w_7184523942605ef7c97d3d53fff28752",
+          "attemptAlias": "a_77cc274127a214ba158e0587460b8998",
+          "role": "checker",
+          "modelAlias": "m_9ff9d185a9a4c191351aa1ee7948f6c3",
+          "status": "running"
+        }
+      }
+    },
+    {
+      "step_id": 31,
+      "timestamp": "2026-08-31T20:13:36.305Z",
+      "source": "agent",
+      "message": "Worker status observed: unknown.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0031",
+          "timestamp": "2026-08-31T20:13:36.305Z",
+          "kind": "worker_status",
+          "toolName": "bg_agent",
+          "workerAlias": "w_7184523942605ef7c97d3d53fff28752",
+          "attemptAlias": "a_77cc274127a214ba158e0587460b8998",
+          "role": "checker",
+          "modelAlias": "m_9ff9d185a9a4c191351aa1ee7948f6c3",
+          "status": "unknown",
+          "startedAt": "2026-08-31T20:11:08.713Z",
+          "endedAt": "2026-08-31T20:13:36.304Z"
+        }
+      }
+    },
+    {
+      "step_id": 32,
+      "timestamp": "2026-08-31T20:13:53.735Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: read.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0032",
+          "timestamp": "2026-08-31T20:13:53.735Z",
+          "kind": "tool_call",
+          "toolName": "read"
+        }
+      }
+    },
+    {
+      "step_id": 33,
+      "timestamp": "2026-08-31T20:13:58.260Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: todo.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0033",
+          "timestamp": "2026-08-31T20:13:58.260Z",
+          "kind": "tool_call",
+          "toolName": "todo"
+        }
+      }
+    },
+    {
+      "step_id": 34,
+      "timestamp": "2026-08-31T20:14:03.288Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: todo.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0034",
+          "timestamp": "2026-08-31T20:14:03.288Z",
+          "kind": "tool_call",
+          "toolName": "todo"
+        }
+      }
+    },
+    {
+      "step_id": 35,
+      "timestamp": "2026-08-31T20:14:18.026Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: bg_run.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0035",
+          "timestamp": "2026-08-31T20:14:18.026Z",
+          "kind": "tool_call",
+          "toolName": "bg_run"
+        }
+      }
+    },
+    {
+      "step_id": 36,
+      "timestamp": "2026-08-31T20:14:18.026Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: bash.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0036",
+          "timestamp": "2026-08-31T20:14:18.026Z",
+          "kind": "tool_call",
+          "toolName": "bash"
+        }
+      }
+    },
+    {
+      "step_id": 37,
+      "timestamp": "2026-08-31T20:14:18.026Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: lsp_diagnostics.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0037",
+          "timestamp": "2026-08-31T20:14:18.026Z",
+          "kind": "tool_call",
+          "toolName": "lsp_diagnostics"
+        }
+      }
+    },
+    {
+      "step_id": 38,
+      "timestamp": "2026-08-31T20:14:24.359Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: lens_diagnostics.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0038",
+          "timestamp": "2026-08-31T20:14:24.359Z",
+          "kind": "tool_call",
+          "toolName": "lens_diagnostics"
+        }
+      }
+    },
+    {
+      "step_id": 39,
+      "timestamp": "2026-08-31T20:14:42.018Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: edit.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0039",
+          "timestamp": "2026-08-31T20:14:42.018Z",
+          "kind": "tool_call",
+          "toolName": "edit"
+        }
+      }
+    },
+    {
+      "step_id": 40,
+      "timestamp": "2026-08-31T20:14:52.087Z",
+      "source": "agent",
+      "message": "Advisor tool call observed: write.",
+      "extra": {
+        "advisor_event": {
+          "id": "e0040",
+          "timestamp": "2026-08-31T20:14:52.087Z",
+          "kind": "tool_call",
+          "toolName": "write"
+        }
+      }
+    }
+  ],
+  "final_metrics": {
+    "total_steps": 40
+  },
+  "extra": {
+    "privacy": {
+      "rawMessageBodiesCopied": false,
+      "rawToolPayloadsCopied": false,
+      "arbitraryTextCopied": false,
+      "identityFieldsAliased": true,
+      "anchorTextStored": false
+    },
+    "relationships": {
+      "repetition": {
+        "exactAnchors": [],
+        "nearAnchors": [],
+        "exactLabels": [],
+        "nearLabels": [],
+        "truncated": false
+      }
+    }
+  }
+}

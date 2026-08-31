@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "status": "completed",
+  "criteria": [
+    { "id": "public-check-passes", "status": "passed" },
+    { "id": "retry-limit-aligned", "status": "passed" },
+    { "id": "contract-preserved", "status": "passed" },
+    { "id": "bounded-surface", "status": "passed" }
+  ]
+}

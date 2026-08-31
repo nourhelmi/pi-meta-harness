@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "name": "pre-adaptive-routing",
+  "case": {
+    "id": "cohesive-medium-maker",
+    "title": "Prospective routing: one maker owns a cohesive medium feature",
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": [
+        "builder"
+      ],
+      "rationale": "Both adjacent modules share one decision set, worktree, and criterion suite."
+    }
+  },
+  "sourceRunId": "2026-08-31T19-57-27-370Z--cohesive-medium-maker--a442121d",
+  "sourceStatus": "passed",
+  "admission": "passing",
+  "evaluationFingerprint": {
+    "algorithm": "sha256-prospective-suite-tree-v1",
+    "value": "74f917cfb1c168071949bf40307bc5ea3b91867f962b9fe820c30b0220aa76b0",
+    "files": 119
+  },
+  "promotedAt": "2026-08-31T20:16:50.066Z",
+  "safeFiles": [
+    "manifest.json",
+    "prompt.md",
+    "completion.json",
+    "result.json",
+    "trace.json",
+    "trajectory.json"
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-08-31T19-50-54-721Z--single-maker-fast-path--1dfedc15",
+  "case": {
+    "id": "single-maker-fast-path",
+    "title": "Prospective routing: a small deterministic repair stays with one maker",
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": [
+        "builder"
+      ],
+      "rationale": "The one-file deterministic repair has one useful maker lane."
+    }
+  },
+  "candidate": {
+    "revision": "f0cb41836665aae01e570efd446ed2c30ab965d1",
+    "dirty": false,
+    "label": "pre-adaptive-routing",
+    "fingerprint": {
+      "algorithm": "sha256-candidate-tree-v1",
+      "value": "5ff3ab3806e094ec34388a77fcd0e200a03d2b4e2dc484bc380ff3bf13c5e2d7",
+      "files": 39
+    },
+    "profile": "codex-lean",
+    "model": "openai-codex/gpt-5.6-sol",
+    "thinking": "high"
+  },
+  "status": "passed",
+  "reward": 1,
+  "checks": [
+    {
+      "id": "public-check-passes",
+      "passed": true,
+      "evidence": "npm test exited 0"
+    },
+    {
+      "id": "retry-limit-aligned",
+      "passed": true,
+      "evidence": "contract=3; settings=3"
+    },
+    {
+      "id": "contract-preserved",
+      "passed": true,
+      "evidence": "contract retry limit: 3; changed paths: settings.json"
+    },
+    {
+      "id": "bounded-surface",
+      "passed": true,
+      "evidence": "changed paths: settings.json"
+    },
+    {
+      "id": "completion-signal",
+      "passed": true,
+      "evidence": "bounded completed signal recorded"
+    },
+    {
+      "id": "root-trajectory",
+      "passed": true,
+      "evidence": "privacy-normalized root trajectory contains 39 events"
+    },
+    {
+      "id": "builder-delegation",
+      "passed": true,
+      "evidence": "1 successful builder settlement(s) from 1 launch(es); required 1"
+    },
+    {
+      "id": "orchestration-allowed-roles",
+      "passed": true,
+      "evidence": "1 worker launch(es); roles: builder; unexpected: none"
+    },
+    {
+      "id": "orchestration-successful-worker-budget",
+      "passed": true,
+      "evidence": "1 distinct successful worker(s); maximum 1"
+    },
+    {
+      "id": "orchestration-graph-budget",
+      "passed": true,
+      "evidence": "0 graph plan(s); maximum 0"
+    },
+    {
+      "id": "lifecycle",
+      "passed": true,
+      "evidence": "root advisor lifecycle completed within the bounded runner"
+    }
+  ],
+  "dimensions": {
+    "workspace": {
+      "passed": 4,
+      "total": 4,
+      "status": "passed"
+    },
+    "orchestration": {
+      "passed": 5,
+      "total": 5,
+      "status": "passed"
+    },
+    "measurement": {
+      "passed": 2,
+      "total": 2,
+      "status": "passed"
+    }
+  },
+  "parallelism": {
+    "diagnosticOnly": true,
+    "expectedMaxUsefulWidth": 1,
+    "roles": [
+      "builder"
+    ],
+    "rationale": "The one-file deterministic repair has one useful maker lane.",
+    "observedLaunchBatchWidth": 1,
+    "observedConcurrentWidth": 1,
+    "observedUsefulWidth": 1,
+    "successfulSettlements": 1,
+    "widthUtilization": 1,
+    "settlementCoverage": 1,
+    "status": "utilized",
+    "limitation": "Concurrency is observable only when launch timestamps or worker start/end timestamps are present; this diagnostic never overrides outcome checks."
+  }
+}

@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "kind": "pi-session-jsonl",
+    "artifactAlias": "ar_64965aec88f26614b06f514ef1f75d4c",
+    "entryCount": 69,
+    "textPolicy": "categorical-only",
+    "aliasScope": "deterministic-per-artifact"
+  },
+  "redaction": {
+    "rawMessageBodiesCopied": false,
+    "rawToolPayloadsCopied": false,
+    "arbitraryTextCopied": false,
+    "identityFieldsAliased": true,
+    "anchorTextStored": false
+  },
+  "relationships": {
+    "repetition": {
+      "exactAnchors": [],
+      "nearAnchors": [],
+      "exactLabels": [],
+      "nearLabels": [],
+      "truncated": false
+    }
+  },
+  "events": [
+    {
+      "id": "e0001",
+      "timestamp": "2026-08-31T19:51:06.880Z",
+      "kind": "session_started"
+    },
+    {
+      "id": "e0002",
+      "timestamp": "2026-08-31T19:51:12.004Z",
+      "kind": "user_message",
+      "signals": [
+        "auth_data_boundary"
+      ]
+    },
+    {
+      "id": "e0003",
+      "timestamp": "2026-08-31T19:51:16.579Z",
+      "kind": "tool_call",
+      "toolName": "advisor_session_init"
+    },
+    {
+      "id": "e0004",
+      "timestamp": "2026-08-31T19:51:24.505Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0005",
+      "timestamp": "2026-08-31T19:51:24.505Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0006",
+      "timestamp": "2026-08-31T19:51:38.780Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0007",
+      "timestamp": "2026-08-31T19:51:43.801Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0008",
+      "timestamp": "2026-08-31T19:51:48.970Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0009",
+      "timestamp": "2026-08-31T19:51:52.103Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0010",
+      "timestamp": "2026-08-31T19:52:01.777Z",
+      "kind": "tool_call",
+      "toolName": "fffind"
+    },
+    {
+      "id": "e0011",
+      "timestamp": "2026-08-31T19:52:01.777Z",
+      "kind": "tool_call",
+      "toolName": "fffind"
+    },
+    {
+      "id": "e0012",
+      "timestamp": "2026-08-31T19:52:01.777Z",
+      "kind": "tool_call",
+      "toolName": "fffind"
+    },
+    {
+      "id": "e0013",
+      "timestamp": "2026-08-31T19:52:01.777Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0014",
+      "timestamp": "2026-08-31T19:52:06.979Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0015",
+      "timestamp": "2026-08-31T19:52:06.979Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0016",
+      "timestamp": "2026-08-31T19:52:06.979Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0017",
+      "timestamp": "2026-08-31T19:52:06.979Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0018",
+      "timestamp": "2026-08-31T19:52:16.176Z",
+      "kind": "tool_call",
+      "toolName": "bg_run"
+    },
+    {
+      "id": "e0019",
+      "timestamp": "2026-08-31T19:52:16.176Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0020",
+      "timestamp": "2026-08-31T19:52:24.432Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0021",
+      "timestamp": "2026-08-31T19:52:32.818Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0022",
+      "timestamp": "2026-08-31T19:52:32.818Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0023",
+      "timestamp": "2026-08-31T19:52:57.746Z",
+      "kind": "tool_call",
+      "toolName": "edit"
+    },
+    {
+      "id": "e0024",
+      "timestamp": "2026-08-31T19:53:10.368Z",
+      "kind": "tool_call",
+      "toolName": "write"
+    },
+    {
+      "id": "e0025",
+      "timestamp": "2026-08-31T19:53:13.230Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0026",
+      "timestamp": "2026-08-31T19:53:16.477Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0027",
+      "timestamp": "2026-08-31T19:53:25.130Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0028",
+      "timestamp": "2026-08-31T19:53:39.653Z",
+      "kind": "worker_launch",
+      "toolName": "bg_agent",
+      "action": "launch",
+      "workerAlias": "w_41b8513c8324fdf937e856ffd1231acd",
+      "attemptAlias": "a_0dcb6d0f9e5795d80ffa47b23f68e07e",
+      "role": "builder",
+      "modelAlias": "m_39d831b49708c815a71e231ffc70d206",
+      "labelAlias": "l_811f24c9c7200cefd5e76a885628e6d0",
+      "anchorWordCount": 0,
+      "status": "requested"
+    },
+    {
+      "id": "e0029",
+      "timestamp": "2026-08-31T19:54:16.923Z",
+      "kind": "worker_launch_result",
+      "toolName": "bg_agent",
+      "workerAlias": "w_41b8513c8324fdf937e856ffd1231acd",
+      "attemptAlias": "a_0dcb6d0f9e5795d80ffa47b23f68e07e",
+      "role": "builder",
+      "modelAlias": "m_39d831b49708c815a71e231ffc70d206",
+      "status": "running"
+    },
+    {
+      "id": "e0030",
+      "timestamp": "2026-08-31T19:56:10.946Z",
+      "kind": "worker_status",
+      "toolName": "bg_agent",
+      "workerAlias": "w_41b8513c8324fdf937e856ffd1231acd",
+      "attemptAlias": "a_0dcb6d0f9e5795d80ffa47b23f68e07e",
+      "role": "builder",
+      "modelAlias": "m_39d831b49708c815a71e231ffc70d206",
+      "status": "successful",
+      "startedAt": "2026-08-31T19:53:39.676Z",
+      "endedAt": "2026-08-31T19:56:10.943Z"
+    },
+    {
+      "id": "e0031",
+      "timestamp": "2026-08-31T19:56:19.545Z",
+      "kind": "tool_call",
+      "toolName": "read"
+    },
+    {
+      "id": "e0032",
+      "timestamp": "2026-08-31T19:56:22.911Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0033",
+      "timestamp": "2026-08-31T19:56:25.826Z",
+      "kind": "tool_call",
+      "toolName": "todo"
+    },
+    {
+      "id": "e0034",
+      "timestamp": "2026-08-31T19:56:45.912Z",
+      "kind": "tool_call",
+      "toolName": "bg_run"
+    },
+    {
+      "id": "e0035",
+      "timestamp": "2026-08-31T19:56:45.912Z",
+      "kind": "tool_call",
+      "toolName": "bash"
+    },
+    {
+      "id": "e0036",
+      "timestamp": "2026-08-31T19:56:51.121Z",
+      "kind": "tool_call",
+      "toolName": "lens_diagnostics"
+    },
+    {
+      "id": "e0037",
+      "timestamp": "2026-08-31T19:56:55.973Z",
+      "kind": "tool_call",
+      "toolName": "lens_diagnostics"
+    },
+    {
+      "id": "e0038",
+      "timestamp": "2026-08-31T19:57:17.508Z",
+      "kind": "tool_call",
+      "toolName": "edit"
+    },
+    {
+      "id": "e0039",
+      "timestamp": "2026-08-31T19:57:26.512Z",
+      "kind": "tool_call",
+      "toolName": "write"
+    }
+  ]
+}
