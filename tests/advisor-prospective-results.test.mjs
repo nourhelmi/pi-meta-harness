@@ -11,6 +11,7 @@ import {
   comparisonMarkdown,
   parallelismDiagnostics,
   promoteProspectiveBaseline,
+  prospectiveCheckDimension,
   scanProspectiveArtifacts,
 } from "../scripts/advisor-prospective-results.mjs";
 
@@ -217,6 +218,9 @@ test("baseline promotion copies only privacy-safe result artifacts", async () =>
       runId: "run-a",
       case: { id: "case-a", title: "Case A" },
       candidate: { label: "candidate-a" },
+      evaluation: {
+        fingerprint: { algorithm: "sha256-prospective-suite-tree-v1", value: "evaluator-a" },
+      },
     });
     await writeJson(join(run, "result.json"), { status: "passed", reward: 1, checks: [] });
     await writeFile(join(run, "workspace", "secret.txt"), "workspace must not be promoted\n");
@@ -224,12 +228,147 @@ test("baseline promotion copies only privacy-safe result artifacts", async () =>
 
     const promoted = await promoteProspectiveBaseline(run, "approved", { baselineRoot: baselines });
     assert.equal(JSON.parse(await readFile(join(promoted.destination, "result.json"), "utf8")).reward, 1);
+    const copiedManifest = JSON.parse(await readFile(join(promoted.destination, "manifest.json"), "utf8"));
+    assert.equal(copiedManifest.evaluation.fingerprint.value, "evaluator-a");
+    assert.equal(promoted.baseline.evaluationFingerprint.value, "evaluator-a");
     await assert.rejects(readFile(join(promoted.destination, "workspace", "secret.txt")));
     await assert.rejects(readFile(join(promoted.destination, ".agent", "auth.json")));
 
     const scanned = await scanProspectiveArtifacts({ runsRoot: join(temp, "missing-runs"), baselinesRoot: baselines });
     assert.equal(scanned.baselines.length, 1);
     assert.equal(scanned.baselines[0].kind, "baseline");
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
+test("failed routing baselines require explicit promotion and clean workspace and measurement dimensions", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "prospective-failed-baseline-"));
+  const run = join(temp, "run");
+  const baselines = join(temp, "baselines");
+  try {
+    await writeJson(join(run, "manifest.json"), {
+      runId: "run-routing-before",
+      case: { id: "single-maker-fast-path", title: "Single maker fast path" },
+      candidate: { label: "before" },
+    });
+    await writeJson(join(run, "result.json"), {
+      status: "failed",
+      reward: 0,
+      checks: [
+        { id: "public-check-passes", passed: true, evidence: "passed" },
+        { id: "completion-signal", passed: true, evidence: "completed" },
+        { id: "orchestration-allowed-roles", passed: false, evidence: "checker was unnecessary" },
+        { id: "root-trajectory", passed: true, evidence: "available" },
+        { id: "lifecycle", passed: true, evidence: "settled" },
+      ],
+    });
+    await assert.rejects(
+      promoteProspectiveBaseline(run, "before", { baselineRoot: baselines }),
+      /unless --allow-failed is explicit/,
+    );
+    const promoted = await promoteProspectiveBaseline(run, "before", {
+      allowFailed: true,
+      baselineRoot: baselines,
+    });
+    assert.equal(promoted.baseline.sourceStatus, "failed");
+    assert.equal(promoted.baseline.admission, "explicit-failed-orchestration");
+    assert.equal(prospectiveCheckDimension("orchestration-allowed-roles"), "orchestration");
+
+    await writeJson(join(run, "result.json"), {
+      status: "failed",
+      reward: 0,
+      dimensions: {
+        workspace: { passed: 1, total: 1, status: "passed" },
+        orchestration: { passed: 0, total: 1, status: "failed" },
+        measurement: { passed: 2, total: 2, status: "passed" },
+      },
+      checks: [
+        { id: "public-check-passes", passed: false, evidence: "failed" },
+        { id: "orchestration-allowed-roles", passed: false, evidence: "failed" },
+        { id: "root-trajectory", passed: false, evidence: "missing" },
+        { id: "lifecycle", passed: true, evidence: "settled" },
+      ],
+    });
+    await assert.rejects(
+      promoteProspectiveBaseline(run, "forged", { allowFailed: true, baselineRoot: baselines }),
+      /stored result dimensions do not match/i,
+    );
+
+    await writeJson(join(run, "result.json"), {
+      status: "failed",
+      reward: 0,
+      checks: [
+        { id: "public-check-passes", passed: true, evidence: "passed" },
+        { id: "orchestration-allowed-roles", passed: false, evidence: "failed" },
+        { id: "root-trajectory", passed: false, evidence: "missing" },
+        { id: "lifecycle", passed: true, evidence: "settled" },
+      ],
+    });
+    await assert.rejects(
+      promoteProspectiveBaseline(run, "measurement-failed", { allowFailed: true, baselineRoot: baselines }),
+      /requires passing workspace and measurement dimensions/,
+    );
+    await writeJson(join(run, "result.json"), {
+      status: "failed",
+      reward: 0,
+      checks: [
+        { id: "public-check-passes", passed: false, evidence: "failed" },
+        { id: "orchestration-allowed-roles", passed: false, evidence: "failed" },
+        { id: "root-trajectory", passed: true, evidence: "available" },
+        { id: "lifecycle", passed: true, evidence: "settled" },
+      ],
+    });
+    await assert.rejects(
+      promoteProspectiveBaseline(run, "workspace-failed", { allowFailed: true, baselineRoot: baselines }),
+      /requires passing workspace and measurement dimensions/,
+    );
+
+    await writeJson(join(run, "result.json"), {
+      status: "passed",
+      reward: 1,
+      checks: [{ id: "public-check-passes", passed: false, evidence: "failed" }],
+    });
+    await assert.rejects(
+      promoteProspectiveBaseline(run, "passed-with-failure", { allowFailed: true, baselineRoot: baselines }),
+      /status or reward does not match its checks/,
+    );
+
+    await writeJson(join(run, "result.json"), {
+      status: "failed",
+      reward: 0,
+      checks: [
+        { id: "public-check-passes", passed: true, evidence: "passed" },
+        { id: "completion-signal", passed: true, evidence: "completed" },
+        { id: "root-trajectory", passed: true, evidence: "available" },
+        { id: "lifecycle", passed: true, evidence: "settled" },
+      ],
+    });
+    await assert.rejects(
+      promoteProspectiveBaseline(run, "failed-with-passes", { allowFailed: true, baselineRoot: baselines }),
+      /status or reward does not match its checks/,
+    );
+
+    await writeJson(join(run, "result.json"), {
+      status: "failed",
+      reward: 1,
+      checks: [
+        { id: "public-check-passes", passed: true, evidence: "passed" },
+        { id: "orchestration-allowed-roles", passed: false, evidence: "failed" },
+        { id: "root-trajectory", passed: true, evidence: "available" },
+        { id: "lifecycle", passed: true, evidence: "settled" },
+      ],
+    });
+    await assert.rejects(
+      promoteProspectiveBaseline(run, "reward-mismatch", { allowFailed: true, baselineRoot: baselines }),
+      /status or reward does not match its checks/,
+    );
+
+    await writeJson(join(run, "result.json"), { status: "running", reward: 0, checks: [] });
+    await assert.rejects(
+      promoteProspectiveBaseline(run, "running", { allowFailed: true, baselineRoot: baselines }),
+      /source status must be passed or failed/,
+    );
   } finally {
     await rm(temp, { recursive: true, force: true });
   }

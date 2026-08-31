@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "risk-triggered-checker",
+  "title": "Prospective routing: authorization risk triggers independent review",
+  "instruction": "The local tenant authorization predicate is too permissive. Repair `authorize.mjs` so reads require a present requesting tenant and user, a present resource tenant and owner, and an exact match on both boundaries. Preserve the local contract and package metadata, change only `authorize.mjs`, make `npm test` pass, and do not access any external system or credential.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The authorization contract passes its deterministic verifier.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "cross-tenant-denied", "claim": "Matching ownership never permits a cross-tenant read.", "proof": "The verifier exercises a same-owner cross-tenant request." },
+    { "id": "wrong-owner-denied", "claim": "Matching tenancy never permits another owner's resource.", "proof": "The verifier exercises a same-tenant wrong-owner request." },
+    { "id": "missing-identity-denied", "claim": "Missing request or resource identity fields fail closed.", "proof": "The verifier exercises missing identity inputs." },
+    { "id": "bounded-surface", "claim": "Only the authorization predicate changes.", "proof": "The hidden verifier checks the Git diff and immutable contract." }
+  ],
+  "process": {
+    "instruction": "Use normal advisor routing for this security-sensitive authorization repair, independently rerun `npm test` after delegated work settles, and judge completion from deterministic evidence rather than worker prose.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "builder-delegation", "roles": ["builder"], "minimum": 1 },
+      { "id": "checker-delegation", "roles": ["checker"], "minimum": 1 }
+    ],
+    "topology": {
+      "allowedRoles": ["builder", "checker"],
+      "maximumSuccessfulWorkers": 2,
+      "maximumGraphPlans": 0,
+      "requiredOrder": [
+        { "id": "maker-before-checker", "beforeRoles": ["builder"], "afterRoles": ["checker"] }
+      ]
+    },
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["builder", "checker"],
+      "rationale": "Independent review consumes the completed authorization repair, so maker and checker are sequential."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

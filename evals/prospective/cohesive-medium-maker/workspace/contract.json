@@ -1,0 +1,4 @@
+{
+  "supportedModes": ["off", "on", "staged"],
+  "stagedAccounts": ["acct-alpha", "acct-gamma"]
+}

@@ -105,7 +105,7 @@ npm run eval:advisor:prospective -- builder-self-verification \
 For that run, the harness:
 
 1. copies the case's hermetic workspace into `evals/local/prospective-runs/`;
-2. fingerprints the advisor-managed files in the current checkout;
+2. fingerprints both the advisor candidate and the prospective evaluator in the current checkout;
 3. stages the checkout as an isolated temporary Pi agent directory;
 4. stages a minimal temporary Codex home that trusts only the disposable workspace,
    disables hooks/plugins, copies both subscription credentials with mode `0600`, and
@@ -120,14 +120,19 @@ The hidden verifier, not the model-authored completion signal, decides the rewar
 run passes only when every check passes, but the result and dashboard keep three dimensions
 separate: functional workspace outcome, orchestration/completion settlement, and
 measurement/control validity. Orchestration requirements are case-specific, such as
-observing a successful checker, planner, scout, builder, or foreman settlement. Failed
+observing a successful checker, planner, scout, builder, or foreman settlement. Role-neutral
+routing cases additionally score allowed roles, a retry-tolerant successful-worker ceiling,
+graph-plan ceilings, and required maker-before-review order. Failed
 launch evidence retains only an allowlisted category such as `startup-blocked`, `quota`,
 or `artifact-invalid`; arbitrary worker output and identities remain excluded. Worker
 attempts and duration are explanatory rather than quality rewards.
 
 ### Live cases
 
-The prospective suite has eight cases:
+The prospective suite has eleven cases. The original eight are capability cases: their
+visible packets deliberately prescribe the role behavior under test. The final three are
+routing cases: their visible packets are role-neutral, while the external evaluator scores
+whether the advisor selected the smallest justified topology.
 
 | Case | Starting state | Behavior under test | Required delegation |
 | --- | --- | --- | --- |
@@ -139,13 +144,16 @@ The prospective suite has eight cases:
 | `routing-ambiguity` | Failing | A scout resolves current-versus-legacy ownership before a bounded router repair, without changing providers. | scout, then builder or foreman |
 | `foreman-cross-repo` | Failing | A foreman coordinates schema-before-service delivery across two repository-shaped directories and records the plan. | foreman |
 | `parallel-evidence-merge` | Failing | Two independent evidence scouts launch together before one dependent maker merges their contract and runtime conclusions. | two parallel scouts, then builder or foreman |
+| `single-maker-fast-path` | Failing | A small deterministic repair stays with one builder and avoids unrelated roles or graph planning. | route-selected builder only |
+| `cohesive-medium-maker` | Failing | One builder owns diagnosis, implementation, and verification across two adjacent modules sharing one decision set. | route-selected builder only |
+| `risk-triggered-checker` | Failing | A security-sensitive authorization repair receives fresh independent review after the maker settles. | route-selected builder, then checker |
 
 Repository tests prove the two passing cases start and remain read-only passes, and
 prove each mutation case fails before and passes after its exact expected repair. Those
 tests validate fixtures and verifiers without consuming subscription quota; live runs
 evaluate the real advisor behavior.
 
-Every case declares its maximum **useful** worker width. Seven cases correctly have
+Every case declares its maximum **useful** worker width. Ten cases correctly have
 width `1` because their stages share a write surface or have real dependencies. Only
 `parallel-evidence-merge` exposes width `2`. The result and dashboard report same-turn
 launch width, observable worker-interval overlap, successful settlement coverage, and
@@ -199,7 +207,7 @@ Each run is stored locally at:
 
 ```text
 evals/local/prospective-runs/<timestamp>--<case>--<id>/
-├── manifest.json       # setup name, content fingerprint, profile, and model
+├── manifest.json       # candidate/evaluator fingerprints, setup name, profile, and model
 ├── prompt.md           # frozen packet sent to the root advisor
 ├── workspace/          # disposable repository after the run
 ├── advisor-state/      # isolated advisor and worker artifacts
@@ -209,9 +217,11 @@ evals/local/prospective-runs/<timestamp>--<case>--<id>/
 └── result.json         # authoritative reward and per-check evidence
 ```
 
-`evals/local/` is gitignored. A setup name is human-readable; the SHA-256 content
+`evals/local/` is gitignored. A setup name is human-readable. The candidate SHA-256
 fingerprint covers the managed setup (`config/`, `extensions/`, `skills/`, key runner
 scripts, and package metadata), so dirty working-tree versions remain distinguishable.
+The separate evaluator fingerprint also covers the prospective cases and grading code,
+so a behavioral setup change cannot be silently compared across different eval contracts.
 
 Re-run only the deterministic verifier for an existing run:
 
@@ -253,11 +263,25 @@ npm run eval:advisor:prospective:baseline -- \
   <newer-run-id> --name after-checker-skill-change
 ```
 
+For a controlled pre-change routing baseline, the workspace and measurement dimensions
+may pass while the new orchestration contract intentionally exposes existing ceremony.
+Promote that result only with the explicit exception:
+
+```bash
+npm run eval:advisor:prospective:baseline -- \
+  <routing-run-id> --name pre-adaptive-routing --allow-failed
+```
+
+`--allow-failed` accepts only this shape: workspace and measurement pass, and orchestration
+alone fails. It never admits a broken workspace or invalid/missing measurement artifact.
+
 Promoted baselines live at
 `evals/baselines/prospective/<case>/<baseline-name>/` and are tracked. Promotion copies
 only the manifest, frozen prompt, completion signal, result, normalized trace, and ATIF
 trajectory—never the workspace, advisor state, raw session, or credentials. Existing
-baselines are protected unless `--force` is explicit.
+baselines are protected unless `--force` is explicit. Baseline metadata records whether
+the source was a passing run or an explicitly admitted orchestration-only failure, and
+retains the evaluator fingerprint used to grade it.
 
 ### Review in the local dashboard
 

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "cohesive-medium-maker",
+  "title": "Prospective routing: one maker owns a cohesive medium feature",
+  "instruction": "Add the contract's `staged` rollout mode across the adjacent configuration and access modules. Staged rollout enables only accounts listed by the parsed configuration; existing `on`, `off`, and invalid-mode behavior must remain correct. Make `npm test` pass, change only `src/config.mjs` and `src/access.mjs`, and do not perform any external effect.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The integrated rollout behavior passes its deterministic verifier.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "staged-rollout-bounded", "claim": "Staged mode enables exactly the configured accounts.", "proof": "The verifier exercises allowed and unlisted account IDs." },
+    { "id": "existing-modes-preserved", "claim": "Existing on, off, and invalid-mode behavior remains correct.", "proof": "The verifier exercises all pre-existing mode boundaries." },
+    { "id": "bounded-surface", "claim": "Only the two adjacent rollout modules change.", "proof": "The hidden verifier checks the Git diff and immutable contract." }
+  ],
+  "process": {
+    "instruction": "Use normal advisor routing for this cohesive implementation, independently rerun `npm test` after delegated work settles, and judge completion from deterministic evidence rather than worker prose.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "builder-delegation", "roles": ["builder"], "minimum": 1 }
+    ],
+    "topology": {
+      "allowedRoles": ["builder"],
+      "maximumSuccessfulWorkers": 1,
+      "maximumGraphPlans": 0
+    },
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["builder"],
+      "rationale": "Both adjacent modules share one decision set, worktree, and criterion suite."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

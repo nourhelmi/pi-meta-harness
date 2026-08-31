@@ -101,7 +101,7 @@ const FORBIDDEN_REPOSITORY_PREFIXES = [
 ];
 const SECRET_PATTERNS = [
   /gh[pousr]_[A-Za-z0-9]{20,}/,
-  /sk-[A-Za-z0-9_-]{20,}/,
+  /(?:^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}/,
   /NRAK-[A-Za-z0-9]{20,}/,
   /ctx7sk-[A-Za-z0-9-]{20,}/,
   /AKIA[0-9A-Z]{16}/,

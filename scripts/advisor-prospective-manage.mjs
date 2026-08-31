@@ -26,7 +26,7 @@ function usage() {
 Usage:
   node scripts/advisor-prospective-manage.mjs list [--json]
   node scripts/advisor-prospective-manage.mjs compare <before> <after> [--format json|markdown] [--output <path>]
-  node scripts/advisor-prospective-manage.mjs baseline <run> --name <slug> [--force]
+  node scripts/advisor-prospective-manage.mjs baseline <run> --name <slug> [--force] [--allow-failed]
   node scripts/advisor-prospective-manage.mjs suite [case-id ...] [options]
 
 Suite options:
@@ -51,7 +51,7 @@ function parse(argv) {
       continue;
     }
     const key = token.slice(2);
-    if (["force", "json"].includes(key)) {
+    if (["allow-failed", "force", "json"].includes(key)) {
       flags[key] = true;
       continue;
     }
@@ -331,7 +331,10 @@ export async function runManageCli(argv) {
     if (positionals.length !== 1 || !flags.name) throw new Error("baseline requires one run reference and --name <slug>");
     const artifact = await artifactReference(positionals[0]);
     if (artifact.kind === "baseline") throw new Error("A baseline cannot be promoted from another baseline");
-    const promoted = await promoteProspectiveBaseline(artifact.path, flags.name, { force: flags.force });
+    const promoted = await promoteProspectiveBaseline(artifact.path, flags.name, {
+      force: flags.force,
+      allowFailed: flags["allow-failed"],
+    });
     process.stdout.write(`${JSON.stringify(promoted, null, 2)}\n`);
     return;
   }

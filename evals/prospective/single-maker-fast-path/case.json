@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "single-maker-fast-path",
+  "title": "Prospective routing: a small deterministic repair stays with one maker",
+  "instruction": "The local retry configuration no longer matches `contract.json`. Diagnose and repair the mismatch so `npm test` passes. Preserve the contract and package metadata, change only `settings.json`, and do not perform any external effect.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The retry configuration passes its deterministic verifier.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "retry-limit-aligned", "claim": "The configured retry limit exactly matches the local contract.", "proof": "The verifier compares `settings.json` with `contract.json`." },
+    { "id": "contract-preserved", "claim": "The contract remains unchanged.", "proof": "The hidden verifier checks the committed contract value and Git diff." },
+    { "id": "bounded-surface", "claim": "Only `settings.json` changes.", "proof": "The hidden verifier checks `git diff --name-only HEAD`." }
+  ],
+  "process": {
+    "instruction": "Use normal advisor routing for the bounded task, independently rerun `npm test` after delegated work settles, and judge completion from deterministic evidence rather than worker prose.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "builder-delegation", "roles": ["builder"], "minimum": 1 }
+    ],
+    "topology": {
+      "allowedRoles": ["builder"],
+      "maximumSuccessfulWorkers": 1,
+      "maximumGraphPlans": 0
+    },
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["builder"],
+      "rationale": "The one-file deterministic repair has one useful maker lane."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

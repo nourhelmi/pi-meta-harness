@@ -278,11 +278,33 @@ export async function scanProspectiveArtifacts({ runsRoot = PROSPECTIVE_RUNS_ROO
   return { runs: runs.sort(byNewest), baselines: baselines.sort(byNewest) };
 }
 
-export async function promoteProspectiveBaseline(runDirectory, name, { force = false, baselineRoot = PROSPECTIVE_BASELINES_ROOT } = {}) {
+export async function promoteProspectiveBaseline(
+  runDirectory,
+  name,
+  { force = false, allowFailed = false, baselineRoot = PROSPECTIVE_BASELINES_ROOT } = {},
+) {
   if (!SLUG.test(name ?? "")) throw new Error("Baseline name must be a lowercase slug");
   const artifact = await loadProspectiveArtifact(runDirectory);
-  if (!artifact.result || artifact.result.status !== "passed") {
-    throw new Error("Only a completed passing prospective run can become a baseline");
+  if (!artifact.result) throw new Error("Only a completed prospective run can become a baseline");
+  if (!["failed", "passed"].includes(artifact.result.status)) {
+    throw new Error("A prospective baseline source status must be passed or failed");
+  }
+  const dimensions = summarizeResultDimensions({ checks: artifact.result.checks });
+  if (JSON.stringify(artifact.result.dimensions) !== JSON.stringify(dimensions)) {
+    throw new Error("Stored result dimensions do not match dimensions recomputed from checks");
+  }
+  const checksPassed = (artifact.result.checks ?? []).every((check) => check.passed);
+  const expectedStatus = checksPassed ? "passed" : "failed";
+  if (artifact.result.status !== expectedStatus || artifact.result.reward !== (checksPassed ? 1 : 0)) {
+    throw new Error("Prospective result status or reward does not match its checks");
+  }
+  if (artifact.result.status === "failed") {
+    if (!allowFailed) {
+      throw new Error("Only a passing prospective run can become a baseline unless --allow-failed is explicit");
+    }
+    if (dimensions.workspace?.status !== "passed" || dimensions.measurement?.status !== "passed" || dimensions.orchestration?.status !== "failed") {
+      throw new Error("A failed baseline requires passing workspace and measurement dimensions with only orchestration failing");
+    }
   }
   const caseId = artifact.manifest.case?.id;
   if (!SLUG.test(caseId ?? "")) throw new Error("Prospective manifest has no valid case id");
@@ -302,10 +324,15 @@ export async function promoteProspectiveBaseline(runDirectory, name, { force = f
     if (await exists(join(destination, filename))) safeFiles.push(filename);
   }
   const baseline = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     name,
     case: artifact.manifest.case,
     sourceRunId: artifact.id,
+    sourceStatus: artifact.result.status,
+    admission: artifact.result.status === "passed" ? "passing" : "explicit-failed-orchestration",
+    ...(artifact.manifest.evaluation?.fingerprint
+      ? { evaluationFingerprint: artifact.manifest.evaluation.fingerprint }
+      : {}),
     promotedAt: new Date().toISOString(),
     safeFiles,
   };
@@ -315,7 +342,7 @@ export async function promoteProspectiveBaseline(runDirectory, name, { force = f
 
 export function prospectiveCheckDimension(id) {
   if (id === "root-trajectory" || id === "lifecycle") return "measurement";
-  if (id === "completion-signal" || id.endsWith("-delegation")) return "orchestration";
+  if (id === "completion-signal" || id.endsWith("-delegation") || id.startsWith("orchestration-")) return "orchestration";
   return "workspace";
 }
 

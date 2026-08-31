@@ -1,0 +1,8 @@
+{
+  "name": "prospective-single-maker-fast-path",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node verify-public.mjs"
+  }
+}

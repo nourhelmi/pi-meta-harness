@@ -113,6 +113,8 @@ test("prospective preparation stages setup resources without leaking credentials
     assert.equal(prepared.manifest.case.parallelism.maxUsefulWidth, 1);
     assert.deepEqual(prepared.manifest.case.parallelism.roles, ["builder", "foreman"]);
     assert.match(prepared.manifest.candidate.fingerprint.value, /^[0-9a-f]{64}$/);
+    assert.equal(prepared.manifest.evaluation.fingerprint.algorithm, "sha256-prospective-suite-tree-v1");
+    assert.match(prepared.manifest.evaluation.fingerprint.value, /^[0-9a-f]{64}$/);
     const stagedSettings = JSON.parse(await readFile(join(prepared.agentDir, "settings.json"), "utf8"));
     assert(stagedSettings.packages.includes(localPiDetach));
   } finally {
@@ -157,6 +159,26 @@ test("prospective case validation rejects malformed process delegation", async (
     };
     await writeFile(join(caseDir, "case.json"), `${JSON.stringify(malformed, null, 2)}\n`);
     await assert.rejects(() => loadProspectiveCase(caseDir), /required delegation must be an array/);
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
+test("prospective case validation rejects malformed topology roles", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "advisor-prospective-topology-schema-"));
+  try {
+    const loaded = await loadProspectiveCase("single-maker-fast-path");
+    const caseDir = join(temp, loaded.definition.id);
+    await cp(loaded.caseDir, caseDir, { recursive: true });
+    const malformed = {
+      ...loaded.definition,
+      process: {
+        ...loaded.definition.process,
+        topology: { ...loaded.definition.process.topology, allowedRoles: ["builder", "invented-role"] },
+      },
+    };
+    await writeFile(join(caseDir, "case.json"), `${JSON.stringify(malformed, null, 2)}\n`);
+    await assert.rejects(() => loadProspectiveCase(caseDir), /known worker roles/);
   } finally {
     await rm(temp, { recursive: true, force: true });
   }
@@ -217,6 +239,69 @@ test("prospective delegation requires a successful worker settlement, not an att
   const passed = processChecks(attempted, completion, definition);
   assert.equal(passed.find((check) => check.id === "checker-delegation")?.passed, true);
   assert.match(passed.find((check) => check.id === "checker-delegation")?.evidence ?? "", /^1 successful/);
+});
+
+test("prospective topology checks reject extra roles, successful workers, and graphs without punishing retries", () => {
+  const definition = {
+    process: {
+      expectedCompletionStatus: "completed",
+      requiredDelegation: [{ id: "builder-delegation", roles: ["builder"], minimum: 1 }],
+      topology: {
+        allowedRoles: ["builder"],
+        maximumSuccessfulWorkers: 1,
+        maximumGraphPlans: 0,
+      },
+    },
+  };
+  const completion = { schemaVersion: 1, status: "completed" };
+  const trace = {
+    events: [
+      { kind: "worker_launch", role: "builder", workerAlias: "worker-1", attemptAlias: "attempt-1" },
+      { kind: "worker_launch_result", role: "builder", workerAlias: "worker-1", attemptAlias: "attempt-1", status: "failed" },
+      { kind: "worker_launch", role: "builder", workerAlias: "worker-1", attemptAlias: "attempt-2" },
+      { kind: "worker_status", role: "builder", workerAlias: "worker-1", attemptAlias: "attempt-2", status: "successful" },
+    ],
+  };
+  const retryPass = processChecks(trace, completion, definition);
+  assert.equal(retryPass.find((check) => check.id === "orchestration-allowed-roles")?.passed, true);
+  assert.equal(retryPass.find((check) => check.id === "orchestration-successful-worker-budget")?.passed, true);
+  assert.equal(retryPass.find((check) => check.id === "orchestration-graph-budget")?.passed, true);
+
+  trace.events.push(
+    { kind: "worker_launch", role: "checker", workerAlias: "worker-2", attemptAlias: "attempt-3" },
+    { kind: "worker_status", role: "checker", workerAlias: "worker-2", attemptAlias: "attempt-3", status: "successful" },
+    { kind: "graph_plan", nodeCount: 1, waves: [] },
+  );
+  const topologyFailed = processChecks(trace, completion, definition);
+  assert.equal(topologyFailed.find((check) => check.id === "orchestration-allowed-roles")?.passed, false);
+  assert.equal(topologyFailed.find((check) => check.id === "orchestration-successful-worker-budget")?.passed, false);
+  assert.equal(topologyFailed.find((check) => check.id === "orchestration-graph-budget")?.passed, false);
+});
+
+test("prospective topology checks require maker settlement before checker launch", () => {
+  const definition = {
+    process: {
+      requiredDelegation: [
+        { id: "builder-delegation", roles: ["builder"], minimum: 1 },
+        { id: "checker-delegation", roles: ["checker"], minimum: 1 },
+      ],
+      topology: {
+        requiredOrder: [{ id: "maker-before-checker", beforeRoles: ["builder"], afterRoles: ["checker"] }],
+      },
+    },
+  };
+  const completion = { schemaVersion: 1, status: "completed" };
+  const events = [
+    { kind: "worker_launch", role: "builder", workerAlias: "worker-1", attemptAlias: "attempt-1" },
+    { kind: "worker_status", role: "builder", workerAlias: "worker-1", attemptAlias: "attempt-1", status: "successful" },
+    { kind: "worker_launch", role: "checker", workerAlias: "worker-2", attemptAlias: "attempt-2" },
+    { kind: "worker_status", role: "checker", workerAlias: "worker-2", attemptAlias: "attempt-2", status: "successful" },
+  ];
+  const ordered = processChecks({ events }, completion, definition);
+  assert.equal(ordered.find((check) => check.id === "orchestration-maker-before-checker")?.passed, true);
+
+  const earlyChecker = processChecks({ events: [events[0], events[2], events[1], events[3]] }, completion, definition);
+  assert.equal(earlyChecker.find((check) => check.id === "orchestration-maker-before-checker")?.passed, false);
 });
 
 test("prospective prompt delivery waits for Pi to record the user task", async () => {

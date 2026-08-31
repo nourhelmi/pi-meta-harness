@@ -525,6 +525,9 @@ test("npm archive excludes credentials and runtime state", async () => {
     assert(archivePaths.includes("evals/baselines/prospective/builder-self-verification/phase0-canary/baseline.json"));
     assert(archivePaths.includes("evals/prospective/builder-self-verification/case.json"));
     assert(archivePaths.includes("evals/prospective/builder-self-verification/tests/verify.mjs"));
+    assert(archivePaths.includes("evals/prospective/single-maker-fast-path/case.json"));
+    assert(archivePaths.includes("evals/prospective/cohesive-medium-maker/case.json"));
+    assert(archivePaths.includes("evals/prospective/risk-triggered-checker/case.json"));
   } finally {
     await rm(join(ROOT, "evals", "harbor", "synthetic-cache"), { recursive: true, force: true });
   }

@@ -36,13 +36,16 @@ test("prospective dashboard serves its workbench and local run inventory", async
       state.cases.map((prospectiveCase) => prospectiveCase.id).sort(),
       [
         "builder-self-verification",
+        "cohesive-medium-maker",
         "criteria-revision",
         "false-fail-review",
         "foreman-cross-repo",
         "parallel-evidence-merge",
+        "risk-triggered-checker",
         "routing-ambiguity",
         "safety-redirect",
         "scoped-recheck",
+        "single-maker-fast-path",
       ],
     );
     assert(Array.isArray(state.runs));

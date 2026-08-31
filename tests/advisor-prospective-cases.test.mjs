@@ -24,7 +24,37 @@ async function workspaceFor(caseId) {
   return { loaded, root, workspace };
 }
 
+const routingCaseIds = new Set(["single-maker-fast-path", "cohesive-medium-maker", "risk-triggered-checker"]);
+
 const repairs = {
+  "single-maker-fast-path": async (workspace) => {
+    await writeFile(join(workspace, "settings.json"), `${JSON.stringify({ retryLimit: 3 }, null, 2)}\n`);
+  },
+  "cohesive-medium-maker": async (workspace) => {
+    await writeFile(join(workspace, "src", "config.mjs"), `export function parseRollout(raw) {
+  if (!raw || !["off", "on", "staged"].includes(raw.mode)) {
+    throw new Error("unsupported rollout mode");
+  }
+  if (raw.mode === "staged") {
+    return { mode: raw.mode, accounts: [...(raw.accounts ?? [])] };
+  }
+  return { mode: raw.mode };
+}
+`);
+    await writeFile(join(workspace, "src", "access.mjs"), `export function isRolloutEnabled(config, accountId) {
+  if (config.mode === "on") return true;
+  if (config.mode === "off") return false;
+  return config.mode === "staged" && config.accounts.includes(accountId);
+}
+`);
+  },
+  "risk-triggered-checker": async (workspace) => {
+    await writeFile(join(workspace, "authorize.mjs"), `export function canRead(request, resource) {
+  if (!request?.tenantId || !request?.userId || !resource?.tenantId || !resource?.ownerId) return false;
+  return resource.tenantId === request.tenantId && resource.ownerId === request.userId;
+}
+`);
+  },
   "criteria-revision": async (workspace) => {
     await writeFile(join(workspace, "artifact.txt"), "BASELINE\nCURRENT_READY\n");
     await writeFile(join(workspace, "criteria-revision.json"), `${JSON.stringify({
@@ -88,6 +118,33 @@ for (const caseId of Object.keys(repairs)) {
       for (const requirement of loaded.definition.process.requiredDelegation) {
         assert(requirement.roles.length > 0);
       }
+      if (routingCaseIds.has(caseId)) {
+        const unexpected = join(workspace, "unexpected-untracked.txt");
+        await writeFile(unexpected, "must invalidate the bounded surface\n");
+        const contaminated = await verifyProspectiveWorkspace(loaded, workspace);
+        assert.equal(contaminated.reward, 0, "unexpected untracked files must fail the hidden verifier");
+        await rm(unexpected);
+      }
+      if (caseId === "cohesive-medium-maker") {
+        await writeFile(join(workspace, "src", "access.mjs"), `export function isRolloutEnabled(config, accountId) {
+  if (config.mode === "on") return true;
+  if (config.mode === "off") return false;
+  return config.mode === "staged" && accountId === "acct-alpha";
+}
+`);
+        const hardCoded = await verifyProspectiveWorkspace(loaded, workspace);
+        assert.equal(hardCoded.reward, 0, "every staged account from the contract must be exercised");
+      }
+      if (caseId === "risk-triggered-checker") {
+        await writeFile(join(workspace, "authorize.mjs"), `export function canRead(request, resource) {
+  if (!request?.tenantId || !resource?.tenantId || !resource?.ownerId) return false;
+  if (!request.userId) return resource.tenantId === request.tenantId;
+  return resource.tenantId === request.tenantId && resource.ownerId === request.userId;
+}
+`);
+        const missingUserAllowed = await verifyProspectiveWorkspace(loaded, workspace);
+        assert.equal(missingUserAllowed.reward, 0, "every required identity field must fail closed when missing");
+      }
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -100,3 +157,14 @@ test("routing ambiguity keeps transport recovery bounded without claiming succes
   assert.match(loaded.definition.process.instruction, /continue the maker/i);
   assert.match(loaded.definition.process.instruction, /without pretending the required scout settlement passed/i);
 });
+
+for (const caseId of ["single-maker-fast-path", "cohesive-medium-maker", "risk-triggered-checker"]) {
+  test(`${caseId} leaves route selection role-neutral while scoring topology`, async () => {
+    const loaded = await loadProspectiveCase(caseId);
+    const prompt = buildAdvisorPrompt(loaded.definition, "/tmp/completion.json", "run-test");
+    assert.doesNotMatch(prompt, /\b(?:browser-verifier|builder|checker|foreman|planner|scout)\b/i);
+    assert(loaded.definition.process.topology.allowedRoles.length > 0);
+    assert(Number.isInteger(loaded.definition.process.topology.maximumSuccessfulWorkers));
+    assert.equal(loaded.definition.process.topology.maximumGraphPlans, 0);
+  });
+}

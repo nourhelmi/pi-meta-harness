@@ -1,0 +1,5 @@
+{
+  "readRule": "same-tenant-and-owner",
+  "requiredRequestFields": ["tenantId", "userId"],
+  "requiredResourceFields": ["tenantId", "ownerId"]
+}

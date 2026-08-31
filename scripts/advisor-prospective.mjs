@@ -23,6 +23,7 @@ import { createAtifTrajectory } from "./advisor-harbor-lib.mjs";
 import {
   candidateFingerprint,
   parallelismDiagnostics,
+  prospectiveSuiteFingerprint,
   summarizeResultDimensions,
 } from "./advisor-prospective-results.mjs";
 
@@ -35,6 +36,7 @@ const DEFAULT_THINKING = "high";
 const DEFAULT_TIMEOUT_MINUTES = 30;
 const CASE_ID = /^[a-z0-9][a-z0-9-]*$/;
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const WORKER_ROLES = new Set(["browser-verifier", "builder", "checker", "foreman", "planner", "reducer", "scout"]);
 
 function usage() {
   return `Prospective Advisor Evaluations
@@ -159,6 +161,45 @@ export async function findLatestSessionPath(agentDir) {
   return candidates[0]?.path;
 }
 
+function validateRoleList(value, label) {
+  if (!Array.isArray(value) || !value.length || value.some((role) => !WORKER_ROLES.has(role))) {
+    throw new Error(`${label} must be a non-empty array of known worker roles`);
+  }
+  if (new Set(value).size !== value.length) throw new Error(`${label} must not contain duplicate roles`);
+}
+
+function validateTopologyPolicy(topology) {
+  if (!topology || typeof topology !== "object" || Array.isArray(topology)) {
+    throw new Error("Prospective topology policy must be an object");
+  }
+  if (topology.allowedRoles !== undefined) validateRoleList(topology.allowedRoles, "Prospective topology allowedRoles");
+  for (const [field, label] of [
+    ["maximumSuccessfulWorkers", "maximumSuccessfulWorkers"],
+    ["maximumGraphPlans", "maximumGraphPlans"],
+  ]) {
+    if (topology[field] !== undefined && (!Number.isInteger(topology[field]) || topology[field] < 0 || topology[field] > 24)) {
+      throw new Error(`Prospective topology ${label} must be an integer from 0 through 24`);
+    }
+  }
+  if (topology.requiredOrder !== undefined && !Array.isArray(topology.requiredOrder)) {
+    throw new Error("Prospective topology requiredOrder must be an array");
+  }
+  const orderIds = new Set();
+  for (const order of topology.requiredOrder ?? []) {
+    if (!order || !CASE_ID.test(order.id ?? "")) throw new Error("Every topology order needs a slug id");
+    if (orderIds.has(order.id)) throw new Error(`Duplicate prospective topology order: ${order.id}`);
+    orderIds.add(order.id);
+    validateRoleList(order.beforeRoles, `Topology order ${order.id} beforeRoles`);
+    validateRoleList(order.afterRoles, `Topology order ${order.id} afterRoles`);
+    if (order.beforeRoles.some((role) => order.afterRoles.includes(role))) {
+      throw new Error(`Topology order ${order.id} must use disjoint role sets`);
+    }
+    if (topology.allowedRoles && [...order.beforeRoles, ...order.afterRoles].some((role) => !topology.allowedRoles.includes(role))) {
+      throw new Error(`Topology order ${order.id} references a role outside allowedRoles`);
+    }
+  }
+}
+
 export async function waitForPiPromptRecord(agentDir, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -214,6 +255,16 @@ export async function loadProspectiveCase(subject, { casesRoot = CASES_ROOT } = 
       }
       if (requirement.roles.some((role) => !CASE_ID.test(role)) || !Number.isInteger(requirement.minimum) || requirement.minimum < 1) {
         throw new Error("Delegation roles must be slugs and minimum must be a positive integer");
+      }
+    }
+    if (definition.process.topology !== undefined) {
+      validateTopologyPolicy(definition.process.topology);
+      if (definition.process.topology.allowedRoles) {
+        for (const requirement of definition.process.requiredDelegation ?? []) {
+          if (!requirement.roles.some((role) => definition.process.topology.allowedRoles.includes(role))) {
+            throw new Error(`Delegation requirement ${requirement.id} has no role permitted by topology allowedRoles`);
+          }
+        }
       }
     }
     if (definition.process.parallelism !== undefined) {
@@ -416,9 +467,12 @@ export async function prepareProspectiveRun({
   await mkdir(advisorStateDir, { recursive: true });
 
   const runId = basename(runDir);
-  const fingerprint = await candidateFingerprint(resolvedSetupRoot, {
-    piDetachRevision: piDetach?.revision,
-  });
+  const [fingerprint, evaluationFingerprint] = await Promise.all([
+    candidateFingerprint(resolvedSetupRoot, {
+      piDetachRevision: piDetach?.revision,
+    }),
+    prospectiveSuiteFingerprint(resolvedSetupRoot),
+  ]);
   const manifest = {
     schemaVersion: 1,
     runId,
@@ -436,6 +490,9 @@ export async function prepareProspectiveRun({
       profile,
       model,
       thinking,
+    },
+    evaluation: {
+      fingerprint: evaluationFingerprint,
     },
     execution: {
       kind: "herdr-visible-pi-advisor",
@@ -529,6 +586,76 @@ async function persistTrajectory(runState, sessionPath) {
   return normalized;
 }
 
+function topologyChecks(normalized, topology) {
+  if (!topology) return [];
+  const hasTrace = Boolean(normalized);
+  const events = normalized?.events ?? [];
+  const launches = events.filter((event) => event.kind === "worker_launch");
+  const settlements = events.filter((event) =>
+    event.kind === "worker_launch_result" || event.kind === "worker_status"
+  );
+  const checks = [];
+
+  if (topology.allowedRoles) {
+    const allowed = new Set(topology.allowedRoles);
+    const launchedRoles = [...new Set(launches.map((event) => event.role ?? "unknown"))].sort();
+    const unexpected = launchedRoles.filter((role) => !allowed.has(role));
+    checks.push({
+      id: "orchestration-allowed-roles",
+      passed: hasTrace && unexpected.length === 0,
+      evidence: hasTrace
+        ? `${launches.length} worker launch(es); roles: ${launchedRoles.join(", ") || "none"}; unexpected: ${unexpected.join(", ") || "none"}`
+        : "root trajectory unavailable for role-policy evaluation",
+    });
+  }
+
+  if (topology.maximumSuccessfulWorkers !== undefined) {
+    const successfulWorkers = new Set(
+      settlements
+        .filter((event) => event.status === "successful")
+        .map((event) => event.workerAlias ?? event.attemptAlias)
+        .filter(Boolean),
+    );
+    checks.push({
+      id: "orchestration-successful-worker-budget",
+      passed: hasTrace && successfulWorkers.size <= topology.maximumSuccessfulWorkers,
+      evidence: hasTrace
+        ? `${successfulWorkers.size} distinct successful worker(s); maximum ${topology.maximumSuccessfulWorkers}`
+        : "root trajectory unavailable for worker-budget evaluation",
+    });
+  }
+
+  if (topology.maximumGraphPlans !== undefined) {
+    const graphPlans = events.filter((event) => event.kind === "graph_plan").length;
+    checks.push({
+      id: "orchestration-graph-budget",
+      passed: hasTrace && graphPlans <= topology.maximumGraphPlans,
+      evidence: hasTrace
+        ? `${graphPlans} graph plan(s); maximum ${topology.maximumGraphPlans}`
+        : "root trajectory unavailable for graph-budget evaluation",
+    });
+  }
+
+  for (const order of topology.requiredOrder ?? []) {
+    const settledBefore = events.findIndex((event) =>
+      ["worker_launch_result", "worker_status"].includes(event.kind)
+      && event.status === "successful"
+      && order.beforeRoles.includes(event.role)
+    );
+    const launchedAfter = events.findIndex((event) =>
+      event.kind === "worker_launch" && order.afterRoles.includes(event.role)
+    );
+    checks.push({
+      id: `orchestration-${order.id}`,
+      passed: hasTrace && settledBefore >= 0 && launchedAfter > settledBefore,
+      evidence: hasTrace
+        ? `successful ${order.beforeRoles.join("-or-")} settlement event index ${settledBefore}; first ${order.afterRoles.join("-or-")} launch event index ${launchedAfter}`
+        : "root trajectory unavailable for delegation-order evaluation",
+    });
+  }
+  return checks;
+}
+
 export function processChecks(normalized, completion, caseDefinition) {
   const launches = normalized?.events?.filter((event) => event.kind === "worker_launch") ?? [];
   const settlements = normalized?.events?.filter(
@@ -571,6 +698,7 @@ export function processChecks(normalized, completion, caseDefinition) {
         evidence: `${successful} successful ${requirement.roles.join("-or-")} settlement(s) from ${requested} launch(es); required ${requirement.minimum}${failureSummary ? `; failures: ${failureSummary}` : ""}`,
       };
     }),
+    ...topologyChecks(normalized, process.topology),
   ];
 }
 
