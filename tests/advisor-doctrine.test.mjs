@@ -13,7 +13,7 @@ const section = (source, heading, nextHeading) => {
 
 test("advisor topology defaults cohesive work to an empowered maker without making worker count the objective", async () => {
   const source = await text("skills/advisor/SKILL.md");
-  const adaptive = section(source, "# Adaptive topology and the single-maker fast path", "## Foreman delegation");
+  const adaptive = section(source, "## Adaptive topology and the single-maker fast path", "## Foreman delegation");
 
   assert.match(adaptive, /small and cohesive-[\s\S]*medium implementation[\s\S]*default to one empowered maker/);
   assert.match(adaptive, /owns diagnosis, implementation, task-shaped deterministic tests, and[\s\S]*ordinary browser exercise/);
@@ -23,6 +23,20 @@ test("advisor topology defaults cohesive work to an empowered maker without maki
   assert.match(adaptive, /Stop expanding the route when another launch would mostly replay evidence/);
   assert.doesNotMatch(adaptive, /\d+\s*(?:minutes?|hours?)/i);
   assert.doesNotMatch(adaptive, /(?:minimum|maximum)\s+(?:agent|worker|launch)/i);
+});
+
+test("advisor doctrine keeps one document root and rejects legacy universal gates across the whole skill", async () => {
+  const source = await text("skills/advisor/SKILL.md");
+  const topLevelHeadings = source.match(/^# [^#].*$/gm) ?? [];
+
+  assert.deepEqual(topLevelHeadings, ["# Advisor"]);
+  assert.doesNotMatch(source, /one checker per phase|final whole-diff review before PR/i);
+  assert.doesNotMatch(source, /every non-destructive pre-?flight/i);
+  assert.doesNotMatch(source, /(?:advisor|delivery)[\s\S]{0,80}(?:reruns?|replays?)[\s\S]{0,40}every (?:deterministic )?criteri/i);
+
+  const graph = section(source, "## Information-value graphing", "## Worker transport recovery");
+  assert.match(graph, /task-shaped deterministic criteria still needed for authoritative[\s\S]*proportionate to cost, risk, and oracle strength/);
+  assert.doesNotMatch(graph, /Run (?:all )?deterministic criteria/);
 });
 
 test("verification ownership is proportional and checker economy has explicit risk triggers", async () => {

@@ -157,7 +157,7 @@ switch. Named profiles live in `~/.pi/agent/intelligence-profiles/`
 guides, load `switch-intelligence-profile` and run the switcher. Switching must
 not change `bg-agent-profiles.json`.
 
-# Adaptive topology and the single-maker fast path
+## Adaptive topology and the single-maker fast path
 
 Topology is a judgment about marginal evidence value and critical-path latency,
 not an objective to minimize or maximize worker count. For small and cohesive-
@@ -341,8 +341,9 @@ whether the graph is useful. Execute only the returned deterministic waves:
    browser investigation may precede any builder, and a checker may perform a
    bounded audit without one. Post-change browser verification is equally valid.
    Never relabel browser work as scouting to silence a graph warning.
-6. Run deterministic criteria with normal commands. An LLM approval is never a
-   criterion's proof.
+6. Run the task-shaped deterministic criteria still needed for authoritative
+   proof, proportionate to cost, risk, and oracle strength. An LLM approval is
+   never a criterion's proof.
 7. Feed actionable checker findings back to the kept-alive builder only when
    another attempt has a concrete new strategy or information source. Verify
    the repair by rerunning the failed criteria and reading the targeted diff;
