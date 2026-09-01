@@ -26,12 +26,13 @@ Use this procedure to update an existing machine. For a fresh machine, use
    preserves the selected `intelligence-profiles/ACTIVE` name, and
    materializes it separately as `advisor-intelligence.json`.
 3. Run `pi update --extensions` to install the configured package sources.
-   Exact pins remain fixed; `pi-lens` advances within its reviewed caret range.
+   npm packages advance within compatible caret ranges; Git packages remain at
+   their reviewed full commits.
 4. Run `node scripts/meta-harness.mjs install-skills --live` to restore the
-   exact pinned third-party skills. It promotes verified copies into the
+   exact-commit third-party skills. It promotes verified copies into the
    single canonical `~/.agents/skills` root, removes duplicate Pi-specific
-   copies, and releases those entries from the generic skill updater; change
-   them through the harness pin manifests instead.
+   copies and superseded skill names, and releases those entries from the
+   generic skill updater; change them through the harness manifests instead.
 5. Run `node scripts/meta-harness.mjs install-herdr-config --live`.
 6. Run `node scripts/meta-harness.mjs install-herdr-integration --live`.
 

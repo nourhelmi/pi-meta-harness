@@ -15,7 +15,7 @@ flowchart LR
   subgraph src ["📦 Portable source — public Git"]
     R["pi-meta-harness"]
     D["pi-detach\n@ pinned commit"]
-    U["other exact\nPi package pins"]
+    U["managed\nPi package sources"]
     K["selected\nupstream skills"]
     H["herdr/ config"]
   end
@@ -23,7 +23,7 @@ flowchart LR
   subgraph inst ["⚙️ Installers"]
     I["managed installer"]
     P["Pi package installer"]
-    S["pinned skills CLI"]
+    S["compatible skills CLI"]
   end
 
   subgraph machine ["💻 Installed configuration"]
@@ -58,7 +58,7 @@ flowchart LR
 - named advisor intelligence guides and the separate live guide they
   materialize (see [`intelligence-profiles.md`](intelligence-profiles.md));
 - safe Pi and MCP overlays;
-- exact Pi package versions or full Git commits;
+- compatible npm package ranges or full Git commits;
 - Herdr presentation and notification configuration;
 - install, restore, test, and doctor logic.
 
@@ -69,8 +69,8 @@ repositories own third-party skill source.
 ## ⚙️ Install behavior
 
 The installer copies first-party files, deep-merges safe MCP settings, and
-merges package settings by package identity. A new exact pin replaces an old
-version of the same package without deleting unrelated user packages.
+merges package settings by package identity. A new range or commit replaces an
+old source for the same package without deleting unrelated user packages.
 
 `bg-agent-profiles.json` is installed as fixed, generic semantic role
 configuration. Named guides are refreshed under `intelligence-profiles/`, while
@@ -114,14 +114,16 @@ snapshots are not duplicated.
 
 ## 📌 Reproducibility boundary
 
-Pi packages and first-party files are exact. Each third-party skill group
-records a full source commit and Git tree. The installer fetches that commit
-directly, verifies both IDs, copies the selected skills, and then verifies each
-installed folder against its SHA-256 lock.
+First-party files are exact, npm packages follow compatible caret ranges, and
+Git packages use full commits. Each third-party skill group records a full
+source commit and Git tree. The installer fetches that commit directly,
+verifies both IDs, copies the selected skills, and then verifies each installed
+folder against its SHA-256 lock.
 
 Host package managers remain an update boundary: Homebrew resolves current
 compatible Herdr and Engram builds, while the live doctor enforces the
-supported minimums. Pi and agent-browser use exact versions.
+supported minimums. Pi and agent-browser use compatible npm ranges and live
+minimum-version checks.
 
 Unit tests enforce full 40-hex Git package pins without network access. Run
 `node scripts/meta-harness.mjs verify-git-pins` as an explicit publication or

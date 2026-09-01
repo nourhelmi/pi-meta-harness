@@ -7,13 +7,14 @@
     },
     "pi": {
       "package": "@earendil-works/pi-coding-agent",
-      "version": "0.84.3"
+      "minimum": "0.84.4",
+      "captured": "0.84.4"
     }
   },
   "required": {
     "herdr": {
       "minimum": "0.8.0",
-      "captured": "0.8.0",
+      "captured": "0.8.2",
       "macosInstall": "brew install herdr"
     },
     "engram": {
@@ -22,8 +23,9 @@
       "macosInstall": "brew install gentleman-programming/tap/engram"
     },
     "agent-browser": {
-      "version": "0.32.3",
-      "install": "npm install --global agent-browser@0.32.3"
+      "minimum": "0.36.0",
+      "captured": "0.36.0",
+      "install": "npm install --global 'agent-browser@^0.36.0'"
     },
     "claude": {
       "captured": "2.1.210",

@@ -66,11 +66,11 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   for (const model of removedModels) assert(!settings.enabledModels.includes(model));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
   assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@32501e5f83f7b852a91d4714703956250deed059"));
-  assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
-  assert(packageSources.includes("npm:pi-better-edit@1.4.0"));
-  assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
-  assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
-  assert(packageSources.includes("git:https://github.com/Davidcreador/pi-skill-tags@15ee7dd4786b07e310971f4c3814b03eb0ed239f"));
+  assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@^0.1.4"));
+  assert(packageSources.includes("npm:pi-better-edit@^1.4.0"));
+  assert(packageSources.includes("npm:pi-mermaid@^0.3.0"));
+  assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@322d857080524477309e9d14d1c38312515e1913"));
+  assert(packageSources.includes("git:https://github.com/Davidcreador/pi-skill-tags@6cdf0f67041a175edb17d83e0b0739a6544ef927"));
   assert(!packageSources.includes("npm:pi-footer@0.5.1"));
   assert(!packageSources.some((entry) => entry.includes("nourhelmi/pi-powerline")));
   assert(!packageSources.includes("git:https://github.com/nourhelmi/pi-detach@old"));
@@ -274,20 +274,20 @@ test("doctor catches an interrupted switch before reinstall", async () => {
   await rm(target, { recursive: true, force: true });
 });
 
-test("doctor rejects a package source that does not match its exact pin", async () => {
+test("doctor rejects a package source that does not match its configured range", async () => {
   const target = await temporaryTarget();
   const install = run("install", "--target", target);
   assert.equal(install.status, 0, install.stderr);
   const path = join(target, "settings.json");
   const settings = JSON.parse(await readFile(path, "utf8"));
   settings.packages = settings.packages.map((entry) =>
-    entry === "npm:pi-mermaid@0.3.0" ? "npm:pi-mermaid@0.2.0" : entry,
+    entry === "npm:pi-mermaid@^0.3.0" ? "npm:pi-mermaid@^0.2.0" : entry,
   );
   await writeFile(path, `${JSON.stringify(settings, null, 2)}\n`);
 
   const doctor = run("doctor", "--target", target);
   assert.equal(doctor.status, 1);
-  assert.match(doctor.stderr, /Pi package is not pinned as configured: npm:pi-mermaid@0\.3\.0/);
+  assert.match(doctor.stderr, /Pi package source does not match the configured range or commit: npm:pi-mermaid@\^0\.3\.0/);
   await rm(target, { recursive: true, force: true });
 });
 
@@ -311,6 +311,38 @@ test("restore rejects traversal before it can remove an outside file", async () 
   assert.equal(restore.status, 1);
   assert.match(restore.stderr, /destination is not allowed/);
   assert.equal(await readFile(sentinel, "utf8"), "must remain\n");
+  await rm(parent, { recursive: true, force: true });
+});
+
+test("retired skill traversal is rejected before outside mutation", async () => {
+  const parent = await temporaryTarget();
+  const sourceRoot = join(parent, "source");
+  const home = join(parent, "home");
+  const agentDir = join(home, ".pi", "agent");
+  const piVictim = join(home, ".pi", "victim", "sentinel.txt");
+  const homeVictim = join(home, "victim", "sentinel.txt");
+  await cp(join(ROOT, "scripts"), join(sourceRoot, "scripts"), { recursive: true });
+  await mkdir(join(sourceRoot, "config"), { recursive: true });
+  await writeFile(join(sourceRoot, "config", "skill-sources.json"), '{"schemaVersion":2,"groups":[]}\n');
+  await writeFile(join(sourceRoot, "config", "skill-removals.json"), '["../../victim"]\n');
+  await mkdir(resolve(piVictim, ".."), { recursive: true });
+  await mkdir(resolve(homeVictim, ".."), { recursive: true });
+  await writeFile(piVictim, "must remain\n");
+  await writeFile(homeVictim, "must remain\n");
+
+  const install = spawnSync(
+    process.execPath,
+    [join(sourceRoot, "scripts", "meta-harness.mjs"), "install-skills", "--live", "--allow-active"],
+    {
+      cwd: sourceRoot,
+      encoding: "utf8",
+      env: { ...process.env, HOME: home, PI_CODING_AGENT_DIR: agentDir },
+    },
+  );
+  assert.equal(install.status, 1);
+  assert.match(install.stderr, /Skill removal manifest contains an unsafe skill name/);
+  assert.equal(await readFile(piVictim, "utf8"), "must remain\n");
+  assert.equal(await readFile(homeVictim, "utf8"), "must remain\n");
   await rm(parent, { recursive: true, force: true });
 });
 
@@ -420,14 +452,13 @@ test("Herdr configuration installs with a restorable backup", async () => {
   await rm(target, { recursive: true, force: true });
 });
 
-test("managed Pi packages are exact except for the reviewed pi-lens caret range", async () => {
+test("managed npm packages use caret ranges and Git packages use exact commits", async () => {
   const settings = JSON.parse(await readFile(join(ROOT, "config", "settings.overlay.json"), "utf8"));
   for (const entry of settings.packages) {
     const source = packageSource(entry);
-    if (source === "npm:pi-lens@^4.1.3") continue;
-    const exactNpm = /^npm:(?:@[^/]+\/[^@]+|[^@]+)@\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(source);
+    const caretNpm = /^npm:(?:@[^/]+\/[^@]+|[^@]+)@\^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(source);
     const exactGit = /^git:.+@[0-9a-f]{40}$/.test(source);
-    assert(exactNpm || exactGit, `Package is not exact: ${source}`);
+    assert(caretNpm || exactGit, `Package is not a caret npm range or exact Git commit: ${source}`);
   }
 });
 
@@ -448,9 +479,9 @@ test("reviewed pi-skill-tags metadata matches its managed commit pin", async () 
   assert.deepEqual(skillTags, {
     name: "pi-skill-tags",
     repository: "https://github.com/Davidcreador/pi-skill-tags",
-    commit: "15ee7dd4786b07e310971f4c3814b03eb0ed239f",
-    tree: "ef2ff66e027e4aeb54a71c97403a6c08039076db",
-    installSource: "git:https://github.com/Davidcreador/pi-skill-tags@15ee7dd4786b07e310971f4c3814b03eb0ed239f",
+    commit: "6cdf0f67041a175edb17d83e0b0739a6544ef927",
+    tree: "bc7518c4b68e45d8ab6b2b3ee196911c6e757158",
+    installSource: "git:https://github.com/Davidcreador/pi-skill-tags@6cdf0f67041a175edb17d83e0b0739a6544ef927",
     license: "MIT",
     package: "@davecodes/pi-skill-tags@0.1.1",
     purpose: "Add searchable inline skill tags and expand them into Pi's native skill format.",
@@ -458,7 +489,7 @@ test("reviewed pi-skill-tags metadata matches its managed commit pin", async () 
   assert(settings.packages.map(packageSource).includes(skillTags.installSource));
 });
 
-test("primary hash-anchored editor metadata matches its exact package pin", async () => {
+test("primary hash-anchored editor metadata matches its compatible package range", async () => {
   const settings = JSON.parse(await readFile(join(ROOT, "config", "settings.overlay.json"), "utf8"));
   const lock = JSON.parse(await readFile(join(ROOT, "config", "third-party-extensions.lock.json"), "utf8"));
   const betterEdit = lock.extensions.find((extension) => extension.name === "pi-better-edit");
@@ -466,7 +497,7 @@ test("primary hash-anchored editor metadata matches its exact package pin", asyn
     name: "pi-better-edit",
     repository: "https://github.com/Rianico/pi-better-edit",
     commit: "f5b58a59d78c8e1c243642f362f995904b12eb68",
-    installSource: "npm:pi-better-edit@1.4.0",
+    installSource: "npm:pi-better-edit@^1.4.0",
     integrity: "sha512-PxH79BlWZVanhqRKKV5ZVYA/z4NgETgUhSguPvaZ1Biz+6dyzjdvrkoSnw7NEvGeU/ealHnLz1ra+NX1bKtVeA==",
     license: "MIT",
     package: "pi-better-edit@1.4.0",
@@ -476,12 +507,12 @@ test("primary hash-anchored editor metadata matches its exact package pin", asyn
   assert(settings.packages.map(packageSource).includes(betterEdit.installSource));
 });
 
-test("skill plan preserves source attribution and all 58 skills", () => {
+test("skill plan preserves source attribution and all 57 skills", () => {
   const result = run("skills-plan");
   assert.equal(result.status, 0, result.stderr);
   assert.match(
     result.stdout,
-    /^PIN https:\/\/github\.com\/.+\.git@[0-9a-f]{40} tree=[0-9a-f]{40} :: npx --yes skills@1\.5\.22 add <verified-checkout>/m,
+    /^PIN https:\/\/github\.com\/.+\.git@[0-9a-f]{40} tree=[0-9a-f]{40} :: npx --yes skills@\^1\.5\.23 add <verified-checkout>/m,
   );
   assert.match(result.stdout, /vercel-labs\/agent-skills/);
   assert.match(result.stdout, /backnotprop\/plannotator/);
@@ -492,15 +523,16 @@ test("skill plan preserves source attribution and all 58 skills", () => {
     const [, values = ""] = line.split(" --skill ");
     return total + values.split(" --yes")[0].trim().split(/\s+/).filter(Boolean).length;
   }, 0);
-  assert.equal(skillCount, 58);
+  assert.equal(skillCount, 57);
 });
 
 test("skill lock matches every pinned source and selected skill", async () => {
   const manifest = JSON.parse(await readFile(join(ROOT, "config", "skill-sources.json"), "utf8"));
   const lock = JSON.parse(await readFile(join(ROOT, "config", "third-party-skills.lock.json"), "utf8"));
+  const removals = JSON.parse(await readFile(join(ROOT, "config", "skill-removals.json"), "utf8"));
   assert.equal(manifest.schemaVersion, 2);
   assert.equal(lock.schemaVersion, 4);
-  assert.equal(lock.installer, "skills@1.5.22");
+  assert.equal(lock.installer, "skills@^1.5.23");
   for (const group of manifest.groups) {
     assert.match(group.commit, /^[0-9a-f]{40}$/);
     assert.match(group.tree, /^[0-9a-f]{40}$/);
@@ -511,7 +543,15 @@ test("skill lock matches every pinned source and selected skill", async () => {
       assert.match(lock.skills[skill].sha256, /^[0-9a-f]{64}$/);
     }
   }
-  assert.equal(Object.keys(lock.skills).length, 58);
+  assert.equal(Object.keys(lock.skills).length, 57);
+  assert(lock.skills.cro);
+  assert(lock.skills.genmedia);
+  assert.equal(lock.skills["page-cro"], undefined);
+  assert.equal(lock.skills["fal-generate"], undefined);
+  assert.equal(removals.length, 19);
+  assert(removals.includes("page-cro"));
+  assert(removals.includes("fal-generate"));
+  assert(removals.every((skill) => lock.skills[skill] === undefined));
 });
 
 test("npm archive excludes credentials and runtime state", async () => {
@@ -558,7 +598,7 @@ test("bootstrap runs every required live stage without bypassing safety", async 
   const stages = [
     "npm ci",
     "npm test",
-    "npm install --global agent-browser@0.32.3",
+    "npm install --global 'agent-browser@^0.36.0'",
     "agent-browser install",
     "plan --live",
     "install --live",

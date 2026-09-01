@@ -15,7 +15,7 @@
       "name": "pi-better-edit",
       "repository": "https://github.com/Rianico/pi-better-edit",
       "commit": "f5b58a59d78c8e1c243642f362f995904b12eb68",
-      "installSource": "npm:pi-better-edit@1.4.0",
+      "installSource": "npm:pi-better-edit@^1.4.0",
       "integrity": "sha512-PxH79BlWZVanhqRKKV5ZVYA/z4NgETgUhSguPvaZ1Biz+6dyzjdvrkoSnw7NEvGeU/ealHnLz1ra+NX1bKtVeA==",
       "license": "MIT",
       "package": "pi-better-edit@1.4.0",
@@ -25,9 +25,9 @@
     {
       "name": "pi-ui-pack",
       "repository": "https://github.com/Davidcreador/pi-ui-pack",
-      "commit": "cc2b98f66cb9d7d61b1bcf022cb60271efe6102b",
-      "tree": "61db3fce623df49213fc0e51adde88189bfc84a4",
-      "installSource": "git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b",
+      "commit": "322d857080524477309e9d14d1c38312515e1913",
+      "tree": "55a13ace912022c85b3b517ba00d208dae871ce3",
+      "installSource": "git:https://github.com/Davidcreador/pi-ui-pack@322d857080524477309e9d14d1c38312515e1913",
       "license": "MIT",
       "package": "@davecodes/pi-ui-pack@1.0.0",
       "purpose": "Own Pi's header, footer, editor frame, tool cards, working indicator, themes, and Herdr status."
@@ -35,9 +35,9 @@
     {
       "name": "pi-skill-tags",
       "repository": "https://github.com/Davidcreador/pi-skill-tags",
-      "commit": "15ee7dd4786b07e310971f4c3814b03eb0ed239f",
-      "tree": "ef2ff66e027e4aeb54a71c97403a6c08039076db",
-      "installSource": "git:https://github.com/Davidcreador/pi-skill-tags@15ee7dd4786b07e310971f4c3814b03eb0ed239f",
+      "commit": "6cdf0f67041a175edb17d83e0b0739a6544ef927",
+      "tree": "bc7518c4b68e45d8ab6b2b3ee196911c6e757158",
+      "installSource": "git:https://github.com/Davidcreador/pi-skill-tags@6cdf0f67041a175edb17d83e0b0739a6544ef927",
       "license": "MIT",
       "package": "@davecodes/pi-skill-tags@0.1.1",
       "purpose": "Add searchable inline skill tags and expand them into Pi's native skill format."
@@ -45,16 +45,16 @@
     {
       "name": "pi-codex-compaction",
       "repository": "https://github.com/ogulcancelik/pi-extensions/tree/main/packages/pi-codex-compaction",
-      "installSource": "npm:@ogulcancelik/pi-codex-compaction@0.1.3",
-      "integrity": "sha512-1cI0D7TBlXe6aGI1EZePeo/ogST1rPx3zX0xblUjdUTiiHeeIRHyCkWIe5eRjg1FYi1rdfG5wB5YD0AKnKFHZA==",
+      "installSource": "npm:@ogulcancelik/pi-codex-compaction@^0.1.4",
+      "integrity": "sha512-5yR+DQIAhh5UO+eC67XtS1znncAi+0fz5lc+8VmdewVRf+smg5aXNJbIpgdIrALfHhsUA5psJa9BlMW0/NhW/g==",
       "license": "MIT",
-      "package": "@ogulcancelik/pi-codex-compaction@0.1.3",
+      "package": "@ogulcancelik/pi-codex-compaction@0.1.4",
       "purpose": "Add Codex-aware provider compaction without maintaining a vendored fork."
     },
     {
       "name": "pi-mermaid",
       "repository": "https://github.com/Gurpartap/pi-mermaid",
-      "installSource": "npm:pi-mermaid@0.3.0",
+      "installSource": "npm:pi-mermaid@^0.3.0",
       "integrity": "sha512-U6sCqyb/dx6HL5bLu8jFwrHbCpXidjW+DuVaiBxlSIY4zy8lyotRCYSzL+z9ftcltRfFyAtvaeKTLdGH18KG7g==",
       "license": "MIT",
       "package": "pi-mermaid@0.3.0",

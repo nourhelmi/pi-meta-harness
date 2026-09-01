@@ -2,8 +2,8 @@
 
 An adaptive multi-agent coding advisor for Pi on macOS — one empowered maker by
 default, more workers only when they earn their seat. One command installs the
-whole setup with exact pins, and a local eval workbench grades every change you
-make to it.
+whole setup from compatible npm ranges and verified Git commits, and a local
+eval workbench grades every change you make to it.
 
 ```mermaid
 ---
@@ -82,7 +82,7 @@ flowchart TB
 | 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |
 | 🔀 **Two worker harnesses** | Workers run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. The root advisor is always Pi. |
 | 🧪 **Evals that bite** | 11 hermetic live cases graded by **hidden deterministic verifiers**, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
-| 📌 **Reproducible install** | Exact versions, full 40-hex Git commits, tree and SHA-256 verification, scoped backups, and a live doctor. |
+| 📌 **Controlled updates** | Compatible npm ranges, full 40-hex Git commits, tree and SHA-256 verification, scoped backups, and a live doctor. |
 | 🔒 **Public-safe by design** | Every tracked file is treated as public. A closed-allowlist privacy boundary keeps transcripts, identities, and credentials out of eval artifacts. |
 
 ## 🚀 Quick start
@@ -92,7 +92,7 @@ Targets macOS with Ghostty, Git, and Node.js ≥ 22.19. Install the host tools:
 ```bash
 brew install herdr
 brew install gentleman-programming/tap/engram
-npm install -g @earendil-works/pi-coding-agent@0.84.3
+npm install -g '@earendil-works/pi-coding-agent@^0.84.4'
 # Install Claude Code through its supported installer, then authenticate locally.
 # For native OpenAI workers, also install Codex CLI and run `codex login`.
 ```
@@ -114,9 +114,10 @@ invoke `/advisor`.
 
 1. installs and tests the harness;
 2. shows the live install plan;
-3. installs the exact browser-verifier CLI and its browser;
+3. installs the compatible browser-verifier CLI and its browser;
 4. backs up and installs managed Pi configuration;
-5. installs exact Pi package pins, including the public `pi-detach` repository;
+5. updates compatible npm packages and installs reviewed Git commits, including
+   the public `pi-detach` repository;
 6. restores the selected third-party skills;
 7. installs Herdr configuration and regenerates its Pi integration;
 8. runs the live doctor.
@@ -239,18 +240,23 @@ Full guide (suites, trials, baselines, comparisons, privacy boundary):
 <details>
 <summary><b>🗺️ Repository map</b></summary>
 
-- `extensions/` — first-party advisor/runtime extensions and the reviewed
-  `unified-edit.ts` snapshot.
+- `extensions/` — first-party advisor/runtime extensions, the thin
+  `unified-edit.ts` coordinator, and the reviewed
+  `unified-edit-fallback/upstream.ts` snapshot (primary read/edit/undo is the
+  compatible-range `pi-better-edit` package).
 - `skills/` — advisor doctrine, semantic worker roles, triage, and graph-driver
   skills.
 - `config/bg-agent-profiles.json` — fixed role contracts, portable skill paths,
   and instructional caps.
 - `config/intelligence-profiles/` — switchable model and reasoning guidance.
-- `config/settings.overlay.json` — safe Pi defaults and exact package pins;
+- `config/settings.overlay.json` — safe Pi defaults, compatible npm ranges, and
+  exact Git commits;
   reinstall preserves the user's existing runtime model preference.
 - `config/mcp.json` — MCP definitions containing environment placeholders only.
-- `config/skill-sources.json` — reviewed third-party skills at exact commits,
-  trees, and content hashes.
+- `config/skill-sources.json` and `config/third-party-skills.lock.json` —
+  reviewed third-party skills at exact commits, trees, and content hashes.
+- `config/skill-removals.json` — superseded upstream skill names removed during
+  a reviewed rename or consolidation cutover.
 - `evals/harbor/` — fixed recorded-trajectory calibration tasks.
 - `evals/prospective/` — hermetic live advisor cases and hidden verifiers.
 - `evals/baselines/prospective/` — tracked privacy-safe comparison baselines.
@@ -274,10 +280,11 @@ rest of the setup.
 
 ## 🛡️ Safety and reproducibility
 
-Exact versions or full commits pin every Pi package. Third-party skills are
-fetched at full Git commits, verified against recorded tree IDs, copied instead
-of symlinked, and checked against per-skill SHA-256 hashes. Real Pi targets
-always require `--live`, and every install creates a restorable backup first.
+Pi packages use compatible npm ranges or full reviewed Git commits. Third-party
+skills are fetched at full Git commits, verified against recorded tree IDs,
+copied instead of symlinked, and checked against per-skill SHA-256 hashes. Real
+Pi targets always require `--live`, and every install creates a restorable
+backup first.
 
 Use a sandbox when you change the harness:
 
@@ -311,9 +318,9 @@ node scripts/meta-harness.mjs restore --live --backup <pi-backup-path>
 node scripts/meta-harness.mjs restore-herdr --live --backup <herdr-backup-path>
 ```
 
-The marketing and fal.ai skill groups intentionally use the last reviewed
-revisions that still contain the selected skill names; newer upstream layouts
-renamed or removed those skills.
+The marketing and fal.ai skill groups track their reviewed latest layouts.
+Cutover removes superseded skill names after backing them up, so renamed and
+consolidated skills do not remain as duplicate legacy copies.
 
 </details>
 

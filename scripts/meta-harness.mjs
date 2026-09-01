@@ -30,6 +30,7 @@ import {
   readJson as readProfileJson,
   roleConfigErrors,
 } from "./intelligence-profile.mjs";
+import { skillDestination, validatedSkillNames } from "./skill-path-policy.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const LIVE_TARGET = resolve(
@@ -231,13 +232,10 @@ function packageSource(entry) {
   return typeof entry === "string" ? entry : entry?.source;
 }
 
-const REVIEWED_FLOATING_PACKAGE_SOURCES = new Set(["npm:pi-lens@^4.1.3"]);
-
 function packageSourceIsApproved(source) {
   if (typeof source !== "string") return false;
-  if (REVIEWED_FLOATING_PACKAGE_SOURCES.has(source)) return true;
   if (source.startsWith("npm:")) {
-    return /^npm:(?:@[^/]+\/[^@]+|[^@]+)@\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(source);
+    return /^npm:(?:@[^/]+\/[^@]+|[^@]+)@\^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(source);
   }
   if (source.startsWith("git:")) return /@[0-9a-f]{40}$/.test(source);
   return false;
@@ -619,12 +617,12 @@ async function doctor(options) {
   const installedSources = new Set((settings.packages ?? []).map(packageSource));
   for (const entry of overlay.packages ?? []) {
     if (!packageSourceIsApproved(packageSource(entry))) {
-      errors.push(`Pi package source is not exact or an approved floating range: ${packageSource(entry)}`);
+      errors.push(`Pi package source is not a caret npm range or full Git commit: ${packageSource(entry)}`);
     }
     if (!installedIds.has(packageIdentity(entry))) errors.push(`Missing Pi package setting: ${packageSource(entry)}`);
     if (!installedIds.has(packageIdentity(entry))) errors.push(`Missing Pi package setting: ${packageSource(entry)}`);
     else if (!installedSources.has(packageSource(entry))) {
-      errors.push(`Pi package is not pinned as configured: ${packageSource(entry)}`);
+      errors.push(`Pi package source does not match the configured range or commit: ${packageSource(entry)}`);
     }
   }
   const { packages: _packages, ...settingsOverlay } = overlay;
@@ -656,11 +654,13 @@ async function doctor(options) {
     for (const [command, version] of commandVersions) {
       if (!version) errors.push(`Required command not available: ${command}`);
     }
-    if (commandVersions.get("pi") !== "0.84.3") {
-      errors.push(`Pi 0.84.3 required; found ${commandVersions.get("pi") ?? "unavailable"}`);
+    const piVersion = commandVersions.get("pi");
+    if (piVersion && !versionAtLeast(piVersion, "0.84.4")) {
+      errors.push(`Pi 0.84.4+ required; found ${piVersion}`);
     }
-    if (commandVersions.get("agent-browser") !== "0.32.3") {
-      errors.push(`agent-browser 0.32.3 required; found ${commandVersions.get("agent-browser") ?? "unavailable"}`);
+    const agentBrowserVersion = commandVersions.get("agent-browser");
+    if (agentBrowserVersion && !versionAtLeast(agentBrowserVersion, "0.36.0")) {
+      errors.push(`agent-browser 0.36.0+ required; found ${agentBrowserVersion}`);
     }
     const herdrVersion = commandVersions.get("herdr");
     if (herdrVersion && !versionAtLeast(herdrVersion, "0.8.0")) {
@@ -788,15 +788,36 @@ async function skillGroups() {
     ) {
       throw new Error(`Skill source is not fully pinned: ${group?.source ?? "unknown"}`);
     }
+    group.skills = validatedSkillNames(group.skills, `Skill source ${group.source}`);
+  }
+  const allSkills = manifest.groups.flatMap((group) => group.skills);
+  if (new Set(allSkills).size !== allSkills.length) {
+    throw new Error("Skill source manifest selects the same skill more than once");
   }
   return manifest.groups;
+}
+
+async function retiredSkills() {
+  const removals = await readJson(join(ROOT, "config", "skill-removals.json"), []);
+  return validatedSkillNames(removals, "Skill removal manifest");
 }
 
 async function installedSkillErrors() {
   const errors = [];
   const groups = await skillGroups();
+  const selected = new Set(groups.flatMap((group) => group.skills));
+  const retired = await retiredSkills();
+  for (const skill of retired) {
+    if (selected.has(skill)) errors.push(`Skill is both selected and retired: ${skill}`);
+    const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+    const piInstalled = skillDestination(join(agentDir, "skills"), skill);
+    const globalInstalled = skillDestination(join(homedir(), ".agents", "skills"), skill);
+    if (await exists(piInstalled) || await exists(globalInstalled)) {
+      errors.push(`Retired skill is still installed: ${skill}`);
+    }
+  }
   const lock = await readJson(join(ROOT, "config", "third-party-skills.lock.json"), {});
-  if (lock.schemaVersion !== 4 || lock.installer !== "skills@1.5.22" || !isObject(lock.skills)) {
+  if (lock.schemaVersion !== 4 || lock.installer !== "skills@^1.5.23" || !isObject(lock.skills)) {
     return ["Third-party skill lock is invalid or stale"];
   }
   for (const group of groups) {
@@ -813,8 +834,8 @@ async function installedSkillErrors() {
         continue;
       }
       const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
-      const piInstalled = join(agentDir, "skills", skill);
-      const globalInstalled = join(homedir(), ".agents", "skills", skill);
+      const piInstalled = skillDestination(join(agentDir, "skills"), skill);
+      const globalInstalled = skillDestination(join(homedir(), ".agents", "skills"), skill);
       const piPresent = await exists(piInstalled);
       const globalPresent = await exists(globalInstalled);
       if (piPresent && globalPresent && await realpath(piInstalled) !== await realpath(globalInstalled)) {
@@ -834,9 +855,9 @@ async function promoteSkillsToCanonical(agentDir, skills) {
   const canonicalRoot = join(homedir(), ".agents", "skills");
   await mkdir(canonicalRoot, { recursive: true });
   for (const skill of skills) {
-    const piInstalled = join(agentDir, "skills", skill);
+    const piInstalled = skillDestination(join(agentDir, "skills"), skill);
     if (!(await exists(piInstalled))) throw new Error(`Pi skill installation is missing: ${skill}`);
-    await copyReplacing(piInstalled, join(canonicalRoot, skill));
+    await copyReplacing(piInstalled, skillDestination(canonicalRoot, skill));
     await rm(piInstalled, { recursive: true, force: true });
   }
 }
@@ -854,7 +875,7 @@ function skillInstallCommand(group, checkout) {
   return [
     "npx",
     "--yes",
-    "skills@1.5.22",
+    "skills@^1.5.23",
     "add",
     checkout,
     "--global",
@@ -932,16 +953,27 @@ async function installSkills(options) {
   assertLiveSafety(options);
   const groups = await skillGroups();
   const skills = groups.flatMap((group) => group.skills);
+  const retired = await retiredSkills();
+  const selected = new Set(skills);
+  const overlap = retired.find((skill) => selected.has(skill));
+  if (overlap) throw new Error(`Skill is both selected and retired: ${overlap}`);
+  const managedSkills = [...skills, ...retired];
   const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+  const piSkillsRoot = join(agentDir, "skills");
+  const canonicalSkillsRoot = join(homedir(), ".agents", "skills");
+  for (const skill of managedSkills) {
+    skillDestination(piSkillsRoot, skill);
+    skillDestination(canonicalSkillsRoot, skill);
+  }
   const piBackup = await createScopedBackup(
     agentDir,
-    skills.map((skill) => join("skills", skill)),
+    managedSkills.map((skill) => join("skills", skill)),
     SKILL_BACKUP_ROOT,
   );
   const canonicalRoot = join(homedir(), ".agents");
   const canonicalBackup = await createScopedBackup(
     canonicalRoot,
-    [...skills.map((skill) => join("skills", skill)), ".skill-lock.json"],
+    [...managedSkills.map((skill) => join("skills", skill)), ".skill-lock.json"],
     SKILL_BACKUP_ROOT,
   );
   console.log(`Pi skill backup: ${piBackup}`);
@@ -968,7 +1000,11 @@ async function installSkills(options) {
       await rm(temporary, { recursive: true, force: true });
     }
   }
-  await releaseManagedSkillsFromGenericLock(skills);
+  for (const skill of retired) {
+    await rm(skillDestination(piSkillsRoot, skill), { recursive: true, force: true });
+    await rm(skillDestination(canonicalSkillsRoot, skill), { recursive: true, force: true });
+  }
+  await releaseManagedSkillsFromGenericLock(managedSkills);
   const verificationErrors = await installedSkillErrors();
   if (verificationErrors.length) throw new Error(verificationErrors.join("\n"));
   console.log("Third-party skills installed from verified commits and hashes. Pi was not reloaded.");

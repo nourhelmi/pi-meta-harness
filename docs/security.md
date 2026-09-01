@@ -8,7 +8,7 @@ public data.**
 - first-party TypeScript extensions and skills;
 - advisory model names and reasoning guidance, plus instructional role
   boundaries and prompt-cycle caps;
-- safe Pi settings and exact package versions or Git commits;
+- safe Pi settings with compatible npm ranges or exact Git commits;
 - MCP command definitions that use environment placeholders;
 - third-party source URLs, licenses, versions, revisions, and content hashes;
 - installer, validation, CI, and documentation files;
@@ -63,13 +63,12 @@ another machine.
 
 ## 📦 Third-party code
 
-Third-party Pi packages are installed by exact package version or full Git
-commit, except `pi-lens`, which intentionally follows the reviewed compatible
-range `^4.1.3` so performance and correctness fixes arrive through normal
-extension updates. They are not vendored, except for
-`extensions/unified-edit-fallback/upstream.ts`.
+Third-party Pi packages are installed from compatible caret ranges on npm or
+full reviewed Git commits. Compatible npm fixes arrive through normal extension
+updates without silently crossing a major compatibility boundary. Packages are
+not vendored, except for `extensions/unified-edit-fallback/upstream.ts`.
 
-Primary read/edit/undo is the exact-pinned `pi-better-edit` npm package. It
+Primary read/edit/undo is the compatible-range `pi-better-edit` npm package. It
 stores machine-local runtime state under `~/.config/pi-better-edit`, which is
 never tracked. `unified-edit-fallback/upstream.ts` remains a narrow reviewed
 fallback snapshot imported only by the thin first-party
@@ -82,7 +81,7 @@ Apache-2.0 license, and content hash are recorded in
 [`config/third-party-extensions.lock.json`](../config/third-party-extensions.lock.json).
 
 Third-party skills are installed from full source commits. The installer
-verifies the Git tree before it invokes the pinned skills CLI with copy mode,
+verifies the Git tree before it invokes the compatible skills CLI with copy mode,
 then checks every installed folder against the recorded SHA-256 hash. Updating
 a skill requires a reviewed commit, tree, and hash change.
 

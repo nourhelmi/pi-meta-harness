@@ -18,13 +18,13 @@ npm ci
 npm test
 
 printf '\n==> Install the browser verifier CLI and browser\n'
-npm install --global agent-browser@0.32.3
+npm install --global 'agent-browser@^0.36.0'
 agent-browser install
 
 printf '\n==> Review the live install plan\n'
 node scripts/meta-harness.mjs plan --live
 
-printf '\n==> Install Pi configuration and exact package pins\n'
+printf '\n==> Install Pi configuration and managed package sources\n'
 node scripts/meta-harness.mjs install --live
 pi update --extensions
 
