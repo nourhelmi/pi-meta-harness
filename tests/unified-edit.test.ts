@@ -17,23 +17,39 @@ interface RegisteredTool {
   ): Promise<{ content: { type: string; text: string }[] }>;
 }
 
-function coordinatorPi(
+function coordinatorHarness(
   registerTool: (candidate: RegisteredTool) => void,
   existingSource = "builtin",
-): ExtensionAPI {
-  return {
+): { pi: ExtensionAPI; start(): void } {
+  let startHandler: (() => void) | undefined;
+  const pi = {
+    on(event: string, handler: () => void) {
+      assert.equal(event, "session_start");
+      startHandler = handler;
+    },
     getAllTools() {
       return [{ name: "edit", sourceInfo: { source: existingSource } }];
     },
     registerTool,
   } as unknown as ExtensionAPI;
+  return {
+    pi,
+    start() {
+      assert.ok(startHandler);
+      startHandler();
+    },
+  };
 }
 
 test("unified edit fallback applies a row replacement when no external editor loaded", async () => {
-  let tool: RegisteredTool | undefined;
-  unifiedEditCoordinator(coordinatorPi((candidate) => {
-    tool = candidate;
-  }));
+  const registered: RegisteredTool[] = [];
+  const harness = coordinatorHarness((candidate) => {
+    registered.push(candidate);
+  });
+  unifiedEditCoordinator(harness.pi);
+  assert.equal(registered.length, 0, "tool inspection must wait until runtime initialization");
+  harness.start();
+  const tool = registered[0];
   assert.equal(tool?.name, "edit");
 
   const cwd = await mkdtemp(join(tmpdir(), "pi-unified-edit-"));
@@ -55,8 +71,10 @@ test("unified edit fallback applies a row replacement when no external editor lo
 
 test("unified edit fallback does not override a loaded hash-anchored editor", () => {
   let registrations = 0;
-  unifiedEditCoordinator(coordinatorPi(() => {
+  const harness = coordinatorHarness(() => {
     registrations += 1;
-  }, "npm:pi-better-edit@1.4.0"));
+  }, "npm:pi-better-edit@1.4.0");
+  unifiedEditCoordinator(harness.pi);
+  harness.start();
   assert.equal(registrations, 0);
 });

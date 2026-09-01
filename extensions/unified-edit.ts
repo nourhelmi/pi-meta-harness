@@ -7,9 +7,11 @@ import registerUnifiedEditFallback from "./unified-edit-fallback/upstream.ts";
  * avoids overriding it regardless of extension discovery order.
  */
 export default function unifiedEditCoordinator(pi: ExtensionAPI): void {
-  const externalEdit = pi.getAllTools().find(
-    (tool) => tool.name === "edit" && tool.sourceInfo.source !== "builtin",
-  );
-  if (externalEdit) return;
-  registerUnifiedEditFallback(pi);
+  pi.on("session_start", () => {
+    const externalEdit = pi.getAllTools().find(
+      (tool) => tool.name === "edit" && tool.sourceInfo.source !== "builtin",
+    );
+    if (externalEdit) return;
+    registerUnifiedEditFallback(pi);
+  });
 }
