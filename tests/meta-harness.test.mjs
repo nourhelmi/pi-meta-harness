@@ -420,10 +420,11 @@ test("Herdr configuration installs with a restorable backup", async () => {
   await rm(target, { recursive: true, force: true });
 });
 
-test("every managed Pi package uses an exact source", async () => {
+test("managed Pi packages are exact except for the reviewed pi-lens caret range", async () => {
   const settings = JSON.parse(await readFile(join(ROOT, "config", "settings.overlay.json"), "utf8"));
   for (const entry of settings.packages) {
     const source = packageSource(entry);
+    if (source === "npm:pi-lens@^4.1.3") continue;
     const exactNpm = /^npm:(?:@[^/]+\/[^@]+|[^@]+)@\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(source);
     const exactGit = /^git:.+@[0-9a-f]{40}$/.test(source);
     assert(exactNpm || exactGit, `Package is not exact: ${source}`);

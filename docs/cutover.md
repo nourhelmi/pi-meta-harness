@@ -25,7 +25,8 @@ Use this procedure to update an existing machine. For a fresh machine, use
    fixed role-only configuration, refreshes named intelligence guides,
    preserves the selected `intelligence-profiles/ACTIVE` name, and
    materializes it separately as `advisor-intelligence.json`.
-3. Run `pi update --extensions` to install the exact package sources.
+3. Run `pi update --extensions` to install the configured package sources.
+   Exact pins remain fixed; `pi-lens` advances within its reviewed caret range.
 4. Run `node scripts/meta-harness.mjs install-skills --live` to restore the
    exact pinned third-party skills. It promotes verified copies into the
    single canonical `~/.agents/skills` root, removes duplicate Pi-specific

@@ -29,7 +29,7 @@
       "source": "npm:@plannotator/pi-extension@0.27.3",
       "skills": []
     },
-    "npm:pi-lens@3.8.74",
+    "npm:pi-lens@^4.1.3",
     "npm:@juicesharp/rpiv-ask-user-question@2.5.1",
     "npm:gentle-engram@0.1.10",
     "npm:pi-mcp-adapter@2.25.0",

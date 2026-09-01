@@ -64,12 +64,21 @@ another machine.
 ## 📦 Third-party code
 
 Third-party Pi packages are installed by exact package version or full Git
-commit. They are not vendored, except for `extensions/unified-edit.ts`.
+commit, except `pi-lens`, which intentionally follows the reviewed compatible
+range `^4.1.3` so performance and correctness fixes arrive through normal
+extension updates. They are not vendored, except for
+`extensions/unified-edit-fallback/upstream.ts`.
 
-`unified-edit.ts` is a narrow reviewed snapshot. Installing its full upstream
-repository previously introduced an unnecessary dependency tree with security
-findings. The tracked file imports only Pi and Node APIs. Its upstream
-revision, Apache-2.0 license, and content hash are recorded in
+Primary read/edit/undo is the exact-pinned `pi-better-edit` npm package. It
+stores machine-local runtime state under `~/.config/pi-better-edit`, which is
+never tracked. `unified-edit-fallback/upstream.ts` remains a narrow reviewed
+fallback snapshot imported only by the thin first-party
+`extensions/unified-edit.ts` coordinator, so Pi auto-discovery never loads it
+directly.
+Installing its full upstream repository
+previously introduced an unnecessary dependency tree with security findings.
+The tracked file imports only Pi and Node APIs. Its upstream revision,
+Apache-2.0 license, and content hash are recorded in
 [`config/third-party-extensions.lock.json`](../config/third-party-extensions.lock.json).
 
 Third-party skills are installed from full source commits. The installer

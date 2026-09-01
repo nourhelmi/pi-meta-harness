@@ -231,8 +231,11 @@ function packageSource(entry) {
   return typeof entry === "string" ? entry : entry?.source;
 }
 
-function packageSourceIsExact(source) {
+const REVIEWED_FLOATING_PACKAGE_SOURCES = new Set(["npm:pi-lens@^4.1.3"]);
+
+function packageSourceIsApproved(source) {
   if (typeof source !== "string") return false;
+  if (REVIEWED_FLOATING_PACKAGE_SOURCES.has(source)) return true;
   if (source.startsWith("npm:")) {
     return /^npm:(?:@[^/]+\/[^@]+|[^@]+)@\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(source);
   }
@@ -615,8 +618,8 @@ async function doctor(options) {
   const installedIds = new Set((settings.packages ?? []).map(packageIdentity));
   const installedSources = new Set((settings.packages ?? []).map(packageSource));
   for (const entry of overlay.packages ?? []) {
-    if (!packageSourceIsExact(packageSource(entry))) {
-      errors.push(`Pi package source is not an exact version or full commit: ${packageSource(entry)}`);
+    if (!packageSourceIsApproved(packageSource(entry))) {
+      errors.push(`Pi package source is not exact or an approved floating range: ${packageSource(entry)}`);
     }
     if (!installedIds.has(packageIdentity(entry))) errors.push(`Missing Pi package setting: ${packageSource(entry)}`);
     if (!installedIds.has(packageIdentity(entry))) errors.push(`Missing Pi package setting: ${packageSource(entry)}`);
