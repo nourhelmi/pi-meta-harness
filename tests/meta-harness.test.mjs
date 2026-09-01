@@ -67,7 +67,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(packageSources.includes("npm:custom-package@1.0.0"));
   assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@32501e5f83f7b852a91d4714703956250deed059"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@^0.1.4"));
-  assert(packageSources.includes("npm:pi-better-edit@^1.4.0"));
+  assert(packageSources.includes("npm:pi-better-edit@^1.4.2"));
   assert(packageSources.includes("npm:pi-mermaid@^0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@322d857080524477309e9d14d1c38312515e1913"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-skill-tags@6cdf0f67041a175edb17d83e0b0739a6544ef927"));
@@ -496,11 +496,11 @@ test("primary hash-anchored editor metadata matches its compatible package range
   assert.deepEqual(betterEdit, {
     name: "pi-better-edit",
     repository: "https://github.com/Rianico/pi-better-edit",
-    commit: "f5b58a59d78c8e1c243642f362f995904b12eb68",
-    installSource: "npm:pi-better-edit@^1.4.0",
-    integrity: "sha512-PxH79BlWZVanhqRKKV5ZVYA/z4NgETgUhSguPvaZ1Biz+6dyzjdvrkoSnw7NEvGeU/ealHnLz1ra+NX1bKtVeA==",
+    commit: "cf8cb481348562d67419c35a6b897c87bc98a237",
+    installSource: "npm:pi-better-edit@^1.4.2",
+    integrity: "sha512-HP+ARieyp5ezKqK0NiYtGK0Wp1XXsLID4LaBWeIJTysIn1bPVzxpsv1zRa+89UCEBvJeBjCxrC7zryYIBSXfGA==",
     license: "MIT",
-    package: "pi-better-edit@1.4.0",
+    package: "pi-better-edit@1.4.2",
     runtimeState: "~/.config/pi-better-edit/hash-store.sqlite (local only; never tracked)",
     purpose: "Provide the primary hash-anchored read, edit, and undo tools with served-range verification and reject-and-serve recovery.",
   });
