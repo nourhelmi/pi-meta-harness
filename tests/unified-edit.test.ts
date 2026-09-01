@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import unifiedEditExtension from "../extensions/unified-edit.ts";
+import unifiedEditCoordinator from "../extensions/unified-edit.ts";
 
 interface RegisteredTool {
   name: string;
@@ -17,14 +17,23 @@ interface RegisteredTool {
   ): Promise<{ content: { type: string; text: string }[] }>;
 }
 
-test("unified edit overrides edit and applies a row replacement", async () => {
-  let tool: RegisteredTool | undefined;
-  const pi = {
-    registerTool(candidate: RegisteredTool) {
-      tool = candidate;
+function coordinatorPi(
+  registerTool: (candidate: RegisteredTool) => void,
+  existingSource = "builtin",
+): ExtensionAPI {
+  return {
+    getAllTools() {
+      return [{ name: "edit", sourceInfo: { source: existingSource } }];
     },
+    registerTool,
   } as unknown as ExtensionAPI;
-  unifiedEditExtension(pi);
+}
+
+test("unified edit fallback applies a row replacement when no external editor loaded", async () => {
+  let tool: RegisteredTool | undefined;
+  unifiedEditCoordinator(coordinatorPi((candidate) => {
+    tool = candidate;
+  }));
   assert.equal(tool?.name, "edit");
 
   const cwd = await mkdtemp(join(tmpdir(), "pi-unified-edit-"));
@@ -42,4 +51,12 @@ test("unified edit overrides edit and applies a row replacement", async () => {
   } finally {
     await rm(cwd, { recursive: true, force: true });
   }
+});
+
+test("unified edit fallback does not override a loaded hash-anchored editor", () => {
+  let registrations = 0;
+  unifiedEditCoordinator(coordinatorPi(() => {
+    registrations += 1;
+  }, "npm:pi-better-edit@1.4.0"));
+  assert.equal(registrations, 0);
 });

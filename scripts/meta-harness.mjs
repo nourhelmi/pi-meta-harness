@@ -59,6 +59,7 @@ const COPY_ENTRIES = [
   ["extensions/advisor-session.ts", "extensions/advisor-session.ts"],
   ["extensions/advisor-worker.ts", "extensions/advisor-worker.ts"],
   ["extensions/unified-edit.ts", "extensions/unified-edit.ts"],
+  ["extensions/unified-edit-fallback/upstream.ts", "extensions/unified-edit-fallback/upstream.ts"],
   ["skills/advisor", "skills/advisor"],
   ["skills/advisor-native", "skills/advisor-native"],
   ["skills/advisor-pi", "skills/advisor-pi"],

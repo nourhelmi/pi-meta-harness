@@ -5,11 +5,22 @@
       "name": "unified-edit",
       "repository": "https://github.com/mitsuhiko/agent-stuff",
       "commit": "13bc8f87970bec8830aab0f1c0487d35aa7c0917",
-      "path": "extensions/unified-edit.ts",
+      "path": "extensions/unified-edit-fallback/upstream.ts",
       "sha256": "7c878434810cb48d4127efba9f8b5c77e65b36d679e1893563c37ca9f48cf1d1",
       "license": "Apache-2.0",
       "package": "mitsupi@1.6.0",
-      "purpose": "Override Pi's built-in edit tool with the unified row-script and patch editor."
+      "purpose": "Provide the reviewed unified row-script editor only when the primary hash-anchored editor is unavailable."
+    },
+    {
+      "name": "pi-better-edit",
+      "repository": "https://github.com/Rianico/pi-better-edit",
+      "commit": "f5b58a59d78c8e1c243642f362f995904b12eb68",
+      "installSource": "npm:pi-better-edit@1.4.0",
+      "integrity": "sha512-PxH79BlWZVanhqRKKV5ZVYA/z4NgETgUhSguPvaZ1Biz+6dyzjdvrkoSnw7NEvGeU/ealHnLz1ra+NX1bKtVeA==",
+      "license": "MIT",
+      "package": "pi-better-edit@1.4.0",
+      "runtimeState": "~/.config/pi-better-edit/hash-store.sqlite (local only; never tracked)",
+      "purpose": "Provide the primary hash-anchored read, edit, and undo tools with served-range verification and reject-and-serve recovery."
     },
     {
       "name": "pi-ui-pack",

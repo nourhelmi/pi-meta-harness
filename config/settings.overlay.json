@@ -24,6 +24,7 @@
     "git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b",
     "git:https://github.com/Davidcreador/pi-skill-tags@15ee7dd4786b07e310971f4c3814b03eb0ed239f",
     "npm:@ogulcancelik/pi-codex-compaction@0.1.3",
+    "npm:pi-better-edit@1.4.0",
     {
       "source": "npm:@plannotator/pi-extension@0.27.3",
       "skills": []

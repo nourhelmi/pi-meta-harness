@@ -67,6 +67,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(packageSources.includes("npm:custom-package@1.0.0"));
   assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@32501e5f83f7b852a91d4714703956250deed059"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@0.1.3"));
+  assert(packageSources.includes("npm:pi-better-edit@1.4.0"));
   assert(packageSources.includes("npm:pi-mermaid@0.3.0"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-ui-pack@cc2b98f66cb9d7d61b1bcf022cb60271efe6102b"));
   assert(packageSources.includes("git:https://github.com/Davidcreador/pi-skill-tags@15ee7dd4786b07e310971f4c3814b03eb0ed239f"));
@@ -77,7 +78,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(settings.theme, "tokyo-night");
   assert(!packageSources.some((entry) => entry.includes("mitsuhiko/agent-stuff")));
 
-  const unifiedEdit = await readFile(join(target, "extensions", "unified-edit.ts"));
+  const unifiedEdit = await readFile(join(target, "extensions", "unified-edit-fallback", "upstream.ts"));
   assert.equal(
     createHash("sha256").update(unifiedEdit).digest("hex"),
     "7c878434810cb48d4127efba9f8b5c77e65b36d679e1893563c37ca9f48cf1d1",
@@ -454,6 +455,24 @@ test("reviewed pi-skill-tags metadata matches its managed commit pin", async () 
     purpose: "Add searchable inline skill tags and expand them into Pi's native skill format.",
   });
   assert(settings.packages.map(packageSource).includes(skillTags.installSource));
+});
+
+test("primary hash-anchored editor metadata matches its exact package pin", async () => {
+  const settings = JSON.parse(await readFile(join(ROOT, "config", "settings.overlay.json"), "utf8"));
+  const lock = JSON.parse(await readFile(join(ROOT, "config", "third-party-extensions.lock.json"), "utf8"));
+  const betterEdit = lock.extensions.find((extension) => extension.name === "pi-better-edit");
+  assert.deepEqual(betterEdit, {
+    name: "pi-better-edit",
+    repository: "https://github.com/Rianico/pi-better-edit",
+    commit: "f5b58a59d78c8e1c243642f362f995904b12eb68",
+    installSource: "npm:pi-better-edit@1.4.0",
+    integrity: "sha512-PxH79BlWZVanhqRKKV5ZVYA/z4NgETgUhSguPvaZ1Biz+6dyzjdvrkoSnw7NEvGeU/ealHnLz1ra+NX1bKtVeA==",
+    license: "MIT",
+    package: "pi-better-edit@1.4.0",
+    runtimeState: "~/.config/pi-better-edit/hash-store.sqlite (local only; never tracked)",
+    purpose: "Provide the primary hash-anchored read, edit, and undo tools with served-range verification and reject-and-serve recovery.",
+  });
+  assert(settings.packages.map(packageSource).includes(betterEdit.installSource));
 });
 
 test("skill plan preserves source attribution and all 58 skills", () => {
