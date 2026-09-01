@@ -73,7 +73,7 @@ test("unified edit fallback does not override a loaded hash-anchored editor", ()
   let registrations = 0;
   const harness = coordinatorHarness(() => {
     registrations += 1;
-  }, "npm:pi-better-edit@^1.4.2");
+  }, "npm:pi-better-edit@^1.4.3");
   unifiedEditCoordinator(harness.pi);
   harness.start();
   assert.equal(registrations, 0);
