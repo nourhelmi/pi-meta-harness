@@ -1,8 +1,12 @@
-# Isolated advisor runtime
+# 🧭 Isolated advisor runtime
 
-The advisor coordinates parallel Pi sessions through per-repository state under `~/.advisor/<repo-key>/`, resolved from the git common directory so all worktrees of one repository share one root and no repository carries personal runtime files. `advisor_session_init` reports the resolved root; `ADVISOR_STATE_DIR` overrides it for tests.
+The advisor coordinates parallel Pi sessions through per-repository state under
+`~/.advisor/<repo-key>/`, resolved from the git common directory so all
+worktrees of one repository share one root and no repository carries personal
+runtime files. `advisor_session_init` reports the resolved root;
+`ADVISOR_STATE_DIR` overrides it for tests.
 
-## Runtime rules
+## 📏 Runtime rules
 
 1. Launch every separate advisor with `advisor_launch`; it creates a new Herdr tab with `--no-focus`, never a pane split. A manually opened advisor may still invoke `/advisor` in its own fresh tab.
 2. `advisor_session_init` creates or claims one isolated workstream and persists one worker mode: `pi` or `native`. The root advisor remains Pi in both modes.
@@ -19,37 +23,68 @@ The advisor coordinates parallel Pi sessions through per-repository state under 
 13. Keep a builder alive only for a planned bounded repair. Every checker starts fresh and may repair small qualifying findings inline under its role mandate.
 14. Keep global advisor routines paused because open Pi processes share routine state.
 
-## Adaptive topology
+## 🪜 Adaptive topology
 
-For small and cohesive-medium work with one decision set, presume one empowered
-maker rather than automatically splitting scouting, planning, building, tests,
-or browser exercise. This is a presumption against ceremony, not a target worker
-count. Optimize marginal evidence value and critical-path latency: add a foreman,
+For small and cohesive-medium work with one decision set, presume **one
+empowered maker** rather than automatically splitting scouting, planning,
+building, tests, or browser exercise. This is a
+presumption against ceremony, not a target worker count.
+
+```mermaid
+---
+config:
+  theme: dark
+---
+flowchart TD
+  Task["task packet"] --> Q{"small or cohesive-medium\nwith one decision set?"}
+  Q -->|yes| Maker["one empowered maker\n(diagnose · implement · verify)"]
+  Q -->|no| Gate{"would another launch\nmaterially…"}
+  Gate -->|"resolve uncertainty"| Scout["+ scout"]
+  Gate -->|"parallelize real work"| Graph["+ foreman / validated graph"]
+  Gate -->|"add independent confidence\n(risk or info-value rationale)"| Check["+ checker / browser-verifier"]
+  Scout --> Stop
+  Graph --> Stop
+  Check --> Stop
+  Maker --> Stop{"another launch would mostly\nreplay existing evidence?"}
+  Stop -->|yes| Done["stop adding launches"]
+  Stop -->|no| Gate
+
+  classDef q fill:#533483,stroke:#e94560,color:#fff
+  classDef w fill:#0f3460,stroke:#16c79a,color:#e8fff7
+  classDef t fill:#16213e,stroke:#533483,color:#eee
+  class Q,Gate,Stop q
+  class Maker,Scout,Graph,Check w
+  class Task,Done t
+```
+
+Optimize marginal evidence value and critical-path latency: add a foreman,
 graph, checker, browser verifier, or freeform worker whenever it materially
 resolves uncertainty, parallelizes real work, or adds useful independent
 confidence. Foremen require useful depth-1 delegation; graphs require genuine
 ownership or dependency boundaries; dedicated checkers and browser verifiers
-require a risk or information-value rationale. Stop adding launches when another
-would mostly replay existing evidence.
+require a risk or information-value rationale.
+Stop adding launches when another would mostly replay existing evidence.
 
 Makers prove every criterion with task-shaped command evidence. The advisor
-inspects it and chooses the smallest independent authoritative rerun appropriate
-to cost, risk, and oracle strength. Optional checkers independently probe the
-critical or contested evidence rather than replaying every command. Delivery
-runs the repository's actual required merge or CI gates once, without unrelated
-repository-wide sweeps. New evidence that changes success criteria requires an
-explicit recorded packet revision, never a hidden stricter checker contract.
+inspects it and chooses the smallest independent authoritative rerun
+appropriate to cost, risk, and oracle strength. Optional checkers independently
+probe the critical or contested evidence rather than replaying every command.
+Delivery runs the repository's actual required merge or CI gates once, without
+unrelated repository-wide sweeps. New evidence that changes success criteria
+requires an explicit recorded packet revision, never a hidden stricter checker
+contract.
 
-The planner rejects malformed structure, cycles, invalid concurrency, and unsafe
-parallel-builder checkout conflicts. Checker or browser nodes without builder
-ancestors and reducers with low fan-in produce non-blocking warnings instead:
-baseline browser investigation, checker audits, and small reduction shapes can
-be intentional. Warnings are stored in the immutable graph manifest and tool
-details so the advisor can confirm intent without manufacturing dependencies or
-relabeling work. Execution waves remain deterministic DAG output; deciding
-whether each node has enough information value remains the advisor's job.
+The planner rejects malformed structure, cycles, invalid concurrency, and
+unsafe parallel-builder checkout conflicts. Checker or browser nodes without
+builder ancestors and reducers with low fan-in produce non-blocking warnings
+instead: baseline browser investigation, checker audits, and small reduction
+shapes can be intentional. Warnings are stored in the immutable graph manifest
+and tool details so the advisor can confirm intent without manufacturing
+dependencies or relabeling work. Execution waves remain deterministic DAG
+output; deciding whether each node has enough information value remains the
+advisor's job.
 
-## Roles and intelligence
+## 🎭 Roles and intelligence
 
 Configured roles are `scout`, `planner`, `reducer`, `builder`, `foreman`,
 `checker`, and `browser-verifier`; only a meta-owned Pi launch flag grants
@@ -57,33 +92,31 @@ depth-1 visible subagents, which inherit the full no-further-delegation
 prohibition. The generic transport profile merely forwards that flag.
 
 [`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json) is fixed
-semantic role configuration. It defines the instructed role skill and portable
-skill path, anchor requirement, and instructional cycle cap. It contains no model
-or reasoning policy and is never changed by intelligence switching.
+semantic role configuration: the instructed role skill and portable skill path,
+anchor requirement, and instructional cycle cap. It contains no model or
+reasoning policy and is never changed by intelligence switching.
 
 The persisted worker mode is the default for every configured role launch and
 is authoritative over conflicting per-launch requests. A generic profile-level
 `harness` constraint takes precedence when a role depends on one runtime. It
 changes transport, not roles or intelligence policy:
 
-- `pi`: `bg_agent` starts Pi and forwards the selected provider/model/reasoning.
-- `native`: `openai-codex` and `openai` route to Codex CLI;
-  `claude-bridge` and `anthropic` route to Claude Code. Native workers receive an
-  automatically generated durable result path under the advisor state root.
-  The path is reserved before launch. A successful settlement requires a
-  nonempty artifact with the role-result headings; otherwise the run becomes
-  `stalled` and its pane remains visible.
+| Mode | Transport |
+| --- | --- |
+| `pi` | `bg_agent` starts Pi and forwards the selected provider/model/reasoning. |
+| `native` | `openai-codex`/`openai` route to Codex CLI; `claude-bridge`/`anthropic` route to Claude Code. Native workers receive an automatically generated durable result path under the advisor state root, reserved before launch. A successful settlement requires a nonempty artifact with the role-result headings; otherwise the run becomes `stalled` and its pane remains visible. |
 
 The foreman profile is constrained to `harness: "pi"`, including in an advisor
 session whose other workers use native Codex/Claude. Its delegation permission
 is a separate advisor-worker CLI flag; pi-detach remains unaware of foreman or
 delegation semantics.
 
-Every shipped intelligence profile remains usable in either mode, but a specific
-recommendation is native-routable only when its provider maps to Codex or Claude.
-Cursor/Grok has no provider-native route in this two-harness mode. The advisor
-chooses a task-fit OpenAI/Anthropic recommendation from the same active guide or
-reports the mismatch rather than silently changing the session mode.
+Every shipped intelligence profile remains usable in either mode, but a
+specific recommendation is native-routable only when its provider maps to Codex
+or Claude. Cursor/Grok has no provider-native route in this two-harness mode.
+The advisor chooses a task-fit OpenAI/Anthropic recommendation from the same
+active guide or reports the mismatch rather than silently changing the session
+mode.
 
 Named guides in
 [`../config/intelligence-profiles/`](../config/intelligence-profiles/) are the
@@ -93,18 +126,18 @@ guide as `~/.pi/agent/advisor-intelligence.json`. Switch mid-session with
 `node ~/.pi/agent/bin/intelligence-profile.mjs <name>`. The default is
 `codex-max`.
 
-Recommendations are advisory, not exhaustive or enforceable. The advisor chooses
-the best model and reasoning for the task from or outside the guide, using fit,
-capability, cost, quota, and availability as judgment inputs. An outside-guide
-choice needs only a concise rationale when material and never permission merely
-for being unlisted. Worker launch and task execution do not reject an
-outside-guide or changed identity; manifests retain launch and current identity
-for audit. Quota is not polled — you pick the guide.
+Recommendations are advisory, not exhaustive or enforceable. The advisor
+chooses the best model and reasoning for the task from or outside the guide,
+using fit, capability, cost, quota, and availability as judgment inputs. An
+outside-guide choice needs only a concise rationale when material and never
+permission merely for being unlisted. Worker launch and task execution do not
+reject an outside-guide or changed identity; manifests retain launch and
+current identity for audit. Quota is not polled — you pick the guide.
 
-Deep dive (topology, spend, pick tree, recommendations, `/advisor` vs switcher):
-[`intelligence-profiles.md`](intelligence-profiles.md).
+Deep dive (topology, spend, pick tree, recommendations, `/advisor` vs
+switcher): [`intelligence-profiles.md`](intelligence-profiles.md).
 
-## Start
+## 🚦 Start
 
 From any Pi session running inside Herdr, call `advisor_launch` with the target
 `cwd` and, when known, a concise `workstream`, `purpose`, and `workerHarness`.

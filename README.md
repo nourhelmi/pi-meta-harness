@@ -1,33 +1,9 @@
 # Pi Meta Harness
 
-An opinionated, reproducible macOS setup for running Pi coding advisors in
-Ghostty and Herdr. It installs adaptive role-aware orchestration, switchable
-model guidance, exact package and skill pins, and a local evaluation workbench
-without putting credentials or runtime state in Git.
-
-> [!IMPORTANT]
-> This is a source-installed personal harness, not a generic framework or a
-> published npm package. `npm run bootstrap` changes the live Pi and Herdr
-> configuration on the current machine after creating scoped backups.
-
-The repository contains configuration and policy only. Credentials, sessions,
-memories, machine trust, caches, and advisor runtime state stay on the machine.
-
-## At a glance
-
-You work in Ghostty while Herdr owns the tabs. `/advisor` claims one isolated
-workstream and chooses the smallest useful topology for the task. Cohesive work
-normally stays with one empowered maker; scouts, planners, foremen, checkers,
-reducers, browser verifiers, and validated graphs are added only when they
-reduce uncertainty, expose real parallelism, or add worthwhile independent
-evidence.
-
-The root advisor always runs as a Pi process and does not implement product
-changes itself. A fresh install defaults that Pi session to Fable, while an
-existing install keeps its runtime model preference and may use a documented
-fallback. Workers run through either Pi or provider-native Codex/Claude
-harnesses, selected once per advisor session. `pi-detach` keeps every worker
-visible in a named pane inside the advisor's tab.
+An adaptive multi-agent coding advisor for Pi on macOS — one empowered maker by
+default, more workers only when they earn their seat. One command installs the
+whole setup with exact pins, and a local eval workbench grades every change you
+make to it.
 
 ```mermaid
 ---
@@ -85,26 +61,33 @@ flowchart TB
   class Scout,Plan,Build,Foreman,Check,Reduce,Browser worker
 ```
 
-Deep dive: [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md) ·
-runtime rules: [`docs/advisor-runtime.md`](docs/advisor-runtime.md)
+**[Quick start](#-quick-start)** ·
+**[How it works](#-how-it-works)** ·
+**[Intelligence profiles](#-pick-an-intelligence-guide)** ·
+**[Evals](#-evaluate-setup-changes)** ·
+**[Docs](#-docs)**
 
-## Docs
+> [!IMPORTANT]
+> This is a source-installed personal harness, not a generic framework or a
+> published npm package. `npm run bootstrap` changes the live Pi and Herdr
+> configuration on the current machine after creating scoped backups. The
+> repository contains configuration and policy only — credentials, sessions,
+> memories, machine trust, and advisor runtime state stay on the machine.
 
-- [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md) — advisory
-  guides, quota pick tree, `/advisor` vs switcher, and per-role recommendations
-- [`docs/advisor-runtime.md`](docs/advisor-runtime.md) — workstream isolation, `advisor_launch`, pane labels
-- [`docs/architecture.md`](docs/architecture.md) — installer topology
-- [`docs/security.md`](docs/security.md) — portability boundary
-- [`docs/cutover.md`](docs/cutover.md) — updating an existing machine
-- [`docs/macos-tcc.md`](docs/macos-tcc.md) — prevent macOS permission
-  dialogs from blocking unattended machine-wide searches
-- [`docs/advisor-evals.md`](docs/advisor-evals.md) — Harbor calibration and
-  subscription-backed live setup evaluation
+## ✨ Highlights
 
-## Fresh-machine setup
+| | |
+| --- | --- |
+| 🎯 **No ceremony** | Cohesive work stays with **one empowered maker**. Scouts, planners, foremen, checkers, reducers, and browser verifiers join only when they reduce uncertainty, expose real parallelism, or add independent evidence. |
+| 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |
+| 🔀 **Two worker harnesses** | Workers run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. The root advisor is always Pi. |
+| 🧪 **Evals that bite** | 11 hermetic live cases graded by **hidden deterministic verifiers**, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
+| 📌 **Reproducible install** | Exact versions, full 40-hex Git commits, tree and SHA-256 verification, scoped backups, and a live doctor. |
+| 🔒 **Public-safe by design** | Every tracked file is treated as public. A closed-allowlist privacy boundary keeps transcripts, identities, and credentials out of eval artifacts. |
 
-The bootstrap targets macOS and expects Ghostty, Git, Node.js 22.19 or newer,
-Herdr, Engram, Pi, and Claude Code. Install the host tools first:
+## 🚀 Quick start
+
+Targets macOS with Ghostty, Git, and Node.js ≥ 22.19. Install the host tools:
 
 ```bash
 brew install herdr
@@ -114,8 +97,7 @@ npm install -g @earendil-works/pi-coding-agent@0.84.3
 # For native OpenAI workers, also install Codex CLI and run `codex login`.
 ```
 
-Review [`scripts/bootstrap.sh`](scripts/bootstrap.sh) before running it. Then
-clone the harness and run the live bootstrap:
+Review [`scripts/bootstrap.sh`](scripts/bootstrap.sh), then clone and bootstrap:
 
 ```bash
 git clone https://github.com/nourhelmi/pi-meta-harness.git
@@ -123,7 +105,12 @@ cd pi-meta-harness
 npm run bootstrap
 ```
 
-The bootstrap command:
+Afterwards: export optional MCP credentials from your shell or secret manager,
+start Pi inside Herdr, `/login` each Pi provider, confirm Claude Code auth, and
+invoke `/advisor`.
+
+<details>
+<summary><b>What bootstrap does</b> (8 steps, stops if an advisor is active)</summary>
 
 1. installs and tests the harness;
 2. shows the live install plan;
@@ -134,20 +121,19 @@ The bootstrap command:
 7. installs Herdr configuration and regenerates its Pi integration;
 8. runs the live doctor.
 
-The installer stops if an advisor or worker is active. It never copies credentials or reloads Pi.
+It never copies credentials and never reloads Pi.
 
-After bootstrap, export optional MCP credentials through your shell or secret
-manager. Start Pi inside Herdr, use `/login` for each Pi provider, confirm Claude
-Code authentication, run `codex login` if you want native OpenAI workers, and
-then invoke `/advisor`.
+</details>
 
-## Start an advisor, choose a worker harness, and pick a guide
+## 🧭 How it works
 
-`/advisor` is a skill invoke, not a CLI with flags. There is no
-`/advisor "task" --profile lean`. The intelligence guide is **machine-global**.
+You work in Ghostty; Herdr owns the tabs. `/advisor` claims one isolated
+workstream and picks the **smallest useful topology** for the task — the
+diagram above is the whole story. `pi-detach` keeps every worker visible in a
+named pane inside the advisor's tab, and the root advisor never implements
+product changes itself.
 
-In a fresh Pi tab inside Herdr (cwd already the repo), use `/advisor` to choose
-the worker harness interactively:
+Start an advisor in a fresh Pi tab inside Herdr:
 
 ```text
 /advisor
@@ -155,84 +141,103 @@ the worker harness interactively:
 my task here
 ```
 
-Or choose it directly with one of the explicit entrypoints:
+`/advisor` is a skill invoke, not a CLI — there is no `--profile` flag. It asks
+once for the worker harness and persists the answer for that session; skip the
+question with an explicit entrypoint:
 
-```text
-/skill:advisor-pi
-/skill:advisor-native
-```
+| Entrypoint | Workers run through |
+| --- | --- |
+| `/skill:advisor-pi` | Pi, for every semantic role |
+| `/skill:advisor-native` | Codex CLI (`openai-codex`/`openai`) and Claude Code (`claude-bridge`/`anthropic`) |
 
-The choice is persisted and authoritative for that advisor session; conflicting
-per-launch overrides are rejected. In **Pi** mode, all semantic
-roles run as Pi workers. In **native** mode, the same role names and role skills
-remain in force, while the selected intelligence-profile identity determines the
-runtime: `openai-codex`/`openai` models use Codex CLI and
-`claude-bridge`/`anthropic` models use Claude Code. The root advisor never moves
-out of Pi. Native mode cannot directly launch a Cursor/Grok identity; the advisor
-must choose a task-fit OpenAI or Anthropic alternative from the active guide (or
-report that no appropriate native route exists). Native workers receive a
-reserved result path, and a missing or malformed result keeps the pane visible
-instead of being reported as successful.
+In native mode the same role names and role skills stay in force. Cursor/Grok
+identities have no native route, so the advisor picks a task-fit
+OpenAI/Anthropic alternative from the active guide or reports the mismatch.
+Native workers write to a reserved result path; a missing or malformed result
+keeps the pane visible instead of being reported as success.
 
-Pick the guide **before** workers launch:
+Deep dives: [`docs/advisor-runtime.md`](docs/advisor-runtime.md) ·
+[`docs/architecture.md`](docs/architecture.md)
+
+## 🧠 Pick an intelligence guide
+
+Named profiles answer one question: **which model capacity should each role
+prefer today?** They never rewrite role contracts, poll quota, or act as
+allowlists. The guide is machine-global; pick it before workers launch:
 
 ```bash
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" --list
 node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
 ```
 
-Names: `codex-max` | `codex-lean` | `anthropic-heavy` | `balanced` | `grok-cycle`. Mid-session:
-say `switch to lean` in chat, or run the same node command. Already-running
-workers keep their launch model. The advisor pane does not auto `/model`.
-The advisor may choose outside the guide without asking permission merely
-because an identity is unlisted, recording a concise rationale when material;
-workers do not reject identities absent from the recommendations.
-
-Quota is **not** polled. You choose. Deep dive (topology, spend, pick tree,
-per-role recommendations): [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md).
-
-## Intelligence guidance
-
-Named profiles answer one operational question: which available model capacity
-should the advisor prefer for each role today? They never rewrite role contracts,
-poll quota, or act as model allowlists. The shipped default is **`codex-max`**,
-and reinstall preserves the selected `intelligence-profiles/ACTIVE` name.
-
 | Profile | Use it when |
 | --- | --- |
-| `codex-max` | Codex weekly capacity is healthy. |
+| `codex-max` *(default)* | Codex weekly capacity is healthy. |
 | `codex-lean` | Codex capacity is low but still available for the hardest work. |
 | `anthropic-heavy` | You intentionally want Anthropic to carry implementation and review. |
 | `balanced` | Codex handles hard builds while Anthropic carries ordinary builds and checks. |
 | `grok-cycle` | Codex is unavailable and Grok should own the substantial maker/review cycle. |
 
-The detailed model order, reasoning guidance, fallback behavior, and quota pick
-tree live in [`docs/intelligence-profiles.md`](docs/intelligence-profiles.md).
+Mid-session: say `switch to lean` in chat, or run the same node command.
+Already-running workers keep their launch model. Recommendations are advisory —
+the advisor may choose outside the guide with a concise rationale when
+material. Quota is **not** polled; you choose.
 
-## Evaluate setup changes
+Model orders, reasoning guidance, and the quota pick tree:
+[`docs/intelligence-profiles.md`](docs/intelligence-profiles.md)
 
-Run deterministic repository checks before touching the live setup:
+## 🧪 Evaluate setup changes
 
-```bash
-npm ci
-npm test
+Two complementary tracks keep the advisor honest:
+
+```mermaid
+---
+config:
+  theme: dark
+---
+flowchart LR
+  Change["setup change\n(skills · roles · profiles · policy)"] --> Det["npm test\ndeterministic repo checks"]
+  Change --> Pro["prospective suite\n11 hermetic live cases"]
+  Rec["recorded trajectories\n(privacy-normalized)"] --> Harbor["Harbor + RewardKit\nAPI-judged calibration"]
+  Pro --> Verify["hidden deterministic verifiers\ndecide the reward"]
+  Verify --> Bench["localhost workbench\nruns · baselines · comparisons"]
+
+  classDef in fill:#16213e,stroke:#533483,color:#eee
+  classDef check fill:#0f3460,stroke:#16c79a,color:#e8fff7
+  class Change,Rec in
+  class Det,Pro,Harbor,Verify,Bench check
 ```
 
-To exercise the current advisor with existing Pi and native CLI subscriptions,
-run one targeted prospective case and open the local workbench:
-
 ```bash
+npm ci && npm test                                   # deterministic checks
+
 npm run eval:advisor:prospective -- single-maker-fast-path --name my-change
-npm run eval:advisor:prospective:view
+npm run eval:advisor:prospective:view                # http://127.0.0.1:4318
 ```
 
-Open <http://127.0.0.1:4318>. Prospective execution is stochastic, but hidden
-workspace and orchestration checks grade it deterministically. The separate
-Harbor track scores privacy-normalized recorded trajectories with an API-backed
-judge. See [`docs/advisor-evals.md`](docs/advisor-evals.md) before running a full
-suite or promoting a comparison baseline.
+Prospective execution is stochastic, but hidden workspace and orchestration
+checks grade it deterministically — the model's own completion signal is never
+authoritative. Worker count and duration are diagnostics, never rewards, so
+gratuitous fan-out cannot earn a pass. The separate Harbor track scores
+recorded trajectories with an API-backed judge.
 
-## Repository map
+Full guide (suites, trials, baselines, comparisons, privacy boundary):
+[`docs/advisor-evals.md`](docs/advisor-evals.md)
+
+## 📚 Docs
+
+| Doc | What's inside |
+| --- | --- |
+| [`advisor-runtime.md`](docs/advisor-runtime.md) | Workstream isolation, adaptive topology, roles, pane rules |
+| [`intelligence-profiles.md`](docs/intelligence-profiles.md) | Guides, quota pick tree, per-role recommendations |
+| [`advisor-evals.md`](docs/advisor-evals.md) | Live prospective suite + Harbor calibration |
+| [`architecture.md`](docs/architecture.md) | Installer topology and ownership boundaries |
+| [`security.md`](docs/security.md) | Public-repo portability boundary |
+| [`cutover.md`](docs/cutover.md) | Updating an existing machine |
+| [`macos-tcc.md`](docs/macos-tcc.md) | Keeping macOS permission dialogs from blocking agents |
+
+<details>
+<summary><b>🗺️ Repository map</b></summary>
 
 - `extensions/` — first-party advisor/runtime extensions and the reviewed
   `unified-edit.ts` snapshot.
@@ -265,46 +270,37 @@ suite or promoting a comparison baseline.
 commit. This harness is the single bootstrap entry that composes it with the
 rest of the setup.
 
-## Safety and reproducibility
+</details>
+
+## 🛡️ Safety and reproducibility
+
+Exact versions or full commits pin every Pi package. Third-party skills are
+fetched at full Git commits, verified against recorded tree IDs, copied instead
+of symlinked, and checked against per-skill SHA-256 hashes. Real Pi targets
+always require `--live`, and every install creates a restorable backup first.
 
 Use a sandbox when you change the harness:
 
 ```bash
-npm ci
-npm test
+npm ci && npm test
 node scripts/meta-harness.mjs install --target /tmp/pi-meta-harness-test
 node scripts/meta-harness.mjs doctor --target /tmp/pi-meta-harness-test
 ```
 
-Normal tests validate that every Git package uses a syntactically exact 40-hex
-commit without requiring network access. Before publication or a live cutover,
-opt in to bounded remote fetch verification:
+Before publication or a live cutover, opt in to bounded remote fetch
+verification (20-second timeout per pin; never part of offline unit tests):
 
 ```bash
 node scripts/meta-harness.mjs verify-git-pins
 ```
 
-Each exact commit fetch has a 20-second timeout; this network check is not part
-of offline unit tests.
+<details>
+<summary><b>Backups and restore</b></summary>
 
-Exact versions or full commits pin Pi packages. First-party harness files are
-copied from this repository. Third-party skills are fetched at full Git commits,
-verified against recorded tree IDs, copied instead of symlinked, and checked
-against per-skill SHA-256 hashes. The skills installer CLI is also pinned.
-
-The marketing and fal.ai groups intentionally use the last reviewed revisions
-that still contain the selected skill names; newer upstream layouts renamed or
-removed those skills.
-
-Real Pi targets always require `--live`. Each install creates a restorable backup under:
+Each install creates a restorable backup under:
 
 ```text
 ~/.pi/agent/backups/pi-meta-harness/<timestamp>/
-```
-
-Herdr backups are under:
-
-```text
 ~/.config/herdr/backups/pi-meta-harness-herdr/<timestamp>/
 ```
 
@@ -315,17 +311,20 @@ node scripts/meta-harness.mjs restore --live --backup <pi-backup-path>
 node scripts/meta-harness.mjs restore-herdr --live --backup <herdr-backup-path>
 ```
 
-## Credentials
+The marketing and fal.ai skill groups intentionally use the last reviewed
+revisions that still contain the selected skill names; newer upstream layouts
+renamed or removed those skills.
+
+</details>
+
+## 🔐 Credentials
 
 Copy only variable names from [`.env.example`](.env.example). Never commit
 values. Rotate a credential immediately if it enters a transcript, diff, shell
-history, or repository.
+history, or repository. See [`docs/security.md`](docs/security.md) for the
+complete portability boundary.
 
-See [`docs/security.md`](docs/security.md) for the complete portability boundary
-and [`docs/cutover.md`](docs/cutover.md) for controlled updates to an existing
-machine.
-
-## License
+## 📄 License
 
 MIT. Third-party components keep their own licenses and notices; see
 [`NOTICE.md`](NOTICE.md) and

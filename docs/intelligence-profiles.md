@@ -1,4 +1,4 @@
-# Advisor intelligence profiles — deep dive
+# 🧠 Advisor intelligence profiles — deep dive
 
 Named JSON profiles guide which models and reasoning levels an advisor should
 prefer for each worker role. They do **not** configure `pi-detach`, constrain
@@ -21,7 +21,7 @@ launch/current identity for audit.
 Shipped default: **`codex-max`**. Reinstall refreshes fixed roles and all named
 guides but preserves the name in `intelligence-profiles/ACTIVE`.
 
-## Daily commands
+## ⚡ Daily commands
 
 `/advisor` is a skill invoke, not a CLI with profile flags:
 
@@ -55,7 +55,7 @@ and reports each role's preferred choice. It never writes
 `bg-agent-profiles.json`. Already-running workers and this Pi session's `/model`
 remain unchanged.
 
-## Guide schema
+## 📐 Guide schema
 
 Each named file uses this shape:
 
@@ -85,7 +85,7 @@ reasoning names, missing models, missing configured roles, and misspelled role
 references. This validates the guide itself; it does not turn the guide into a
 runtime allowlist.
 
-## Decision-bearing builders and locked executors
+## 🔀 Decision-bearing builders and locked executors
 
 Recommendation order applies **among choices that fit the task**; it is not a
 rule to spend the first model on every node. Builder routing starts with decision
@@ -114,9 +114,13 @@ small-file rule. A cheap maker does not automatically earn another checker;
 review tier follows the product risk and deterministic anchors remain the
 backstop.
 
-## Topology
+## 🧩 Topology
 
 ```mermaid
+---
+config:
+  theme: dark
+---
 flowchart TB
   Named["intelligence-profiles/*.json"] --> Switcher["intelligence-profile.mjs"]
   Switcher --> Active["ACTIVE"]
@@ -126,11 +130,22 @@ flowchart TB
   Mode["advisor worker mode\npi or native"] --> Transport
   Advisor -->|chosen identity + role| Transport
   Transport --> Worker[worker pane]
+
+  classDef cfg fill:#1a1a2e,stroke:#f0a500,color:#ffeaa7
+  classDef adv fill:#533483,stroke:#e94560,color:#fff
+  classDef tr fill:#0f3460,stroke:#16c79a,color:#e8fff7
+  class Named,Active,Guide,Roles,Mode cfg
+  class Switcher,Advisor adv
+  class Transport,Worker tr
 ```
 
-## Which guide to pick
+## 🌳 Which guide to pick
 
 ```mermaid
+---
+config:
+  theme: dark
+---
 flowchart TD
   Start[Quota check you decide] --> CodexQ{Codex weekly healthy?}
   CodexQ -->|yes| UseCM[codex-max]
@@ -139,6 +154,11 @@ flowchart TD
   CodexQ -->|dead| AnthQ{Spend Anthropic as workhorse?}
   AnthQ -->|yes| UseAH[anthropic-heavy]
   AnthQ -->|no| UseGC[grok-cycle]
+
+  classDef q fill:#533483,stroke:#e94560,color:#fff
+  classDef pick fill:#0f3460,stroke:#16c79a,color:#e8fff7
+  class Start,CodexQ,AnthQ q
+  class UseCM,UseCL,UseBA,UseAH,UseGC pick
 ```
 
 - **healthy Codex** → `codex-max`
@@ -150,7 +170,7 @@ flowchart TD
 The shipped guides recommend Cursor only as `cursor/grok-4.6`; that is guidance,
 not transport enforcement.
 
-## Profile cards
+## 🃏 Profile cards
 
 The tables summarize preferred order. The JSON `character` and `fit` fields hold
 the detailed task and capacity guidance.
@@ -240,7 +260,7 @@ uses native harnesses without a Cursor route. When risk warrants independent
 review of a Grok build, use a fresh invocation and preserve deterministic anchors
 as the independence backstop.
 
-## Files on disk
+## 📁 Files on disk
 
 | Path | Role |
 | --- | --- |

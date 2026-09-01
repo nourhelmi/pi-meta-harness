@@ -1,4 +1,4 @@
-# macOS TCC vs unattended agents
+# 🍎 macOS TCC vs unattended agents
 
 When Ghostty lacks **Full Disk Access**, an agent `find ~` (or any walk that
 hits other apps' data) pops a **modal** on the host terminal. The syscall
@@ -9,6 +9,10 @@ That dialog is TCC **App Data Isolation**. The responsible process is whichever
 app owns the tty: usually Ghostty (`com.mitchellh.ghostty`).
 
 ```mermaid
+---
+config:
+  theme: dark
+---
 flowchart TD
   Agent["Pi / worker in Ghostty"] --> Find["find ~ or walk ~/Library"]
   Find --> TCC["macOS TCC"]
@@ -17,13 +21,18 @@ flowchart TD
   Granted -->|no| Modal["Ghostty would like to access data from other apps"]
   Modal -->|click Allow at the Mac| Resume
   Modal -->|nobody at the Mac| Hang["agent blocked"]
+
+  classDef ok fill:#0f3460,stroke:#16c79a,color:#e8fff7
+  classDef bad fill:#1a1a2e,stroke:#e94560,color:#ffb3c1
+  class Resume ok
+  class Modal,Hang bad
 ```
 
 Agents **may** search the machine when the user asks for something outside the
 assigned worktree. Do not refuse home-wide `find` / `rg` / `fd` / `mdfind` as
 policy. The durable fix is the FDA grant, not a search ban.
 
-## One-time grant (you, at the Mac)
+## ✅ One-time grant (you, at the Mac)
 
 1. Open **System Settings → Privacy & Security → Full Disk Access**.
 2. Enable **Ghostty**. If Ghostty is missing, add `/Applications/Ghostty.app`.
