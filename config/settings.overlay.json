@@ -45,7 +45,7 @@
     "npm:pi-claude-agent-sdk@^0.8.6",
     "npm:@narumitw/pi-goal@^0.54.4",
     "npm:@amitkot/pi-open-zed@^0.1.0",
-    "git:https://github.com/nourhelmi/pi-detach@526f38e16fc52f6b64d62e2a4a81c65ad5196f57",
+    "git:https://github.com/nourhelmi/pi-detach@d24b6182ce637ed137484f91d88c78ec0fb0c353",
     "git:https://github.com/nourhelmi/pi-theme-kanagawa@7fdfc2c855e03e958485bd1a465881b29c258e7f",
     "npm:pi-mermaid@^0.3.0",
     "npm:pi-web-search@^1.3.1"
