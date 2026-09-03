@@ -23,6 +23,17 @@
       "purpose": "Provide the primary hash-anchored read, edit, and undo tools with served-range verification and reject-and-serve recovery."
     },
     {
+      "name": "pi-claude-agent-sdk",
+      "repository": "https://github.com/pi-pod/pi-claude-agent-sdk",
+      "commit": "5293c03fc1e250725c9e23472eec767a5a302caf",
+      "installSource": "npm:pi-claude-agent-sdk@^0.8.6",
+      "integrity": "sha512-nVyqRVm5yu78K8TbAkdY7UORg0olyn6QNNaaAKUcFsizuB961+XQdlu5qoYOzZknXXNULY0Cs45UYjy8iS01Yw==",
+      "license": "MIT",
+      "package": "pi-claude-agent-sdk@0.8.6",
+      "runtimeState": "~/.claude and ~/.pi/agent/claude-bridge*.log (local only; never tracked)",
+      "purpose": "Expose Claude Code subscription models, including Fable 5.1, as the claude-bridge provider while Pi owns tool execution."
+    },
+    {
       "name": "pi-ui-pack",
       "repository": "https://github.com/Davidcreador/pi-ui-pack",
       "commit": "322d857080524477309e9d14d1c38312515e1913",

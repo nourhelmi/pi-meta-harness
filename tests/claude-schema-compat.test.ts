@@ -30,10 +30,11 @@ test("Claude schema compatibility converts draft-07 tuples without mutating the 
   assert.equal(Array.isArray(source.properties.edits.items.items), true, "source schema must remain unchanged");
 });
 
-test("Claude schema compatibility wraps the bridge provider request boundary", () => {
-  let startHandler: ((event: unknown, context: unknown) => void) | undefined;
+test("Claude schema compatibility wraps late and replaced bridge provider methods", () => {
+  const handlers = new Map<string, (event: unknown, context: unknown) => void>();
   let receivedContext: unknown;
-  const provider: Record<PropertyKey, unknown> = {
+  let provider: Record<PropertyKey, unknown> | undefined;
+  const makeProvider = (): Record<PropertyKey, unknown> => ({
     stream(_model: unknown, context: unknown) {
       receivedContext = context;
       return "stream";
@@ -42,33 +43,46 @@ test("Claude schema compatibility wraps the bridge provider request boundary", (
       receivedContext = context;
       return "simple";
     },
-  };
+  });
   const pi = {
     on(event: string, handler: (event: unknown, context: unknown) => void) {
-      assert.equal(event, "session_start");
-      startHandler = handler;
+      handlers.set(event, handler);
     },
   } as unknown as ExtensionAPI;
 
   claudeSchemaCompat(pi);
-  assert.ok(startHandler);
-  startHandler({}, {
+  const context = {
     modelRegistry: {
       getProvider(id: string) {
         assert.equal(id, "claude-bridge");
         return provider;
       },
     },
-  });
+  };
+  const startHandler = handlers.get("session_start");
+  const beforeHandler = handlers.get("before_agent_start");
+  assert.ok(startHandler);
+  assert.ok(beforeHandler);
 
-  const context = {
+  startHandler({}, context);
+  provider = makeProvider();
+  beforeHandler({}, context);
+
+  const toolContext = {
     tools: [{ name: "edit", parameters: { type: "array", items: [{ type: "string" }], additionalItems: false } }],
   };
-  const result = (provider.streamSimple as (model: unknown, context: unknown) => unknown)({}, context);
+  const result = (provider.streamSimple as (model: unknown, context: unknown) => unknown)({}, toolContext);
 
   assert.equal(result, "simple");
   assert.deepEqual(receivedContext, {
     tools: [{ name: "edit", parameters: { type: "array", prefixItems: [{ type: "string" }], items: false } }],
   });
-  assert.equal("additionalItems" in context.tools[0]!.parameters, true, "caller context must remain unchanged");
+  assert.equal("additionalItems" in toolContext.tools[0]!.parameters, true, "caller context must remain unchanged");
+
+  provider.streamSimple = makeProvider().streamSimple;
+  beforeHandler({}, context);
+  (provider.streamSimple as (model: unknown, context: unknown) => unknown)({}, toolContext);
+  assert.deepEqual(receivedContext, {
+    tools: [{ name: "edit", parameters: { type: "array", prefixItems: [{ type: "string" }], items: false } }],
+  });
 });

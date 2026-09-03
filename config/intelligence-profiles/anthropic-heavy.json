@@ -1,7 +1,7 @@
 {
   "name": "anthropic-heavy",
   "models": {
-    "claude-bridge/claude-fable-5": {
+    "claude-bridge/claude-fable-5-1": {
       "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic Fable capacity is reached, planning falls back to Grok at high and the advisor session switches to Grok.",
       "defaultThinking": "high"
     },
@@ -42,7 +42,7 @@
     ],
     "planner": [
       {
-        "model": "claude-bridge/claude-fable-5",
+        "model": "claude-bridge/claude-fable-5-1",
         "thinking": "high",
         "fit": "Preferred for planning in this profile."
       },

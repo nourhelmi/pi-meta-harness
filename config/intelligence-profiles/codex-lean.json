@@ -1,7 +1,7 @@
 {
   "name": "codex-lean",
   "models": {
-    "claude-bridge/claude-fable-5": {
+    "claude-bridge/claude-fable-5-1": {
       "character": "Advisory: The advisor's own session model. The advisor session runs at medium. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, implementation, or planner nodes. Planner in this profile is Sol. When Anthropic capacity is reached, the advisor session switches to Sol at high. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
       "defaultThinking": "high"
     },

@@ -99,7 +99,7 @@ boundaries are prompt contracts rather than tool-removal policy.
 > full-auto permission flags. Use native mode only in a trusted repository and
 > review each task packet.
 
-`pi-ui-pack`, `pi-codex-compaction`, `pi-mermaid`, and `pi-web-search` are
+`pi-ui-pack`, `pi-codex-compaction`, `pi-claude-agent-sdk`, `pi-mermaid`, and `pi-web-search` are
 installed from the exact sources recorded in the extension lock. OpenAI
 compaction can create provider-side compaction artifacts and local session
 metadata; it does not make session data portable through this repository. Web

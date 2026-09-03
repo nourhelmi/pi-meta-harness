@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const WRAPPED = Symbol.for("pi-meta-harness.claude-schema-compat");
+const WRAPPED_METHOD = Symbol.for("pi-meta-harness.claude-schema-compat.method");
 
 type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
@@ -27,10 +27,15 @@ interface ProviderStreamOptions {
 }
 
 type StreamMethod = (model: ProviderModel, context: ToolContext, options?: ProviderStreamOptions) => object;
+type WrappedStreamMethod = StreamMethod & { [key: symbol]: boolean | undefined };
 
 interface MutableBridgeProvider {
   stream?: StreamMethod;
   streamSimple?: StreamMethod;
+}
+
+interface ProviderRegistry {
+  getProvider(id: string): unknown;
 }
 
 /**
@@ -76,6 +81,30 @@ function normalizeToolContext(context: ToolContext): ToolContext {
   };
 }
 
+function wrapClaudeBridgeProvider(registry: ProviderRegistry): void {
+  const candidate = registry.getProvider("claude-bridge");
+  // SAFETY: Pi's provider contract guarantees stream/streamSimple use the
+  // model-context-options signature; this mutable view only wraps those methods.
+  const provider = candidate as MutableBridgeProvider | undefined;
+  if (!provider) return;
+
+  for (const method of ["stream", "streamSimple"] as const) {
+    const original = provider[method] as WrappedStreamMethod | undefined;
+    if (!original || original[WRAPPED_METHOD]) continue;
+
+    const wrapped = function (
+      this: unknown,
+      model: ProviderModel,
+      context: ToolContext,
+      options?: ProviderStreamOptions,
+    ): object {
+      return original.call(this, model, normalizeToolContext(context), options);
+    } as WrappedStreamMethod;
+    wrapped[WRAPPED_METHOD] = true;
+    provider[method] = wrapped;
+  }
+}
+
 /**
  * pi-claude-bridge forwards Pi tools through an MCP server. Patch only the
  * bridge provider's request boundary so every tool keeps its implementation
@@ -83,27 +112,12 @@ function normalizeToolContext(context: ToolContext): ToolContext {
  */
 export default function claudeSchemaCompat(pi: ExtensionAPI): void {
   pi.on("session_start", (_event, ctx) => {
-    const candidate = ctx.modelRegistry.getProvider("claude-bridge");
-    // SAFETY: Pi's provider contract guarantees stream/streamSimple use the
-    // model-context-options signature; this mutable view only wraps those methods.
-    const provider = candidate as
-      | (MutableBridgeProvider & { [WRAPPED]?: boolean })
-      | undefined;
-    if (!provider || provider[WRAPPED]) return;
-
-    for (const method of ["stream", "streamSimple"] as const) {
-      const original = provider[method];
-      if (!original) continue;
-
-      provider[method] = function (
-        model: ProviderModel,
-        context: ToolContext,
-        options?: ProviderStreamOptions,
-      ): object {
-        return original.call(this, model, normalizeToolContext(context), options);
-      };
-    }
-
-    provider[WRAPPED] = true;
+    wrapClaudeBridgeProvider(ctx.modelRegistry);
+  });
+  pi.on("before_agent_start", (_event, ctx) => {
+    // The effective provider can be composed or replaced after session_start,
+    // especially when a long-lived Pi session switches models. Re-check at the
+    // last lifecycle boundary before every provider request.
+    wrapClaudeBridgeProvider(ctx.modelRegistry);
   });
 }
