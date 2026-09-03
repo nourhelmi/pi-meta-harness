@@ -4,6 +4,7 @@
     "scout": {
       "description": "Read-only investigation with bounded, source-linked findings.",
       "agent": "pi",
+      "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-scout",
       "skillPath": "skills/advisor-worker/roles/scout/SKILL.md",
       "cliArgs": [
@@ -16,6 +17,7 @@
     "planner": {
       "description": "Plan fixed work from verified code and product constraints.",
       "agent": "pi",
+      "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-planner",
       "skillPath": "skills/advisor-worker/roles/planner/SKILL.md",
       "cliArgs": [
@@ -28,6 +30,7 @@
     "reducer": {
       "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
       "agent": "pi",
+      "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-reducer",
       "skillPath": "skills/advisor-worker/roles/reducer/SKILL.md",
       "cliArgs": [
@@ -40,6 +43,7 @@
     "builder": {
       "description": "Implement fixed acceptance criteria in one assigned worktree.",
       "agent": "pi",
+      "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-builder",
       "skillPath": "skills/advisor-worker/roles/builder/SKILL.md",
       "cliArgs": [
@@ -52,6 +56,7 @@
     "foreman": {
       "description": "Own one bounded work item through planning, implementation, delegated internal steps, and self-verification.",
       "agent": "pi",
+      "resultDiscovery": "advisor-worker",
       "harness": "pi",
       "skill": "advisor-role-foreman",
       "skillPath": "skills/advisor-worker/roles/foreman/SKILL.md",
@@ -66,6 +71,7 @@
     "checker": {
       "description": "Fresh-context review of completed work with a bounded inline-repair mandate for small findings.",
       "agent": "pi",
+      "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-checker",
       "skillPath": "skills/advisor-worker/roles/checker/SKILL.md",
       "cliArgs": [
@@ -78,6 +84,7 @@
     "browser-verifier": {
       "description": "Integrated browser verification and safe evidence capture.",
       "agent": "pi",
+      "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-browser-verifier",
       "skillPath": "skills/advisor-worker/roles/browser-verifier/SKILL.md",
       "cliArgs": [

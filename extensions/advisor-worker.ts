@@ -28,6 +28,27 @@ interface WorkerState {
 
 interface WorkerRuntime {
 	state?: WorkerState;
+	resultBlockActive: boolean;
+}
+
+export function resultStatusLine(markdown: string): string | undefined {
+	const lines = markdown.split(/\r?\n/);
+	let underStatusHeading = false;
+	for (const line of lines) {
+		if (!underStatusHeading) {
+			underStatusHeading = /^\s*#{1,6}\s+status\s*#*\s*$/i.test(line);
+			continue;
+		}
+		if (/^\s*#{1,6}\s+/.test(line)) return undefined;
+		const status = line.trim();
+		if (!status) continue;
+		return status.replace(/^[*_`]+/, "").replace(/[*_`]+$/, "").trim() || undefined;
+	}
+	return undefined;
+}
+
+export function isBlockedStatus(line: string | undefined): boolean {
+	return typeof line === "string" && /^blocked\b/i.test(line);
 }
 
 // Advisor state lives under the user home so repositories never carry
@@ -210,6 +231,28 @@ function registerCycleTracking(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 	});
 }
 
+function registerBlockedResultSignals(pi: ExtensionAPI, runtime: WorkerRuntime): void {
+	pi.on("agent_end", async () => {
+		const state = runtime.state;
+		if (!state || runtime.resultBlockActive) return;
+		let markdown: string;
+		try {
+			markdown = await readFile(join(state.runDir, "result.md"), "utf8");
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+			throw error;
+		}
+		if (!isBlockedStatus(resultStatusLine(markdown))) return;
+		pi.events.emit("herdr:blocked", { active: true, label: "result: BLOCKED" });
+		runtime.resultBlockActive = true;
+	});
+	pi.on("agent_start", () => {
+		if (!runtime.resultBlockActive) return;
+		pi.events.emit("herdr:blocked", { active: false });
+		runtime.resultBlockActive = false;
+	});
+}
+
 export default function advisorWorkerExtension(pi: ExtensionAPI): void {
 	pi.registerFlag("advisor-worker-role", {
 		description: "Run this Pi session as a fixed advisor worker role",
@@ -224,8 +267,9 @@ export default function advisorWorkerExtension(pi: ExtensionAPI): void {
 		type: "boolean",
 		default: false,
 	});
-	const runtime: WorkerRuntime = {};
+	const runtime: WorkerRuntime = { resultBlockActive: false };
 	registerSessionStart(pi, runtime);
 	registerSystemContract(pi, runtime);
 	registerCycleTracking(pi, runtime);
+	registerBlockedResultSignals(pi, runtime);
 }

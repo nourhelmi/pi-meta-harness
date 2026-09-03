@@ -32,6 +32,7 @@ test("plan does not create the sandbox target", async () => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /NO reload/);
   assert.match(result.stdout, /MATERIALIZE selected guide -> advisor-intelligence\.json/);
+  assert.match(result.stdout, /COPY  extensions\/herdr-blocked-bridge\.ts -> extensions\/herdr-blocked-bridge\.ts/);
   assert.match(result.stdout, /NEVER mutate bg-agent-profiles\.json/);
   assert.match(result.stdout, /REFUSE install before mutation when ACTIVE and advisor-intelligence\.json are inconsistent/);
   await assert.rejects(readFile(join(target, "settings.json")));

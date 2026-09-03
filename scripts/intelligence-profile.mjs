@@ -31,6 +31,7 @@ const FORBIDDEN_ROLE_ENFORCEMENT_FIELDS = new Set([
 const ROLE_FIELDS = new Set([
   "description",
   "agent",
+  "resultDiscovery",
   "harness",
   "skill",
   "skillPath",

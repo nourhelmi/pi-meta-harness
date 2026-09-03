@@ -510,7 +510,10 @@ Launch and settlement notifications are hints, not verdicts. Before treating
 a worker as failed, unstarted, or empty-handed, check ground truth in its
 worktree: new commits since launch, `result.md` existence and mtime, and
 branch movement. A maker whose commit landed after detach is a late success,
-not a failure — never launch a recovery builder before this check.
+not a failure — never launch a recovery builder before this check. Settlement
+notices carry the worker's result Status line; a `paused` notice means the
+worker ended a turn while waiting on its own sub-workers and remains
+supervised, so no action is needed until its next settlement.
 
 ## Verdict hygiene
 

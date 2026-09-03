@@ -102,7 +102,18 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   assert.match(runtime, /presumption against ceremony, not a target worker[\s\S]*count/);
   assert.match(runtime, /Stop adding launches when another[\s\S]*would mostly replay existing evidence/);
 });
+test("blocked settlement doctrine documents Pi prompt and worker result signals", async () => {
+  const source = await text("skills/advisor/SKILL.md");
+  const runtime = await text("docs/advisor-runtime.md");
+  const settlement = section(source, "## Settlement ground truth", "## Verdict hygiene");
+  const blocked = section(runtime, "## Blocked signals", "## 🪜 Adaptive topology");
 
+  assert.match(settlement, /Settlement[\s\S]*notices carry the worker's result Status line/);
+  assert.match(settlement, /`paused` notice means the[\s\S]*worker ended a turn while waiting on its own sub-workers/);
+  assert.match(blocked, /blocking Pi UI prompt[\s\S]*marks its Herdr pane blocked through the bridge extension/);
+  assert.match(blocked, /Status starts with `BLOCKED`[\s\S]*parent `bg_agent` settles it as blocked[\s\S]*request[\s\S]*sound fires/);
+  assert.match(blocked, /pi-detach discovers Pi worker result artifacts through the[\s\S]*`advisor-worker` session entry[\s\S]*`resultDiscovery`/i);
+});
 test("frozen adaptive prospective case contracts remain byte-identical", async () => {
   const expected = new Map([
     ["evals/prospective/single-maker-fast-path/case.json", "bacfafc735c6f96eb4f7edf01f8dca224c27f0ff2a3ecb7a823df851431c7b8a"],

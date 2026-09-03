@@ -43,6 +43,7 @@ test("fixed role configuration is standalone and model-free", async () => {
     assert.equal("allowedThinkingByModel" in profile, false);
     assert.equal("allowSubagents" in profile, false);
     assert.equal(profile.harness === "pi", role === "foreman");
+    if (profile.agent === "pi") assert.equal(profile.resultDiscovery, "advisor-worker");
   }
 });
 

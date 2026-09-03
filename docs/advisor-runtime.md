@@ -23,6 +23,16 @@ runtime files. `advisor_session_init` reports the resolved root;
 13. Keep a builder alive only for a planned bounded repair. Every checker starts fresh and may repair small qualifying findings inline under its role mandate.
 14. Keep global advisor routines paused because open Pi processes share routine state.
 
+## Blocked signals
+
+Every blocking Pi UI prompt, including the question tool and select or confirm
+dialogs, marks its Herdr pane blocked through the bridge extension. When a
+worker's `result.md` Status starts with `BLOCKED`, the pane is marked blocked as
+the turn ends, so the parent `bg_agent` settles it as blocked and the request
+sound fires. Pi-detach discovers Pi worker result artifacts through the
+`advisor-worker` session entry declared by the profile's `resultDiscovery`
+field.
+
 ## 🪜 Adaptive topology
 
 For small and cohesive-medium work with one decision set, presume **one
