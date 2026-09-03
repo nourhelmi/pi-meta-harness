@@ -37,6 +37,7 @@ const DEFAULT_TIMEOUT_MINUTES = 30;
 const CASE_ID = /^[a-z0-9][a-z0-9-]*$/;
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 const WORKER_ROLES = new Set(["browser-verifier", "builder", "checker", "foreman", "planner", "reducer", "scout"]);
+const SETTLEMENT_STATUSES = new Set(["successful", "blocked", "failed", "cancelled", "stopped"]);
 
 function usage() {
   return `Prospective Advisor Evaluations
@@ -255,6 +256,13 @@ export async function loadProspectiveCase(subject, { casesRoot = CASES_ROOT } = 
       }
       if (requirement.roles.some((role) => !CASE_ID.test(role)) || !Number.isInteger(requirement.minimum) || requirement.minimum < 1) {
         throw new Error("Delegation roles must be slugs and minimum must be a positive integer");
+      }
+      if (requirement.statuses !== undefined && (
+        !Array.isArray(requirement.statuses)
+        || !requirement.statuses.length
+        || requirement.statuses.some((status) => typeof status !== "string" || !SETTLEMENT_STATUSES.has(status))
+      )) {
+        throw new Error("Delegation statuses must be a non-empty array containing only successful, blocked, failed, cancelled, or stopped");
       }
     }
     if (definition.process.topology !== undefined) {
@@ -677,14 +685,19 @@ export function processChecks(normalized, completion, caseDefinition) {
     },
     ...requirements.map((requirement) => {
       const requested = launches.filter((event) => requirement.roles.includes(event.role)).length;
-      const successful = new Set(
+      const acceptedStatuses = requirement.statuses ?? ["successful"];
+      const accepted = new Set(
         settlements
-          .filter((event) => requirement.roles.includes(event.role) && event.status === "successful")
+          .filter((event) => requirement.roles.includes(event.role) && acceptedStatuses.includes(event.status))
           .map((event) => event.attemptAlias),
       ).size;
+      const statusLabel = acceptedStatuses.join("-or-");
       const failureCounts = {};
       for (const event of settlements.filter(
-        (candidate) => requirement.roles.includes(candidate.role) && candidate.status === "failed" && candidate.failureKind,
+        (candidate) => requirement.roles.includes(candidate.role)
+          && candidate.status === "failed"
+          && !acceptedStatuses.includes("failed")
+          && candidate.failureKind,
       )) {
         failureCounts[event.failureKind] = (failureCounts[event.failureKind] ?? 0) + 1;
       }
@@ -694,8 +707,8 @@ export function processChecks(normalized, completion, caseDefinition) {
         .join(", ");
       return {
         id: requirement.id,
-        passed: successful >= requirement.minimum,
-        evidence: `${successful} successful ${requirement.roles.join("-or-")} settlement(s) from ${requested} launch(es); required ${requirement.minimum}${failureSummary ? `; failures: ${failureSummary}` : ""}`,
+        passed: accepted >= requirement.minimum,
+        evidence: `${accepted} ${statusLabel} ${requirement.roles.join("-or-")} settlement(s) from ${requested} launch(es); required ${requirement.minimum}${failureSummary ? `; failures: ${failureSummary}` : ""}`,
       };
     }),
     ...topologyChecks(normalized, process.topology),

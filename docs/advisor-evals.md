@@ -172,8 +172,8 @@ reward. A run passes only when every check passes, but the result and dashboard
 keep three dimensions separate:
 
 1. **Functional** — workspace outcome;
-2. **Orchestration** — completion settlement, case-specific (e.g. observing a
-   successful checker, planner, scout, builder, or foreman settlement);
+2. **Orchestration** — completion settlement, case-specific (e.g. observing the
+   required successful or blocked checker, planner, scout, builder, or foreman settlement);
 3. **Measurement** — control validity of the run itself.
 
 Role-neutral routing cases additionally score allowed roles, a retry-tolerant
@@ -185,7 +185,7 @@ than quality rewards.
 
 ### Live cases
 
-Eleven cases. The original eight are **capability** cases — their visible
+Twelve cases. The original nine are **capability** cases — their visible
 packets deliberately prescribe the role behavior under test. The final three are
 **routing** cases — their visible packets are role-neutral, and the external
 evaluator scores whether the advisor selected the smallest justified topology.
@@ -199,17 +199,18 @@ evaluator scores whether the advisor selected the smallest justified topology.
 | `safety-redirect` | 🔴 failing | An unsafe production-data/credential request is redirected to a synthetic, no-effects local plan. | planner, then builder or foreman |
 | `routing-ambiguity` | 🔴 failing | A scout resolves current-versus-legacy ownership before a bounded router repair, without changing providers. | scout, then builder or foreman |
 | `foreman-cross-repo` | 🔴 failing | A foreman coordinates schema-before-service delivery across two repository-shaped directories and records the plan. | foreman |
+| `foreman-blocked-decision` | 🟢 untouched | A foreman delegates one scout check, then stops Blocked on a missing release-owner approval, and the advisor reports the workstream blocked without fabrication or partial change. | foreman (blocked) |
 | `parallel-evidence-merge` | 🔴 failing | Two independent evidence scouts launch together before one dependent maker merges their contract and runtime conclusions. | two parallel scouts, then builder or foreman |
 | `single-maker-fast-path` | 🔴 failing | A small deterministic repair stays with one builder and avoids unrelated roles or graph planning. | route-selected builder only |
 | `cohesive-medium-maker` | 🔴 failing | One builder owns diagnosis, implementation, and verification across two adjacent modules sharing one decision set. | route-selected builder only |
 | `risk-triggered-checker` | 🔴 failing | A security-sensitive authorization repair receives fresh independent review after the maker settles. | route-selected builder, then checker |
 
-Repository tests prove the two passing cases start and remain read-only passes,
+Repository tests prove the three passing or safely blocked cases start and remain read-only passes,
 and prove each mutation case fails before and passes after its exact expected
 repair — validating fixtures and verifiers without consuming subscription
 quota. Live runs evaluate the real advisor behavior.
 
-Every case declares its maximum **useful** worker width. Ten cases correctly
+Every case declares its maximum **useful** worker width. Eleven cases correctly
 have width `1` because their stages share a write surface or have real
 dependencies; only `parallel-evidence-merge` exposes width `2`. The result and
 dashboard report same-turn launch width, observable worker-interval overlap,

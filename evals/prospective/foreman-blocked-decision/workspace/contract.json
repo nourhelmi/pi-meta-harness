@@ -1,0 +1,6 @@
+{
+  "requiredVersion": "v3",
+  "approvalRequired": true,
+  "approvalPath": "approvals/v3.json",
+  "approver": "release-owner"
+}

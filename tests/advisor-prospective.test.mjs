@@ -164,6 +164,28 @@ test("prospective case validation rejects malformed process delegation", async (
   }
 });
 
+test("prospective case validation rejects malformed delegation statuses", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "advisor-prospective-status-schema-"));
+  try {
+    const loaded = await loadProspectiveCase("builder-self-verification");
+    const caseDir = join(temp, loaded.definition.id);
+    await cp(loaded.caseDir, caseDir, { recursive: true });
+    for (const statuses of [[], ["unknown"], ["blocked", 1]]) {
+      const malformed = {
+        ...loaded.definition,
+        process: {
+          ...loaded.definition.process,
+          requiredDelegation: [{ id: "builder-delegation", roles: ["builder"], minimum: 1, statuses }],
+        },
+      };
+      await writeFile(join(caseDir, "case.json"), `${JSON.stringify(malformed, null, 2)}\n`);
+      await assert.rejects(() => loadProspectiveCase(caseDir), /Delegation statuses must be a non-empty array/);
+    }
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
 test("prospective case validation rejects malformed topology roles", async () => {
   const temp = await mkdtemp(join(tmpdir(), "advisor-prospective-topology-schema-"));
   try {
@@ -239,6 +261,36 @@ test("prospective delegation requires a successful worker settlement, not an att
   const passed = processChecks(attempted, completion, definition);
   assert.equal(passed.find((check) => check.id === "checker-delegation")?.passed, true);
   assert.match(passed.find((check) => check.id === "checker-delegation")?.evidence ?? "", /^1 successful/);
+});
+
+test("prospective delegation can require a blocked foreman settlement", () => {
+  const definition = {
+    process: {
+      expectedCompletionStatus: "blocked",
+      requiredDelegation: [{
+        id: "foreman-delegation",
+        roles: ["foreman"],
+        minimum: 1,
+        statuses: ["blocked"],
+      }],
+    },
+  };
+  const completion = { schemaVersion: 1, status: "blocked" };
+  const events = [
+    { kind: "worker_launch", role: "foreman", attemptAlias: "attempt-1" },
+    { kind: "worker_launch_result", role: "foreman", status: "running", attemptAlias: "attempt-1" },
+    { kind: "worker_status", role: "foreman", status: "blocked", attemptAlias: "attempt-1" },
+  ];
+
+  const passed = processChecks({ events }, completion, definition);
+  assert.equal(passed.find((check) => check.id === "completion-signal")?.passed, true);
+  assert.equal(passed.find((check) => check.id === "foreman-delegation")?.passed, true);
+  assert.match(passed.find((check) => check.id === "foreman-delegation")?.evidence ?? "", /^1 blocked foreman settlement\(s\) from 1 launch\(es\); required 1$/);
+
+  events[2].status = "successful";
+  const failed = processChecks({ events }, completion, definition);
+  assert.equal(failed.find((check) => check.id === "foreman-delegation")?.passed, false);
+  assert.match(failed.find((check) => check.id === "foreman-delegation")?.evidence ?? "", /^0 blocked foreman settlement/);
 });
 
 test("prospective topology checks reject extra roles, successful workers, and graphs without punishing retries", () => {
