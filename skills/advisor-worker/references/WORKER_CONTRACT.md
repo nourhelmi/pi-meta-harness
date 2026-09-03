@@ -32,6 +32,10 @@ The worker owns one bounded node only.
 9. Before the final response, write `result.md` with these headings: Status,
    Claims, Evidence, Files, Decisions, and Remaining Risk. Claims map
    one-to-one to the acceptance criteria, each with its verification evidence.
+   The first line under Status is a signal the parent reads mechanically: end
+   a turn with `IN PROGRESS` only while your own background work or subagents
+   are still running; end your final turn with a terminal status such as
+   `PASS`, `FAIL`, `DONE`, or `BLOCKED`, never `IN PROGRESS`.
 10. The final response is at most 12 lines. Include the result path and which
    criteria passed. An LLM statement is not evidence that a criterion passed.
 11. Write `result.md` early and update it as work continues. It must exist and
