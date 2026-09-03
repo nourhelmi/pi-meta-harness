@@ -70,6 +70,8 @@ test("prospective preparation stages setup resources without leaking credentials
     await mkdir(sourceAgentDir, { recursive: true });
     await writeFile(join(sourceAgentDir, "auth.json"), `${JSON.stringify({ "openai-codex": { type: "oauth", refresh: secret } })}\n`);
     await chmod(join(sourceAgentDir, "auth.json"), 0o600);
+    await mkdir(join(sourceAgentDir, "extensions"), { recursive: true });
+    await writeFile(join(sourceAgentDir, "extensions", "herdr-agent-state.ts"), "// managed by herdr\nexport default function () {}\n");
     await mkdir(sourceCodexHome, { recursive: true });
     await writeFile(join(sourceCodexHome, "auth.json"), `${JSON.stringify({ tokens: { access_token: secret } })}\n`);
     await chmod(join(sourceCodexHome, "auth.json"), 0o600);
@@ -117,6 +119,7 @@ test("prospective preparation stages setup resources without leaking credentials
     assert.match(prepared.manifest.evaluation.fingerprint.value, /^[0-9a-f]{64}$/);
     const stagedSettings = JSON.parse(await readFile(join(prepared.agentDir, "settings.json"), "utf8"));
     assert(stagedSettings.packages.includes(localPiDetach));
+    assert.match(await readFile(join(prepared.agentDir, "extensions", "herdr-agent-state.ts"), "utf8"), /managed by herdr/);
   } finally {
     await rm(temp, { recursive: true, force: true });
   }

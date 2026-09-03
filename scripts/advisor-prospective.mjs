@@ -329,6 +329,14 @@ async function stageCandidateAgentDir(agentDir, profile, sourceAgentDir, piDetac
     const destination = join(agentDir, name);
     if (await exists(source)) await symlink(source, destination, "dir");
   }
+  // Herdr installs its Pi lifecycle integration outside the harness. Without it,
+  // Herdr never observes a staged Pi worker as working or idle and never learns
+  // its session path, so every Pi-hosted worker would settle as stalled.
+  const herdrIntegration = join(sourceAgentDir, "extensions", "herdr-agent-state.ts");
+  if (await exists(herdrIntegration)) {
+    await mkdir(join(agentDir, "extensions"), { recursive: true });
+    await cp(herdrIntegration, join(agentDir, "extensions", "herdr-agent-state.ts"));
+  }
 
   if (piDetachSource) {
     const settingsPath = join(agentDir, "settings.json");

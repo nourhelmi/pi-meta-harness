@@ -167,6 +167,11 @@ flowchart TB
   class D,G,I guard
 ```
 
+The staged Pi agent directory also receives a copy of Herdr's own Pi
+lifecycle integration (`extensions/herdr-agent-state.ts`) from the source agent
+directory when it is installed. Without it, Herdr cannot observe staged Pi
+workers as working or idle, so every Pi-hosted worker would settle as stalled.
+
 The **hidden verifier**, not the model-authored completion signal, decides the
 reward. A run passes only when every check passes, but the result and dashboard
 keep three dimensions separate:
