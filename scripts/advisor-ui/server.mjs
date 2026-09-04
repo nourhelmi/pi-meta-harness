@@ -136,10 +136,15 @@ async function scanProjects() {
 	return projects;
 }
 
+/** @type {{ at: number, promise: ReturnType<typeof scanProjects> | null }} */
 let scanCache = { at: 0, promise: null };
-function cachedProjects() {
+/**
+ * @param {boolean} [force]
+ * @returns {ReturnType<typeof scanProjects>}
+ */
+function cachedProjects(force = false) {
 	const now = Date.now();
-	if (!scanCache.promise || now - scanCache.at > SCAN_TTL_MS) {
+	if (force || !scanCache.promise || now - scanCache.at > SCAN_TTL_MS) {
 		scanCache = { at: now, promise: scanProjects() };
 	}
 	return scanCache.promise;
@@ -147,7 +152,10 @@ function cachedProjects() {
 
 function json(res, status, body) {
 	const payload = JSON.stringify(body);
-	res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
+	res.writeHead(status, {
+		"content-type": "application/json; charset=utf-8",
+		"cache-control": "no-store",
+	});
 	res.end(payload);
 }
 
@@ -192,7 +200,7 @@ const server = createServer(async (req, res) => {
 		}
 
 		if (req.method === "GET" && url.pathname === "/api/state") {
-			const projects = await cachedProjects();
+			const projects = await cachedProjects(url.searchParams.get("refresh") === "1");
 			let sessions = [];
 			let listError = null;
 			if (broker.connected) {

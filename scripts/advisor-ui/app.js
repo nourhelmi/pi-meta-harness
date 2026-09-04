@@ -15,7 +15,9 @@ let showAllRuns = false;
 let renderedGraphKey = null;
 let nodeHistory = loadNodeHistory();
 let graphLibraryCollapsed = window.matchMedia("(max-width: 760px)").matches;
-
+let pollInFlight = false;
+let forcePollQueued = false;
+let pollTimer = null;
 function loadNodeHistory() {
   try {
     return JSON.parse(localStorage.getItem(NODE_HISTORY_KEY) || "{}");
@@ -91,8 +93,80 @@ function agentSessions() {
   return state.sessions.filter((session) => session.id !== state.broker.sessionId && session.model !== "dashboard");
 }
 
-function graphProjects() {
+function persistedGraphProjects() {
   return (state?.projects ?? []).filter((project) => project.graphs.length > 0);
+}
+
+function projectKeyBase(key) {
+  return String(key || "").replace(/-[0-9a-f]{8}$/i, "").toLowerCase();
+}
+
+function findPersistedGraphForSession(session) {
+  const sessionName = normalizedSessionName(session);
+  let best = null;
+  for (const project of persistedGraphProjects()) {
+    for (const graph of project.graphs) {
+      let score = 0;
+      let nodeId = null;
+      if (graph.advisorSessionId === session.id) score += 1000;
+      if (graph.workstream && graph.workstream.toLowerCase() === sessionName) score += 900;
+      if (graph.workstream && sessionName.includes(graph.workstream.toLowerCase())) score += 700;
+      const matchedNode = graph.nodes.find((node) => matchNodeSession(node)?.id === session.id);
+      if (matchedNode) {
+        score += 850;
+        nodeId = matchedNode.id;
+      }
+      if (!score) continue;
+      score += Math.min(100, (graph.mtime || 0) / 1e12);
+      if (!best || score > best.score) best = { project, graph, nodeId, score };
+    }
+  }
+  return best;
+}
+
+function projectForSession(session) {
+  const graphMatch = findPersistedGraphForSession(session);
+  if (graphMatch) return graphMatch.project;
+  const pathParts = String(session.cwd || "").toLowerCase().split("/").filter(Boolean);
+  return persistedGraphProjects()
+    .map((project) => ({ project, base: projectKeyBase(project.key) }))
+    .sort((a, b) => b.base.length - a.base.length)
+    .find(({ base }) => pathParts.some((part) => part === base || part.startsWith(`${base}-`)))?.project || null;
+}
+
+function currentWorkSessions(project) {
+  return agentSessions()
+    .filter((session) => activityTier(session) !== "inactive")
+    .filter((session) => projectForSession(session)?.key === project.key)
+    .filter((session) => !findPersistedGraphForSession(session));
+}
+
+function currentWorkGraph(project) {
+  const sessions = currentWorkSessions(project);
+  if (!sessions.length) return null;
+  const nodes = sessions.map((session) => ({
+    id: `session-${session.id}`,
+    sessionId: session.id,
+    role: "session",
+    task: session.name || session.id.slice(0, 8),
+    worktree: session.cwd,
+  }));
+  return {
+    graphId: "__current-work",
+    label: "Current work",
+    virtual: true,
+    goal: `Active and recent Pi sessions in ${projectKeyBase(project.key)} that are not attached to a saved advisor plan.`,
+    mtime: Math.max(...sessions.map((session) => session.lastActivity || 0)),
+    nodes,
+    waves: [nodes.map((node) => node.id)],
+  };
+}
+
+function graphProjects() {
+  return persistedGraphProjects().map((project) => {
+    const liveGraph = currentWorkGraph(project);
+    return liveGraph ? { ...project, graphs: [liveGraph, ...project.graphs] } : project;
+  });
 }
 
 function pathsRelated(a, b) {
@@ -104,6 +178,7 @@ function pathsRelated(a, b) {
 
 function matchNodeSession(node) {
   const sessions = agentSessions();
+  if (node.sessionId) return sessions.find((session) => session.id === node.sessionId) || null;
   const nodeId = node.id.toLowerCase();
   return sessions.find((session) =>
     session.name && session.name.toLowerCase().includes(nodeId) && pathsRelated(node.worktree, session.cwd)) || null;
@@ -125,26 +200,14 @@ function normalizedSessionName(session) {
 }
 
 function findGraphForSession(session) {
-  const sessionName = normalizedSessionName(session);
-  let best = null;
-  for (const project of graphProjects()) {
-    for (const graph of project.graphs) {
-      let score = 0;
-      let nodeId = null;
-      if (graph.advisorSessionId === session.id) score += 1000;
-      if (graph.workstream && graph.workstream.toLowerCase() === sessionName) score += 900;
-      if (graph.workstream && sessionName.includes(graph.workstream.toLowerCase())) score += 700;
-      const matchedNode = graph.nodes.find((node) => matchNodeSession(node)?.id === session.id);
-      if (matchedNode) {
-        score += 850;
-        nodeId = matchedNode.id;
-      }
-      if (!score) continue;
-      score += Math.min(100, (graph.mtime || 0) / 1e12);
-      if (!best || score > best.score) best = { project, graph, nodeId, score };
-    }
-  }
-  return best;
+  const persistedMatch = findPersistedGraphForSession(session);
+  if (persistedMatch) return persistedMatch;
+  if (activityTier(session) === "inactive") return null;
+  const project = projectForSession(session);
+  if (!project) return null;
+  const graph = currentWorkGraph(project);
+  const node = graph?.nodes.find((item) => item.sessionId === session.id);
+  return graph && node ? { project, graph, nodeId: node.id, score: 100 } : null;
 }
 
 function focusGraphForSession(session) {
@@ -186,7 +249,7 @@ function renderActiveSessions() {
       el("span", { class: "active-agent-copy" },
         el("span", { class: "active-agent-name" }, session.name || session.id.slice(0, 8)),
         el("span", { class: "active-agent-meta" }, graphMatch
-          ? `${graphMatch.graph.graphId} · ${session.status || "idle"}`
+          ? `${graphMatch.graph.label || graphMatch.graph.graphId} · ${session.status || "idle"}`
           : `${session.status || "idle"} · ${projectName(session.cwd)}`)),
       el("span", { class: "active-agent-age" }, humanAge(ageMs(session))));
   });
@@ -243,7 +306,7 @@ function selectGraph(projectKey, graphId) {
 function renderGraphLibrary() {
   const query = $("#graphSearch").value.trim().toLowerCase();
   const groups = graphProjects().map((project) => {
-    const graphs = project.graphs.filter((graph) => `${project.key} ${graph.graphId} ${graph.workstream || ""}`.toLowerCase().includes(query));
+    const graphs = project.graphs.filter((graph) => `${project.key} ${graph.label || graph.graphId} ${graph.workstream || ""}`.toLowerCase().includes(query));
     if (!graphs.length) return null;
     return el("section", { class: "graph-project" },
       el("div", { class: "graph-project-name", title: project.key }, project.key),
@@ -255,13 +318,16 @@ function renderGraphLibrary() {
         let graphState = "planned";
         if (running) graphState = "running";
         else if (complete === graph.nodes.length) graphState = "complete";
+        const waveCount = graph.waves?.length || 1;
+        let graphMeta = `${agentCount} agents · ${waveCount} ${waveCount === 1 ? "wave" : "waves"}`;
+        if (graph.virtual) graphMeta = `${agentCount} ${agentCount === 1 ? "session" : "sessions"} · live`;
         return el("button", {
           class: `graph-nav-item${project.key === selectedProjectKey && graph.graphId === selectedGraphId ? " selected" : ""}`,
           type: "button",
           onclick: () => selectGraph(project.key, graph.graphId),
         },
-        el("span", { class: "graph-nav-title" }, graph.graphId),
-        el("span", { class: "graph-nav-meta" }, `${agentCount} agents · ${graph.waves?.length || 1} ${(graph.waves?.length || 1) === 1 ? "wave" : "waves"}`),
+        el("span", { class: "graph-nav-title" }, graph.label || graph.graphId),
+        el("span", { class: "graph-nav-meta" }, graphMeta),
         el("span", { class: `graph-nav-state ${graphState}`, title: graphState }));
       }));
   }).filter(Boolean);
@@ -390,7 +456,9 @@ function visibleAgentRecordsForNode(project, graph, node, nodeStatus) {
 }
 
 function taskNodeLabel(node, nodeStatus) {
-  return `${node.id}\n${node.role || "worker"} · ${statusLabel(nodeStatus)}`;
+  return node.sessionId
+    ? `${node.task}\n${statusLabel(nodeStatus)}`
+    : `${node.id}\n${node.role || "worker"} · ${statusLabel(nodeStatus)}`;
 }
 
 function agentRecordLabel(record) {
@@ -404,7 +472,7 @@ function standaloneLiveAgents(project, graph) {
   const attachedIds = new Set(graph.nodes.flatMap((node) =>
     agentRecordsForNode(project, graph, node).filter((record) => record.kind === "live").map((record) => record.id)));
   return agentSessions()
-    .filter((session) => activityTier(session) === "active" && !attachedIds.has(session.id))
+    .filter((session) => activityTier(session) === "active" && projectForSession(session)?.key === project.key && !attachedIds.has(session.id))
     .map((session) => {
       const match = findGraphForSession(session);
       const belongsToGraph = match?.project.key === project.key && match?.graph.graphId === graph.graphId;
@@ -499,10 +567,11 @@ function renderGraphHeading() {
   }
   $("#graphEmpty").hidden = true;
   const workstream = project.workstreams.find((item) => item.name === graph.workstream);
-  $("#workstreamStatus").textContent = workstream
-    ? `${workstream.name} · ${workstream.status || "unknown"}`
-    : graph.workstream || "Work graph";
-  $("#graphTitle").textContent = graph.graphId;
+  let workstreamStatus = graph.workstream || "Work graph";
+  if (workstream) workstreamStatus = `${workstream.name} · ${workstream.status || "unknown"}`;
+  if (graph.virtual) workstreamStatus = `${projectKeyBase(project.key)} · live sessions`;
+  $("#workstreamStatus").textContent = workstreamStatus;
+  $("#graphTitle").textContent = graph.label || graph.graphId;
   $("#graphGoal").textContent = graph.goal || "No graph goal recorded.";
 
   const statuses = computeNodeStatuses(project, graph);
@@ -518,10 +587,14 @@ function renderGraphHeading() {
   const rootCount = graph.nodes.filter((node) => !(node.dependsOn || []).length).length;
   const advisorConnections = standaloneAgents.filter((record) => record.relation === "advisor").length * rootCount;
   const connections = dependencyConnections + attachedAgentCount + advisorConnections;
+  const waveCount = graph.waves?.length || 1;
+  const structureLabel = graph.virtual ? `${graph.nodes.length} sessions` : `${graph.nodes.length} nodes`;
+  let activityLabel = `${waveCount} ${waveCount === 1 ? "wave" : "waves"}`;
+  if (graph.virtual) activityLabel = "current activity";
   const stats = [
     el("span", { class: "stat" }, `${agentCount} agents shown`),
-    el("span", { class: "stat" }, `${graph.nodes.length} nodes`),
-    el("span", { class: "stat" }, `${graph.waves?.length || 1} ${(graph.waves?.length || 1) === 1 ? "wave" : "waves"}`),
+    el("span", { class: "stat" }, structureLabel),
+    el("span", { class: "stat" }, activityLabel),
     el("span", { class: "stat" }, `${connections} connections`),
     el("span", { class: `stat${running ? " live" : ""}` }, `${running} running`),
     el("span", { class: "stat" }, `${complete} complete`),
@@ -552,7 +625,7 @@ function cytoscapeElements(project, graph, statuses) {
     const x = waveIndex * 370;
     let cursorY = 104 + (maxWaveHeight - waveHeight(wave)) / 2;
     waveLabels.push({
-      data: { id: `__wave_${waveIndex}`, kind: "wave", label: `Wave ${waveIndex + 1}` },
+      data: { id: `__wave_${waveIndex}`, kind: "wave", label: graph.virtual ? "Current sessions" : `Wave ${waveIndex + 1}` },
       position: { x, y: 22 },
       selectable: false,
       grabbable: false,
@@ -1127,19 +1200,49 @@ function render() {
   if ($("#sessionDrawer").classList.contains("open")) renderSessionGroups();
 }
 
-async function poll() {
+function schedulePoll(delay = POLL_MS, force = false) {
+  window.clearTimeout(pollTimer);
+  pollTimer = window.setTimeout(() => void poll(force), delay);
+}
+
+function requestRefresh() {
+  if (pollInFlight) {
+    forcePollQueued = true;
+    return;
+  }
+  window.clearTimeout(pollTimer);
+  void poll(true);
+}
+
+async function poll(force = false) {
+  if (pollInFlight) {
+    forcePollQueued ||= force;
+    return;
+  }
+
+  pollInFlight = true;
+  window.clearTimeout(pollTimer);
   try {
-    const response = await fetch("/api/state");
+    const response = await fetch(force ? "/api/state?refresh=1" : "/api/state", { cache: "no-store" });
     if (!response.ok) throw new Error(`State request failed (${response.status})`);
     state = await response.json();
-    render();
-  } catch (error) {
+    try {
+      render();
+    } catch (error) {
+      console.error("Advisor UI render failed", error);
+    }
+  } catch {
     if (!state) {
       state = { now: Date.now(), broker: { connected: false }, sessions: [], projects: [], events: [] };
     } else {
       state.broker.connected = false;
     }
     renderConnection();
+  } finally {
+    pollInFlight = false;
+    const runForcedPoll = forcePollQueued;
+    forcePollQueued = false;
+    schedulePoll(runForcedPoll ? 0 : POLL_MS, runForcedPoll);
   }
 }
 
@@ -1173,5 +1276,10 @@ $("#messageForm").addEventListener("submit", sendMessage);
 window.addEventListener("keydown", (event) => { if (event.key === "Escape") closeDrawers(); });
 window.addEventListener("resize", () => cy?.resize());
 
-poll();
-setInterval(poll, POLL_MS);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") requestRefresh();
+});
+window.addEventListener("focus", requestRefresh);
+window.addEventListener("pageshow", requestRefresh);
+window.addEventListener("online", requestRefresh);
+requestRefresh();
