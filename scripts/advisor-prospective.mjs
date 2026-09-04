@@ -177,6 +177,7 @@ function validateTopologyPolicy(topology) {
   for (const [field, label] of [
     ["maximumSuccessfulWorkers", "maximumSuccessfulWorkers"],
     ["maximumGraphPlans", "maximumGraphPlans"],
+    ["maximumUserQuestions", "maximumUserQuestions"],
   ]) {
     if (topology[field] !== undefined && (!Number.isInteger(topology[field]) || topology[field] < 0 || topology[field] > 24)) {
       throw new Error(`Prospective topology ${label} must be an integer from 0 through 24`);
@@ -649,6 +650,20 @@ function topologyChecks(normalized, topology) {
       evidence: hasTrace
         ? `${graphPlans} graph plan(s); maximum ${topology.maximumGraphPlans}`
         : "root trajectory unavailable for graph-budget evaluation",
+    });
+  }
+
+  if (topology.maximumUserQuestions !== undefined) {
+    // A hermetic run has no user to answer, so a question can only stall the run;
+    // a case that budgets zero questions is asserting the packet already settles
+    // every material decision and the advisor should proceed on evidence.
+    const questions = events.filter((event) => event.kind === "tool_call" && event.toolName === "ask_user_question").length;
+    checks.push({
+      id: "orchestration-user-question-budget",
+      passed: hasTrace && questions <= topology.maximumUserQuestions,
+      evidence: hasTrace
+        ? `${questions} user question(s); maximum ${topology.maximumUserQuestions}`
+        : "root trajectory unavailable for user-question-budget evaluation",
     });
   }
 

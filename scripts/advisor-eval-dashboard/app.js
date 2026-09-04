@@ -151,6 +151,8 @@ function selectEvidence(key) {
     ["Measurement/control", dimensionSummary(artifact.result, "measurement")],
     ["Events", diagnostics.events],
     ["Wall time", duration(diagnostics.elapsed?.wallElapsedMs)],
+    ["Active time", duration(diagnostics.elapsed?.activeElapsedMs)],
+    ["Blocked on user", diagnostics.elapsed?.blockedOnUserMs ? duration(diagnostics.elapsed.blockedOnUserMs) : "—"],
     ["Role launches", Object.entries(diagnostics.roleLaunches ?? {}).map(([role, count]) => `${role} ${count}`).join(" · ") || "—"],
     ["Useful width", artifact.result?.parallelism ? `${artifact.result.parallelism.observedUsefulWidth}/${artifact.result.parallelism.expectedMaxUsefulWidth} · ${artifact.result.parallelism.status}` : "—"],
   ];
@@ -219,6 +221,7 @@ function renderRuler(comparison) {
     ["Useful width", comparison.process.parallelism?.before ? `${comparison.process.parallelism.before.observedUsefulWidth}/${comparison.process.parallelism.before.expectedMaxUsefulWidth}` : "—", comparison.process.parallelism?.after ? `${comparison.process.parallelism.after.observedUsefulWidth}/${comparison.process.parallelism.after.expectedMaxUsefulWidth}` : "—"],
     ["Wall time", duration(comparison.process.wallElapsedMs.before), duration(comparison.process.wallElapsedMs.after)],
     ["Active time", duration(comparison.process.activeElapsedMs.before), duration(comparison.process.activeElapsedMs.after)],
+    ["Blocked on user", duration(comparison.process.blockedOnUserMs?.before ?? 0), duration(comparison.process.blockedOnUserMs?.after ?? 0)],
   ];
   const grid = node("div", { className: "ruler-grid" },
     node("div", { className: "ruler-label" }, "Measure"),

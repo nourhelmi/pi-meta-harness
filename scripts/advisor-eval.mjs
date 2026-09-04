@@ -3,7 +3,7 @@
 import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { analyzeTrace, normalizeSession, parseJsonl } from "./advisor-eval-lib.mjs";
+import { analyzeTrace, normalizeSession, parseJsonl, validateFixture } from "./advisor-eval-lib.mjs";
 import { createHarborTask } from "./advisor-harbor-lib.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -15,6 +15,7 @@ Usage:
   node scripts/advisor-eval.mjs ingest <session.jsonl> [--output <file>]
   node scripts/advisor-eval.mjs analyze <trace.json|session.jsonl> [--output <file>]
   node scripts/advisor-eval.mjs harbor-task <fixture.json> [--trace <trace.json|session.jsonl>] [--output <directory>]
+  node scripts/advisor-eval.mjs baseline <fixture.json> [--trace <trace.json|session.jsonl>] [--output <file>]
 
 Real trace ingestion defaults to evals/local/, which is gitignored. Raw message bodies,
 summaries, raw tool payloads, and identity strings are never copied. Identity-like fields
@@ -146,6 +147,26 @@ export async function runCli(argv) {
     const normalized = await loadTrace(tracePath);
     const task = createHarborTask(fixture, normalized);
     await writeHarborTask(task, options.output ?? defaultHarborOutput(fixture));
+    return;
+  }
+
+  if (options.command === "baseline") {
+    // Regenerates a committed case's deterministic baseline report so a metric
+    // change can be reviewed as a diff instead of hand-edited into JSON.
+    requireAllowedOptions(options, ["output", "trace"]);
+    requirePositionals(options, 1, "baseline <fixture.json>");
+    const fixturePath = resolve(options.positional[0]);
+    const fixture = await readJson(fixturePath, "fixture");
+    const traceName = options.trace ?? fixture.trace ?? "trace.jsonl";
+    const normalized = await loadTrace(resolve(dirname(fixturePath), traceName));
+    const report = {
+      schemaVersion: 1,
+      caseId: fixture.id,
+      generatedFrom: [traceName, relative(dirname(fixturePath), fixturePath) || "fixture.json"],
+      fixtureValidation: validateFixture(fixture, normalized),
+      metrics: analyzeTrace(normalized),
+    };
+    await emitJson(report, options.output ?? join(dirname(fixturePath), "baseline-report.json"));
     return;
   }
 

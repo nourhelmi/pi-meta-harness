@@ -262,6 +262,7 @@
           "role": "browser-verifier",
           "modelAlias": "m_f0cee4a5145b0fa253064d1b93452bd7",
           "status": "failed",
+          "failureKind": "tool-error",
           "startedAt": "2026-01-15T09:09:00.000Z",
           "endedAt": "2026-01-15T09:12:00.000Z"
         }

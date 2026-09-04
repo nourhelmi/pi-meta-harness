@@ -464,6 +464,38 @@ test("adaptive delivery case preserves the reviewed positive trace and baseline"
   assert.equal(fixture.checkpoints.length, 7);
 });
 
+test("scope inflation case preserves the reviewed negative process trace, baseline, and Harbor task", async () => {
+  const caseDir = join(ROOT, "evals", "cases", "scope-inflation-after-diagnosis");
+  const harborDir = join(ROOT, "evals", "harbor", "scope-inflation-after-diagnosis");
+  const { fixture, normalized } = await caseInputs(caseDir, "trace.json");
+  const baseline = JSON.parse(await readFile(join(caseDir, "baseline-report.json"), "utf8"));
+  assert.deepEqual(validateFixture(fixture, normalized), { valid: true, errors: [] });
+  assert.deepEqual(analyzeTrace(normalized), baseline.metrics);
+  assert.equal(normalized.events.length, 298);
+  assert.equal(normalized.source.textPolicy, "categorical-only");
+  assert.equal(fixture.checkpoints.length, 5);
+  // The process signature this case exists to expose, as the analyzer now reports it.
+  assert.equal(baseline.metrics.userWait.questions, 1);
+  assert.equal(baseline.metrics.userWait.answered, 1);
+  assert(baseline.metrics.elapsed.blockedOnUserMs > 90 * 60 * 1000, "the modal question blocked for over ninety minutes");
+  assert(baseline.metrics.elapsed.activeElapsedMs < baseline.metrics.elapsed.wallElapsedMs - baseline.metrics.elapsed.blockedOnUserMs);
+  assert.equal(baseline.metrics.workers.artifactInvalidLaunches, 2);
+  assert.equal(baseline.metrics.workers.artifactRepairs, 2);
+  assert.equal(baseline.metrics.workers.substantiveFailedLaunches, 0);
+  assert.equal(baseline.metrics.workers.recoveredWorkers, 0);
+  assert.equal(baseline.metrics.workers.recoveryRatio, null);
+  assert.deepEqual(baseline.metrics.workers.successfulByRole, { scout: 1, builder: 2, checker: 2 });
+
+  const task = createHarborTask(fixture, normalized);
+  for (const [relativePath, contents] of Object.entries(task.files)) {
+    assert.equal(await readFile(join(harborDir, relativePath), "utf8"), contents, relativePath);
+  }
+  const serialized = JSON.stringify(task.files) + JSON.stringify(normalized) + JSON.stringify(baseline);
+  for (const forbidden of ["01a06bc3", "/Users/", "ai_tutor", "stride", "bitbucket", "MathRenderer", "WelcomePanel"]) {
+    assert(!serialized.includes(forbidden), forbidden);
+  }
+});
+
 test("generic calibration cases validate, match baselines, and stay Harbor-synchronized", async () => {
   for (const expected of CALIBRATION_CASES) {
     const caseDir = join(ROOT, "evals", "cases", expected.id);
@@ -650,4 +682,89 @@ test("CLI prepares Harbor tasks and rejects retired evaluation commands", async 
   assert(!defaultIngest.stdout.includes("proprietary-session-name"));
   await rm(defaultOutput, { force: true });
   await rm(temp, { recursive: true, force: true });
+});
+
+test("Regression: time blocked on a user question is reported separately and excluded from active time", () => {
+  // Failure mode: a modal question that waited over an hour was capped to five
+  // minutes of "active" time, so a session that stalled on the user looked busy.
+  const askedAt = "2026-01-01T00:00:10.000Z";
+  const answeredAt = "2026-01-01T01:34:10.000Z";
+  const normalized = normalizeSession([
+    { type: "session", timestamp: "2026-01-01T00:00:00.000Z" },
+    assistantEntry([{ type: "toolCall", id: "ask-1", name: "ask_user_question", arguments: { questions: [{ question: "private?" }] } }], askedAt),
+    {
+      type: "message",
+      timestamp: answeredAt,
+      message: {
+        role: "toolResult",
+        toolCallId: "ask-1",
+        toolName: "ask_user_question",
+        isError: false,
+        timestamp: answeredAt,
+        content: [{ type: "text", text: "User has answered: private answer body" }],
+      },
+    },
+    assistantEntry([{ type: "toolCall", id: "read-1", name: "read", arguments: { path: "x" } }], "2026-01-01T01:34:20.000Z"),
+  ]);
+  const answer = normalized.events.find((event) => event.kind === "user_answer");
+  assert.equal(answer?.toolName, "ask_user_question");
+  assert(!JSON.stringify(normalized).includes("private answer body"));
+  const metrics = analyzeTrace(normalized);
+  assert.equal(metrics.userWait.questions, 1);
+  assert.equal(metrics.userWait.answered, 1);
+  assert.equal(metrics.userWait.blockedOnUserMs, 94 * 60 * 1000);
+  assert.equal(metrics.elapsed.blockedOnUserMs, 94 * 60 * 1000);
+  assert.equal(metrics.elapsed.activeElapsedMs, 10_000 + 10_000);
+  assert.equal(metrics.elapsed.wallElapsedMs, 94 * 60 * 1000 + 20_000);
+});
+
+test("Regression: an invalid-artifact settlement is an artifact repair, not a recovered failure", () => {
+  // Failure mode: a finished worker whose result.md failed heading validation
+  // settled as stalled; its one-line repair relaunch then scored as a recovery
+  // from a failed launch, which made report-format noise look like resilience.
+  const call = workerCall("builder-call", "ignored", { role: "builder", label: "fix output" });
+  const promoted = resultEntry("builder-call", "running");
+  promoted.message.details.agentName = "builder-fix-output-abc123";
+  const repair = workerCall("repair-call", "builder-fix-output-abc123", { role: undefined, label: "repair builder result" });
+  delete repair.arguments.role;
+  const normalized = normalizeSession([
+    assistantEntry([call]),
+    promoted,
+    {
+      type: "custom_message",
+      customType: "detach_agent_settled",
+      timestamp: "2026-01-01T00:00:03.000Z",
+      content: "[detach] agent abc123 · builder · fix output settled as stalled — required result artifact is invalid: /private/result.md has empty sections: Claims\n(worker log mentioned a request timeout earlier)",
+      details: { agentName: "builder-fix-output-abc123", agentState: "stalled" },
+    },
+    assistantEntry([repair], "2026-01-01T00:00:04.000Z"),
+    resultEntry("repair-call", "done", "2026-01-01T00:00:05.000Z"),
+  ]);
+  const settlement = normalized.events.find((event) => event.kind === "worker_status");
+  assert.equal(settlement?.status, "failed");
+  assert.equal(settlement?.failureKind, "artifact-invalid", "the driver's settlement note wins over incidental timeout words");
+  assert(!JSON.stringify(normalized).includes("/private/result.md"));
+  const metrics = analyzeTrace(normalized);
+  assert.equal(metrics.workers.launches, 2);
+  assert.equal(metrics.workers.failedLaunches, 1);
+  assert.equal(metrics.workers.artifactInvalidLaunches, 1);
+  assert.equal(metrics.workers.substantiveFailedLaunches, 0);
+  assert.equal(metrics.workers.resumedLaunches, 1);
+  assert.equal(metrics.workers.artifactRepairs, 1);
+  assert.equal(metrics.workers.artifactRepairedWorkers, 1);
+  assert.equal(metrics.workers.artifactRepairRatio, 1);
+  assert.equal(metrics.workers.recoveredWorkers, 0);
+  assert.equal(metrics.workers.recoveryRatio, null);
+});
+
+test("CLI baseline command regenerates a committed case report byte-for-byte", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "advisor-eval-baseline-"));
+  try {
+    const output = join(temp, "baseline-report.json");
+    const result = run("baseline", join(CASE_DIR, "fixture.json"), "--output", output);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(await readFile(output, "utf8"), await readFile(join(CASE_DIR, "baseline-report.json"), "utf8"));
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
 });

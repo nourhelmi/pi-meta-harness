@@ -305,6 +305,7 @@ test("prospective topology checks reject extra roles, successful workers, and gr
         allowedRoles: ["builder"],
         maximumSuccessfulWorkers: 1,
         maximumGraphPlans: 0,
+        maximumUserQuestions: 0,
       },
     },
   };
@@ -321,16 +322,20 @@ test("prospective topology checks reject extra roles, successful workers, and gr
   assert.equal(retryPass.find((check) => check.id === "orchestration-allowed-roles")?.passed, true);
   assert.equal(retryPass.find((check) => check.id === "orchestration-successful-worker-budget")?.passed, true);
   assert.equal(retryPass.find((check) => check.id === "orchestration-graph-budget")?.passed, true);
+  assert.equal(retryPass.find((check) => check.id === "orchestration-user-question-budget")?.passed, true);
 
   trace.events.push(
     { kind: "worker_launch", role: "checker", workerAlias: "worker-2", attemptAlias: "attempt-3" },
     { kind: "worker_status", role: "checker", workerAlias: "worker-2", attemptAlias: "attempt-3", status: "successful" },
     { kind: "graph_plan", nodeCount: 1, waves: [] },
+    { kind: "tool_call", toolName: "ask_user_question" },
   );
   const topologyFailed = processChecks(trace, completion, definition);
   assert.equal(topologyFailed.find((check) => check.id === "orchestration-allowed-roles")?.passed, false);
   assert.equal(topologyFailed.find((check) => check.id === "orchestration-successful-worker-budget")?.passed, false);
   assert.equal(topologyFailed.find((check) => check.id === "orchestration-graph-budget")?.passed, false);
+  assert.equal(topologyFailed.find((check) => check.id === "orchestration-user-question-budget")?.passed, false);
+  assert.match(topologyFailed.find((check) => check.id === "orchestration-user-question-budget")?.evidence ?? "", /1 user question\(s\); maximum 0/);
 });
 
 test("prospective topology checks require maker settlement before checker launch", () => {

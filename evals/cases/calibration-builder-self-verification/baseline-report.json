@@ -14,26 +14,37 @@
     "diagnosticOnly": true,
     "limitations": [
       "Trace metrics describe observable events; they do not prove outcome quality or prescribe an orchestration workflow.",
-      "Active elapsed time caps each inter-event gap at five minutes and is only a workload proxy.",
+      "Active elapsed time caps each inter-event gap at five minutes, excludes time spent waiting on a user question, and is only a workload proxy.",
       "Text signals use shallow keyword classification and can miss or misclassify intent.",
       "Near-duplicate relationships are heuristic and require human review."
     ],
     "elapsed": {
       "wallElapsedMs": 3000,
       "activeElapsedMs": 3000,
+      "blockedOnUserMs": 0,
       "interEventGapCapMs": 300000
     },
     "toolUsage": {
       "advisor_graph_plan": 1,
       "bg_agent": 1
     },
+    "userWait": {
+      "questions": 0,
+      "answered": 0,
+      "blockedOnUserMs": 0
+    },
     "workers": {
       "launches": 1,
       "successfulByRole": {},
       "failedLaunches": 1,
+      "substantiveFailedLaunches": 1,
+      "artifactInvalidLaunches": 0,
       "resumedLaunches": 0,
+      "artifactRepairs": 0,
+      "artifactRepairedWorkers": 0,
       "recoveredWorkers": 0,
-      "recoveryRatio": 0
+      "recoveryRatio": 0,
+      "artifactRepairRatio": null
     },
     "graphs": {
       "count": 1,

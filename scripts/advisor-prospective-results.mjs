@@ -471,6 +471,7 @@ export function compareProspectiveArtifacts(left, right) {
       launches: { before: left.diagnostics?.launches, after: right.diagnostics?.launches, delta: numericDelta(left.diagnostics?.launches, right.diagnostics?.launches) },
       wallElapsedMs: { before: leftElapsed.wallElapsedMs, after: rightElapsed.wallElapsedMs, delta: numericDelta(leftElapsed.wallElapsedMs, rightElapsed.wallElapsedMs) },
       activeElapsedMs: { before: leftElapsed.activeElapsedMs, after: rightElapsed.activeElapsedMs, delta: numericDelta(leftElapsed.activeElapsedMs, rightElapsed.activeElapsedMs) },
+      blockedOnUserMs: { before: leftElapsed.blockedOnUserMs ?? 0, after: rightElapsed.blockedOnUserMs ?? 0, delta: numericDelta(leftElapsed.blockedOnUserMs ?? 0, rightElapsed.blockedOnUserMs ?? 0) },
       roleLaunches: { before: left.diagnostics?.roleLaunches ?? {}, after: right.diagnostics?.roleLaunches ?? {} },
       parallelism: {
         before: left.result.parallelism ?? left.diagnostics?.parallelism,
@@ -508,6 +509,7 @@ export function comparisonMarkdown(comparison) {
     `- Worker launches: ${comparison.process.launches.before ?? "—"} → ${comparison.process.launches.after ?? "—"} (${comparison.process.launches.delta ?? "—"})`,
     `- Useful width: ${comparison.process.parallelism.before?.observedUsefulWidth ?? "—"}/${comparison.process.parallelism.before?.expectedMaxUsefulWidth ?? "—"} → ${comparison.process.parallelism.after?.observedUsefulWidth ?? "—"}/${comparison.process.parallelism.after?.expectedMaxUsefulWidth ?? "—"}`,
     `- Wall time: ${comparison.process.wallElapsedMs.before ?? "—"} ms → ${comparison.process.wallElapsedMs.after ?? "—"} ms (${comparison.process.wallElapsedMs.delta ?? "—"} ms)`,
+    `- Blocked on user: ${comparison.process.blockedOnUserMs?.before ?? 0} ms → ${comparison.process.blockedOnUserMs?.after ?? 0} ms (${comparison.process.blockedOnUserMs?.delta ?? "—"} ms)`,
     "",
     "> Process deltas are diagnostic. They do not override deterministic task checks.",
   ];

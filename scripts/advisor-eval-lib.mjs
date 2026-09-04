@@ -84,6 +84,7 @@ const ALLOWED_EVENT_KINDS = new Set([
   "worker_status",
   "tool_call",
   "tool_error",
+  "user_answer",
 ]);
 const ALLOWED_STATUSES = new Set([
   "requested",
@@ -242,12 +243,15 @@ function safeToolName(value) {
 
 function workerFailureKind(message) {
   const text = messageText(message).toLowerCase();
+  // The driver's own settlement note is the most specific signal and wins over
+  // incidental words in the pane tail (a worker log that mentions a timeout must
+  // not reclassify an invalid-artifact settlement).
+  if (text.includes("required result artifact")) return "artifact-invalid";
   if (text.includes("blocked during startup") || text.includes("not ready for prompts")) return "startup-blocked";
   if (text.includes("usage limit") || text.includes("rate limit") || text.includes("quota")) return "quota";
   if (text.includes("oauth") || text.includes("authentication") || text.includes("login")) return "authentication";
   if (text.includes("unsupported model") || text.includes("model unavailable") || text.includes("model not found")) return "model-unavailable";
   if (text.includes("timed out") || text.includes("timeout")) return "timeout";
-  if (text.includes("required result artifact")) return "artifact-invalid";
   if (text.includes("no live herdr agent") || text.includes("agent not found")) return "worker-missing";
   if (text.includes("failed to start") || text.includes("agent start failed")) return "startup-failed";
   return "tool-error";
@@ -549,6 +553,7 @@ export function normalizeSession(entries) {
       let fallbackRaw = `unknown-settlement-${sourceIndex}`;
       if (typeof details.agentName === "string") fallbackRaw = details.agentName;
       else if (typeof details.label === "string") fallbackRaw = details.label;
+      const settlementStatus = normalizedStatus(details.agentState ?? details.status);
       add(entry, {
         kind: "worker_status",
         toolName: "bg_agent",
@@ -556,7 +561,10 @@ export function normalizeSession(entries) {
         attemptAlias: linked?.attemptAlias ?? alias("attempt", `settlement-${sourceIndex}-${fallbackRaw}`),
         ...(linked?.role ? { role: linked.role } : {}),
         ...(linked?.modelAlias ? { modelAlias: linked.modelAlias } : {}),
-        status: normalizedStatus(details.agentState ?? details.status),
+        status: settlementStatus,
+        // The notice text is inspected transiently for a closed failure category
+        // (e.g. an invalid result artifact after real work) and never retained.
+        ...(settlementStatus === "failed" ? { failureKind: workerFailureKind(entry) } : {}),
         startedAt: timestampOf({ timestamp: details.startedAt }),
         endedAt: timestampOf({ timestamp: details.endedAt }),
       });
@@ -642,6 +650,10 @@ export function normalizeSession(entries) {
           toolName: safeToolName(message.toolName ?? linked?.toolName),
           status: "failed",
         });
+      } else if ((message.toolName ?? linked?.toolName) === "ask_user_question") {
+        // The answer arrival closes the user-wait window opened by the question
+        // call; only its timing is retained, never the question or the answer.
+        add(entry, { kind: "user_answer", toolName: "ask_user_question", status: "successful" });
       }
     }
   }
@@ -813,14 +825,55 @@ function resolvedAttemptStatus(updates) {
   return selected;
 }
 
+/** The failure category of the update that decided a failed attempt, else undefined. */
+function resolvedAttemptFailureKind(updates) {
+  let selected;
+  let priority = 0;
+  for (const update of updates) {
+    if (update.status !== "failed") continue;
+    const nextPriority = update.kind === "worker_status" ? 2 : 1;
+    if (nextPriority >= priority) {
+      selected = update.failureKind;
+      priority = nextPriority;
+    }
+  }
+  return selected;
+}
+
 export function analyzeTrace(normalized) {
   assertNormalizedTrace(normalized);
   const events = normalized.events;
-  const times = events.map((event) => Date.parse(event.timestamp)).filter(Number.isFinite).sort((a, b) => a - b);
-  let activeElapsedMs = 0;
-  for (let index = 1; index < times.length; index += 1) {
-    activeElapsedMs += Math.min(times[index] - times[index - 1], ACTIVE_GAP_LIMIT_MS);
+  const timeline = events
+    .map((event) => ({ event, at: Date.parse(event.timestamp) }))
+    .filter((entry) => Number.isFinite(entry.at))
+    .sort((left, right) => left.at - right.at);
+  const times = timeline.map((entry) => entry.at);
+
+  // A question to the user opens a wait window that closes at the answer (or at
+  // the next user message when the user replied in chat instead). Gaps inside a
+  // window are user latency, not advisor work, so they are reported separately
+  // and never folded into active time; other gaps keep the five-minute cap.
+  const userWaitWindows = [];
+  let openQuestionAt;
+  for (const { event, at } of timeline) {
+    if (event.kind === "tool_call" && event.toolName === "ask_user_question") {
+      if (openQuestionAt === undefined) openQuestionAt = at;
+      continue;
+    }
+    if (openQuestionAt !== undefined && (event.kind === "user_answer" || event.kind === "user_message" || event.kind === "user_intervention")) {
+      userWaitWindows.push({ from: openQuestionAt, to: at, answered: event.kind === "user_answer" });
+      openQuestionAt = undefined;
+    }
   }
+  const withinUserWait = (at) => userWaitWindows.some((window) => at >= window.from && at < window.to);
+  let activeElapsedMs = 0;
+  let blockedOnUserMs = 0;
+  for (let index = 1; index < times.length; index += 1) {
+    const gap = times[index] - times[index - 1];
+    if (withinUserWait(times[index - 1])) blockedOnUserMs += gap;
+    else activeElapsedMs += Math.min(gap, ACTIVE_GAP_LIMIT_MS);
+  }
+  const userQuestions = events.filter((event) => event.kind === "tool_call" && event.toolName === "ask_user_question").length;
 
   const launches = events.filter((event) => event.kind === "worker_launch");
   const updatesByAttempt = Object.groupBy(
@@ -834,16 +887,33 @@ export function analyzeTrace(normalized) {
     role: event.role,
     action: event.action,
     status: resolvedAttemptStatus(updatesByAttempt[event.attemptAlias] ?? []),
+    failureKind: resolvedAttemptFailureKind(updatesByAttempt[event.attemptAlias] ?? []),
   }));
   const successfulByRole = {};
   for (const attempt of attempts.filter((value) => value.status === "successful")) {
     successfulByRole[attempt.role] = (successfulByRole[attempt.role] ?? 0) + 1;
   }
-  const failedWorkers = new Set(attempts.filter((attempt) => attempt.status === "failed").map((attempt) => attempt.workerAlias));
+  // An invalid result artifact after real work is a report-format problem, not a
+  // failed worker. Its follow-up is an artifact repair and must not read as a
+  // recovery from a substantive failure, or format noise would look like resilience.
+  const failedAttempts = attempts.filter((attempt) => attempt.status === "failed");
+  const artifactInvalidAttempts = failedAttempts.filter((attempt) => attempt.failureKind === "artifact-invalid");
+  const substantiveFailedAttempts = failedAttempts.filter((attempt) => attempt.failureKind !== "artifact-invalid");
+  const failedWorkers = new Set(substantiveFailedAttempts.map((attempt) => attempt.workerAlias));
+  const artifactInvalidWorkers = new Set(artifactInvalidAttempts.map((attempt) => attempt.workerAlias));
   const recoveredWorkers = new Set(
     attempts
       .filter((attempt) => attempt.action === "resume" && attempt.status === "successful" && failedWorkers.has(attempt.workerAlias))
       .map((attempt) => attempt.workerAlias),
+  );
+  const artifactRepairs = attempts.filter((attempt, index) =>
+    attempt.action === "resume"
+    && attempts.slice(0, index).some((prior) =>
+      prior.workerAlias === attempt.workerAlias && prior.status === "failed" && prior.failureKind === "artifact-invalid"
+    )
+  );
+  const artifactRepairedWorkers = new Set(
+    artifactRepairs.filter((attempt) => attempt.status === "successful").map((attempt) => attempt.workerAlias),
   );
 
   const graphs = events.filter((event) => event.kind === "graph_plan");
@@ -862,23 +932,34 @@ export function analyzeTrace(normalized) {
     diagnosticOnly: true,
     limitations: [
       "Trace metrics describe observable events; they do not prove outcome quality or prescribe an orchestration workflow.",
-      "Active elapsed time caps each inter-event gap at five minutes and is only a workload proxy.",
+      "Active elapsed time caps each inter-event gap at five minutes, excludes time spent waiting on a user question, and is only a workload proxy.",
       "Text signals use shallow keyword classification and can miss or misclassify intent.",
       "Near-duplicate relationships are heuristic and require human review.",
     ],
     elapsed: {
       wallElapsedMs: times.length > 1 ? times.at(-1) - times[0] : 0,
       activeElapsedMs,
+      blockedOnUserMs,
       interEventGapCapMs: ACTIVE_GAP_LIMIT_MS,
     },
     toolUsage,
+    userWait: {
+      questions: userQuestions,
+      answered: userWaitWindows.filter((window) => window.answered).length,
+      blockedOnUserMs,
+    },
     workers: {
       launches: attempts.length,
       successfulByRole,
-      failedLaunches: attempts.filter((attempt) => attempt.status === "failed").length,
+      failedLaunches: failedAttempts.length,
+      substantiveFailedLaunches: substantiveFailedAttempts.length,
+      artifactInvalidLaunches: artifactInvalidAttempts.length,
       resumedLaunches: attempts.filter((attempt) => attempt.action === "resume").length,
+      artifactRepairs: artifactRepairs.length,
+      artifactRepairedWorkers: artifactRepairedWorkers.size,
       recoveredWorkers: recoveredWorkers.size,
       recoveryRatio: failedWorkers.size ? recoveredWorkers.size / failedWorkers.size : null,
+      artifactRepairRatio: artifactInvalidWorkers.size ? artifactRepairedWorkers.size / artifactInvalidWorkers.size : null,
     },
     graphs: {
       count: graphs.length,
