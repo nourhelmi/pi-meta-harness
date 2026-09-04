@@ -67,7 +67,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   for (const model of removedModels) assert(!settings.enabledModels.includes(model));
   assert(!settings.enabledModels.includes("claude-bridge/claude-fable-5"));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@d24b6182ce637ed137484f91d88c78ec0fb0c353"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@19e5f3af9bffcffdff7e79f3e7f653813396fcb3"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@^0.1.4"));
   assert(packageSources.includes("npm:pi-better-edit@^1.4.3"));
   assert(packageSources.includes("npm:pi-claude-agent-sdk@^0.8.6"));
