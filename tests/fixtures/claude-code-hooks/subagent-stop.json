@@ -1,0 +1,14 @@
+{
+  "session_id": "session-recorded-001",
+  "transcript_path": "/Users/example/.claude/projects/example/session-recorded-001.jsonl",
+  "cwd": "/Users/example/Dev/example-repo",
+  "permission_mode": "default",
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_id": "agent-recorded-001",
+  "agent_type": "advisor-maker",
+  "agent_transcript_path": "/Users/example/.claude/projects/example/session-recorded-001/subagents/agent-agent-recorded-001.jsonl",
+  "last_assistant_message": "Wrote the required result artifact.",
+  "background_tasks": [],
+  "session_crons": []
+}

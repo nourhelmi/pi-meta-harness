@@ -175,6 +175,84 @@ Name-based `bg_agent` follow-up is intentionally limited in v1: even when it
 reuses a live native agent name, it creates a new run and worker node rather
 than resuming the prior canonical run.
 
+## Claude Code host binding
+
+Claude Code is a second v1 execution host for exactly one maker per canonical
+run. It uses the native `Agent` tool and a custom subagent whose frontmatter
+name is `advisor-maker`. The standalone plain-Node binding is
+[`../scripts/claude-advisor-trace.mjs`](../scripts/claude-advisor-trace.mjs).
+It never blocks a hook, changes tool input, grants permission, or treats the
+worker's final chat message as a durable result.
+
+The shipped hook snippet defines exactly these command hooks:
+
+| Hook | Matcher | Canonical action |
+| --- | --- | --- |
+| `PreToolUse` | `Agent` | Record the pending `tool_use_id`, launch prompt, description, subagent type, requested model, session, and cwd. Emit no trace yet. |
+| `SubagentStart` | `advisor-maker` | Allocate the session launch ordinal, reserve the result path, lazily append `run.created` and `node.launched`, and return the path through `hookSpecificOutput.additionalContext`. |
+| `SubagentStop` | `advisor-maker` | Inspect the reserved artifact, append `node.blocked` for a valid BLOCKED result, append result-written and validation events for a nonempty artifact, and settle from Core validation. |
+| `PostToolUse` | `Agent` | For a foreground `status: "completed"` result, compare `tool_response.agentId` with the start `agent_id`, record any mismatch outside the trace, and append the parent wake after settlement. |
+| `PostToolUseFailure` | `Agent` | Settle an unsettled launched child as failed and wake its parent. |
+
+`run.created` is deliberately lazy: an ordinary Claude Code session, and even
+an ordinary `Agent` call, has no canonical run until an `advisor-maker`
+`SubagentStart` arrives. The run id is
+`cc-<first 16 hex of sha256(session_id)>-<launch ordinal>`. The worker id is
+`advisor-maker-<first 16 hex of sha256(agent_id)>`; its logical parent is the
+`advisor` root and `root.session` is the original `session_id`. Every event has
+host `claude-code`, and the launch has harness `claude-code`. Pending launch,
+ordinal, agent, and tool-use correlation files live under
+`<stateRoot>/hosts/claude-code/<session_id>/`. Per-session and per-trace lock
+files serialize updates, and replayed payloads append no duplicate event.
+
+Launch packet fields come from the `Agent` prompt and documented hook fields:
+
+- `riskTier` parses `RISK TIER` followed by low, standard, or high,
+  case-insensitively, and defaults to `high`;
+- `acceptance` is the `- ` bullets or numbered lines under an
+  `ACCEPTANCE CRITERIA` block, or
+  `result.md validates with the six required headings` when absent;
+- `model` is `tool_input.model` when present. When it is absent at launch the
+  append-only launch event records `unknown`; a later foreground wake may
+  expose `tool_response.resolvedModel`, but cannot rewrite the launch event;
+- `thinking` is `unspecified`, `label` is `tool_input.description`, `cwd` is
+  the launch hook cwd, and `workstream` is `ADVISOR_WORKSTREAM` or
+  `claude-code`.
+
+The binding reserves
+`<stateRoot>/runs/claude-code/<runId>/result.md` empty before launch context is
+returned. A nonempty artifact must pass the same six-heading and Status-line
+rules as the Pi binding. Missing, empty, or invalid output settles `stalled`;
+a valid BLOCKED artifact emits the blocked request before result-written and
+settles `blocked`; another valid terminal artifact settles `done`.
+
+### Install the Claude Code binding
+
+1. Merge
+   [`../config/advisor-core/hosts/claude-code/hooks.json`](../config/advisor-core/hosts/claude-code/hooks.json)
+   into the `hooks` object in a project `.claude/settings.local.json` or user
+   `~/.claude/settings.json`. The relative Node command assumes Claude Code is
+   running from this repository; use an absolute script path for other cwd
+   layouts.
+2. Copy
+   [`../config/advisor-core/hosts/claude-code/agents/advisor-maker.md`](../config/advisor-core/hosts/claude-code/agents/advisor-maker.md)
+   to project `.claude/agents/advisor-maker.md` or
+   `~/.claude/agents/advisor-maker.md`.
+3. Set `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` for sessions using this v1
+   binding. Background launch is unsupported because it has no equivalent
+   foreground parent-delivery hook. The agent definition also sets
+   `background: false` and removes `Agent` from the maker's tools. As a
+   session-wide alternative, `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` disables
+   nested delegation.
+
+Claude Code's native RuntimeCapabilities are: `backgroundWorkers: true`;
+`visibleWorkers: partial` (task panel/transcript, not an independent advisor
+surface); `independentControl: partial`; `interactiveBlockedState: partial`;
+`durableResults: partial`; `restartRecovery: partial`; and
+`nestedDelegation: true`, disabled for `advisor-maker`. This v1 adapter uses
+foreground workers only, emits no `node.progress`, and does not implement
+BLOCKED replies, cancellation, resume, or graphs.
+
 ## 🗺️ Migration status
 
 | Step | State |
@@ -182,7 +260,7 @@ than resuming the prior canonical run.
 | 1. Canonical one-worker trace schema, fixtures, validator | done (this page) |
 | 2. BB renders the fixture trace from files | pending, separate surface workstream |
 | 3. Pi plus pi-detach as the first conforming host | done |
-| 4. Claude Code host adapter, one maker only | pending |
+| 4. Claude Code host adapter, one maker only | done |
 | 5. Codex host adapter with the same conformance tests | pending |
 | 6. Graphs, BLOCKED replies, cancellation, resume | pending |
 

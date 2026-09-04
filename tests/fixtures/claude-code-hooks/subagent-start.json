@@ -1,0 +1,8 @@
+{
+  "session_id": "session-recorded-001",
+  "transcript_path": "/Users/example/.claude/projects/example/session-recorded-001.jsonl",
+  "cwd": "/Users/example/Dev/example-repo",
+  "hook_event_name": "SubagentStart",
+  "agent_id": "agent-recorded-001",
+  "agent_type": "advisor-maker"
+}

@@ -6,7 +6,10 @@ worktrees of one repository share one root and no repository carries personal
 runtime files. `advisor_session_init` reports the resolved root;
 `ADVISOR_STATE_DIR` overrides it for tests.
 The canonical event translation for this runtime is specified by the
-[Pi host binding](advisor-protocol.md#pi-host-binding).
+[Pi host binding](advisor-protocol.md#pi-host-binding). Claude Code's standalone
+one-maker hook adapter, installation, capability verdicts, and foreground-only
+boundary are specified by the
+[Claude Code host binding](advisor-protocol.md#claude-code-host-binding).
 
 ## 📏 Runtime rules
 

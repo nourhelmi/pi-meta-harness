@@ -1,0 +1,59 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/claude-advisor-trace.mjs"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "advisor-maker",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/claude-advisor-trace.mjs"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "advisor-maker",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/claude-advisor-trace.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/claude-advisor-trace.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/claude-advisor-trace.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

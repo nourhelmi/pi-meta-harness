@@ -1,0 +1,17 @@
+{
+  "session_id": "session-recorded-001",
+  "transcript_path": "/Users/example/.claude/projects/example/session-recorded-001.jsonl",
+  "cwd": "/Users/example/Dev/example-repo",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUseFailure",
+  "tool_name": "Agent",
+  "tool_input": {
+    "prompt": "RISK TIER: Standard.\n\nTASK: Emit one canonical advisor trace.\n\nACCEPTANCE CRITERIA:\n1. The result artifact validates.\n2. The parent receives one wake.",
+    "description": "Emit canonical advisor trace",
+    "subagent_type": "advisor-maker",
+    "model": "claude-sonnet-4-5"
+  },
+  "tool_use_id": "toolu_recorded_001",
+  "error": "Agent terminated early due to an API error",
+  "duration_ms": 900
+}
