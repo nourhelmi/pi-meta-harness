@@ -128,8 +128,8 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(guide.name, "codex-max");
   assert.equal(guide.recommendations.planner[0].model, "claude-bridge/claude-fable-5-1");
   assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-5.6-sol");
-  assert.equal(guide.recommendations.checker[0].thinking, "medium");
-  assert.equal(guide.recommendations.builder[0].thinking, "high");
+  assert.equal(guide.recommendations.checker[0].thinking, "high");
+  assert.equal(guide.recommendations.builder[0].thinking, "xhigh");
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-max\n");
   assert(settings.enabledModels.includes("claude-bridge/claude-fable-5-1"));
   assert(settings.enabledModels.includes("claude-bridge/claude-sonnet-5"));

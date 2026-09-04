@@ -63,7 +63,7 @@ inconsistent pair rather than guessing which side is authoritative.
 
 | Name | When | Workhorse | Adversarial review | Procedural |
 | --- | --- | --- | --- | --- |
-| `codex-max` | Codex weekly is healthy | Sol high / medium by task | Sol medium | Luna |
+| `codex-max` | Codex weekly is healthy | Sol xhigh / high by task | Sol high | Luna |
 | `codex-lean` | Codex remainder is usable | Sol / Sonnet / Luna by hardness | Sol medium | Luna, Sonnet |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
 | `balanced` | Codex builds hard, Anthropic checks, no Grok | Sonnet default; Sol high/medium hard; Opus greenfield UX | Sonnet, Opus if extreme-risk | Luna, Sonnet |

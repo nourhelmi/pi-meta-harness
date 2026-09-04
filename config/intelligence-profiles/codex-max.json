@@ -2,12 +2,12 @@
   "name": "codex-max",
   "models": {
     "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at high and the advisor session switches to Sol.",
+      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at xhigh and the advisor session switches to Sol at max.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Use medium for token-efficient fresh-context review, synthesis, bounded investigation, ambiguous browser verification, and bounded implementation that still needs material local judgment. Planning fallback, advisor use, and substantial builds remain high. Frontend implementation otherwise routes to Opus or Grok by UX scope. Sol medium is also the adversarial checker for schema, auth, security, money, and data boundaries. For builds, high is enough for nearly all work; escalate to xhigh or max only for genuinely difficult debugging. Prefer Luna, not Sol medium, when an execution packet has already locked the approach and material decisions.",
-      "defaultThinking": "high"
+      "character": "Advisory: Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Use high for token-efficient fresh-context review, synthesis, bounded investigation, ambiguous browser verification, and bounded implementation that still needs material local judgment. Planning fallback and substantial builds run at xhigh. Any advisor session on Sol runs at max. Frontend implementation otherwise routes to Opus or Grok by UX scope. Sol high is also the adversarial checker for schema, auth, security, money, and data boundaries. For builds, xhigh is the default; escalate to max only for genuinely difficult debugging. Prefer Luna, not Sol high, when an execution packet has already locked the approach and material decisions.",
+      "defaultThinking": "xhigh"
     },
     "openai-codex/gpt-5.6-luna": {
       "character": "Advisory: Extremely cheap; the procedural-tier workhorse for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet. The packet must fix the material approach, bound the surface, and name deterministic anchors. Luna owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. 272K window. Generally avoid adversarial-tier checking and decision-bearing implementation. Recommended reasoning is max.",
@@ -31,7 +31,7 @@
       },
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "thinking": "high",
         "fit": "Alternate for bounded investigation when task fit or capacity warrants."
       },
       {
@@ -48,21 +48,21 @@
       },
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
+        "thinking": "xhigh",
         "fit": "Planning fallback when the preferred choice is unavailable or a different fit is justified."
       }
     ],
     "reducer": [
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "thinking": "high",
         "fit": "Preferred for synthesis and conflict reduction in this profile."
       }
     ],
     "builder": [
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
+        "thinking": "xhigh",
         "fit": "Preferred implementation choice in this profile."
       },
       {
@@ -72,7 +72,7 @@
       },
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "thinking": "high",
         "fit": "Use for bounded implementation that still needs material local judgment; prefer Luna when the execution packet has locked the approach."
       },
       {
@@ -89,14 +89,14 @@
     "foreman": [
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
+        "thinking": "xhigh",
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       }
     ],
     "checker": [
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "thinking": "high",
         "fit": "Preferred fresh-context review choice in this profile."
       },
       {
@@ -113,7 +113,7 @@
       },
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "thinking": "high",
         "fit": "Alternate for ambiguous visual or behavioral verification."
       }
     ]

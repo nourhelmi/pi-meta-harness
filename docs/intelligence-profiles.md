@@ -179,20 +179,21 @@ the detailed task and capacity guidance.
 
 | Role | Ordered recommendations |
 | --- | --- |
-| planner | Fable high, Sol high |
-| builder | Sol high, Opus medium, Sol medium (bounded judgment), Luna max (locked packet), Grok high |
-| checker | Sol medium, Luna max |
-| reducer | Sol medium |
-| scout | Luna max, Sol medium, Grok high |
-| browser-verifier | Luna max, Sol medium |
+| planner | Fable high, Sol xhigh |
+| builder | Sol xhigh, Opus medium, Sol high (bounded judgment), Luna max (locked packet), Grok high |
+| checker | Sol high, Luna max |
+| reducer | Sol high |
+| scout | Luna max, Sol high, Grok high |
+| browser-verifier | Luna max, Sol high |
 
-Sol high is the difficult implementation workhorse, while Sol medium handles
+Sol xhigh is the difficult implementation workhorse, while Sol high handles
 token-efficient adversarial review, reduction, bounded investigation, and
 bounded implementation that still needs material judgment. Luna max executes
 locked packets as well as procedural work; it stops instead of making material
 product or architecture decisions. Opus covers greenfield UX, and Grok covers
 bounded research/mixed-stack/existing-UX work.
-Fable remains the advisor/planner default, with Sol high as capacity fallback.
+Fable remains the advisor/planner default, with Sol xhigh as the planning
+fallback and Sol max as the advisor-session fallback.
 
 ### `codex-lean` — spend the Codex remainder carefully
 

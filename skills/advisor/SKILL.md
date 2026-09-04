@@ -255,7 +255,7 @@ come from the live guide:
   `codex-lean` when the UX is well-known; Sol in `codex-lean` when the UX is
   hard);
 - minor targeted tweaks to an existing UX may use the model whose character
-  includes that work (Sol medium in `codex-max`; Luna or Sonnet in `codex-lean`
+  includes that work (Sol high in `codex-max`; Luna or Sonnet in `codex-lean`
   and `balanced`; otherwise Grok or Sonnet);
 - all UX implementation loads `frontend-design`; load the repository's normal
   frontend skill as well when one exists.
@@ -266,11 +266,11 @@ the live character notes, and reserve Fable for the advisor session (at medium)
 or guide-recommended planning (at high). These are strong defaults, not role
 allowlists; depart when capability and task risk justify it and record the
 rationale when material. If Fable reaches capacity, prefer the fallback in its
-character note (Sol in `codex-max`, `codex-lean`, and `balanced`, Grok in
+character note (Sol at max in `codex-max`, `codex-lean`, and `balanced`, Grok in
 `grok-cycle` and `anthropic-heavy`); workers still cannot silently change the
 advisor's active model.
 For non-UX work, normally pick the implementation workhorse from the live characters
-(Sol high or medium by task in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Sonnet
+(Sol xhigh or high by task in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Sonnet
 default with Sol high or medium for hard backend in `balanced`; Grok in
 `grok-cycle`; Sonnet in `anthropic-heavy`). The shipped guides recommend Cursor
 only as `cursor/grok-4.6`; another Cursor identity is simply an outside-guide
