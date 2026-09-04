@@ -41,14 +41,15 @@
       "requireAnchor": true
     },
     "builder": {
-      "description": "Implement fixed acceptance criteria in one assigned worktree.",
+      "description": "Implement fixed acceptance criteria in one assigned worktree; may launch one fresh-review subagent.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-builder",
       "skillPath": "skills/advisor-worker/roles/builder/SKILL.md",
       "cliArgs": [
         "--advisor-worker-role",
-        "builder"
+        "builder",
+        "--advisor-worker-allow-subagents"
       ],
       "maxTurns": 6,
       "requireAnchor": true

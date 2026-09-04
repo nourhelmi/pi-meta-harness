@@ -109,7 +109,9 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   const source = await text("skills/advisor/SKILL.md");
   const runtime = await text("docs/advisor-runtime.md");
 
-  assert.match(source, /Never implement in this session/);
+  assert.match(source, /Implement High in workers only/);
+  assert.match(source, /High packets always go to a visible worker/);
+  assert.doesNotMatch(source, /Never implement in this session/);
   assert.match(source, /Deliberate criteria revision[\s\S]*new packet revision/);
   assert.match(source, /Every helper agent is visible[\s\S]*All delegated LLM work uses `bg_agent`/);
   assert.match(source, /request to use Codex or Claude Code directly means a[\s\S]+configured semantic `role`/);
@@ -148,4 +150,53 @@ test("frozen adaptive prospective case contracts remain byte-identical", async (
     const contents = await readFile(new URL(`../${path}`, import.meta.url));
     assert.equal(createHash("sha256").update(contents).digest("hex"), digest, path);
   }
+});
+
+test("risk tiers fix the review route and checker bar while makers explore freely and deliver narrowly", async () => {
+  const [source, builder, foreman, checker, contract, runtime, roles] = await Promise.all([
+    text("skills/advisor/SKILL.md"),
+    text("skills/advisor-worker/roles/builder/SKILL.md"),
+    text("skills/advisor-worker/roles/foreman/SKILL.md"),
+    text("skills/advisor-worker/roles/checker/SKILL.md"),
+    text("skills/advisor-worker/references/WORKER_CONTRACT.md"),
+    text("docs/advisor-runtime.md"),
+    text("config/bg-agent-profiles.json"),
+  ]);
+
+  const tiers = section(source, "## Risk tiers", "## Verification ownership");
+  assert.match(tiers, /\| Low \|[\s\S]*\| Standard \|[\s\S]*\| High \|/);
+  assert.match(tiers, /Unknown coupling selects the higher\s+tier/);
+  assert.match(tiers, /`## Risk tiers` section in its `AGENTS.md`/);
+  assert.match(tiers, /Standard packet: FAIL on a violated criterion or an unrepaired High finding/);
+  assert.match(tiers, /High packet: FAIL on a violated criterion or an unrepaired Medium-or-higher/);
+  assert.match(source, /The packet is a floor, not a ceiling/);
+  assert.match(source, /links evidence by\s+path rather than paraphrase/);
+  assert.match(source, /Phrase each criterion as a\s+failure probe/);
+
+  const economy = section(source, "## Checker economy", "## Status updates");
+  assert.match(economy, /Low packet never earns a checker/);
+  assert.match(economy, /one\s+reasoning level below their launch/);
+  assert.match(economy, /in\s+every round including declared repair rounds/);
+  assert.match(economy, /A repaired\s+finding never flips a verdict/);
+
+  assert.match(builder, /## Explore freely, deliver narrowly/);
+  assert.match(builder, /trace the\s+capability end to end/);
+  assert.match(builder, /`Adjacent findings`/);
+  assert.match(builder, /`Proposed criteria`/);
+  assert.match(builder, /## Fresh review before handoff/);
+  assert.match(builder, /one reasoning level below your own launch/);
+  assert.match(builder, /Low packets skip it/);
+  assert.match(foreman, /explore-freely, deliver-narrowly/);
+  assert.match(foreman, /`Fresh review`/);
+
+  assert.match(checker, /\| Standard \| a violated criterion, or an unrepaired High finding \|/);
+  assert.match(checker, /\| High \| a violated criterion, or an unrepaired Medium-or-higher finding \|/);
+  assert.match(checker, /A repaired finding never flips the verdict/);
+  assert.match(checker, /including declared repair rounds/);
+
+  assert.match(contract, /`Proposed criteria`/);
+  assert.match(contract, /every evidence path the packet links/);
+  assert.match(runtime, /## 🎚️ Risk tiers/);
+  assert.match(runtime, /to the builder\s+for exactly one fresh-review subagent/);
+  assert(JSON.parse(roles).profiles.builder.cliArgs.includes("--advisor-worker-allow-subagents"));
 });

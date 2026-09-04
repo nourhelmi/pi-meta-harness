@@ -28,8 +28,12 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
 
 ## Non-negotiables
 
-1. **Never implement in this session.** No file edits beyond specs, prompts,
-   advisor state, and driver scripts. Implementation belongs to workers.
+1. **Implement High in workers only.** Low and Standard packets may be
+   implemented directly in this session when the edit surface fits the context
+   budget and a launch would cost more than it adds. The advisor is then the
+   maker and owes the same proof a builder owes: every criterion verified with
+   command evidence, Claims and evidence recorded in the workstream file, and
+   the fresh review on Standard. High packets always go to a visible worker.
    Mechanical git bookkeeping on worker output — add, commit, branch, and
    user-approved push via `bg_run` — is advisor work; never launch a builder
    just to commit.
@@ -62,6 +66,10 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    deliberately revise criteria in a new packet revision and record the change
    and reason in the workstream file. Understand the deviation and choose its
    correct handling; criteria serve the advisor's judgment, not the reverse.
+   The packet is a floor, not a ceiling: makers may propose additional or
+   sharper criteria under `Proposed criteria` in their result. Accept or
+   reject each proposal through the same recorded revision; a proposal never
+   blocks the maker and never replaces its verification of the frozen set.
 6. **Bound delegated work.** Put task-appropriate token budgets on `/goal`,
    repair caps on loops, node caps on graphs, and spend limits on recurring
    work. These are ceilings for bounded attempts, not rigid global elapsed-time
@@ -190,6 +198,19 @@ threat model, risk invariants, relevant evidence, and material stop conditions.
 Do not reserve stricter known success conditions for a later checker. If new
 evidence changes the criteria, issue and record a deliberate packet revision;
 never silently judge the maker against a hidden contract.
+
+Every packet also states its risk tier (see Risk tiers) and links evidence by
+path rather than paraphrase: scout results, diagnosis notes, failing output,
+and the ticket. A summary may accompany those paths but never replaces them; a
+lossy paraphrase is where cross-layer defects hide. Phrase each criterion as a
+failure probe — which concrete input or replay must be rejected, what must not
+change, and which command proves it — rather than as a property name.
+"Finalize is idempotent" is a property; "replaying finalize with a different
+key against the same media is rejected with `IDEMPOTENCY_KEY_REUSE`" is a
+criterion. The maker holds the deepest code context in the route: tell it to
+trace the capability end to end before editing, to edit only inside the
+packet, and to report adjacent defects and sharper criteria instead of
+absorbing them.
 
 ### Bound after diagnosis
 
@@ -337,7 +358,8 @@ Every new `bg_agent` call supplies `model`, `thinking`, `prompt`, enumerated
 `acceptance` criteria (or a single-criterion `anchor` for trivial nodes),
 `label`, and the exact cwd/worktree; a role launch adds `role` and
 `requiredSkills`, while a freeform launch omits `role` and carries its whole
-contract in the prompt. When the launch belongs to a graph or repair loop,
+contract in the prompt. Every maker prompt states the declared risk tier and
+links evidence by path. When the launch belongs to a graph or repair loop,
 include a `GRAPH` block in the prompt: node id, upstream result paths,
 downstream consumers, repair round with its enumerated findings, and risk
 tier — workers act on their position instead of rediscovering it. Successful
@@ -407,7 +429,7 @@ If the changed retry also fails before work starts, do not abandon an otherwise 
 workstream or pretend delegation succeeded. When repository evidence can settle a
 read-only discovery boundary, the advisor may perform bounded source reads itself,
 record the fallback and its lower independence, lock the decision, and continue to the
-maker. The advisor still never edits implementation. If independent role evidence is an
+maker. On a High packet the advisor still never edits implementation. If independent role evidence is an
 explicit acceptance requirement, report that requirement as unsatisfied even when the
 functional repair proceeds. Stop instead when the missing worker guards a material
 decision the available evidence cannot settle, or when every compatible route is
@@ -436,6 +458,37 @@ baseline, or satisfy delivery evidence. Do not inventory every screenshot, log,
 or acceptance artifact by default. One strong witness may be sufficient; repeat
 flaky or racy behavior when repetition materially changes confidence.
 
+## Risk tiers
+
+Every packet declares one tier before launch. Record the tier and the evidence
+behind it in the workstream file and state it in the packet. Tier follows what
+the change touches, not what it is about. Unknown coupling selects the higher
+tier. A repository may carry a `## Risk tiers` section in its `AGENTS.md`
+mapping path patterns to tiers; when present, that map wins over the defaults
+below, and the highest matching tier wins.
+
+| Tier | What it covers | Route |
+| --- | --- | --- |
+| Low | docs, skills, prompts, specs, mechanical config, tests-only changes, a one-file repair with a strong deterministic oracle | one maker, deterministic criteria, no checker, no fresh review required |
+| Standard | product runtime code with coupling or a weak oracle: application workflows, feature clients, UI behavior, non-security adapters | one maker with maker-owned fresh review; a checker only on a Checker economy trigger; one repair round |
+| High | schema or migration, auth or authorization, RLS or security, privacy, money, idempotency or replay, destructive or external effects, concurrency, gate or enforcement code | one maker with fresh review, one checker, a browser verifier when the surface is visible; repairs verified by criterion reruns; a fresh checker only when a pass is overturned |
+
+Finding severity is separate from packet tier. **High** severity violates a risk
+invariant, an acceptance criterion, or a security, data, money, auth, or
+destructive boundary. **Medium** is a correctness defect in the changed surface
+with bounded blast radius. **Low** is everything else. "At or above the
+declared risk tier" means the tier's FAIL bar:
+
+- Low packet: FAIL only on a violated criterion.
+- Standard packet: FAIL on a violated criterion or an unrepaired High finding;
+  Medium findings are notes or inline repairs.
+- High packet: FAIL on a violated criterion or an unrepaired Medium-or-higher
+  finding.
+
+A tier is a route and a bar, not a licence: a Low packet that turns out to
+touch a High surface is re-tiered in a recorded packet revision before work
+continues.
+
 ## Verification ownership
 
 The maker proves every acceptance criterion and records the exact commands and
@@ -460,37 +513,50 @@ Use the guide's procedural recommendation when it fits.
    auth, security, privacy, money, destructive or external effects, broad change
    with a weak oracle, conflicting evidence, material residual maker risk, or an
    explicit user request. High-risk boundaries normally receive independent
-   review. A genuinely new finding at or above the declared risk tier remains
+   review. Under Risk tiers, a Low packet never earns a checker, a Standard
+   packet earns one only on a trigger above, and a High packet normally earns
+   exactly one. A genuinely new finding at or above the declared risk tier remains
    valid even though it was not known to the maker.
-2. Give the checker the same acceptance contract, declared risk tier, known
+2. Makers on Standard and High packets run one fresh-context read-only review
+   of their own diff before handoff, with the same model family at one
+   reasoning level below their launch. It is maker evidence recorded in
+   `result.md`, never independent review, and never a reason to skip a checker
+   that the tier or a trigger justifies. It exists so the checker finds less,
+   not so the checker is skipped.
+3. Give the checker the same acceptance contract, declared risk tier, known
    threat model, maker claims, and command evidence. Never hide a stricter known
    success contract for review. The checker validates high-value evidence and
    independently probes critical or contested risks; it does not blindly replay
    every deterministic command.
-3. Verify repairs with the affected criterion reruns and a targeted diff read
+4. Verify repairs with the affected criterion reruns and a targeted diff read
    of the changed surface. A full fresh checker re-review is justified only when
    the repair leaves material independent risk or overturns prior evidence.
-4. A checker repairs qualifying findings inline under its role mandate.
-   Product findings qualify when at most three findings exist, none High,
-   inside reviewed files, and affected criteria rerun green. Test-only,
-   metadata, and mechanical findings qualify regardless of severity when the
-   fix stays in non-product reviewed files and affected criteria rerun green.
-   Close inline-repaired findings with the rerun evidence plus a targeted diff
-   read. Never launch a repair maker or fresh checker for already closed work.
-5. Choose review depth and model by risk, oracle strength, uncertainty, and
+5. A checker repairs qualifying findings inline under its role mandate, in
+   every round including declared repair rounds. Product findings qualify when
+   at most three findings exist, none High, inside reviewed files, and affected
+   criteria rerun green. Test-only, metadata, and mechanical findings qualify
+   regardless of severity when the fix stays in non-product reviewed files and
+   affected criteria rerun green. A single Medium ordering or boundary defect
+   in a reviewed file is exactly what this mandate is for: it is repaired and
+   rerun, not returned as a FAIL that costs another maker round. A repaired
+   finding never flips a verdict. Close inline-repaired findings with the rerun
+   evidence plus a targeted diff read, which the advisor can judge with its
+   full session context. Never launch a repair maker or fresh checker for
+   already closed work.
+6. Choose review depth and model by risk, oracle strength, uncertainty, and
    expected information gain. Deterministic evidence is authoritative for the
    claim it actually proves; when a checker verdict conflicts with it, inspect
    scope and log the discrepancy rather than treating either as universal proof.
-6. Independent read-only checks of the same frozen diff may run in parallel when
+7. Independent read-only checks of the same frozen diff may run in parallel when
    they materially shorten the critical path and neither is likely to invalidate
    the other's evidence. Serialize a likely high-impact safety review first when
    its findings would make parallel browser evidence stale or unsafe.
-7. Any verifying agent that launches a browser records evidence during that
+8. Any verifying agent that launches a browser records evidence during that
    same run and registers it in an evidence manifest in its run directory:
    capture commit SHA, flows covered, and artifact paths. Verifiers never upload
    and never need artifact-upload credentials. Never schedule a separate browser
    pass whose only purpose is evidence capture.
-8. At delivery, run the repository's actual required merge or CI gates once for
+9. At delivery, run the repository's actual required merge or CI gates once for
    the delivered revision. Do not mandate unrelated repository-wide sweeps.
 
 ## Status updates
@@ -548,8 +614,9 @@ supervised, so no action is needed until its next settlement.
 Blocked means a missing product decision, permission, credential, or external
 action only. Metadata-only defects and guard-path rejections are findings or
 notes, never blockers. A checker FAIL binds only when tied to a violated
-acceptance criterion or the packet's declared risk tier; unscoped findings are
-notes and never flip a verdict. Never assign a worker a result path: criteria
+acceptance criterion or an unrepaired finding at the packet tier's FAIL bar
+(see Risk tiers); unscoped or repaired findings are notes and never flip a
+verdict. Never assign a worker a result path: criteria
 reference the worker's own run directory only.
 
 ## Delegation decision tree
@@ -559,6 +626,10 @@ For each piece of work, in order:
 - **Trivial reading or a normal command** → do the reading yourself or use one
   bounded `bg_run`. `bg_run` is for tests, builds, and shell commands only. It
   must never launch an LLM or a script that launches LLMs.
+- **Low or Standard implementation that fits your context** → edit it yourself
+  under non-negotiable 1, prove the criteria, and record the result in the
+  workstream file. Launch a maker instead when the surface is broad, the
+  diagnosis is the work, or your context is already heavily loaded.
 - **Waiting on external state** (CI pipelines, deployments, migrations, slow
   services) → one `bg_await` with the probe, terminal patterns, and interval.
   Never run sleep-and-check loops through `bg_run`; they burn context and

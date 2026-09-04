@@ -79,6 +79,8 @@ flowchart TB
 | | |
 | --- | --- |
 | 🎯 **No ceremony** | Cohesive work stays with **one empowered maker**. Scouts, planners, foremen, checkers, reducers, and browser verifiers join only when they reduce uncertainty, expose real parallelism, or add independent evidence. |
+| 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what it touches. The tier fixes the review route and the checker's FAIL bar, so a Medium finding on Standard work is a note or an inline repair, not another maker round. |
+| 🔍 **Makers understand, checkers confirm** | Builders trace a capability end to end, deliver only inside the packet, propose sharper criteria, report adjacent defects, and run one cheap fresh-context review of their own diff before handoff. |
 | 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |
 | 🔀 **Two worker harnesses** | Workers run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. The root advisor is always Pi. |
 | 🧪 **Evals that bite** | 14 hermetic live cases graded by **hidden deterministic verifiers**, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
@@ -131,8 +133,8 @@ It never copies credentials and never reloads Pi.
 You work in Ghostty; Herdr owns the tabs. `/advisor` claims one isolated
 workstream and picks the **smallest useful topology** for the task — the
 diagram above is the whole story. `pi-detach` keeps every worker visible in a
-named pane inside the advisor's tab, and the root advisor never implements
-product changes itself.
+named pane inside the advisor's tab. The root advisor may implement Low and
+Standard packets itself; High packets always go to a visible worker.
 
 Start an advisor in a fresh Pi tab inside Herdr:
 

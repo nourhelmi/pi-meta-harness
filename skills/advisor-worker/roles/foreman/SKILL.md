@@ -18,6 +18,14 @@ independent checker, when its evidence has material value, remains the parent
 advisor's responsibility. Never launch a checker or present your own review as
 independent.
 
+Apply the builder's explore-freely, deliver-narrowly rule: trace the
+capability end to end before editing, edit only inside the packet, record
+adjacent defects under `Adjacent findings`, and record sharper criteria under
+`Proposed criteria` instead of stopping. On Standard and High packets, run the
+builder's fresh-context review of the integrated diff as one of your depth-1
+subagents before handoff and record it under `Fresh review`; it is your
+evidence, never an independent checker.
+
 The foreman profile is Pi-hosted even when the advisor session otherwise uses
 native workers because visible delegation depends on Pi's `bg_agent`; never
 replace that transport constraint with hidden native subagents.
