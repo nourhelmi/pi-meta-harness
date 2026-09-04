@@ -3,6 +3,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { createBbSurfaceClient, detectBbSurfaceContext, type BbBootstrapClaimResponse } from "./bb-surface.ts";
 
 const ENTRY_TYPE = "advisor-worker";
 
@@ -197,8 +198,34 @@ async function initializeWorker(
 	return state;
 }
 
+async function initializeClaimedWorker(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	claim: BbBootstrapClaimResponse,
+): Promise<WorkerState> {
+	const config = await loadWorkerConfig();
+	const profile = config.profiles[claim.role];
+	if (!profile?.skill) throw new Error(`Unknown or incomplete advisor worker role: ${claim.role}`);
+	await mkdir(claim.runDir, { recursive: true });
+	const state: WorkerState = {
+		role: claim.role,
+		skill: profile.skill,
+		runDir: claim.runDir,
+		maxCycles: claim.maxTurns,
+		completedCycles: 0,
+		launchModel: claim.launchModel,
+		launchThinking: claim.launchThinking,
+		allowSubagents: claim.allowSubagents,
+	};
+	pi.appendEntry(ENTRY_TYPE, { role: state.role, runDir: state.runDir, launchModel: state.launchModel, launchThinking: state.launchThinking });
+	await writeManifest(ctx, state);
+	ctx.ui.setStatus("advisor-worker", `${state.role} · launch ${state.launchModel}/${state.launchThinking} · current ${actualModel(ctx)}/${ctx.thinkingLevel}`);
+	return state;
+}
+
 function registerSessionStart(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 	pi.on("session_start", async (_event, ctx) => {
+		if (detectBbSurfaceContext()) return;
 		const role = pi.getFlag("advisor-worker-role");
 		if (typeof role !== "string" || !role) return;
 		try {
@@ -208,6 +235,27 @@ function registerSessionStart(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 			const message = error instanceof Error ? error.message : String(error);
 			ctx.ui.notify(`Could not initialize advisor worker: ${message}`, "error");
 		}
+	});
+}
+
+function registerBbBootstrap(pi: ExtensionAPI, runtime: WorkerRuntime): void {
+	const context = detectBbSurfaceContext();
+	if (!context) return;
+	let firstInput = true;
+	pi.on("input", async (event, ctx) => {
+		const marker = /^\[\[bb-meta-worker:v1:([A-Za-z0-9_-]{32,4096})\]\](?:\r?\n)?/.exec(event.text);
+		if (!firstInput || runtime.state) {
+			if (marker) throw new Error("replayed BB worker bootstrap marker");
+			return;
+		}
+		firstInput = false;
+		// Curated BB Pi roots also load this extension. An ordinary unmarked root
+		// is not a worker; the server dispatch fence rejects a missing marker only
+		// for a correlated worker whose bootstrap is still unclaimed.
+		if (!marker) return;
+		const claim = await createBbSurfaceClient(context).claimBootstrap(marker[1] ?? "");
+		runtime.state = await initializeClaimedWorker(pi, ctx, claim);
+		return { action: "transform" as const, text: event.text.slice(marker[0].length), ...(event.images ? { images: event.images } : {}) };
 	});
 }
 
@@ -269,6 +317,7 @@ export default function advisorWorkerExtension(pi: ExtensionAPI): void {
 	});
 	const runtime: WorkerRuntime = { resultBlockActive: false };
 	registerSessionStart(pi, runtime);
+	registerBbBootstrap(pi, runtime);
 	registerSystemContract(pi, runtime);
 	registerCycleTracking(pi, runtime);
 	registerBlockedResultSignals(pi, runtime);

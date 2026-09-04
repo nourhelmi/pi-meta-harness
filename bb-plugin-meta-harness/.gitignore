@@ -1,0 +1,7 @@
+node_modules/
+dist/
+runtime/pi-agent/home/
+runtime/pi-agent/tmp/
+runtime/pi-agent/xdg-*/
+runtime/pi-agent/auth.json
+runtime/pi-agent/models-store.json

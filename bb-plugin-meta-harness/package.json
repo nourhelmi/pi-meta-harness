@@ -1,0 +1,42 @@
+{
+  "name": "bb-plugin-meta-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.19.0", "bbPluginSdk": "0.4.40" },
+  "bb": {
+    "name": "Meta Harness",
+    "description": "Visible BB transport and read-only projection for Pi Meta Harness.",
+    "branding": { "icon": "Network" },
+    "server": "./src/server.ts",
+    "app": "./src/app.tsx",
+    "host": "./src/host.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "node ./scripts/build-pinned-bb.mjs",
+    "check:public-sdk": "node ./test/public-sdk-only.mjs",
+    "test:wrapper": "node ./test/catalog-wrapper.canary.mjs",
+    "setup:print-env": "node ./scripts/setup-profile.mjs"
+  },
+  "dependencies": {
+    "@get-bb/plugin-sdk": "0.4.40",
+    "better-sqlite3": "12.10.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.2",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "24.10.13",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "bb-app": "0.41.0",
+    "cron-parser": "5.5.0",
+    "jsdom": "29.0.1",
+    "typescript": "6.0.2",
+    "vitest": "4.1.1"
+  }
+}

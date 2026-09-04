@@ -8,6 +8,7 @@ import advisorWorkerExtension, { isBlockedStatus, resultStatusLine } from "../ex
 
 interface HookMap {
   session_start?: (event: unknown, ctx: ExtensionContext) => Promise<void>;
+  input?: (event: { text: string; images?: unknown[] }, ctx: ExtensionContext) => Promise<{ action: "transform"; text: string; images?: unknown[] } | undefined>;
   before_agent_start?: (event: { systemPrompt: string }, ctx: ExtensionContext) => { systemPrompt: string } | undefined;
   agent_start?: (event: unknown, ctx: ExtensionContext) => void | Promise<void>;
   agent_end?: (event: unknown, ctx: ExtensionContext) => void | Promise<void>;
@@ -216,6 +217,82 @@ test("signals a blocked result once and clears it on the next agent start", asyn
     else process.env.PI_DETACH_AGENT_PROFILES = previousProfiles;
     if (previousState === undefined) delete process.env.ADVISOR_STATE_DIR;
     else process.env.ADVISOR_STATE_DIR = previousState;
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
+test("BB worker claims one thread-bound bootstrap and strips it before model input", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "advisor-worker-bb-"));
+  const rolesPath = join(temp, "roles.json");
+  const runDir = join(temp, "claimed-run");
+  await writeFile(rolesPath, `${JSON.stringify({ profiles: { builder: { skill: "advisor-role-builder", maxTurns: 6 } } })}\n`);
+  const envNames = ["PI_DETACH_AGENT_PROFILES", "BB_THREAD_ID", "BB_PROJECT_ID", "BB_ENVIRONMENT_ID", "BB_SERVER_URL", "HERDR_ENV", "HERDR_PANE_ID", "HERDR_SOCKET_PATH"] as const;
+  const previous = Object.fromEntries(envNames.map((name) => [name, process.env[name]])) as Record<(typeof envNames)[number], string | undefined>;
+  const previousFetch = globalThis.fetch;
+  Object.assign(process.env, {
+    PI_DETACH_AGENT_PROFILES: rolesPath,
+    BB_THREAD_ID: "worker-thread",
+    BB_PROJECT_ID: "project-1",
+    BB_ENVIRONMENT_ID: "worker-environment",
+    BB_SERVER_URL: "http://127.0.0.1:38886",
+  });
+  delete process.env.HERDR_ENV;
+  delete process.env.HERDR_PANE_ID;
+  delete process.env.HERDR_SOCKET_PATH;
+  const claims: Array<Record<string, unknown>> = [];
+  globalThis.fetch = (async (_input, init) => {
+    claims.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return Response.json({ version: "1", role: "builder", runDir, maxTurns: 9, launchModel: "openai/gpt-5.6", launchThinking: "high", allowSubagents: false });
+  }) as typeof fetch;
+  try {
+    const install = () => {
+      const hooks: HookMap = {};
+      const entries: Array<{ type: string; data: unknown }> = [];
+      const pi = {
+        appendEntry: (type: string, data: unknown) => entries.push({ type, data }),
+        events: { emit: () => undefined },
+        getFlag: () => undefined,
+        on: (name: keyof HookMap, handler: HookMap[keyof HookMap]) => { Object.assign(hooks, { [name]: handler }); },
+        registerFlag: () => undefined,
+      } as unknown as ExtensionAPI;
+      advisorWorkerExtension(pi);
+      return { hooks, entries };
+    };
+    const context = {
+      cwd: temp,
+      model: { provider: "openai", id: "gpt-5.6" },
+      thinkingLevel: "high",
+      sessionManager: { getSessionId: () => "worker-session" },
+      ui: { notify: () => undefined, setStatus: () => undefined },
+    } as unknown as ExtensionContext;
+
+    const { hooks, entries } = install();
+    assert.ok(hooks.input);
+    const token = "x".repeat(32);
+    const transformed = await hooks.input({ text: `[[bb-meta-worker:v1:${token}]]\nROLE: builder\nDo the work.` }, context);
+    assert.deepEqual(transformed, { action: "transform", text: "ROLE: builder\nDo the work." });
+    assert.deepEqual(claims, [{ version: "1", token, threadId: "worker-thread" }]);
+    assert.equal(entries.length, 1);
+    const contract = hooks.before_agent_start?.({ systemPrompt: "base" }, context)?.systemPrompt ?? "";
+    assert.match(contract, /You are the \*\*builder\*\* worker/);
+    assert.match(contract, /at most 9 parent-prompt cycles/);
+    assert.match(contract, /launch identity is `openai\/gpt-5\.6` with `high` reasoning/);
+    const manifest = JSON.parse(await readFile(join(runDir, "worker-manifest.json"), "utf8")) as Record<string, unknown>;
+    assert.equal(manifest.launchModel, "openai/gpt-5.6");
+    assert.equal(manifest.maxPromptCycles, 9);
+    await assert.rejects(hooks.input({ text: `[[bb-meta-worker:v1:${token}]]\nagain` }, context), /replayed BB worker bootstrap marker/);
+
+	const ordinaryRoot = install();
+	assert.ok(ordinaryRoot.hooks.input);
+	assert.equal(await ordinaryRoot.hooks.input({ text: "ordinary BB root input" }, context), undefined);
+	assert.equal(ordinaryRoot.entries.length, 0);
+	assert.equal(claims.length, 1);
+  } finally {
+    globalThis.fetch = previousFetch;
+    for (const name of envNames) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
     await rm(temp, { recursive: true, force: true });
   }
 });

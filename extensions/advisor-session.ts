@@ -5,6 +5,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
+import { randomUUID } from "node:crypto";
+import { createBbSurfaceClient, detectBbSurfaceContext } from "./bb-surface.ts";
 
 const ENTRY_TYPE = "advisor-session";
 const MAX_WORKSTREAM_LENGTH = 48;
@@ -447,6 +449,23 @@ async function verifyHerdr(pi: ExtensionAPI): Promise<string> {
 	return paneId;
 }
 
+export async function resolveAdvisorSurface(
+	pi: ExtensionAPI,
+	options: { verifyHerdr?: boolean } = {},
+): Promise<
+	| { kind: "bb"; context: NonNullable<ReturnType<typeof detectBbSurfaceContext>>; client: ReturnType<typeof createBbSurfaceClient> }
+	| { kind: "herdr"; paneId: string }
+> {
+	const context = detectBbSurfaceContext();
+	if (context) return { kind: "bb", context, client: createBbSurfaceClient(context) };
+	if (options.verifyHerdr === false) {
+		requireHerdrEnvironment();
+		if (!process.env.HERDR_PANE_ID) throw new Error("Advisor sessions require a Herdr pane identity.");
+		return { kind: "herdr", paneId: process.env.HERDR_PANE_ID };
+	}
+	return { kind: "herdr", paneId: await verifyHerdr(pi) };
+}
+
 async function renameHerdrPane(pi: ExtensionAPI, paneId: string, label: string): Promise<void> {
 	await pi.exec("herdr", ["pane", "rename", paneId, label]);
 }
@@ -454,9 +473,9 @@ async function renameHerdrPane(pi: ExtensionAPI, paneId: string, label: string):
 async function launchAdvisor(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	params: { cwd: string; workstream?: string; workerHarness?: WorkerHarness; purpose?: string; prompt?: string },
-): Promise<{ tabId: string; paneId: string; label: string; cwd: string; workstream?: string; workerHarness?: WorkerHarness }> {
-	requireHerdrEnvironment();
+	params: { cwd: string; workstream?: string; workerHarness?: WorkerHarness; purpose?: string; prompt?: string; model?: string; thinking?: string },
+): Promise<{ tabId?: string; paneId?: string; threadId?: string; label: string; cwd: string; workstream?: string; workerHarness?: WorkerHarness }> {
+	const surface = await resolveAdvisorSurface(pi, { verifyHerdr: false });
 	const cwd = resolve(ctx.cwd, params.cwd);
 	let cwdStat;
 	try {
@@ -473,6 +492,20 @@ async function launchAdvisor(
 	const workerHarness = params.workerHarness;
 	const purpose = params.purpose?.trim() || workstream || basename(cwd);
 	const label = advisorPaneLabel(purpose);
+	if (surface.kind === "bb") {
+		if (workerHarness === "native") throw new Error("BB v1 advisor launch supports Pi workers only");
+		const model = params.model ?? (ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined);
+		const thinking = params.thinking ?? String(ctx.thinkingLevel ?? "");
+		if (!model || !thinking) throw new Error("BB advisor launch requires exact model and thinking");
+		if (thinking === "minimal") throw new Error("BB does not support reasoning level minimal");
+		if (!/^[A-Za-z0-9][A-Za-z0-9._:-]*\/[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(model)) throw new Error("BB advisor model must be provider/model");
+		if (!/^(?:off|low|medium|high|xhigh|max)$/.test(thinking)) throw new Error("BB advisor thinking is unsupported");
+		const hostId = process.env.PI_DETACH_BB_HOST_ID?.trim();
+		if (!hostId) throw new Error("PI_DETACH_BB_HOST_ID is required in BB context");
+		const runId = `advisor-${randomUUID()}`;
+		const launched = await surface.client.start({ version: "1", runId, logicalParentThreadId: surface.context.threadId, projectId: surface.context.projectId, environmentId: surface.context.environmentId, hostId, cwd, label, prompt: advisorBootstrapPrompt(workstream, workerHarness, params.prompt), providerId: "pi", model, reasoning: thinking === "off" ? "none" : thinking });
+		return { threadId: launched.threadId, label, cwd, ...(workstream ? { workstream } : {}), ...(workerHarness ? { workerHarness } : {}) };
+	}
 	const created = await pi.exec("herdr", ["tab", "create", "--no-focus", "--cwd", cwd, "--label", label]);
 	if (created.code !== 0) {
 		throw new Error(`Herdr could not create the advisor tab: ${herdrError(created.stderr, "unknown error")}`);
@@ -698,13 +731,14 @@ async function initializeAdvisor(
 	const usedStoredWorkerHarness = Boolean(restored && restored.workerHarness !== requestedHarness);
 	const workstream = restored?.workstream ?? requested;
 	const workerHarness = restored?.workerHarness ?? requestedHarness;
-	const paneId = await verifyHerdr(pi);
+	const surface = await resolveAdvisorSurface(pi);
+	if (surface.kind === "bb" && workerHarness === "native") throw new Error("BB v1 advisor sessions support Pi workers only");
 	const paths = await claimWorkstream(ctx, workstream, sessionId);
-	const herdrName = await renameHerdrAgent(pi, paneId, workstream, sessionId);
-	try {
-		await renameHerdrPane(pi, paneId, advisorPaneLabel(workstream));
-	} catch {
-		// Pane labels are presentational; the Herdr agent identity remains authoritative.
+	const herdrName = surface.kind === "herdr"
+		? await renameHerdrAgent(pi, surface.paneId, workstream, sessionId)
+		: `bb:${surface.context.threadId}`;
+	if (surface.kind === "herdr") {
+		try { await renameHerdrPane(pi, surface.paneId, advisorPaneLabel(workstream)); } catch { /* presentational */ }
 	}
 	const state: AdvisorSessionState = {
 		workstream,
@@ -769,6 +803,8 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 			prompt: Type.Optional(
 				Type.String({ description: "Extra instructions appended to the advisor bootstrap prompt." }),
 			),
+			model: Type.Optional(Type.String({ description: "Exact provider/model for BB transport." })),
+			thinking: Type.Optional(Type.Union([Type.Literal("off"), Type.Literal("low"), Type.Literal("medium"), Type.Literal("high"), Type.Literal("xhigh"), Type.Literal("max")], { description: "Exact BB reasoning level." })),
 		}),
 		async execute(...args) {
 			const [, params, , , ctx] = args;
@@ -778,7 +814,7 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 					{
 						type: "text",
 						text:
-							`Launched advisor in Herdr tab ${launched.tabId}, pane ${launched.paneId}.\n` +
+							(launched.threadId ? `Launched advisor in BB thread ${launched.threadId}.\n` : `Launched advisor in Herdr tab ${launched.tabId}, pane ${launched.paneId}.\n`) +
 							`Label: ${launched.label}\nCwd: ${launched.cwd}`,
 					},
 				],

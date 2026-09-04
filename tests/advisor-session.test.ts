@@ -16,11 +16,11 @@ interface AdvisorLaunchTool {
   name: string;
   execute(
     toolCallId: string,
-    params: { cwd: string; workstream?: string; workerHarness?: "pi" | "native"; purpose?: string; prompt?: string },
+    params: { cwd: string; workstream?: string; workerHarness?: "pi" | "native"; purpose?: string; prompt?: string; model?: string; thinking?: "off" | "low" | "medium" | "high" | "xhigh" | "max" },
     signal: AbortSignal | undefined,
     onUpdate: undefined,
     context: ExtensionContext,
-  ): Promise<{ details: { tabId: string; paneId: string; label: string; cwd: string; workstream?: string; workerHarness?: "pi" | "native" } }>;
+  ): Promise<{ details: { tabId?: string; paneId?: string; threadId?: string; label: string; cwd: string; workstream?: string; workerHarness?: "pi" | "native" } }>;
 }
 
 interface AdvisorInitTool {
@@ -524,4 +524,79 @@ test("advisor_launch closes a created tab when its root pane is missing", async 
     ["tab", "create", "--no-focus", "--cwd", process.cwd(), "--label", "advisor · tab launch"],
     ["tab", "close", "w1:t9"],
   ]);
+});
+
+test("advisor_launch routes through BB as one exact visible unparented Pi root request", async () => {
+  const names = ["BB_THREAD_ID", "BB_PROJECT_ID", "BB_ENVIRONMENT_ID", "BB_SERVER_URL", "PI_DETACH_BB_HOST_ID", "HERDR_ENV", "HERDR_PANE_ID", "HERDR_SOCKET_PATH"] as const;
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]])) as Record<(typeof names)[number], string | undefined>;
+  const previousFetch = globalThis.fetch;
+  const requests: Array<{ url: string; body: Record<string, unknown>; init?: RequestInit }> = [];
+  Object.assign(process.env, {
+    BB_THREAD_ID: "parent-thread",
+    BB_PROJECT_ID: "project-1",
+    BB_ENVIRONMENT_ID: "parent-environment",
+    BB_SERVER_URL: "http://127.0.0.1:38886",
+    PI_DETACH_BB_HOST_ID: "host-1",
+  });
+  delete process.env.HERDR_ENV;
+  delete process.env.HERDR_PANE_ID;
+  delete process.env.HERDR_SOCKET_PATH;
+  globalThis.fetch = (async (input, init) => {
+    requests.push({ url: String(input), body: JSON.parse(String(init?.body)) as Record<string, unknown>, ...(init ? { init } : {}) });
+    return Response.json({
+      version: "1",
+      runId: "advisor-run",
+      threadId: "advisor-thread",
+      logicalParentThreadId: "parent-thread",
+      hostId: "host-1",
+      projectId: "project-1",
+      environmentId: "advisor-environment",
+      providerId: "pi",
+      model: "openai/gpt-5.6",
+      reasoning: "xhigh",
+      cwd: process.cwd(),
+    });
+  }) as typeof fetch;
+  try {
+    const { calls, tool } = installedAdvisorLaunch(() => { throw new Error("Herdr must not be called in BB context"); });
+    const result = await tool.execute("bb-launch", {
+      cwd: ".",
+      workstream: "BB Proof",
+      workerHarness: "pi",
+      purpose: "visible advisor",
+      prompt: "Inspect the exact boundary.",
+      model: "openai/gpt-5.6",
+      thinking: "xhigh",
+    }, undefined, undefined, { cwd: process.cwd() } as ExtensionContext);
+    assert.deepEqual(result.details, { threadId: "advisor-thread", label: "advisor · visible advisor", cwd: process.cwd(), workstream: "bb-proof", workerHarness: "pi" });
+    assert.deepEqual(calls, []);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0]?.url, "http://127.0.0.1:38886/api/v1/plugins/meta-harness/http/v1/agents/start");
+    assert.deepEqual(requests[0]?.body, {
+      version: "1",
+      runId: requests[0]?.body.runId,
+      logicalParentThreadId: "parent-thread",
+      projectId: "project-1",
+      environmentId: "parent-environment",
+      hostId: "host-1",
+      cwd: process.cwd(),
+      label: "advisor · visible advisor",
+      prompt: "/skill:advisor-pi\n\nCall advisor_session_init with workstream \"bb-proof\" and workerHarness \"pi\" before any other tool.\n\nAdditional instructions:\nInspect the exact boundary.",
+      providerId: "pi",
+      model: "openai/gpt-5.6",
+      reasoning: "xhigh",
+    });
+    assert.equal(Object.hasOwn(requests[0]?.body ?? {}, "parentThreadId"), false);
+    await assert.rejects(tool.execute("bad-native", { cwd: ".", workerHarness: "native", model: "openai/gpt", thinking: "high" }, undefined, undefined, { cwd: process.cwd() } as ExtensionContext), /Pi workers only/);
+	const inherited = await tool.execute("inherited-model", { cwd: ".", workerHarness: "pi" }, undefined, undefined, { cwd: process.cwd(), model: { provider: "openai", id: "gpt-5.6" }, thinkingLevel: "xhigh" } as ExtensionContext);
+	assert.equal(inherited.details.threadId, "advisor-thread");
+	assert.equal(requests[1]?.body.model, "openai/gpt-5.6");
+	assert.equal(requests[1]?.body.reasoning, "xhigh");
+  } finally {
+    globalThis.fetch = previousFetch;
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+  }
 });

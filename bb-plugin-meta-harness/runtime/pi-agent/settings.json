@@ -1,0 +1,9 @@
+{
+  "packages": [],
+  "extensions": [
+    "/Users/nour/Dev/pi-meta-harness-worktrees/bb-adapter-poc/extensions/advisor-session.ts",
+    "/Users/nour/Dev/pi-meta-harness-worktrees/bb-adapter-poc/extensions/advisor-worker.ts",
+    "/Users/nour/Dev/pi-meta-harness-worktrees/bb-adapter-poc/extensions/advisor-graph.ts",
+    "/Users/nour/Dev/pi-detach-worktrees/bb-adapter-poc/extensions/index.ts"
+  ]
+}
