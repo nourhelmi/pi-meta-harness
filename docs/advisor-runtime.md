@@ -114,7 +114,7 @@ changes transport, not roles or intelligence policy:
 | Mode | Transport |
 | --- | --- |
 | `pi` | `bg_agent` starts Pi and forwards the selected provider/model/reasoning. |
-| `native` | `openai-codex`/`openai` route to Codex CLI; `claude-bridge`/`anthropic` route to Claude Code. Native workers receive an automatically generated durable result path under the advisor state root, reserved before launch. A successful settlement requires a nonempty artifact with the role-result headings; otherwise the run becomes `stalled` and its pane remains visible. |
+| `native` | `openai-codex`/`openai` route to Codex CLI; `claude-bridge`/`anthropic` route to Claude Code. Native workers receive an automatically generated durable result path under the advisor state root, reserved before launch. A successful settlement requires a nonempty artifact with the role-result headings; a section may be organized into deeper subheadings (for example `## AC1` under `# Claims`), and only a section with no prose under it is empty. Otherwise the run becomes `stalled`, its pane remains visible, and the settlement notice names the validation problem so the parent can repair the artifact by name instead of relaunching the work. |
 
 The foreman profile is constrained to `harness: "pi"`, including in an advisor
 session whose other workers use native Codex/Claude. Its delegation permission

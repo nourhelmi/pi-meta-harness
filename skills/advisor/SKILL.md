@@ -191,6 +191,34 @@ Do not reserve stricter known success conditions for a later checker. If new
 evidence changes the criteria, issue and record a deliberate packet revision;
 never silently judge the maker against a hidden contract.
 
+### Bound after diagnosis
+
+Diagnosis usually arrives before the packet is locked — from your own reading
+or a scout — and that is the moment to size the work. The default deliverable
+is the smallest change that fixes the observed defect with the smallest blast
+radius. The request's wording sets the goal, not the surface: an absolute
+phrase such as "never anywhere" or "everywhere in the product" states the
+user's invariant and does not by itself authorize rewriting shared behavior.
+Grow the surface only when the diagnosis shows the minimal fix would leave the
+reported defect in place, a shared primitive is itself the defect, a side
+effect or data/security boundary is at stake, or the user explicitly asked for
+the wider change.
+
+When the literal reading implies a much larger surface than the sink you found,
+split it: lock a packet for the minimal fix first, and present the expansion as
+a separate, costed option with your recommendation. Ask the user
+asynchronously when that option is high-value; do not fold the expansion into
+the same packet, and do not let the question gate the minimal fix. Related real
+defects found on the way are reported and offered, not silently absorbed. Two
+small reviewable deliveries beat one broad delivery that changes behavior the
+user did not ask about.
+
+Record the sizing in the workstream file's Scope ledger: the observed defect
+and its sink, the minimal fix and its surface, the literal-reading surface,
+what would justify expanding, and the choice made with confidence. Judgment
+stays with the advisor: there is no file-count threshold, and the ledger is a
+review surface, not a gate.
+
 Frontend routing is scope- and capacity-aware guidance, and the preferred IDs
 come from the live guide:
 
@@ -568,7 +596,8 @@ overrides the root for tests.
 - `<root>/sessions/<PI_SESSION_ID>.md` — private session checkpoint. Only this
   Pi session can edit its file.
 - `<root>/workstreams/<slug>.md` — workstream source of truth. Only the owner
-  session named in the file can edit it.
+  session named in the file can edit it. It carries the Goal, Current state,
+  Scope ledger (see Bound after diagnosis), acceptance contract, and Decisions.
 - `<root>/events/<timestamp>-<session-short>-<slug>.md` — immutable handoffs,
   decisions, findings, and alerts. Create a new file; never edit another
   session's event.

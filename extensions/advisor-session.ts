@@ -367,7 +367,7 @@ async function writeWorkstreamClaim(options: WorkstreamClaimOptions): Promise<vo
 	if (!current) {
 		await writeFile(
 			paths.workstream,
-			`# Workstream: ${workstream}\n\n- Owner session: \`${sessionId}\`\n- Status: active\n\n## Goal\n\nTo be defined from the advisor conversation.\n\n## Current state\n\nInitialized by \`/advisor\`.\n`,
+			`# Workstream: ${workstream}\n\n- Owner session: \`${sessionId}\`\n- Status: active\n\n## Goal\n\nTo be defined from the advisor conversation.\n\n## Current state\n\nInitialized by \`/advisor\`.\n\n## Scope ledger\n\nFill after diagnosis, before locking a packet: observed defect and its sink; minimal fix and its surface; literal-reading surface; what would justify expanding; choice made, with confidence.\n`,
 			{ encoding: "utf8", flag: "wx" },
 		);
 		return;

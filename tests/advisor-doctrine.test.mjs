@@ -25,6 +25,27 @@ test("advisor topology defaults cohesive work to an empowered maker without maki
   assert.doesNotMatch(adaptive, /(?:minimum|maximum)\s+(?:agent|worker|launch)/i);
 });
 
+test("advisor sizes work after diagnosis toward the smallest blast radius without a numeric gate", async () => {
+  const source = await text("skills/advisor/SKILL.md");
+  const sizing = section(source, "### Bound after diagnosis", "Frontend routing is scope- and capacity-aware");
+
+  assert.match(sizing, /smallest change that fixes the observed defect with the smallest blast[\s\S]*radius/);
+  assert.match(sizing, /wording sets the goal, not the surface/);
+  assert.match(sizing, /does not by itself authorize rewriting shared behavior/);
+  assert.match(sizing, /shared primitive is itself the defect, a side[\s\S]*effect or data\/security boundary is at stake, or the user explicitly asked/);
+  assert.match(sizing, /lock a packet for the minimal fix first, and present the expansion as[\s\S]*a separate, costed option/);
+  assert.match(sizing, /do not let the question gate the minimal fix/);
+  assert.match(sizing, /reported and offered, not silently absorbed/);
+  assert.match(sizing, /Scope ledger/);
+  assert.match(sizing, /there is no file-count threshold/);
+  assert.doesNotMatch(sizing, /\d+\s*(?:files?|lines?|minutes?)/i);
+
+  const extension = await text("extensions/advisor-session.ts");
+  assert.match(extension, /## Scope ledger/);
+  const state = section(source, "## Isolated state convention", "## Context budget");
+  assert.match(state, /Scope ledger \(see Bound after diagnosis\)/);
+});
+
 test("advisor doctrine keeps one document root and rejects legacy universal gates across the whole skill", async () => {
   const source = await text("skills/advisor/SKILL.md");
   const topLevelHeadings = source.match(/^# [^#].*$/gm) ?? [];
@@ -119,6 +140,8 @@ test("frozen adaptive prospective case contracts remain byte-identical", async (
     ["evals/prospective/single-maker-fast-path/case.json", "bacfafc735c6f96eb4f7edf01f8dca224c27f0ff2a3ecb7a823df851431c7b8a"],
     ["evals/prospective/cohesive-medium-maker/case.json", "8bda959efc95e3c465ac4121825ceb1b75dbbf356bca43dc144745ca9bfaf9a4"],
     ["evals/prospective/risk-triggered-checker/case.json", "926a7d170f10569ea99b52114c2dafe5ac3e058fde23fefca0461e01476aae01"],
+    ["evals/prospective/absolute-request-minimal-fix/case.json", "112088ce47b47973404e7f3a23a4997710ffe47c16f0f69f08a159fbdf389178"],
+    ["evals/prospective/two-defects-ship-small-first/case.json", "9c0180489c51f99f14ebb804168e707503e4b3377c686d8ef65ed1e8e430f946"],
   ]);
 
   for (const [path, digest] of expected) {
