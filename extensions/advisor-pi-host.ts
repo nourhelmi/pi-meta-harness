@@ -334,7 +334,13 @@ async function findPersistedHarnessIdentity(root: string, agentName: string): Pr
 	for (const file of files.filter((name) => name.endsWith(".jsonl"))) {
 		const lines = (await readFile(join(root, "traces", file), "utf8")).split("\n").filter(Boolean);
 		for (const line of lines) {
-			const event = JSON.parse(line) as CanonicalEvent;
+			let event: CanonicalEvent;
+			try {
+				event = JSON.parse(line) as CanonicalEvent;
+			} catch {
+				// A corrupt trace line must not break identity recovery for a live launch.
+				continue;
+			}
 			const launchRef = stringRecord(event.data.launchRef);
 			if (launchRef?.agentName !== agentName) continue;
 			const identity = priorHarnessIdentity(event);
@@ -472,7 +478,9 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 				findSessionHarnessIdentity(ctx, agentName) ??
 				(await findPersistedHarnessIdentity(captured.binding.root, agentName));
 		}
-		if (!identity) throw new Error(`bg_agent run ${runId} did not expose a supported runtime identity`);
+		// A trace adapter must never break the advisor's tool pipeline: a launch whose
+		// harness identity cannot be recovered is left untraced rather than thrown.
+		if (!identity) return;
 
 		const role = launchRole(input, details);
 		const node = `${role}-${runId}`;

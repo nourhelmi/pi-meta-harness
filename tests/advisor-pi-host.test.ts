@@ -429,3 +429,32 @@ test("name follow-up is a new run and reuses the observed harness identity", asy
 		assert.equal((launch?.data as Record<string, unknown>).riskTier, "high");
 	});
 });
+
+test("a launch whose harness identity cannot be recovered is left untraced without throwing", async () => {
+	await withStateRoot(async (root) => {
+		const host = installedHost();
+		const input = launchInput({ role: undefined, name: "ghost-agent", prompt: "Follow up." });
+		await host.dispatch("tool_call", { type: "tool_call", toolName: "bg_agent", toolCallId: "call-ghost", input });
+		await host.dispatch("tool_result", {
+			type: "tool_result",
+			toolName: "bg_agent",
+			toolCallId: "call-ghost",
+			input,
+			content: [{ type: "text", text: "Agent settled inline." }],
+			isError: false,
+			details: { runId: "ghost123", promoted: false, status: "exited", agentState: "done", runtime: "existing", agentName: "ghost-agent" },
+		});
+		await host.dispatch("tool_call", { type: "tool_call", toolName: "bg_agent", toolCallId: "call-future", input: launchInput() });
+		await host.dispatch("tool_result", {
+			type: "tool_result",
+			toolName: "bg_agent",
+			toolCallId: "call-future",
+			input: launchInput(),
+			content: [{ type: "text", text: "Agent settled inline." }],
+			isError: false,
+			details: { runId: "future123", promoted: false, status: "exited", agentState: "done", runtime: "gemini" },
+		});
+		await assert.rejects(access(join(root, "traces", "ghost123.jsonl")));
+		await assert.rejects(access(join(root, "traces", "future123.jsonl")));
+	});
+});
