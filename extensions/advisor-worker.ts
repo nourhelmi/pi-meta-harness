@@ -3,7 +3,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { createBbSurfaceClient, detectBbSurfaceContext, type BbBootstrapClaimResponse } from "./bb-surface.ts";
+import { detectBbSurfaceContext } from "./bb-surface.ts";
 
 const ENTRY_TYPE = "advisor-worker";
 
@@ -29,7 +29,77 @@ interface WorkerState {
 
 interface WorkerRuntime {
 	state?: WorkerState;
+	context?: ExtensionContext;
 	resultBlockActive: boolean;
+}
+
+interface PrivateInitializationPayload {
+	descriptor: {
+		version: 1;
+		kind: "initial" | "resume";
+		pluginId: string;
+		reservationId: string;
+		threadId: string;
+		inputSha256: string;
+		generation: number;
+		payloadSha256: string;
+	};
+	value: {
+		role: string;
+		runDir: string;
+		resultPath: string;
+		maxTurns: number;
+		launchModel: string;
+		launchThinking: string;
+		allowSubagents: boolean;
+		runId: string;
+		graphId?: string;
+		nodeId?: string;
+	};
+}
+
+interface PrivateInitializationRegistry {
+	register(pluginId: string, consume: (payload: PrivateInitializationPayload) => Promise<void>): { dispose(): void };
+	consume(payload: PrivateInitializationPayload): Promise<unknown>;
+}
+
+const PRIVATE_INITIALIZATION_REGISTRY = Symbol.for("get-bb.provider-session-initialization.v1");
+
+function privateInitializationRegistry(): PrivateInitializationRegistry {
+	const existing = Reflect.get(globalThis, PRIVATE_INITIALIZATION_REGISTRY) as
+		| PrivateInitializationRegistry
+		| undefined;
+	if (existing && typeof existing.register === "function" && typeof existing.consume === "function") return existing;
+	const consumers = new Map<string, (payload: PrivateInitializationPayload) => Promise<void>>();
+	const consumed = new Set<string>();
+	const registry: PrivateInitializationRegistry = {
+		register(pluginId, consume) {
+			if (consumers.has(pluginId))
+				throw new Error(`private initialization consumer already registered for ${pluginId}`);
+			consumers.set(pluginId, consume);
+			return {
+				dispose() {
+					if (consumers.get(pluginId) === consume) consumers.delete(pluginId);
+				},
+			};
+		},
+		async consume(payload) {
+			const key = `${payload.descriptor.threadId}:${payload.descriptor.generation}`;
+			if (consumed.has(key)) throw new Error("PRIVATE_INITIALIZATION_REPLAY");
+			const consumer = consumers.get(payload.descriptor.pluginId);
+			if (!consumer) throw new Error("PRIVATE_INITIALIZATION_PLUGIN_UNAVAILABLE");
+			consumed.add(key);
+			await consumer(payload);
+			return { ...payload.descriptor, consumed: true };
+		},
+	};
+	Object.defineProperty(globalThis, PRIVATE_INITIALIZATION_REGISTRY, {
+		configurable: false,
+		enumerable: false,
+		value: registry,
+		writable: false,
+	});
+	return registry;
 }
 
 export function resultStatusLine(markdown: string): string | undefined {
@@ -43,7 +113,12 @@ export function resultStatusLine(markdown: string): string | undefined {
 		if (/^\s*#{1,6}\s+/.test(line)) return undefined;
 		const status = line.trim();
 		if (!status) continue;
-		return status.replace(/^[*_`]+/, "").replace(/[*_`]+$/, "").trim() || undefined;
+		return (
+			status
+				.replace(/^[*_`]+/, "")
+				.replace(/[*_`]+$/, "")
+				.trim() || undefined
+		);
 	}
 	return undefined;
 }
@@ -116,7 +191,9 @@ function profilePath(): string {
 async function loadWorkerConfig(): Promise<WorkerConfig> {
 	const contents = await readFile(profilePath(), "utf8");
 	try {
-		const parsed = JSON.parse(contents) as { profiles?: Record<string, RoleProfile> };
+		const parsed = JSON.parse(contents) as {
+			profiles?: Record<string, RoleProfile>;
+		};
 		return { profiles: parsed.profiles ?? {} };
 	} catch {
 		throw new Error(`Could not parse advisor worker profiles at ${profilePath()}`);
@@ -163,11 +240,7 @@ async function writeManifest(ctx: ExtensionContext, state: WorkerState): Promise
 	);
 }
 
-async function initializeWorker(
-	pi: ExtensionAPI,
-	ctx: ExtensionContext,
-	role: string,
-): Promise<WorkerState> {
+async function initializeWorker(pi: ExtensionAPI, ctx: ExtensionContext, role: string): Promise<WorkerState> {
 	const config = await loadWorkerConfig();
 	const profile = config.profiles[role];
 	if (!profile?.skill) throw new Error(`Unknown or incomplete advisor worker role: ${role}`);
@@ -198,10 +271,10 @@ async function initializeWorker(
 	return state;
 }
 
-async function initializeClaimedWorker(
+async function initializePrivateWorker(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	claim: BbBootstrapClaimResponse,
+	claim: PrivateInitializationPayload["value"],
 ): Promise<WorkerState> {
 	const config = await loadWorkerConfig();
 	const profile = config.profiles[claim.role];
@@ -217,14 +290,17 @@ async function initializeClaimedWorker(
 		launchThinking: claim.launchThinking,
 		allowSubagents: claim.allowSubagents,
 	};
-	pi.appendEntry(ENTRY_TYPE, { role: state.role, runDir: state.runDir, launchModel: state.launchModel, launchThinking: state.launchThinking });
 	await writeManifest(ctx, state);
-	ctx.ui.setStatus("advisor-worker", `${state.role} · launch ${state.launchModel}/${state.launchThinking} · current ${actualModel(ctx)}/${ctx.thinkingLevel}`);
+	ctx.ui.setStatus(
+		"advisor-worker",
+		`${state.role} · launch ${state.launchModel}/${state.launchThinking} · current ${actualModel(ctx)}/${ctx.thinkingLevel}`,
+	);
 	return state;
 }
 
 function registerSessionStart(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 	pi.on("session_start", async (_event, ctx) => {
+		runtime.context = ctx;
 		if (detectBbSurfaceContext()) return;
 		const role = pi.getFlag("advisor-worker-role");
 		if (typeof role !== "string" || !role) return;
@@ -238,24 +314,30 @@ function registerSessionStart(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 	});
 }
 
-function registerBbBootstrap(pi: ExtensionAPI, runtime: WorkerRuntime): void {
+function registerBbPrivateInitialization(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 	const context = detectBbSurfaceContext();
 	if (!context) return;
-	let firstInput = true;
-	pi.on("input", async (event, ctx) => {
-		const marker = /^\[\[bb-meta-worker:v1:([A-Za-z0-9_-]{32,4096})\]\](?:\r?\n)?/.exec(event.text);
-		if (!firstInput || runtime.state) {
-			if (marker) throw new Error("replayed BB worker bootstrap marker");
-			return;
+	privateInitializationRegistry().register("meta-harness", async (payload) => {
+		const ctx = runtime.context;
+		if (!ctx) throw new Error("PRIVATE_INITIALIZATION_SESSION_NOT_READY");
+		if (
+			payload.descriptor.version !== 1 ||
+			payload.descriptor.pluginId !== "meta-harness" ||
+			payload.descriptor.threadId !== context.threadId ||
+			payload.descriptor.generation < 1 ||
+			!payload.value.role ||
+			!payload.value.runId ||
+			!payload.value.runDir.startsWith("/") ||
+			!payload.value.resultPath.startsWith(`${payload.value.runDir}/`) ||
+			payload.value.maxTurns < 1 ||
+			payload.value.maxTurns > 100 ||
+			payload.value.launchModel !== actualModel(ctx) ||
+			payload.value.launchThinking !== String(ctx.thinkingLevel)
+		) {
+			throw new Error("PRIVATE_INITIALIZATION_ROLE_STATE_MISMATCH");
 		}
-		firstInput = false;
-		// Curated BB Pi roots also load this extension. An ordinary unmarked root
-		// is not a worker; the server dispatch fence rejects a missing marker only
-		// for a correlated worker whose bootstrap is still unclaimed.
-		if (!marker) return;
-		const claim = await createBbSurfaceClient(context).claimBootstrap(marker[1] ?? "");
-		runtime.state = await initializeClaimedWorker(pi, ctx, claim);
-		return { action: "transform" as const, text: event.text.slice(marker[0].length), ...(event.images ? { images: event.images } : {}) };
+		if (runtime.state) throw new Error("PRIVATE_INITIALIZATION_REPLAY");
+		runtime.state = await initializePrivateWorker(pi, ctx, payload.value);
 	});
 }
 
@@ -317,7 +399,7 @@ export default function advisorWorkerExtension(pi: ExtensionAPI): void {
 	});
 	const runtime: WorkerRuntime = { resultBlockActive: false };
 	registerSessionStart(pi, runtime);
-	registerBbBootstrap(pi, runtime);
+	registerBbPrivateInitialization(pi, runtime);
 	registerSystemContract(pi, runtime);
 	registerCycleTracking(pi, runtime);
 	registerBlockedResultSignals(pi, runtime);

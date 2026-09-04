@@ -1,11 +1,6 @@
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
-import {
-  createCorrelationStore,
-  fingerprint,
-  tokenHash,
-  type LaunchReservation,
-} from "../src/correlation-store.js";
+import { createCorrelationStore, fingerprint, tokenHash, type LaunchReservation } from "../src/correlation-store.js";
 
 function reservation(overrides: Partial<LaunchReservation> = {}): LaunchReservation {
   return {
@@ -37,19 +32,62 @@ function reservation(overrides: Partial<LaunchReservation> = {}): LaunchReservat
 }
 
 describe("correlation store", () => {
-  it("stores only reconstructible identity, is unique by run/thread, and claims a thread-bound token once", () => {
+	it("keeps legacy correlation rows readable and unique by run/thread", () => {
     const db = new Database(":memory:");
     const store = createCorrelationStore(db);
-    store.insert({ runId: "r", threadId: "t", logicalParentThreadId: "p", graphId: "g", nodeId: "n", hostId: "h", bootstrapTokenHash: tokenHash("token"), createdAt: 1, updatedAt: 1 });
-    expect(store.getByRun("r")).toMatchObject({ runId: "r", threadId: "t", logicalParentThreadId: "p", graphId: "g", nodeId: "n", hostId: "h" });
+		store.insert({
+			runId: "r",
+			threadId: "t",
+			logicalParentThreadId: "p",
+			graphId: "g",
+			nodeId: "n",
+			hostId: "h",
+			bootstrapTokenHash: tokenHash("token"),
+			createdAt: 1,
+			updatedAt: 1,
+		});
+		expect(store.getByRun("r")).toMatchObject({
+			runId: "r",
+			threadId: "t",
+			logicalParentThreadId: "p",
+			graphId: "g",
+			nodeId: "n",
+			hostId: "h",
+		});
     expect(store.list()).toHaveLength(1);
-    expect(Object.keys(store.getByRun("r") ?? {}).sort()).toEqual(["bootstrapTokenHash", "createdAt", "graphId", "hostId", "logicalParentThreadId", "nodeId", "runId", "threadId", "updatedAt"]);
-    expect(store.claimBootstrap("token", "wrong")).toBeUndefined();
-    expect(store.claimBootstrap("token", "t")?.runId).toBe("r");
-    expect(store.claimBootstrap("token", "t")).toBeUndefined();
-    expect(createCorrelationStore(db).getByRun("r")?.bootstrapClaimedAt).toEqual(expect.any(Number));
-    expect(() => store.insert({ runId: "r", threadId: "t2", logicalParentThreadId: "p", hostId: "h", bootstrapTokenHash: tokenHash("other"), createdAt: 1, updatedAt: 1 })).toThrow();
-    expect(() => store.insert({ runId: "r2", threadId: "t", logicalParentThreadId: "p", hostId: "h", bootstrapTokenHash: tokenHash("other-2"), createdAt: 1, updatedAt: 1 })).toThrow();
+		expect(Object.keys(store.getByRun("r") ?? {}).sort()).toEqual([
+			"bootstrapTokenHash",
+			"createdAt",
+			"graphId",
+			"hostId",
+			"logicalParentThreadId",
+			"nodeId",
+			"runId",
+			"threadId",
+			"updatedAt",
+		]);
+		expect(() =>
+			store.insert({
+				runId: "r",
+				threadId: "t2",
+				logicalParentThreadId: "p",
+				hostId: "h",
+				bootstrapTokenHash: tokenHash("other"),
+				createdAt: 1,
+				updatedAt: 1,
+			}),
+		).toThrow();
+		expect(() =>
+			store.insert({
+				runId: "r2",
+				threadId: "t",
+				logicalParentThreadId: "p",
+				hostId: "h",
+				bootstrapTokenHash: tokenHash("other-2"),
+				createdAt: 1,
+				updatedAt: 1,
+			}),
+		).toThrow();
   });
 
   it("reserves before launch, stores only the token SHA-256, and atomically binds correlation", () => {
@@ -70,12 +108,19 @@ describe("correlation store", () => {
         requestFingerprint: fingerprint({ changed: true }),
       }),
     );
-    expect(duplicate).toEqual({ created: false, reservation: first.reservation });
+		expect(duplicate).toEqual({
+			created: false,
+			reservation: first.reservation,
+		});
 
     const binding = store.bind(tokenHash("token"), "thread", "environment");
     expect(binding).toMatchObject({
       kind: "bound",
-      reservation: { state: "bound", threadId: "thread", environmentId: "environment" },
+			reservation: {
+				state: "bound",
+				threadId: "thread",
+				environmentId: "environment",
+			},
       correlation: { runId: "r", threadId: "thread" },
     });
     expect(store.bind(tokenHash("token"), "thread", "environment")).toMatchObject({
@@ -87,15 +132,11 @@ describe("correlation store", () => {
     expect(store.listReservations()).toHaveLength(1);
     expect(store.list()).toHaveLength(1);
     expect(() =>
-      db.prepare(
-        "UPDATE meta_harness_bootstrap_launch_reservation SET model = 'other/model' WHERE run_id = 'r'",
-      ).run(),
+			db.prepare("UPDATE meta_harness_bootstrap_launch_reservation SET model = 'other/model' WHERE run_id = 'r'").run(),
     ).toThrow(/immutable/u);
-    expect(() =>
-      db.prepare(
-        "DELETE FROM meta_harness_bootstrap_launch_reservation WHERE run_id = 'r'",
-      ).run(),
-    ).toThrow(/append-only/u);
+		expect(() => db.prepare("DELETE FROM meta_harness_bootstrap_launch_reservation WHERE run_id = 'r'").run()).toThrow(
+			/append-only/u,
+		);
   });
 
   it("rolls a failed bind back to reserved with no partial correlation", () => {
@@ -109,9 +150,7 @@ describe("correlation store", () => {
         SELECT RAISE(ABORT, 'correlation denied');
       END;
     `);
-    expect(() => store.bind(tokenHash("token"), "thread", "environment")).toThrow(
-      /correlation denied/u,
-    );
+		expect(() => store.bind(tokenHash("token"), "thread", "environment")).toThrow(/correlation denied/u);
     expect(store.getReservationByRun("r")).toMatchObject({ state: "reserved" });
     expect(store.getByRun("r")).toBeUndefined();
   });

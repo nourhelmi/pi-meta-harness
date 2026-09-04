@@ -1,3 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { agentStartRequest, bootstrapClaimRequest } from "../src/contracts.js";
-describe("wire contracts", () => { it("rejects extra keys, protocol drift, relative paths, and incomplete worker bootstrap", () => { const base = { version: "1", runId: "r", logicalParentThreadId: "p", projectId: "p", environmentId: "e", hostId: "h", cwd: "/tmp/x", label: "x", prompt: "x", providerId: "pi", model: "openai/gpt", reasoning: "high" }; expect(agentStartRequest.safeParse(base).success).toBe(true); expect(agentStartRequest.safeParse({ ...base, extra: true }).success).toBe(false); expect(agentStartRequest.safeParse({ ...base, version: "2" }).success).toBe(false); expect(agentStartRequest.safeParse({ ...base, cwd: "relative" }).success).toBe(false); expect(agentStartRequest.safeParse({ ...base, model: "missing-provider" }).success).toBe(false); expect(agentStartRequest.safeParse({ ...base, bootstrap: { role: "builder", maxTurns: 6, allowSubagents: false } }).success).toBe(false); expect(agentStartRequest.safeParse({ ...base, resultPath: "/tmp/result.md" }).success).toBe(false); expect(bootstrapClaimRequest.safeParse({ version: "1", token: "x".repeat(32), threadId: "t" }).success).toBe(true); }); });
+import { agentStartRequest } from "../src/contracts.js";
+describe("wire contracts", () => {
+	it("rejects extra keys, protocol drift, relative paths, and incomplete worker initialization", () => {
+		const base = {
+			version: "1",
+			runId: "r",
+			logicalParentThreadId: "p",
+			projectId: "p",
+			environmentId: "e",
+			hostId: "h",
+			cwd: "/tmp/x",
+			label: "x",
+			prompt: "x",
+			providerId: "pi",
+			model: "openai/gpt",
+			reasoning: "high",
+		};
+		expect(agentStartRequest.safeParse(base).success).toBe(true);
+		expect(agentStartRequest.safeParse({ ...base, extra: true }).success).toBe(false);
+		expect(agentStartRequest.safeParse({ ...base, version: "2" }).success).toBe(false);
+		expect(agentStartRequest.safeParse({ ...base, cwd: "relative" }).success).toBe(false);
+		expect(agentStartRequest.safeParse({ ...base, model: "missing-provider" }).success).toBe(false);
+		expect(
+			agentStartRequest.safeParse({
+				...base,
+				bootstrap: { role: "builder", maxTurns: 6, allowSubagents: false },
+			}).success,
+		).toBe(false);
+		expect(agentStartRequest.safeParse({ ...base, resultPath: "/tmp/result.md" }).success).toBe(false);
+	});
+});

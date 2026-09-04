@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 const bbRoot = resolve(
   process.env.BB_PINNED_SOURCE_ROOT ?? "/private/tmp/get-bb-research",
 );
-const expectedCommit = "99c0ad71841ff6ff2d42b3f7864b6dba0b0f7337";
+const expectedCommit = "f88f000164aa1e822fbc92d7327dc5c891918dfb";
 const cli = resolve(bbRoot, "packages/scripts/dist/commands/run-cli.js");
 
 const git = spawnSync("git", ["-C", bbRoot, "rev-parse", "HEAD"], {

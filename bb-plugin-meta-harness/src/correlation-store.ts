@@ -93,6 +93,50 @@ export const correlationMigrations = [
       SELECT RAISE(ABORT, 'launch reservations are append-only');
     END;`,
   },
+	{
+		id: "003-private-thread-initialization",
+		sql: `CREATE TABLE IF NOT EXISTS meta_harness_private_launch_reservation (
+      run_id TEXT PRIMARY KEY,
+      reservation_id TEXT NOT NULL UNIQUE,
+      request_fingerprint TEXT NOT NULL CHECK(length(request_fingerprint) = 64),
+      input_sha256 TEXT NOT NULL CHECK(length(input_sha256) = 64),
+      logical_parent_thread_id TEXT NOT NULL,
+      logical_parent_environment_id TEXT NOT NULL,
+      graph_id TEXT,
+      node_id TEXT,
+      project_id TEXT NOT NULL,
+      host_id TEXT NOT NULL,
+      cwd TEXT NOT NULL,
+      provider_id TEXT NOT NULL CHECK(provider_id = 'pi'),
+      model TEXT NOT NULL,
+      reasoning TEXT NOT NULL,
+      role_state_json TEXT NOT NULL CHECK(json_valid(role_state_json)),
+      thread_id TEXT UNIQUE,
+      environment_id TEXT,
+      generation INTEGER CHECK(generation IS NULL OR generation >= 1),
+      initialization_state TEXT NOT NULL CHECK(initialization_state IN ('reserved','resolving','initialized','stalled','unknown')),
+      receipt_sha256 TEXT CHECK(receipt_sha256 IS NULL OR length(receipt_sha256) = 64),
+      error_code TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      initialized_at INTEGER,
+      CHECK((thread_id IS NULL AND environment_id IS NULL AND generation IS NULL) OR (thread_id IS NOT NULL AND environment_id IS NOT NULL AND generation IS NOT NULL))
+    );
+    CREATE TRIGGER IF NOT EXISTS meta_harness_private_launch_immutable
+    BEFORE UPDATE OF run_id, reservation_id, request_fingerprint, input_sha256,
+      logical_parent_thread_id, logical_parent_environment_id, graph_id,
+      node_id, project_id, host_id, cwd, provider_id, model, reasoning,
+      role_state_json, created_at
+    ON meta_harness_private_launch_reservation
+    BEGIN
+      SELECT RAISE(ABORT, 'private launch reservation identity is immutable');
+    END;
+    CREATE TRIGGER IF NOT EXISTS meta_harness_private_launch_no_delete
+    BEFORE DELETE ON meta_harness_private_launch_reservation
+    BEGIN
+      SELECT RAISE(ABORT, 'private launch reservations are append-only');
+    END;`,
+	},
 ] as const;
 
 export interface Correlation {
@@ -102,10 +146,52 @@ export interface Correlation {
   graphId?: string;
   nodeId?: string;
   hostId: string;
-  bootstrapTokenHash: string;
+	bootstrapTokenHash?: string;
   bootstrapClaimedAt?: number;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface PrivateRoleState {
+	role: string;
+	runDir: string;
+	resultPath: string;
+	maxTurns: number;
+	launchModel: string;
+	launchThinking: string;
+	allowSubagents: boolean;
+	runId: string;
+	graphId?: string;
+	nodeId?: string;
+}
+
+export type PrivateInitializationState = "reserved" | "resolving" | "initialized" | "stalled" | "unknown";
+
+export interface PrivateLaunchReservation {
+	runId: string;
+	reservationId: string;
+	requestFingerprint: string;
+	inputSha256: string;
+	logicalParentThreadId: string;
+	logicalParentEnvironmentId: string;
+	graphId?: string;
+	nodeId?: string;
+	projectId: string;
+	hostId: string;
+	cwd: string;
+	providerId: "pi";
+	model: string;
+	reasoning: string;
+	roleState: PrivateRoleState;
+	threadId?: string;
+	environmentId?: string;
+	generation?: number;
+	initializationState: PrivateInitializationState;
+	receiptSha256?: string;
+	errorCode?: string;
+	createdAt: number;
+	updatedAt: number;
+	initializedAt?: number;
 }
 
 export type LaunchReservationState = "reserved" | "bound" | "failed" | "unknown";
@@ -158,6 +244,39 @@ export function newBootstrapToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
+export function newPrivateReservationId(): string {
+	return randomBytes(32).toString("base64url");
+}
+
+function privateReservationFromRow(found: Record<string, unknown>): PrivateLaunchReservation {
+	return {
+		runId: String(found.run_id),
+		reservationId: String(found.reservation_id),
+		requestFingerprint: String(found.request_fingerprint),
+		inputSha256: String(found.input_sha256),
+		logicalParentThreadId: String(found.logical_parent_thread_id),
+		logicalParentEnvironmentId: String(found.logical_parent_environment_id),
+		...(found.graph_id ? { graphId: String(found.graph_id) } : {}),
+		...(found.node_id ? { nodeId: String(found.node_id) } : {}),
+		projectId: String(found.project_id),
+		hostId: String(found.host_id),
+		cwd: String(found.cwd),
+		providerId: "pi",
+		model: String(found.model),
+		reasoning: String(found.reasoning),
+		roleState: JSON.parse(String(found.role_state_json)) as PrivateRoleState,
+		...(found.thread_id ? { threadId: String(found.thread_id) } : {}),
+		...(found.environment_id ? { environmentId: String(found.environment_id) } : {}),
+		...(found.generation ? { generation: Number(found.generation) } : {}),
+		initializationState: String(found.initialization_state) as PrivateInitializationState,
+		...(found.receipt_sha256 ? { receiptSha256: String(found.receipt_sha256) } : {}),
+		...(found.error_code ? { errorCode: String(found.error_code) } : {}),
+		createdAt: Number(found.created_at),
+		updatedAt: Number(found.updated_at),
+		...(found.initialized_at ? { initializedAt: Number(found.initialized_at) } : {}),
+	};
+}
+
 function correlationFromRow(found: Record<string, unknown>): Correlation {
   return {
     runId: String(found.run_id),
@@ -167,9 +286,7 @@ function correlationFromRow(found: Record<string, unknown>): Correlation {
     ...(found.node_id ? { nodeId: String(found.node_id) } : {}),
     hostId: String(found.host_id),
     bootstrapTokenHash: String(found.bootstrap_token_hash),
-    ...(found.bootstrap_claimed_at
-      ? { bootstrapClaimedAt: Number(found.bootstrap_claimed_at) }
-      : {}),
+		...(found.bootstrap_claimed_at ? { bootstrapClaimedAt: Number(found.bootstrap_claimed_at) } : {}),
     createdAt: Number(found.created_at),
     updatedAt: Number(found.updated_at),
   };
@@ -195,18 +312,12 @@ function reservationFromRow(found: Record<string, unknown>): LaunchReservation {
     expectedVisibility: String(found.expected_visibility) as "visible",
     expectedParentThreadId: null,
     expectedOriginKind: null,
-    expectedWorkspaceProvisionType: String(
-      found.expected_workspace_provision_type,
-    ) as "unmanaged",
+		expectedWorkspaceProvisionType: String(found.expected_workspace_provision_type) as "unmanaged",
     bootstrapRequired: Number(found.bootstrap_required) === 1,
     ...(found.thread_id ? { threadId: String(found.thread_id) } : {}),
-    ...(found.environment_id
-      ? { environmentId: String(found.environment_id) }
-      : {}),
+		...(found.environment_id ? { environmentId: String(found.environment_id) } : {}),
     state: String(found.state) as LaunchReservationState,
-    ...(found.failure_reason
-      ? { failureReason: String(found.failure_reason) }
-      : {}),
+		...(found.failure_reason ? { failureReason: String(found.failure_reason) } : {}),
     createdAt: Number(found.created_at),
     updatedAt: Number(found.updated_at),
     ...(found.bound_at ? { boundAt: Number(found.bound_at) } : {}),
@@ -217,29 +328,46 @@ export function createCorrelationStore(db: Database.Database) {
   for (const migration of correlationMigrations) db.exec(migration.sql);
 
   const correlationRow = (runId: string) =>
-    db
-      .prepare("SELECT * FROM meta_harness_correlation WHERE run_id = ?")
-      .get(runId) as Record<string, unknown> | undefined;
+		db.prepare("SELECT * FROM meta_harness_correlation WHERE run_id = ?").get(runId) as
+			| Record<string, unknown>
+			| undefined;
   const reservationRow = (runId: string) =>
-    db
-      .prepare(
-        "SELECT * FROM meta_harness_bootstrap_launch_reservation WHERE run_id = ?",
-      )
-      .get(runId) as Record<string, unknown> | undefined;
+		db.prepare("SELECT * FROM meta_harness_bootstrap_launch_reservation WHERE run_id = ?").get(runId) as
+			| Record<string, unknown>
+			| undefined;
   const reservationByHashRow = (bootstrapTokenHash: string) =>
     db
-      .prepare(
-        "SELECT * FROM meta_harness_bootstrap_launch_reservation WHERE bootstrap_token_hash = ?",
-      )
+			.prepare("SELECT * FROM meta_harness_bootstrap_launch_reservation WHERE bootstrap_token_hash = ?")
       .get(bootstrapTokenHash) as Record<string, unknown> | undefined;
+	const privateReservationRow = (runId: string) =>
+		db.prepare("SELECT * FROM meta_harness_private_launch_reservation WHERE run_id = ?").get(runId) as
+			| Record<string, unknown>
+			| undefined;
+	const privateReservationByIdRow = (reservationId: string) =>
+		db.prepare("SELECT * FROM meta_harness_private_launch_reservation WHERE reservation_id = ?").get(reservationId) as
+			| Record<string, unknown>
+			| undefined;
 
   const getByRun = (runId: string): Correlation | undefined => {
+		const privateFound = privateReservationRow(runId);
+		if (privateFound) {
+			const reservation = privateReservationFromRow(privateFound);
+			if (!reservation.threadId) return undefined;
+			return {
+				runId: reservation.runId,
+				threadId: reservation.threadId,
+				logicalParentThreadId: reservation.logicalParentThreadId,
+				...(reservation.graphId ? { graphId: reservation.graphId } : {}),
+				...(reservation.nodeId ? { nodeId: reservation.nodeId } : {}),
+				hostId: reservation.hostId,
+				createdAt: reservation.createdAt,
+				updatedAt: reservation.updatedAt,
+			};
+		}
     const found = correlationRow(runId);
     return found ? correlationFromRow(found) : undefined;
   };
-  const getReservationByRun = (
-    runId: string,
-  ): LaunchReservation | undefined => {
+	const getReservationByRun = (runId: string): LaunchReservation | undefined => {
     const found = reservationRow(runId);
     return found ? reservationFromRow(found) : undefined;
   };
@@ -283,9 +411,7 @@ export function createCorrelationStore(db: Database.Database) {
         .run(threadId, environmentId, now, now, current.runId);
       if (updated.changes !== 1) {
         const raced = getReservationByRun(current.runId);
-        return raced
-          ? { kind: "unavailable", reservation: raced }
-          : { kind: "missing" };
+				return raced ? { kind: "unavailable", reservation: raced } : { kind: "missing" };
       }
 
       const correlation: Correlation = {
@@ -322,9 +448,7 @@ export function createCorrelationStore(db: Database.Database) {
     getByRun,
     getByToken(token: string): Correlation | undefined {
       const found = db
-        .prepare(
-          "SELECT run_id FROM meta_harness_correlation WHERE bootstrap_token_hash = ?",
-        )
+				.prepare("SELECT run_id FROM meta_harness_correlation WHERE bootstrap_token_hash = ?")
         .get(tokenHash(token)) as { run_id: string } | undefined;
       return found ? getByRun(found.run_id) : undefined;
     },
@@ -344,16 +468,131 @@ export function createCorrelationStore(db: Database.Database) {
       return value;
     },
     list(): Correlation[] {
-      const rows = db
+			const legacyRows = db
+				.prepare("SELECT run_id FROM meta_harness_correlation ORDER BY created_at ASC")
+				.all() as Array<{ run_id: string }>;
+			const privateRows = db
         .prepare(
-          "SELECT run_id FROM meta_harness_correlation ORDER BY created_at ASC",
+					"SELECT run_id FROM meta_harness_private_launch_reservation WHERE thread_id IS NOT NULL ORDER BY created_at ASC",
         )
         .all() as Array<{ run_id: string }>;
+			const rows = [...legacyRows, ...privateRows];
       return rows.flatMap((found) => {
         const value = getByRun(found.run_id);
         return value ? [value] : [];
       });
     },
+		getPrivateReservationByRun(runId: string): PrivateLaunchReservation | undefined {
+			const found = privateReservationRow(runId);
+			return found ? privateReservationFromRow(found) : undefined;
+		},
+		getPrivateReservationById(reservationId: string): PrivateLaunchReservation | undefined {
+			const found = privateReservationByIdRow(reservationId);
+			return found ? privateReservationFromRow(found) : undefined;
+		},
+		listPrivateReservations(): PrivateLaunchReservation[] {
+			return (
+				db.prepare("SELECT * FROM meta_harness_private_launch_reservation ORDER BY created_at ASC").all() as Array<
+					Record<string, unknown>
+				>
+			).map(privateReservationFromRow);
+		},
+		reservePrivate(value: PrivateLaunchReservation): {
+			created: boolean;
+			reservation: PrivateLaunchReservation;
+		} {
+			return db.transaction(() => {
+				const prior = privateReservationRow(value.runId);
+				if (prior)
+					return {
+						created: false,
+						reservation: privateReservationFromRow(prior),
+					};
+				db.prepare(
+					`INSERT INTO meta_harness_private_launch_reservation(
+          run_id,reservation_id,request_fingerprint,input_sha256,logical_parent_thread_id,
+          logical_parent_environment_id,graph_id,node_id,project_id,host_id,cwd,
+          provider_id,model,reasoning,role_state_json,initialization_state,
+          created_at,updated_at
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reserved',?,?)`,
+				).run(
+					value.runId,
+					value.reservationId,
+					value.requestFingerprint,
+					value.inputSha256,
+					value.logicalParentThreadId,
+					value.logicalParentEnvironmentId,
+					value.graphId ?? null,
+					value.nodeId ?? null,
+					value.projectId,
+					value.hostId,
+					value.cwd,
+					value.providerId,
+					value.model,
+					value.reasoning,
+					JSON.stringify(value.roleState),
+					value.createdAt,
+					value.updatedAt,
+				);
+				const created = privateReservationRow(value.runId);
+				if (!created) throw new Error("private launch reservation was not persisted");
+				return {
+					created: true,
+					reservation: privateReservationFromRow(created),
+				};
+			})();
+		},
+		bindPrivate(
+			reservationId: string,
+			threadId: string,
+			environmentId: string,
+			generation: number,
+		): PrivateLaunchReservation | undefined {
+			const now = Date.now();
+			let outcome = db
+				.prepare(
+					`UPDATE meta_harness_private_launch_reservation
+        SET thread_id=?, environment_id=?, generation=?, initialization_state='resolving', updated_at=?
+        WHERE reservation_id=? AND initialization_state='reserved' AND thread_id IS NULL`,
+				)
+				.run(threadId, environmentId, generation, now, reservationId);
+			if (outcome.changes === 0) {
+				outcome = db
+					.prepare(
+						`UPDATE meta_harness_private_launch_reservation
+          SET generation=?, initialization_state='resolving', error_code=NULL, updated_at=?
+          WHERE reservation_id=? AND thread_id=? AND environment_id=?
+            AND initialization_state='initialized' AND generation < ?`,
+					)
+					.run(generation, now, reservationId, threadId, environmentId, generation);
+			}
+			const row = privateReservationByIdRow(reservationId);
+			if (outcome.changes !== 1 && row) {
+				const current = privateReservationFromRow(row);
+				if (
+					current.threadId !== threadId ||
+					current.environmentId !== environmentId ||
+					current.generation !== generation
+				)
+					return undefined;
+				return current;
+			}
+			return row ? privateReservationFromRow(row) : undefined;
+		},
+		markPrivate(
+			runId: string,
+			state: Exclude<PrivateInitializationState, "reserved" | "resolving">,
+			errorCode?: string,
+		): PrivateLaunchReservation | undefined {
+			const now = Date.now();
+			db.prepare(
+				`UPDATE meta_harness_private_launch_reservation
+        SET initialization_state=?, error_code=?, updated_at=?, initialized_at=CASE WHEN ?='initialized' THEN ? ELSE initialized_at END
+        WHERE run_id=? AND initialization_state IN ('reserved','resolving')`,
+			).run(state, errorCode?.slice(0, 255) ?? null, now, state, now, runId);
+			const row = privateReservationRow(runId);
+			return row ? privateReservationFromRow(row) : undefined;
+		},
     reserve(value: LaunchReservation): {
       created: boolean;
       reservation: LaunchReservation;
@@ -407,11 +646,9 @@ export function createCorrelationStore(db: Database.Database) {
     },
     listReservations(): LaunchReservation[] {
       return (
-        db
-          .prepare(
-            "SELECT * FROM meta_harness_bootstrap_launch_reservation ORDER BY created_at ASC",
-          )
-          .all() as Array<Record<string, unknown>>
+				db.prepare("SELECT * FROM meta_harness_bootstrap_launch_reservation ORDER BY created_at ASC").all() as Array<
+					Record<string, unknown>
+				>
       ).map(reservationFromRow);
     },
     bind(
@@ -420,12 +657,7 @@ export function createCorrelationStore(db: Database.Database) {
       environmentId: string,
       claimedAt?: number,
     ): ReservationBindResult {
-      return bindTransaction(
-        bootstrapTokenHash,
-        threadId,
-        environmentId,
-        claimedAt,
-      );
+			return bindTransaction(bootstrapTokenHash, threadId, environmentId, claimedAt);
     },
     mark(
       runId: string,
@@ -439,24 +671,6 @@ export function createCorrelationStore(db: Database.Database) {
           WHERE run_id = ? AND state IN ('reserved', 'bound')`,
       ).run(state, failureReason.slice(0, 4096), now, runId);
       return getReservationByRun(runId);
-    },
-    claimBootstrap(token: string, threadId: string): Correlation | undefined {
-      const now = Date.now();
-      const outcome = db
-        .prepare(
-          `UPDATE meta_harness_correlation
-              SET bootstrap_claimed_at = ?, updated_at = ?
-            WHERE bootstrap_token_hash = ? AND thread_id = ?
-              AND bootstrap_claimed_at IS NULL`,
-        )
-        .run(now, now, tokenHash(token), threadId);
-      if (outcome.changes !== 1) return undefined;
-      const found = db
-        .prepare(
-          "SELECT run_id FROM meta_harness_correlation WHERE bootstrap_token_hash = ?",
-        )
-        .get(tokenHash(token)) as { run_id: string };
-      return getByRun(found.run_id);
     },
   };
 }
