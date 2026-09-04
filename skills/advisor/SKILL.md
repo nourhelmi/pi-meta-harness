@@ -677,6 +677,9 @@ overrides the root for tests.
 - `<root>/runs/<worktree-slug>/<run-id>/` — worker output. Workers write only
   inside their run directory. The owning advisor folds a short result into its
   workstream file.
+- `<root>/traces/<runId>.jsonl` — canonical host-neutral event trace of one
+  run, append-only, one event per line; hosts append and surfaces read. Schema
+  and ordering rules: `docs/advisor-protocol.md` in the meta-harness.
 - Legacy in-repo `.advisor/` directories are read-only history from sessions
   started before the home migration. Never write new state there.
 

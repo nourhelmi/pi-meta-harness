@@ -232,6 +232,7 @@ Full guide (suites, trials, baselines, comparisons, privacy boundary):
 | Doc | What's inside |
 | --- | --- |
 | [`advisor-runtime.md`](docs/advisor-runtime.md) | Workstream isolation, adaptive topology, roles, pane rules |
+| [`advisor-protocol.md`](docs/advisor-protocol.md) | Host-neutral layers, canonical event trace, validator, migration status |
 | [`intelligence-profiles.md`](docs/intelligence-profiles.md) | Guides, quota pick tree, per-role recommendations |
 | [`advisor-evals.md`](docs/advisor-evals.md) | Live prospective suite + Harbor calibration |
 | [`architecture.md`](docs/architecture.md) | Installer topology and ownership boundaries |
@@ -251,6 +252,8 @@ Full guide (suites, trials, baselines, comparisons, privacy boundary):
 - `config/bg-agent-profiles.json` — fixed role contracts, portable skill paths,
   and instructional caps.
 - `config/intelligence-profiles/` — switchable model and reasoning guidance.
+- `config/advisor-core/` — canonical event trace JSON Schema and fixture
+  traces every host emits and every surface renders.
 - `config/settings.overlay.json` — safe Pi defaults, compatible npm ranges, and
   exact Git commits;
   reinstall preserves the user's existing runtime model preference.
