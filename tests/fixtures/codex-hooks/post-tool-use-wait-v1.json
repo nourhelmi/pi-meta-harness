@@ -1,0 +1,23 @@
+{
+  "session_id": "session-recorded-001",
+  "transcript_path": "/Users/example/.codex/sessions/session-recorded-001.jsonl",
+  "cwd": "/Users/example/Dev/example-repo",
+  "hook_event_name": "PostToolUse",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "default",
+  "turn_id": "turn-recorded-001",
+  "tool_name": "multi_agent_v1.wait_agent",
+  "tool_use_id": "call-wait-v1-001",
+  "tool_input": {
+    "targets": ["agent-recorded-001"],
+    "timeout_ms": 30000
+  },
+  "tool_response": {
+    "status": {
+      "agent-recorded-001": {
+        "completed": null
+      }
+    },
+    "timed_out": false
+  }
+}

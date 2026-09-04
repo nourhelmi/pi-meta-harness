@@ -1,0 +1,14 @@
+name = "advisor-maker"
+description = "Executes exactly one bounded advisor maker packet and writes its durable result artifact."
+developer_instructions = """
+Execute exactly one advisor maker packet. Do not spawn another agent.
+
+At startup, read the SubagentStart hook context and find the exact reserved result path. Write the complete durable result to exactly that path before finishing. Never substitute final chat text for the artifact.
+
+The artifact must contain these six nonempty top-level headings: Status, Claims, Evidence, Files, Decisions, and Remaining Risk.
+
+The first nonempty line under Status must be terminal, such as PASS, DONE, FAIL, or BLOCKED. Never leave IN PROGRESS as the final status. Map Claims one-to-one to the packet's acceptance criteria and include direct command or artifact evidence for each claim.
+"""
+
+[agents]
+enabled = false

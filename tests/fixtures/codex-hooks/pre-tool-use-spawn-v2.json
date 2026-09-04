@@ -1,0 +1,19 @@
+{
+  "session_id": "session-recorded-001",
+  "transcript_path": "/Users/example/.codex/sessions/session-recorded-001.jsonl",
+  "cwd": "/Users/example/Dev/example-repo",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "default",
+  "turn_id": "turn-recorded-001",
+  "tool_name": "spawn_agent",
+  "tool_use_id": "call-spawn-v2-001",
+  "tool_input": {
+    "task_name": "codex_trace",
+    "message": "RISK TIER: Standard.\n\nTASK: Emit one canonical advisor trace.\n\nACCEPTANCE CRITERIA:\n1. The result artifact validates.\n2. The parent receives one wake.",
+    "agent_type": "advisor-maker",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "high",
+    "fork_turns": "none"
+  }
+}

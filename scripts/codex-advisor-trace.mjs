@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readdir, unlink } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { advisorStateRoot } from "./advisor-core/advisor-state.mjs";
@@ -20,8 +20,10 @@ import {
 } from "./advisor-core/host-binding.mjs";
 
 const ROOT_NODE = "advisor";
-const HOST = "claude-code";
+const HOST = "codex";
 const MAKER = "advisor-maker";
+const SPAWN_TOOLS = new Set(["spawn_agent", "Agent", "multi_agent_v1.spawn_agent"]);
+const WAIT_TOOLS = new Set(["wait_agent", "multi_agent_v1.wait_agent"]);
 const SAFE_SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$/;
 
 function objectValue(value) {
@@ -50,15 +52,17 @@ function sessionPaths(root, sessionId) {
     lock: join(directory, "session.lock"),
     pending: join(directory, "pending-launch.json"),
     ordinal: join(directory, "current-run-ordinal.json"),
+    agents: join(directory, "agents"),
+    launches: join(directory, "launches"),
   };
 }
 
 function agentMappingPath(paths, agentId) {
-  return join(paths.directory, "agents", `${hash(agentId, 32)}.json`);
+  return join(paths.agents, `${hash(agentId, 32)}.json`);
 }
 
 function launchMappingPath(paths, toolUseId) {
-  return join(paths.directory, "launches", `${hash(toolUseId, 32)}.json`);
+  return join(paths.launches, `${hash(toolUseId, 32)}.json`);
 }
 
 function mappingFrom(value) {
@@ -73,23 +77,52 @@ function mappingFrom(value) {
   return { ...mapping, runId, nodeId, agentId, toolUseId, resultPath };
 }
 
+async function writeMapping(paths, mapping) {
+  await writeJsonAtomic(agentMappingPath(paths, mapping.agentId), mapping);
+  await writeJsonAtomic(launchMappingPath(paths, mapping.toolUseId), mapping);
+}
+
+async function readMappings(paths) {
+  let entries;
+  try {
+    entries = await readdir(paths.agents);
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+  const mappings = await Promise.all(entries
+    .filter((entry) => entry.endsWith(".json"))
+    .map((entry) => readJson(join(paths.agents, entry))));
+  return mappings.map(mappingFrom).filter(Boolean).sort((left, right) => (left.ordinal ?? 0) - (right.ordinal ?? 0));
+}
+
+function promptFrom(input) {
+  const message = stringValue(input?.message);
+  if (message) return message;
+  if (!Array.isArray(input?.items)) return undefined;
+  const text = input.items
+    .map((item) => stringValue(objectValue(item)?.text))
+    .filter(Boolean)
+    .join("\n");
+  return stringValue(text);
+}
+
 async function preToolUse(payload, root, paths) {
-  if (payload.tool_name !== "Agent") return;
+  if (!SPAWN_TOOLS.has(payload.tool_name)) return;
   const input = objectValue(payload.tool_input);
   const toolUseId = stringValue(payload.tool_use_id);
-  const prompt = stringValue(input?.prompt);
-  const description = stringValue(input?.description);
-  const subagentType = stringValue(input?.subagent_type);
-  const model = input?.model === undefined ? undefined : stringValue(input.model);
-  if (!toolUseId || !prompt || !description || !subagentType || (input?.model !== undefined && !model)) return;
+  const prompt = promptFrom(input);
+  const agentType = stringValue(input?.agent_type);
+  if (!toolUseId || !prompt || agentType !== MAKER) return;
   await withLock(paths.lock, async () => {
     await writeJsonAtomic(paths.pending, {
       sessionId: payload.session_id,
       toolUseId,
       prompt,
-      description,
-      subagentType,
-      ...(model ? { model } : {}),
+      agentType,
+      taskName: stringValue(input?.task_name) ?? MAKER,
+      model: stringValue(input?.model) ?? "unknown",
+      thinking: stringValue(input?.reasoning_effort) ?? "unspecified",
       cwd: payload.cwd,
       stateRoot: root,
     });
@@ -102,6 +135,7 @@ function startContext(resultPath) {
     `Write the complete durable result to exactly: ${resultPath}`,
     "Use the six top-level headings Status, Claims, Evidence, Files, Decisions, and Remaining Risk.",
     "The first nonempty line under Status must be terminal. Never leave IN PROGRESS as the final status.",
+    "Do not spawn agents.",
   ].join("\n");
 }
 
@@ -114,33 +148,33 @@ async function subagentStart(payload, root, paths) {
     let mapping = mappingFrom(await readJson(agentPath));
     if (!mapping) {
       const pending = objectValue(await readJson(paths.pending));
-      if (pending?.sessionId !== payload.session_id || pending?.subagentType !== MAKER) return undefined;
+      if (pending?.sessionId !== payload.session_id || pending?.agentType !== MAKER) return undefined;
       const toolUseId = stringValue(pending.toolUseId);
       const prompt = stringValue(pending.prompt);
-      const description = stringValue(pending.description);
       const cwd = stringValue(pending.cwd);
-      if (!toolUseId || !prompt || !description || !cwd) return undefined;
+      if (!toolUseId || !prompt || !cwd) return undefined;
       const ordinalState = objectValue(await readJson(paths.ordinal));
       const priorOrdinal = Number.isSafeInteger(ordinalState?.value) && ordinalState.value >= 0 ? ordinalState.value : 0;
       const ordinal = priorOrdinal + 1;
-      const runId = `cc-${hash(payload.session_id)}-${ordinal}`;
+      const runId = `cx-${hash(payload.session_id)}-${ordinal}`;
       const nodeId = `advisor-maker-${hash(agentId)}`;
       const resultPath = join(root, "runs", HOST, runId, "result.md");
       mapping = {
         runId,
         nodeId,
+        ordinal,
         agentId,
         toolUseId,
         resultPath,
         prompt,
-        description,
         cwd,
+        label: stringValue(pending.taskName) ?? MAKER,
         model: stringValue(pending.model) ?? "unknown",
+        thinking: stringValue(pending.thinking) ?? "unspecified",
       };
       await writeJsonAtomic(paths.ordinal, { value: ordinal });
       await reserveResult(resultPath);
-      await writeJsonAtomic(agentPath, mapping);
-      await writeJsonAtomic(launchMappingPath(paths, toolUseId), mapping);
+      await writeMapping(paths, mapping);
     }
 
     await reserveResult(mapping.resultPath);
@@ -164,10 +198,10 @@ async function subagentStart(payload, root, paths) {
           parent: ROOT_NODE,
           data: {
             role: "builder",
-            label: mapping.description,
+            label: mapping.label,
             harness: HOST,
             model: mapping.model,
-            thinking: "unspecified",
+            thinking: mapping.thinking,
             cwd: mapping.cwd,
             riskTier: parseRiskTier(mapping.prompt),
             acceptance: parseAcceptance(mapping.prompt),
@@ -258,13 +292,22 @@ async function subagentStop(payload, root, paths) {
   });
 }
 
-async function writeRunNote(path, value) {
-  await mkdir(dirname(path), { recursive: true });
-  try {
-    await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-  } catch (error) {
-    if (error?.code !== "EEXIST") throw error;
-  }
+async function postSpawn(payload, paths) {
+  if (stringValue(objectValue(payload.tool_input)?.agent_type) !== MAKER) return;
+  const toolUseId = stringValue(payload.tool_use_id);
+  const response = objectValue(payload.tool_response);
+  if (!toolUseId || !response) return;
+  await withLock(paths.lock, async () => {
+    const mapping = mappingFrom(await readJson(launchMappingPath(paths, toolUseId)));
+    if (!mapping || mapping.toolUseId !== toolUseId) return;
+    const updated = {
+      ...mapping,
+      ...(stringValue(response.agent_id) ? { nativeAgentId: stringValue(response.agent_id) } : {}),
+      ...(stringValue(response.task_name) ? { nativeTaskName: stringValue(response.task_name) } : {}),
+      ...(stringValue(response.nickname) ? { nickname: stringValue(response.nickname) } : {}),
+    };
+    await writeMapping(paths, updated);
+  });
 }
 
 function wakeDraft(events, mapping, settlement) {
@@ -283,52 +326,74 @@ function wakeDraft(events, mapping, settlement) {
   }];
 }
 
-async function postToolUse(payload, root, paths) {
-  if (payload.tool_name !== "Agent") return;
-  const toolUseId = stringValue(payload.tool_use_id);
-  const response = objectValue(payload.tool_response);
-  if (!toolUseId || response?.status !== "completed") return;
-  await withLock(paths.lock, async () => {
-    const mapping = mappingFrom(await readJson(launchMappingPath(paths, toolUseId)));
-    if (!mapping || mapping.toolUseId !== toolUseId) return;
-    const responseAgentId = stringValue(response.agentId);
-    if (responseAgentId && responseAgentId !== mapping.agentId) {
-      await writeRunNote(join(root, "runs", HOST, mapping.runId, "agent-id-mismatch.json"), {
-        note: "PostToolUse Agent tool_response.agentId did not match the SubagentStart agent_id.",
-        expectedAgentId: mapping.agentId,
-        responseAgentId,
-        toolUseId,
-      });
-    }
-    await appendTrace(root, mapping.runId, HOST, (events) => {
-      const settlement = settledEvent(events, mapping.nodeId);
-      return settlement ? wakeDraft(events, mapping, settlement) : [];
-    });
-  });
+function failureSettlement(status) {
+  const value = objectValue(status);
+  const error = stringValue(value?.errored);
+  if (error) return { status: "failed", reason: error };
+  if (status === "interrupted" || status === "shutdown") {
+    return { status: "cancelled", reason: `wait_agent reported ${status}` };
+  }
+  return undefined;
 }
 
-async function postToolUseFailure(payload, root, paths) {
-  if (payload.tool_name !== "Agent") return;
-  const toolUseId = stringValue(payload.tool_use_id);
-  if (!toolUseId) return;
-  await withLock(paths.lock, async () => {
-    const mapping = mappingFrom(await readJson(launchMappingPath(paths, toolUseId)));
-    if (!mapping || mapping.toolUseId !== toolUseId) return;
+function statusForMapping(statuses, mapping) {
+  const targets = new Set([
+    mapping.agentId,
+    stringValue(mapping.nativeAgentId),
+    stringValue(mapping.nativeTaskName),
+  ].filter(Boolean));
+  return Object.entries(statuses).find(([target]) => targets.has(target))?.[1];
+}
+
+async function deliverV1Wait(root, paths, response) {
+  const statuses = objectValue(response.status);
+  if (!statuses || Object.keys(statuses).length === 0) return;
+  for (const mapping of await readMappings(paths)) {
+    const nativeStatus = statusForMapping(statuses, mapping);
+    if (nativeStatus === undefined) continue;
     await appendTrace(root, mapping.runId, HOST, (events) => {
-      if (awakened(events, mapping.nodeId)) return [];
-      const launch = events.find((event) => event.type === "node.launched" && event.node === mapping.nodeId);
-      if (!launch) return [];
       const existing = settledEvent(events, mapping.nodeId);
       if (existing) return wakeDraft(events, mapping, existing);
-      const reason = stringValue(payload.error) ?? "Claude Code Agent tool failed";
+      const failure = failureSettlement(nativeStatus);
+      const launch = events.find((event) => event.type === "node.launched" && event.node === mapping.nodeId);
+      if (!failure || !launch) return [];
       const settlement = {
         type: "node.settled",
         node: mapping.nodeId,
         parent: ROOT_NODE,
-        data: { status: "failed", reason },
+        data: failure,
       };
-      return [settlement, ...wakeDraft([...events, { ...settlement, run: mapping.runId }], mapping, settlement)];
+      return [
+        settlement,
+        ...wakeDraft([...events, { ...settlement, run: mapping.runId }], mapping, settlement),
+      ];
     });
+  }
+}
+
+async function deliverV2Wait(root, paths, response) {
+  if (/^Wait interrupted by new input\./i.test(stringValue(response.message) ?? "")) return;
+  for (const mapping of await readMappings(paths)) {
+    let delivered = false;
+    await appendTrace(root, mapping.runId, HOST, (events) => {
+      const settlement = settledEvent(events, mapping.nodeId);
+      const drafts = settlement ? wakeDraft(events, mapping, settlement) : [];
+      delivered = drafts.length > 0;
+      return drafts;
+    });
+    if (delivered) return;
+  }
+}
+
+async function postWait(payload, root, paths) {
+  const response = objectValue(payload.tool_response);
+  if (!response || response.timed_out !== false) return;
+  await withLock(paths.lock, async () => {
+    if (payload.tool_name === "multi_agent_v1.wait_agent") {
+      await deliverV1Wait(root, paths, response);
+    } else {
+      await deliverV2Wait(root, paths, response);
+    }
   });
 }
 
@@ -348,10 +413,8 @@ async function handle(payload) {
       await subagentStop(payload, root, paths);
       return undefined;
     case "PostToolUse":
-      await postToolUse(payload, root, paths);
-      return undefined;
-    case "PostToolUseFailure":
-      await postToolUseFailure(payload, root, paths);
+      if (SPAWN_TOOLS.has(payload.tool_name)) await postSpawn(payload, paths);
+      if (WAIT_TOOLS.has(payload.tool_name)) await postWait(payload, root, paths);
       return undefined;
     default:
       return undefined;

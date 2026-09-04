@@ -253,6 +253,98 @@ surface); `independentControl: partial`; `interactiveBlockedState: partial`;
 foreground workers only, emits no `node.progress`, and does not implement
 BLOCKED replies, cancellation, resume, or graphs.
 
+## Codex host binding
+
+Codex CLI is a third v1 execution host for exactly one maker per canonical
+run. The standalone plain-Node binding is
+[`../scripts/codex-advisor-trace.mjs`](../scripts/codex-advisor-trace.mjs). It
+uses lifecycle hooks only: it does not use `notify`, app-server, an MCP
+observer, or a live `codex` subprocess. No hook blocks, returns a permission
+decision, rewrites tool input, or substitutes `last_assistant_message` for the
+durable artifact.
+
+The shipped hook snippet has exactly five matcher groups:
+
+The spawn matcher is `^(spawn_agent|Agent|multi_agent_v1\.spawn_agent)$`; the
+wait matcher is `^(wait_agent|multi_agent_v1\.wait_agent)$`; both subagent
+groups match `advisor-maker`.
+
+| Hook | Matcher | Canonical action |
+| --- | --- | --- |
+| `PreToolUse` | `^(spawn_agent\|Agent\|multi_agent_v1\.spawn_agent)$` | Record the qualifying `advisor-maker` launch's `tool_use_id`, prompt (`message` or text `items`), task name, requested model and reasoning effort, session, and cwd. Emit no trace. |
+| `SubagentStart` | `advisor-maker` | Reserve the result path, lazily append `run.created` and `node.launched`, and return the exact path through `hookSpecificOutput.additionalContext`. |
+| `PostToolUse` | `^(spawn_agent\|Agent\|multi_agent_v1\.spawn_agent)$` | Record V1 `agent_id` and `nickname`, or V2 canonical `task_name` and `nickname`, for wait correlation. Emit no canonical event. |
+| `SubagentStop` | `advisor-maker` | Inspect the reserved artifact, emit `node.blocked` first for a valid BLOCKED result, then the result and validation events when nonempty, and settle from Advisor Core validation. |
+| `PostToolUse` | `^(wait_agent\|multi_agent_v1\.wait_agent)$` | On a non-timed-out delivery for a settled child that has not woken its parent, append `parent.awakened`. V1 may also settle an unstopped errored child as failed or an interrupted/shutdown child as cancelled before waking. |
+
+`run.created` is lazy: a normal Codex session, a non-maker spawn, and the
+maker's spawn `PreToolUse` do not create a canonical run. The first matching
+`advisor-maker` `SubagentStart` allocates the run. Its id is
+`cx-<first 16 hex of sha256(session_id)>-<launch ordinal>`. The worker is
+`advisor-maker-<first 16 hex of sha256(agent_id)>`, its parent is the
+`advisor` root, and `root.session` is the hook `session_id`. Every event has
+host `codex` and every launch has harness `codex`. Pending launch, ordinal,
+agent, and tool-use correlation state lives under
+`<stateRoot>/hosts/codex/<session_id>/`; trace appends and state transitions
+are serialized, and replayed payloads append nothing.
+
+Launch fields are fixed from the spawn input and packet:
+
+- `riskTier` parses `RISK TIER` followed by low, standard, or high and defaults
+  to `high`;
+- `acceptance` parses bullets or numbered entries under `ACCEPTANCE CRITERIA`
+  and defaults to `result.md validates with the six required headings`;
+- `model` is `tool_input.model` or `unknown`, and `thinking` is
+  `tool_input.reasoning_effort` or `unspecified`;
+- `label` is `tool_input.task_name` or `advisor-maker`, `cwd` is the hook cwd,
+  and `workstream` is `ADVISOR_WORKSTREAM` or `codex`.
+
+Before `node.launched`, the binding reserves
+`<stateRoot>/runs/codex/<runId>/result.md`. `SubagentStop` uses the shared Core
+six-heading and Status-line validator. A valid BLOCKED result settles
+`blocked`; another valid result settles `done`; invalid, empty, or missing
+output settles `stalled`. A V1 wait status of `errored` settles an unstopped
+child `failed`; `interrupted` and `shutdown` settle it `cancelled`.
+
+Parent delivery is foreground and wait-based in v1. The root must call
+`wait_agent` for the maker. A timed-out wait emits no wake, and a later
+non-timed-out delivery emits exactly one. If the root never waits, there is no
+wake in the canonical trace. V2 wait output identifies mailbox delivery but
+does not identify the child or repeat its status, so this binding relies on
+the one-maker boundary and wakes the oldest settled, unwoken maker. It rejects
+the explicit `Wait interrupted by new input.` response as non-delivery. Codex
+hooks expose no bounded canonical progress note, so the v1 adapter emits no
+`node.progress`.
+
+### Install the Codex binding
+
+1. Merge the event groups from
+   [`../config/advisor-core/hosts/codex/hooks.json`](../config/advisor-core/hosts/codex/hooks.json)
+   into user `~/.codex/hooks.json` or a trusted project
+   `.codex/hooks.json`. Do not replace the existing hooks object and do not
+   replace or reuse the user's `notify` command. The relative Node command
+   assumes Codex starts in this repository; use an absolute script path from
+   other cwd layouts.
+2. Copy
+   [`../config/advisor-core/hosts/codex/agents/advisor-maker.toml`](../config/advisor-core/hosts/codex/agents/advisor-maker.toml)
+   to `~/.codex/agents/advisor-maker.toml` or a trusted project
+   `.codex/agents/advisor-maker.toml`. Codex custom-agent files accept normal
+   config keys, so the shipped file sets `[agents] enabled = false` as a second
+   guard against nested delegation.
+3. Open `/hooks`, review the exact non-managed definitions, and trust them.
+   Changed hook definitions are skipped until trusted again. Project hooks and
+   project agents additionally require project trust.
+
+Codex's native RuntimeCapabilities are: `backgroundWorkers: true`;
+`visibleWorkers: partial` (native activity and thread views, not a canonical
+advisor surface); `independentControl: partial` (native control exists but V2
+children retain parent authority); `interactiveBlockedState: partial` (no
+canonical durable request contract); `durableResults: partial` (Codex does not
+reserve or validate advisor artifacts); `restartRecovery: partial` (thread
+recovery does not recover adapter correlation and wake state); and
+`nestedDelegation: true`, disabled for `advisor-maker`. This adapter does not
+implement BLOCKED replies, cancellation commands, resume, or graphs.
+
 ## 🗺️ Migration status
 
 | Step | State |
@@ -261,7 +353,7 @@ BLOCKED replies, cancellation, resume, or graphs.
 | 2. BB renders the fixture trace from files | pending, separate surface workstream |
 | 3. Pi plus pi-detach as the first conforming host | done |
 | 4. Claude Code host adapter, one maker only | done |
-| 5. Codex host adapter with the same conformance tests | pending |
+| 5. Codex host adapter with the same conformance tests | done |
 | 6. Graphs, BLOCKED replies, cancellation, resume | pending |
 
 The schema is owned here and consumed by hosts; pi-detach remains pinned by

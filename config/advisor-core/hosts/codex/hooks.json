@@ -1,0 +1,58 @@
+{
+  "description": "Hooks-only Codex binding for one advisor-maker canonical run.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(spawn_agent|Agent|multi_agent_v1\\.spawn_agent)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/codex-advisor-trace.mjs"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "advisor-maker",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/codex-advisor-trace.mjs"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "advisor-maker",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/codex-advisor-trace.mjs"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(spawn_agent|Agent|multi_agent_v1\\.spawn_agent)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/codex-advisor-trace.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "^(wait_agent|multi_agent_v1\\.wait_agent)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/codex-advisor-trace.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

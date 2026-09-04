@@ -1,0 +1,11 @@
+{
+  "session_id": "session-recorded-001",
+  "transcript_path": "/Users/example/.codex/sessions/session-recorded-001.jsonl",
+  "cwd": "/Users/example/Dev/example-repo",
+  "hook_event_name": "SubagentStart",
+  "model": "gpt-5.6-sol",
+  "permission_mode": "default",
+  "turn_id": "turn-recorded-001",
+  "agent_id": "agent-recorded-001",
+  "agent_type": "advisor-maker"
+}

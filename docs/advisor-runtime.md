@@ -10,6 +10,9 @@ The canonical event translation for this runtime is specified by the
 one-maker hook adapter, installation, capability verdicts, and foreground-only
 boundary are specified by the
 [Claude Code host binding](advisor-protocol.md#claude-code-host-binding).
+Codex CLI's hooks-only one-maker adapter, installation, wait-based delivery
+boundary, and capability verdicts are specified by the
+[Codex host binding](advisor-protocol.md#codex-host-binding).
 
 ## 📏 Runtime rules
 
