@@ -145,13 +145,43 @@ trace that validates and projects equivalently to the reference host, and a
 surface conforms when it renders a fixture trace from files alone, with no
 host transcript or provider bridge.
 
+## Pi host binding
+
+Pi plus pi-detach is the first v1 host binding. The top-level
+`advisor-pi-host` extension registers no tools: in an initialized advisor
+session it observes Pi's `tool_call` and `tool_result` events for `bg_agent`,
+then observes promoted settlement through `message_end` when the message role
+is `custom` and its type is `detach_agent_settled`. It does not poll, watch
+files, or ask pi-detach to understand advisor semantics.
+
+Each successful `bg_agent` launch becomes its own canonical run. The run id is
+the pi-detach `details.runId` (or the settled `RunRecord.id`), its worker node
+is `<role-or-freeform>-<runId>`, and its parent is the `advisor` root. Native
+runtime names map as `pi` → `pi`, `codex` → `codex`, and `claude` →
+`claude-code`. The adapter parses `risk tier` followed by `low`, `standard`, or
+`high` from the launch prompt, case-insensitively; an absent or unrecognized
+tier defaults to `high`.
+
+Advisor Core reads and validates the durable result itself. The host emits
+`node.result.written` only for a nonempty artifact and emits
+`node.result.validated` from Core's verdict before settlement. A pi-detach
+`done` or `idle` therefore becomes canonical `done` only when the artifact has
+nonempty Status, Claims, Evidence, Files, Decisions, and Remaining Risk
+sections; subsection-organized content counts, while a heading with no prose
+does not. Invalid or missing results stall rather than borrowing pi-detach's
+settlement truth.
+
+Name-based `bg_agent` follow-up is intentionally limited in v1: even when it
+reuses a live native agent name, it creates a new run and worker node rather
+than resuming the prior canonical run.
+
 ## 🗺️ Migration status
 
 | Step | State |
 | --- | --- |
 | 1. Canonical one-worker trace schema, fixtures, validator | done (this page) |
 | 2. BB renders the fixture trace from files | pending, separate surface workstream |
-| 3. Pi plus pi-detach as the first conforming host | pending |
+| 3. Pi plus pi-detach as the first conforming host | done |
 | 4. Claude Code host adapter, one maker only | pending |
 | 5. Codex host adapter with the same conformance tests | pending |
 | 6. Graphs, BLOCKED replies, cancellation, resume | pending |

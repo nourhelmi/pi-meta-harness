@@ -3,6 +3,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { resultStatusLine } from "./advisor-core/result-artifact.ts";
 
 const ENTRY_TYPE = "advisor-worker";
 
@@ -31,21 +32,7 @@ interface WorkerRuntime {
 	resultBlockActive: boolean;
 }
 
-export function resultStatusLine(markdown: string): string | undefined {
-	const lines = markdown.split(/\r?\n/);
-	let underStatusHeading = false;
-	for (const line of lines) {
-		if (!underStatusHeading) {
-			underStatusHeading = /^\s*#{1,6}\s+status\s*#*\s*$/i.test(line);
-			continue;
-		}
-		if (/^\s*#{1,6}\s+/.test(line)) return undefined;
-		const status = line.trim();
-		if (!status) continue;
-		return status.replace(/^[*_`]+/, "").replace(/[*_`]+$/, "").trim() || undefined;
-	}
-	return undefined;
-}
+export { resultStatusLine } from "./advisor-core/result-artifact.ts";
 
 export function isBlockedStatus(line: string | undefined): boolean {
 	return typeof line === "string" && /^blocked\b/i.test(line);

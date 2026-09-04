@@ -1,10 +1,17 @@
-import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
+import {
+	advisorStateRoot,
+	isWorkerHarness,
+	restoredEntryState,
+	restoredState,
+	type AdvisorSessionState,
+	type WorkerHarness,
+} from "./advisor-core/advisor-state.ts";
 
 const ENTRY_TYPE = "advisor-session";
 const MAX_WORKSTREAM_LENGTH = 48;
@@ -64,15 +71,6 @@ function withWorkerHarnessDoctrine(systemPrompt: string, workerHarness: WorkerHa
 		? "Every configured bg_agent role launch uses the native worker harness. Keep semantic role names unchanged. Choose model and thinking from the live intelligence guide; OpenAI models route to Codex CLI and Anthropic/Claude models route to Claude Code. Cursor-only models have no native route here, so select a task-appropriate OpenAI or Anthropic recommendation from the same guide instead. The root advisor remains Pi."
 		: "Every configured bg_agent role launch uses the Pi worker harness. Keep semantic role names unchanged and choose model and thinking from the live intelligence guide. The root advisor remains Pi.";
 	return `${systemPrompt}\n\n# Advisor Worker Harness\n\nSession mode: **${workerHarness}**.\n\n${policy}`;
-}
-
-type WorkerHarness = "pi" | "native";
-
-interface AdvisorSessionState {
-	workstream: string;
-	sessionId: string;
-	initializedAt: string;
-	workerHarness: WorkerHarness;
 }
 
 interface AdvisorPaths {
@@ -176,30 +174,6 @@ async function delay(milliseconds: number): Promise<void> {
 	await new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }
 
-function restoredEntryState(ctx: ExtensionContext): AdvisorSessionState | undefined {
-	for (const entry of ctx.sessionManager.getBranch().toReversed()) {
-		if (entry.type !== "custom" || entry.customType !== ENTRY_TYPE) continue;
-		const data = entry.data as Partial<AdvisorSessionState> | undefined;
-		if (
-			typeof data?.workstream === "string" &&
-			typeof data.sessionId === "string" &&
-			typeof data.initializedAt === "string"
-		) {
-			return {
-				workstream: data.workstream,
-				sessionId: data.sessionId,
-				initializedAt: data.initializedAt,
-				workerHarness: isWorkerHarness(data.workerHarness) ? data.workerHarness : "pi",
-			};
-		}
-	}
-	return undefined;
-}
-
-function workstreamFromSession(content: string): string | undefined {
-	return content.match(/^- Workstream: `([^`]+)`$/m)?.[1];
-}
-
 function ownerFromWorkstream(content: string): string | undefined {
 	return content.match(/^- Owner session: `([^`]+)`$/m)?.[1];
 }
@@ -211,81 +185,6 @@ async function readIfPresent(path: string): Promise<string | undefined> {
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
 		throw error;
 	}
-}
-
-// Advisor state lives under the user home so repositories never carry
-// personal runtime files; every worktree of one repository shares one root.
-interface RepoAnchor {
-	commonDir: string;
-	worktreeRoot: string;
-}
-
-async function repoAnchor(cwd: string): Promise<RepoAnchor | undefined> {
-	let dir = resolve(cwd);
-	for (;;) {
-		const dotGit = join(dir, ".git");
-		const info = await stat(dotGit).catch(() => undefined);
-		if (info?.isDirectory()) return { commonDir: dotGit, worktreeRoot: dir };
-		if (info?.isFile()) {
-			const dotGitContents = await readFile(dotGit, "utf8");
-			const pointer = dotGitContents.match(/^gitdir:\s*(.+?)\s*$/m)?.[1];
-			if (pointer) {
-				const gitDir = resolve(dir, pointer);
-				const marker = gitDir.lastIndexOf("/.git/worktrees/");
-				return {
-					commonDir: marker >= 0 ? gitDir.slice(0, marker + "/.git".length) : gitDir,
-					worktreeRoot: dir,
-				};
-			}
-		}
-		const parent = dirname(dir);
-		if (parent === dir) return undefined;
-		dir = parent;
-	}
-}
-
-function stateSlug(path: string): string {
-	const cleaned = basename(path)
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "")
-		.slice(0, 32);
-	const hash = createHash("sha256").update(path).digest("hex").slice(0, 8);
-	return `${cleaned || "dir"}-${hash}`;
-}
-
-async function advisorStateRoot(cwd: string): Promise<string> {
-	const override = process.env.ADVISOR_STATE_DIR;
-	if (override) return resolve(override);
-	const anchor = await repoAnchor(cwd);
-	const key = anchor ? stateSlug(dirname(anchor.commonDir)) : stateSlug(resolve(cwd));
-	return join(homedir(), ".advisor", key);
-}
-
-async function restoredDiskState(
-	ctx: ExtensionContext,
-	sessionId: string,
-): Promise<AdvisorSessionState | undefined> {
-	const root = await advisorStateRoot(ctx.cwd);
-	// The in-repo path is legacy fallback so sessions from before the home
-	// migration still restore their workstream binding.
-	const candidates = [
-		join(root, "sessions", `${sessionId}.md`),
-		join(ctx.cwd, ".advisor", "sessions", `${sessionId}.md`),
-	];
-	for (const path of candidates) {
-		const content = await readIfPresent(path);
-		const workstream = content ? workstreamFromSession(content) : undefined;
-		if (workstream) return { workstream, sessionId, initializedAt: "legacy-state", workerHarness: "pi" };
-	}
-	return undefined;
-}
-
-async function restoredState(
-	ctx: ExtensionContext,
-	sessionId = ctx.sessionManager.getSessionId(),
-): Promise<AdvisorSessionState | undefined> {
-	return restoredEntryState(ctx) ?? (await restoredDiskState(ctx, sessionId));
 }
 
 function pathsFor(root: string, workstream: string, sessionId: string): AdvisorPaths {
@@ -637,10 +536,6 @@ function registerVisibilityGuard(
 			};
 		}
 	});
-}
-
-function isWorkerHarness(value: unknown): value is WorkerHarness {
-	return value === "pi" || value === "native";
 }
 
 async function requestedWorkerHarness(

@@ -5,6 +5,8 @@ The advisor coordinates parallel Pi sessions through per-repository state under
 worktrees of one repository share one root and no repository carries personal
 runtime files. `advisor_session_init` reports the resolved root;
 `ADVISOR_STATE_DIR` overrides it for tests.
+The canonical event translation for this runtime is specified by the
+[Pi host binding](advisor-protocol.md#pi-host-binding).
 
 ## 📏 Runtime rules
 
