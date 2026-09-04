@@ -19,6 +19,37 @@ interface HookMap {
   agent_settled?: (event: unknown, ctx: ExtensionContext) => Promise<void>;
 }
 
+function canonicalPrivateJson(value: unknown): string {
+	if (value === null || typeof value !== "object") return JSON.stringify(value);
+	if (Array.isArray(value)) return `[${value.map(canonicalPrivateJson).join(",")}]`;
+	const record = value as Record<string, unknown>;
+	return `{${Object.keys(record)
+		.sort()
+		.map((key) => `${JSON.stringify(key)}:${canonicalPrivateJson(record[key])}`)
+		.join(",")}}`;
+}
+
+function installPrivateRegistry(): void {
+	const consumers = new Map<string, (payload: any) => Promise<void>>();
+	const canonicalJsonSha256 = (value: unknown) =>
+		createHash("sha256").update(canonicalPrivateJson(value)).digest("hex");
+	Reflect.set(globalThis, Symbol.for("get-bb.provider-session-initialization.v1"), {
+		canonicalJsonSha256,
+		register(pluginId: string, consume: (payload: any) => Promise<void>) {
+			consumers.set(pluginId, consume);
+			return { dispose() { consumers.delete(pluginId); } };
+		},
+		async consume(payload: any) {
+			if (canonicalJsonSha256(payload.value) !== payload.descriptor.payloadSha256)
+				throw new Error("PRIVATE_INITIALIZATION_RECEIPT_MISMATCH");
+			const consume = consumers.get(payload.descriptor.pluginId);
+			if (!consume) throw new Error("PRIVATE_INITIALIZATION_PLUGIN_UNAVAILABLE");
+			await consume(payload);
+			return { ...payload.descriptor, consumed: true };
+		},
+	});
+}
+
 test("worker runtime grants bounded delegation only when its launch flag allows it", async () => {
   const temp = await mkdtemp(join(tmpdir(), "advisor-worker-delegation-"));
   const rolesPath = join(temp, "roles.json");
@@ -241,6 +272,20 @@ test("signals a blocked result once and clears it on the next agent start", asyn
 });
 
 test("BB worker consumes one private initialization before model input", async () => {
+	installPrivateRegistry();
+	const conformanceRegistry = Reflect.get(
+		globalThis,
+		Symbol.for("get-bb.provider-session-initialization.v1"),
+	) as { canonicalJsonSha256(value: unknown): string };
+	assert.equal(
+		conformanceRegistry.canonicalJsonSha256({
+			a: 1,
+			A: -0,
+			"!": 1e-7,
+			z: [3, { b: true, B: null }],
+		}),
+		"d25162139adc954d97a2993bbdb93fd9845cc59a89241de56903bf3603332164",
+	);
   const temp = await mkdtemp(join(tmpdir(), "advisor-worker-bb-"));
   const rolesPath = join(temp, "roles.json");
   const runDir = join(temp, "claimed-run");
@@ -279,9 +324,17 @@ test("BB worker consumes one private initialization before model input", async (
       const pi = {
         appendEntry: (type: string, data: unknown) => entries.push({ type, data }),
         events: { emit: () => undefined },
-        getFlag: () => undefined,
+			getFlag: () => undefined,
 				on: (name: keyof HookMap, handler: HookMap[keyof HookMap]) => {
-					Object.assign(hooks, { [name]: handler });
+					if (name === "session_start" && hooks.session_start) {
+						const previous = hooks.session_start;
+						hooks.session_start = async (event, context) => {
+							await previous(event, context);
+							await (handler as NonNullable<HookMap["session_start"]>)(event, context);
+						};
+					} else {
+						Object.assign(hooks, { [name]: handler });
+					}
 				},
         registerFlag: () => undefined,
       } as unknown as ExtensionAPI;
@@ -309,7 +362,7 @@ test("BB worker consumes one private initialization before model input", async (
 			runId: "run-1",
 		};
 		const payloadSha256 = createHash("sha256")
-			.update(JSON.stringify(privateValue, Object.keys(privateValue).sort()))
+			.update(canonicalPrivateJson(privateValue))
 			.digest("hex");
 		const registry = Reflect.get(globalThis, Symbol.for("get-bb.provider-session-initialization.v1")) as {
 			consume(payload: unknown): Promise<unknown>;

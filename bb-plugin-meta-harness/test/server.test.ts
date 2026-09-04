@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import plugin from "../src/server.js";
@@ -42,6 +42,7 @@ function inputSha256(prompt: string): string {
 
 async function createHarness() {
 	const workers = new Map<string, WorkerSpec>();
+  const privateRoleStates = new Map<string, string>();
   let nextThread = 1;
   let spawnCount = 0;
 	let resolver: ((context: Record<string, any>) => Promise<Record<string, any>>) | undefined;
@@ -145,7 +146,33 @@ async function createHarness() {
       },
       hosts: { list: () => [{ id: "host-1", status: "connected" }] },
     },
-		experimental_callHostRpc(call: { method: string }) {
+		experimental_callHostRpc(call: { method: string; input?: Record<string, unknown> }) {
+			if (call.method === "materializePrivateRoleState") {
+        const input = call.input as {
+          runId: string;
+          resultPath: string;
+          content: string;
+          expectedSha256: string;
+        };
+        expect(createHash("sha256").update(input.content).digest("hex")).toBe(
+          input.expectedSha256,
+        );
+        const locator = join(dirname(input.resultPath), "private-role-state.json");
+        privateRoleStates.set(locator, input.content);
+        return { locator };
+      }
+			if (call.method === "readPrivateRoleState") {
+        const input = call.input as {
+          locator: string;
+          expectedSha256: string;
+        };
+        const content = privateRoleStates.get(input.locator);
+        if (content === undefined) throw new Error("missing private role state");
+        expect(createHash("sha256").update(content).digest("hex")).toBe(
+          input.expectedSha256,
+        );
+        return { content };
+      }
 			if (call.method === "snapshotGraph")
         return {
 					path: "/tmp/graph.json",
@@ -197,6 +224,7 @@ async function createHarness() {
 	return {
 		fake,
 		workers,
+		privateRoleStates,
 		post,
 		get spawnCount() {
 			return spawnCount;
@@ -233,7 +261,7 @@ describe("private Meta transport", () => {
 	it("spawns one visible unparented root with marker-free input and identifier-only state", async () => {
     const harness = await createHarness();
 		const started = await harness.post(startInput);
-		expect(started.response.status).toBe(200);
+		expect(started.response.status, JSON.stringify(started.body)).toBe(200);
 		expect(started.body).toMatchObject({
       threadId: "worker-1",
       environmentId: "environment-worker-1",
@@ -261,7 +289,15 @@ describe("private Meta transport", () => {
 			initialization_state: "resolving",
 		});
 		expect(Object.keys(row).join(" ")).not.toMatch(/token|bearer/u);
+		expect(Object.keys(row)).not.toContain("role_state_json");
+		expect(row.role_state_locator).toBe(
+			"/tmp/advisor/runs/run-1/private-role-state.json",
+		);
+		expect(row.role_state_sha256).toMatch(/^[a-f0-9]{64}$/u);
 		expect(JSON.stringify(row)).not.toContain(startInput.prompt);
+		expect(harness.privateRoleStates.get(String(row.role_state_locator))).toContain(
+			'"role":"builder"',
+		);
 		await harness.fake.harness.emitThreadEvent("thread.active", {
 			thread: {
 				id: "worker-1",

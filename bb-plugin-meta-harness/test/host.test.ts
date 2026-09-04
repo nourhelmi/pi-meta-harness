@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { link, mkdir, mkdtemp, realpath, rename, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,6 +20,32 @@ async function canonicalTemp(prefix: string): Promise<string> {
 }
 
 describe("host containment", () => {
+  it("reconstructs a digest-validated private role after adapter restart", async () => {
+    const advisorRoot = await canonicalTemp("host-private-role-");
+    process.env.ADVISOR_STATE_ROOT = advisorRoot;
+    const runId = "restart-run";
+    const runDir = join(advisorRoot, "runs", runId);
+    const resultPath = join(runDir, "result.md");
+    await mkdir(runDir, { recursive: true });
+    const content = JSON.stringify({ role: "builder", control: { generation: 2 } });
+    const expectedSha256 = createHash("sha256").update(content).digest("hex");
+    const materialized = await hostEntry.handlers.materializePrivateRoleState(
+      { runId, resultPath, content, expectedSha256 },
+      {} as never,
+    );
+    await expect(
+      hostEntry.handlers.readPrivateRoleState(
+        { runId, locator: materialized.locator, expectedSha256 },
+        {} as never,
+      ),
+    ).resolves.toEqual({ content });
+    await expect(
+      hostEntry.handlers.readPrivateRoleState(
+        { runId, locator: materialized.locator, expectedSha256: "0".repeat(64) },
+        {} as never,
+      ),
+    ).rejects.toThrow(/digest mismatch/u);
+  });
   it("allows a canonical reserved file and rejects arbitrary, dot-dot, alternate-root, and symlink paths", async () => {
     const root = await canonicalTemp("host-root-");
     const inside = join(root, "runs", "r", "state.json");

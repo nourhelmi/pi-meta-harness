@@ -203,6 +203,31 @@ export const hostRpcContract = defineRpcContract({
 		input: sdkSchema(z.object({ runId: id }).strict()),
 		output: sdkSchema(z.object({ content: z.string(), path }).strict()),
 	},
+	materializePrivateRoleState: {
+		input: sdkSchema(
+			z
+				.object({
+					runId: id,
+					resultPath: path,
+					content: z.string().min(1).max(65_536),
+					expectedSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+				})
+				.strict(),
+		),
+		output: sdkSchema(z.object({ locator: path }).strict()),
+	},
+	readPrivateRoleState: {
+		input: sdkSchema(
+			z
+				.object({
+					runId: id,
+					locator: path,
+					expectedSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+				})
+				.strict(),
+		),
+		output: sdkSchema(z.object({ content: z.string().min(1).max(65_536) }).strict()),
+	},
 	tailLog: {
 		input: sdkSchema(z.object({ runId: id, maxBytes: z.number().int().min(1).max(262_144) }).strict()),
 		output: sdkSchema(z.object({ content: z.string(), path }).strict()),

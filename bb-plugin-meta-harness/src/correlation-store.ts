@@ -110,7 +110,8 @@ export const correlationMigrations = [
       provider_id TEXT NOT NULL CHECK(provider_id = 'pi'),
       model TEXT NOT NULL,
       reasoning TEXT NOT NULL,
-      role_state_json TEXT NOT NULL CHECK(json_valid(role_state_json)),
+      role_state_locator TEXT NOT NULL,
+      role_state_sha256 TEXT NOT NULL CHECK(length(role_state_sha256) = 64),
       thread_id TEXT UNIQUE,
       environment_id TEXT,
       generation INTEGER CHECK(generation IS NULL OR generation >= 1),
@@ -126,7 +127,7 @@ export const correlationMigrations = [
     BEFORE UPDATE OF run_id, reservation_id, request_fingerprint, input_sha256,
       logical_parent_thread_id, logical_parent_environment_id, graph_id,
       node_id, project_id, host_id, cwd, provider_id, model, reasoning,
-      role_state_json, created_at
+      role_state_locator, role_state_sha256, created_at
     ON meta_harness_private_launch_reservation
     BEGIN
       SELECT RAISE(ABORT, 'private launch reservation identity is immutable');
@@ -182,7 +183,8 @@ export interface PrivateLaunchReservation {
 	providerId: "pi";
 	model: string;
 	reasoning: string;
-	roleState: PrivateRoleState;
+	roleStateLocator: string;
+	roleStateSha256: string;
 	threadId?: string;
 	environmentId?: string;
 	generation?: number;
@@ -264,7 +266,8 @@ function privateReservationFromRow(found: Record<string, unknown>): PrivateLaunc
 		providerId: "pi",
 		model: String(found.model),
 		reasoning: String(found.reasoning),
-		roleState: JSON.parse(String(found.role_state_json)) as PrivateRoleState,
+		roleStateLocator: String(found.role_state_locator),
+		roleStateSha256: String(found.role_state_sha256),
 		...(found.thread_id ? { threadId: String(found.thread_id) } : {}),
 		...(found.environment_id ? { environmentId: String(found.environment_id) } : {}),
 		...(found.generation ? { generation: Number(found.generation) } : {}),
@@ -324,8 +327,118 @@ function reservationFromRow(found: Record<string, unknown>): LaunchReservation {
   };
 }
 
+export interface LegacyPrivateRoleStateRow {
+	runId: string;
+	hostId: string;
+	roleState: PrivateRoleState;
+}
+
+export interface MigratedPrivateRoleStateReference {
+	locator: string;
+	sha256: string;
+	state?: PrivateInitializationState;
+	errorCode?: string;
+}
+
+export function hasLegacyPrivateRoleStateColumn(db: Database.Database): boolean {
+	const table = db
+		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='meta_harness_private_launch_reservation'")
+		.get();
+	if (!table) return false;
+	const columns = db.prepare("PRAGMA table_info(meta_harness_private_launch_reservation)").all() as Array<{
+		name: string;
+	}>;
+	return columns.some((column) => column.name === "role_state_json");
+}
+
+export function listLegacyPrivateRoleStateRows(
+	db: Database.Database,
+): LegacyPrivateRoleStateRow[] {
+	if (!hasLegacyPrivateRoleStateColumn(db)) return [];
+	return (
+		db.prepare("SELECT run_id, host_id, role_state_json FROM meta_harness_private_launch_reservation").all() as Array<{
+			run_id: string;
+			host_id: string;
+			role_state_json: string;
+		}>
+	).map((row) => ({
+		runId: row.run_id,
+		hostId: row.host_id,
+		roleState: JSON.parse(row.role_state_json) as PrivateRoleState,
+	}));
+}
+
+export function migrateLegacyPrivateRoleStateRows(
+	db: Database.Database,
+	references: ReadonlyMap<string, MigratedPrivateRoleStateReference>,
+): void {
+	if (!hasLegacyPrivateRoleStateColumn(db)) return;
+	const rows = listLegacyPrivateRoleStateRows(db);
+	for (const row of rows) {
+		if (!references.has(row.runId)) {
+			throw new Error(`missing private role state migration reference for ${row.runId}`);
+		}
+	}
+	db.transaction(() => {
+		db.exec(`
+      DROP TRIGGER IF EXISTS meta_harness_private_launch_immutable;
+      DROP TRIGGER IF EXISTS meta_harness_private_launch_no_delete;
+      ALTER TABLE meta_harness_private_launch_reservation RENAME TO meta_harness_private_launch_reservation_legacy;
+    `);
+		db.exec(correlationMigrations[2].sql);
+		const insert = db.prepare(`INSERT INTO meta_harness_private_launch_reservation(
+      run_id,reservation_id,request_fingerprint,input_sha256,logical_parent_thread_id,
+      logical_parent_environment_id,graph_id,node_id,project_id,host_id,cwd,
+      provider_id,model,reasoning,role_state_locator,role_state_sha256,thread_id,
+      environment_id,generation,initialization_state,receipt_sha256,error_code,
+      created_at,updated_at,initialized_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+		const legacyRows = db.prepare("SELECT * FROM meta_harness_private_launch_reservation_legacy").all() as Array<
+			Record<string, unknown>
+		>;
+		for (const legacy of legacyRows) {
+			const reference = references.get(String(legacy.run_id));
+			if (!reference) throw new Error("private role state migration reference disappeared");
+			insert.run(
+				legacy.run_id,
+				legacy.reservation_id,
+				legacy.request_fingerprint,
+				legacy.input_sha256,
+				legacy.logical_parent_thread_id,
+				legacy.logical_parent_environment_id,
+				legacy.graph_id,
+				legacy.node_id,
+				legacy.project_id,
+				legacy.host_id,
+				legacy.cwd,
+				legacy.provider_id,
+				legacy.model,
+				legacy.reasoning,
+				reference.locator,
+				reference.sha256,
+				legacy.thread_id,
+				legacy.environment_id,
+				legacy.generation,
+				reference.state ?? legacy.initialization_state,
+				legacy.receipt_sha256,
+				reference.errorCode ?? legacy.error_code,
+				legacy.created_at,
+				legacy.updated_at,
+				legacy.initialized_at,
+			);
+		}
+		db.exec("DROP TABLE meta_harness_private_launch_reservation_legacy");
+	})();
+	db.pragma("wal_checkpoint(TRUNCATE)");
+	db.exec("VACUUM");
+	db.pragma("wal_checkpoint(TRUNCATE)");
+}
+
 export function createCorrelationStore(db: Database.Database) {
   for (const migration of correlationMigrations) db.exec(migration.sql);
+	if (hasLegacyPrivateRoleStateColumn(db)) {
+		throw new Error("legacy private role state must be migrated before opening the correlation store");
+	}
 
   const correlationRow = (runId: string) =>
 		db.prepare("SELECT * FROM meta_harness_correlation WHERE run_id = ?").get(runId) as
@@ -512,9 +625,9 @@ export function createCorrelationStore(db: Database.Database) {
 					`INSERT INTO meta_harness_private_launch_reservation(
           run_id,reservation_id,request_fingerprint,input_sha256,logical_parent_thread_id,
           logical_parent_environment_id,graph_id,node_id,project_id,host_id,cwd,
-          provider_id,model,reasoning,role_state_json,initialization_state,
+          provider_id,model,reasoning,role_state_locator,role_state_sha256,initialization_state,
           created_at,updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reserved',?,?)`,
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'reserved',?,?)`,
 				).run(
 					value.runId,
 					value.reservationId,
@@ -530,7 +643,8 @@ export function createCorrelationStore(db: Database.Database) {
 					value.providerId,
 					value.model,
 					value.reasoning,
-					JSON.stringify(value.roleState),
+					value.roleStateLocator,
+					value.roleStateSha256,
 					value.createdAt,
 					value.updatedAt,
 				);

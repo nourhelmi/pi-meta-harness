@@ -1,11 +1,13 @@
 import { constants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
 import { hostRpcContract, hostSignals } from "./contracts.js";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u;
+const PRIVATE_ROLE_STATE_FILE = "private-role-state.json";
 
 function configuredRoot(name: "advisor" | "detach"): string {
   return resolve(
@@ -101,6 +103,36 @@ function checkId(value: string): string {
   return value;
 }
 
+function sha256(value: string): string {
+	return createHash("sha256").update(value).digest("hex");
+}
+
+async function privateRoleStateLocator(runId: string, resultPath: string): Promise<string> {
+	const safe = checkId(runId);
+	const advisorRoot = configuredRoot("advisor");
+	const canonicalRoot = await realpath(advisorRoot);
+	if (canonicalRoot !== advisorRoot || !isAbsolute(resultPath) || containsDotDot(resultPath)) {
+		throw new Error("private role state root or result path is invalid");
+	}
+	const runDir = resolve(dirname(resultPath));
+	if (!contained(canonicalRoot, runDir) || runDir.split(sep).at(-1) !== safe) {
+		throw new Error("private role state run path is not reserved for this run");
+	}
+	if ((await realpath(runDir)) !== runDir) {
+		throw new Error("private role state run path must be canonical");
+	}
+	return join(runDir, PRIVATE_ROLE_STATE_FILE);
+}
+
+async function validatePrivateRoleStateLocator(runId: string, locator: string): Promise<string> {
+	if (dirname(locator).split(sep).at(-1) !== checkId(runId) || basename(locator) !== PRIVATE_ROLE_STATE_FILE) {
+		throw new Error("private role state locator mismatch");
+	}
+	const expected = await privateRoleStateLocator(runId, join(dirname(locator), "result.md"));
+	if (expected !== locator) throw new Error("private role state locator mismatch");
+	return expected;
+}
+
 async function runState(runId: string): Promise<{ content: string; path: string; value: Record<string, unknown> }> {
   const safe = checkId(runId);
   const detachRoot = configuredRoot("detach");
@@ -138,6 +170,50 @@ export default experimental_defineHostEntry({
         content: await readContained(configuredRoot("advisor"), resultPath),
       };
     },
+		async materializePrivateRoleState({ runId, resultPath, content, expectedSha256 }) {
+			if (Buffer.byteLength(content, "utf8") > 65_536 || sha256(content) !== expectedSha256) {
+				throw new Error("private role state content mismatch");
+			}
+			const locator = await privateRoleStateLocator(runId, resultPath);
+			let created = false;
+			let handle;
+			try {
+				handle = await open(
+					locator,
+					constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+					0o600,
+				);
+				created = true;
+				const serialized = Buffer.from(content, "utf8");
+				try {
+					await handle.writeFile(serialized);
+					await handle.sync();
+				} finally {
+					serialized.fill(0);
+				}
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+			} finally {
+				await handle?.close();
+			}
+			const stored = await readContained(configuredRoot("advisor"), locator, 65_536);
+			if (sha256(stored) !== expectedSha256 || stored !== content) {
+				throw new Error(
+					created
+						? "private role state changed after materialization"
+						: "private role state already exists with different content",
+				);
+			}
+			return { locator };
+		},
+		async readPrivateRoleState({ runId, locator, expectedSha256 }) {
+			const validated = await validatePrivateRoleStateLocator(runId, locator);
+			const content = await readContained(configuredRoot("advisor"), validated, 65_536);
+			if (sha256(content) !== expectedSha256) {
+				throw new Error("private role state digest mismatch");
+			}
+			return { content };
+		},
     async tailLog({ runId, maxBytes }) {
       const state = await runState(runId);
       const logPath = state.value.logPath;

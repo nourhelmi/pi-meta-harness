@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import {
   agentStartRequest,
@@ -14,11 +14,15 @@ import {
 import {
   createCorrelationStore,
   fingerprint,
+	hasLegacyPrivateRoleStateColumn,
+	listLegacyPrivateRoleStateRows,
+	migrateLegacyPrivateRoleStateRows,
   newBootstrapToken,
 	newPrivateReservationId,
   tokenHash,
   type Correlation,
-  type LaunchReservation,
+	type LaunchReservation,
+	type MigratedPrivateRoleStateReference,
 	type PrivateLaunchReservation,
 	type PrivateRoleState,
 } from "./correlation-store.js";
@@ -124,7 +128,47 @@ function privateRoleState(input: AgentStartRequest): PrivateRoleState {
 	};
 }
 
-function privateLaunchReservation(input: AgentStartRequest, reservationId: string): PrivateLaunchReservation {
+function serializedPrivateRoleState(value: PrivateRoleState): string {
+	return JSON.stringify(value);
+}
+
+function privateRoleStateSha256(value: PrivateRoleState): string {
+	return createHash("sha256").update(serializedPrivateRoleState(value)).digest("hex");
+}
+
+function parseStoredPrivateRoleState(
+	content: string,
+	reservation: PrivateLaunchReservation,
+): PrivateRoleState {
+	const value = JSON.parse(content) as Record<string, unknown>;
+	if (
+		typeof value.role !== "string" ||
+		typeof value.runDir !== "string" ||
+		typeof value.resultPath !== "string" ||
+		typeof value.maxTurns !== "number" ||
+		!Number.isInteger(value.maxTurns) ||
+		typeof value.launchModel !== "string" ||
+		typeof value.launchThinking !== "string" ||
+		typeof value.allowSubagents !== "boolean" ||
+		value.runId !== reservation.runId ||
+		value.launchModel !== reservation.model ||
+		value.launchThinking !== reservation.reasoning ||
+		(value.graphId ?? undefined) !== reservation.graphId ||
+		(value.nodeId ?? undefined) !== reservation.nodeId ||
+		dirname(value.resultPath) !== value.runDir ||
+		join(value.runDir, "private-role-state.json") !== reservation.roleStateLocator
+	) {
+		throw new Error("Meta Harness canonical private role state mismatch");
+	}
+	return value as unknown as PrivateRoleState;
+}
+
+function privateLaunchReservation(
+	input: AgentStartRequest,
+	reservationId: string,
+	roleStateLocator: string,
+	roleStateSha256: string,
+): PrivateLaunchReservation {
 	const now = Date.now();
 	const roleState = privateRoleState(input);
 	return {
@@ -142,7 +186,8 @@ function privateLaunchReservation(input: AgentStartRequest, reservationId: strin
 		providerId: "pi",
 		model: input.model,
 		reasoning: input.reasoning,
-		roleState,
+		roleStateLocator,
+		roleStateSha256,
 		initializationState: "reserved",
 		createdAt: now,
 		updatedAt: now,
@@ -309,14 +354,46 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
 	if (!privateInitialization) {
 		throw new Error("BB private thread initialization capability is required");
 	}
-  const db = bb.storage.database();
-  const correlations = createCorrelationStore(db);
-  const wakes = createWakeAdmissionStore(db);
-  wakes.reconcileClaimed();
 	const host = bb.hosts.experimental_client({
 		contract: hostRpcContract,
 		experimental_signals: hostSignals,
 	});
+  const db = bb.storage.database();
+	if (hasLegacyPrivateRoleStateColumn(db)) {
+		const references = new Map<string, MigratedPrivateRoleStateReference>();
+		for (const legacy of listLegacyPrivateRoleStateRows(db)) {
+			const content = serializedPrivateRoleState(legacy.roleState);
+			const expectedSha256 = privateRoleStateSha256(legacy.roleState);
+			const fallbackLocator = join(dirname(legacy.roleState.resultPath), "private-role-state.json");
+			try {
+				const materialized = await host.call(
+					"materializePrivateRoleState",
+					{
+						runId: legacy.runId,
+						resultPath: legacy.roleState.resultPath,
+						content,
+						expectedSha256,
+					},
+					{ hostId: legacy.hostId },
+				);
+				references.set(legacy.runId, {
+					locator: materialized.locator,
+					sha256: expectedSha256,
+				});
+			} catch {
+				references.set(legacy.runId, {
+					locator: fallbackLocator,
+					sha256: expectedSha256,
+					state: "stalled",
+					errorCode: "META_ROLE_STATE_MIGRATION_FAILED",
+				});
+			}
+		}
+		migrateLegacyPrivateRoleStateRows(db, references);
+	}
+  const correlations = createCorrelationStore(db);
+  const wakes = createWakeAdmissionStore(db);
+  wakes.reconcileClaimed();
   const blockedAnswersInFlight = new Set<string>();
 	const blockedAnswersSent = new Set<string>();
 	host.experimental_onSignal("projectionChanged", ({ payload }) => {
@@ -347,6 +424,28 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
 				message: "Meta Harness private initialization identity mismatch",
 			};
 	}
+		let roleState: PrivateRoleState;
+		try {
+			const stored = await host.call(
+				"readPrivateRoleState",
+				{
+					runId: reservation.runId,
+					locator: reservation.roleStateLocator,
+					expectedSha256: reservation.roleStateSha256,
+				},
+				{ hostId: reservation.hostId },
+			);
+			roleState = parseStoredPrivateRoleState(stored.content, reservation);
+			if (privateRoleStateSha256(roleState) !== reservation.roleStateSha256) {
+				throw new Error("private role state digest mismatch");
+			}
+		} catch {
+			return {
+				action: "reject",
+				code: "META_PRIVATE_ROLE_STATE_UNAVAILABLE",
+				message: "Meta Harness canonical private role state is unavailable",
+			};
+		}
 		const full = await bb.sdk.threads.get({
 			threadId: context.threadId,
 			include: "environment,host",
@@ -395,7 +494,7 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
 				message: "Meta Harness private reservation is unavailable",
 			};
 	}
-		return { action: "provide", value: bound.roleState };
+		return { action: "provide", value: roleState };
 	});
 
 	bb.experimental_hooks.on("message.dispatch", async (context) => {
@@ -612,7 +711,38 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
     }
 
 		if (input.bootstrap) {
-			const proposed = privateLaunchReservation(input, newPrivateReservationId());
+			const priorPrivate = correlations.getPrivateReservationByRun(input.runId);
+			if (
+				priorPrivate &&
+				priorPrivate.requestFingerprint !== launchFingerprint(input)
+			) {
+				return json(
+					{
+						error: "LAUNCH_FINGERPRINT_MISMATCH",
+						state: priorPrivate.initializationState,
+					},
+					409,
+				);
+			}
+			const roleState = privateRoleState(input);
+			const roleStateContent = serializedPrivateRoleState(roleState);
+			const roleStateSha256 = privateRoleStateSha256(roleState);
+			const materialized = await host.call(
+				"materializePrivateRoleState",
+				{
+					runId: input.runId,
+					resultPath: roleState.resultPath,
+					content: roleStateContent,
+					expectedSha256: roleStateSha256,
+				},
+				{ hostId: input.hostId },
+			);
+			const proposed = privateLaunchReservation(
+				input,
+				newPrivateReservationId(),
+				materialized.locator,
+				roleStateSha256,
+			);
 			const reserved = correlations.reservePrivate(proposed);
 			if (!reserved.created) {
 				const prior = reserved.reservation;

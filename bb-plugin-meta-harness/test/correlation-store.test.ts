@@ -1,6 +1,18 @@
 import Database from "better-sqlite3";
+import { createHash, randomBytes } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createCorrelationStore, fingerprint, tokenHash, type LaunchReservation } from "../src/correlation-store.js";
+import {
+  createCorrelationStore,
+  fingerprint,
+  hasLegacyPrivateRoleStateColumn,
+  listLegacyPrivateRoleStateRows,
+  migrateLegacyPrivateRoleStateRows,
+  tokenHash,
+  type LaunchReservation,
+} from "../src/correlation-store.js";
 
 function reservation(overrides: Partial<LaunchReservation> = {}): LaunchReservation {
   return {
@@ -32,6 +44,119 @@ function reservation(overrides: Partial<LaunchReservation> = {}): LaunchReservat
 }
 
 describe("correlation store", () => {
+	it("scrubs legacy durable role payloads while preserving only locator and digest", () => {
+		const directory = mkdtempSync(join(tmpdir(), "meta-private-db-proof-"));
+		const databasePath = join(directory, "plugin.sqlite");
+		const db = new Database(databasePath);
+		db.exec(`CREATE TABLE meta_harness_private_launch_reservation (
+			run_id TEXT PRIMARY KEY, reservation_id TEXT NOT NULL UNIQUE,
+			request_fingerprint TEXT NOT NULL, input_sha256 TEXT NOT NULL,
+			logical_parent_thread_id TEXT NOT NULL, logical_parent_environment_id TEXT NOT NULL,
+			graph_id TEXT, node_id TEXT, project_id TEXT NOT NULL, host_id TEXT NOT NULL,
+			cwd TEXT NOT NULL, provider_id TEXT NOT NULL, model TEXT NOT NULL, reasoning TEXT NOT NULL,
+			role_state_json TEXT NOT NULL, thread_id TEXT UNIQUE, environment_id TEXT,
+			generation INTEGER, initialization_state TEXT NOT NULL, receipt_sha256 TEXT,
+			error_code TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+			initialized_at INTEGER
+		)`);
+		const secret = `legacy-${randomBytes(48).toString("base64url")}`;
+		const roleState = {
+			role: "builder",
+			runDir: "/tmp/advisor/runs/legacy-run",
+			resultPath: "/tmp/advisor/runs/legacy-run/result.md",
+			maxTurns: 32,
+			launchModel: "openai/gpt-5.6",
+			launchThinking: "high",
+			allowSubagents: false,
+			runId: "legacy-run",
+			control: secret,
+		};
+		db.prepare(
+			`INSERT INTO meta_harness_private_launch_reservation VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		).run(
+			"legacy-run", "reservation", "1".repeat(64), "2".repeat(64), "parent", "parent-env",
+			null, null, "project", "host", "/worktree", "pi", "openai/gpt-5.6", "high",
+			JSON.stringify(roleState), "thread", "environment", 1, "initialized", "3".repeat(64),
+			null, 1, 2, 2,
+		);
+		expect(hasLegacyPrivateRoleStateColumn(db)).toBe(true);
+		expect(listLegacyPrivateRoleStateRows(db)).toHaveLength(1);
+		migrateLegacyPrivateRoleStateRows(
+			db,
+			new Map([
+				[
+					"legacy-run",
+					{
+						locator: "/tmp/advisor/runs/legacy-run/private-role-state.json",
+						sha256: "4".repeat(64),
+					},
+				],
+			]),
+		);
+		expect(hasLegacyPrivateRoleStateColumn(db)).toBe(false);
+		const columns = db
+			.prepare("PRAGMA table_info(meta_harness_private_launch_reservation)")
+			.all() as Array<{ name: string }>;
+		expect(columns.map(({ name }) => name)).not.toContain("role_state_json");
+		const rows = db
+			.prepare("SELECT * FROM meta_harness_private_launch_reservation")
+			.all();
+		expect(JSON.stringify(rows)).not.toContain(secret);
+		expect(rows).toMatchObject([
+			{
+				role_state_locator: "/tmp/advisor/runs/legacy-run/private-role-state.json",
+				role_state_sha256: "4".repeat(64),
+			},
+		]);
+		const tableNames = db
+			.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+			.all() as Array<{ name: string }>;
+		const variants = [
+			secret,
+			Buffer.from(secret).toString("base64"),
+			Buffer.from(secret).toString("base64url"),
+			Buffer.from(secret).toString("hex"),
+			encodeURIComponent(secret),
+		];
+		const inventory = tableNames.map(({ name }) => {
+			const tableRows = db.prepare(`SELECT * FROM "${name}"`).all();
+			const encoded = JSON.stringify(tableRows);
+			const matches = variants.reduce(
+				(count, variant) => count + (encoded.split(variant).length - 1),
+				0,
+			);
+			expect(matches).toBe(0);
+			return { name, rows: tableRows.length, matches };
+		});
+		db.close();
+		const databaseBytes = readFileSync(databasePath);
+		const databaseFileMatches = variants.reduce(
+			(count, variant) => count + (databaseBytes.includes(Buffer.from(variant)) ? 1 : 0),
+			0,
+		);
+		expect(databaseFileMatches).toBe(0);
+		const proofRoot = process.env.BB_PRIVATE_PROOF_DIR;
+		if (proofRoot !== undefined) {
+			mkdirSync(proofRoot, { recursive: true });
+			writeFileSync(
+				join(proofRoot, "meta-surfaces.json"),
+				JSON.stringify({
+					surface: "meta-plugin-sqlite",
+					canarySha256: createHash("sha256").update(secret).digest("hex"),
+					legacyColumnScrubbed: true,
+					inventory: [...inventory, { name: "plugin.sqlite bytes", rows: 1, matches: databaseFileMatches }],
+					scan: {
+						method: "raw, base64, base64url, hex, uri-component",
+						totalSurfaces: inventory.length + 1,
+						totalMatches:
+							inventory.reduce((count, table) => count + table.matches, 0) +
+							databaseFileMatches,
+					},
+				}),
+			);
+		}
+		rmSync(directory, { recursive: true, force: true });
+	});
 	it("keeps legacy correlation rows readable and unique by run/thread", () => {
     const db = new Database(":memory:");
     const store = createCorrelationStore(db);

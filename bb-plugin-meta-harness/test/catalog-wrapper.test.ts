@@ -1,5 +1,5 @@
-import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,15 +42,27 @@ describe("catalog wrapper", () => {
 		const scratch = join(providerTempRoot, "pi");
 		mkdirSync(scratch);
 		const extension = join(scratch, "bb-pi-extension.mjs");
+		const piPackage = join(root, "pi-package");
+		const piExecutable = join(piPackage, "bin", "pi-fixture.mjs");
 		for (const path of [profileRoot, sessionRoot, advisorStateRoot, detachStateRoot]) mkdirSync(path, { recursive: true });
 		writeFileSync(extension, "export default function fixture() {}\n");
+		mkdirSync(dirname(piExecutable), { recursive: true });
+		writeFileSync(
+			join(piPackage, "package.json"),
+			JSON.stringify({ name: "@earendil-works/pi-coding-agent", version: "0.84.4" }),
+		);
+		writeFileSync(
+			piExecutable,
+			'#!/usr/bin/env node\nif (process.argv.includes("--version")) process.stdout.write("0.84.4\\n");\n',
+		);
+		chmodSync(piExecutable, 0o755);
 		const config = Buffer.from(JSON.stringify({
 			advisorStateRoot,
 			allowedRoots: [root],
 			detachRoot,
 			detachStateRoot,
 			hostId: "host-test",
-			piExecutable: realpathSync(execFileSync("which", ["pi"], { encoding: "utf8" }).trim()),
+			piExecutable,
 			profileRoot,
 			sessionRoot,
 			skillRoots: [],

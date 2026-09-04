@@ -61,59 +61,23 @@ interface PrivateInitializationPayload {
 interface PrivateInitializationRegistry {
 	register(pluginId: string, consume: (payload: PrivateInitializationPayload) => Promise<void>): { dispose(): void };
 	consume(payload: PrivateInitializationPayload): Promise<unknown>;
+	canonicalJsonSha256(value: PrivateInitializationPayload["value"]): string;
 }
 
 const PRIVATE_INITIALIZATION_REGISTRY = Symbol.for("get-bb.provider-session-initialization.v1");
-
-function canonicalPrivateValue(value: unknown): string {
-	if (value === null || typeof value !== "object") return JSON.stringify(value);
-	if (Array.isArray(value)) return `[${value.map(canonicalPrivateValue).join(",")}]`;
-	return `{${Object.entries(value)
-		.sort(([left], [right]) => left.localeCompare(right))
-		.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalPrivateValue(entry)}`)
-		.join(",")}}`;
-}
 
 function privateInitializationRegistry(): PrivateInitializationRegistry {
 	const existing = Reflect.get(globalThis, PRIVATE_INITIALIZATION_REGISTRY) as
 		| PrivateInitializationRegistry
 		| undefined;
-	if (existing && typeof existing.register === "function" && typeof existing.consume === "function") return existing;
-	const consumers = new Map<string, (payload: PrivateInitializationPayload) => Promise<void>>();
-	const consumed = new Set<string>();
-	const registry: PrivateInitializationRegistry = {
-		register(pluginId, consume) {
-			if (consumers.has(pluginId))
-				throw new Error(`private initialization consumer already registered for ${pluginId}`);
-			consumers.set(pluginId, consume);
-			return {
-				dispose() {
-					if (consumers.get(pluginId) === consume) consumers.delete(pluginId);
-				},
-			};
-		},
-		async consume(payload) {
-			const payloadSha256 = createHash("sha256")
-				.update(canonicalPrivateValue(payload.value))
-				.digest("hex");
-			if (payloadSha256 !== payload.descriptor.payloadSha256)
-				throw new Error("PRIVATE_INITIALIZATION_RECEIPT_MISMATCH");
-			const key = `${payload.descriptor.threadId}:${payload.descriptor.generation}`;
-			if (consumed.has(key)) throw new Error("PRIVATE_INITIALIZATION_REPLAY");
-			const consumer = consumers.get(payload.descriptor.pluginId);
-			if (!consumer) throw new Error("PRIVATE_INITIALIZATION_PLUGIN_UNAVAILABLE");
-			consumed.add(key);
-			await consumer(payload);
-			return { ...payload.descriptor, consumed: true };
-		},
-	};
-	Object.defineProperty(globalThis, PRIVATE_INITIALIZATION_REGISTRY, {
-		configurable: false,
-		enumerable: false,
-		value: registry,
-		writable: false,
-	});
-	return registry;
+	if (
+		existing &&
+		typeof existing.register === "function" &&
+		typeof existing.consume === "function" &&
+		typeof existing.canonicalJsonSha256 === "function"
+	)
+		return existing;
+	throw new Error("PRIVATE_INITIALIZATION_PLUGIN_UNAVAILABLE");
 }
 
 export function resultStatusLine(markdown: string): string | undefined {
@@ -331,9 +295,14 @@ function registerSessionStart(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 function registerBbPrivateInitialization(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 	const context = detectBbSurfaceContext();
 	if (!context) return;
-	privateInitializationRegistry().register("meta-harness", async (payload) => {
+	pi.on("session_start", async () => {
+		const registry = privateInitializationRegistry();
+		registry.register("meta-harness", async (payload) => {
 		const ctx = runtime.context;
 		if (!ctx) throw new Error("PRIVATE_INITIALIZATION_SESSION_NOT_READY");
+		if (registry.canonicalJsonSha256(payload.value) !== payload.descriptor.payloadSha256) {
+			throw new Error("PRIVATE_INITIALIZATION_RECEIPT_MISMATCH");
+		}
 		if (
 			payload.descriptor.version !== 1 ||
 			payload.descriptor.pluginId !== "meta-harness" ||
@@ -352,6 +321,7 @@ function registerBbPrivateInitialization(pi: ExtensionAPI, runtime: WorkerRuntim
 		}
 		if (runtime.state) throw new Error("PRIVATE_INITIALIZATION_REPLAY");
 		runtime.state = await initializePrivateWorker(pi, ctx, payload.value);
+		});
 	});
 }
 

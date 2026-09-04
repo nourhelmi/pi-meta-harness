@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 const bbRoot = resolve(
   process.env.BB_PINNED_SOURCE_ROOT ?? "/private/tmp/get-bb-bootstrap-api",
 );
-const expectedCommit = "5c6f1520bd5c1870a5d22e3268bc57f9f10b3fdd";
+const expectedCommit = "e6ca0dfb0abc8222c965129237739e481c8ff9ea";
 const cli = resolve(bbRoot, "packages/scripts/dist/commands/run-cli.js");
 
 const git = spawnSync("git", ["-C", bbRoot, "rev-parse", "HEAD"], {
