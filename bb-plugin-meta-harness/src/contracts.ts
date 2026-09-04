@@ -43,6 +43,17 @@ export const graphSnapshot = z.object({
 		artifactPath: path.optional(), artifact: z.string().optional(),
 	}).strict()),
 	edges: z.array(z.object({ from: id, to: id }).strict()),
+	launchReservations: z.array(z.object({
+		runId: id,
+		state: z.enum(["reserved", "bound", "failed", "unknown"]),
+		threadId: id.optional(),
+		hostId: id,
+		projectId: id,
+		cwd: path,
+		createdAt: z.number().int(),
+		updatedAt: z.number().int(),
+		failureReason: z.string().optional(),
+	}).strict()),
 	wakeAdmissions: z.array(z.object({ logicalParentThreadId: id, settlementGeneration: z.string(), runId: id, state: z.enum(["pending", "claimed", "sent", "unknown"]), operatorSkippedAt: z.number().int().optional() }).strict()),
 }).strict();
 

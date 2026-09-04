@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { dirname } from "node:path";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type {
+  BbPluginApi,
+  MessageDispatchHookContext,
+} from "@get-bb/plugin-sdk";
 import {
   agentStartRequest,
   agentStopRequest,
@@ -14,9 +17,11 @@ import {
 } from "./contracts.js";
 import {
   createCorrelationStore,
+  fingerprint,
   newBootstrapToken,
   tokenHash,
   type Correlation,
+  type LaunchReservation,
 } from "./correlation-store.js";
 import { createWakeAdmissionStore } from "./wake-admission.js";
 
@@ -50,6 +55,136 @@ function bootstrapToken(input: AgentStartRequest, random: string): string {
 		c: input.bootstrap.maxTurns,
     }),
   ).toString("base64url");
+}
+
+function launchFingerprint(input: AgentStartRequest): string {
+  return fingerprint({
+    version: input.version,
+    runId: input.runId,
+    logicalParentThreadId: input.logicalParentThreadId,
+    logicalParentEnvironmentId: input.environmentId,
+    projectId: input.projectId,
+    hostId: input.hostId,
+    cwd: input.cwd,
+    label: input.label,
+    prompt: input.prompt,
+    providerId: input.providerId,
+    model: input.model,
+    reasoning: input.reasoning,
+    resultPath: input.resultPath ?? null,
+    bootstrap: input.bootstrap ?? null,
+  });
+}
+
+function launchReservation(
+  input: AgentStartRequest,
+  pluginId: string,
+  bootstrapTokenHash: string,
+): LaunchReservation {
+  const now = Date.now();
+  const graphId = graphFromPrompt(input.prompt);
+  const nodeId = nodeFromLabel(input.label);
+  return {
+    runId: input.runId,
+    bootstrapTokenHash,
+    requestFingerprint: launchFingerprint(input),
+    logicalParentThreadId: input.logicalParentThreadId,
+    logicalParentEnvironmentId: input.environmentId,
+    ...(graphId ? { graphId } : {}),
+    ...(nodeId ? { nodeId } : {}),
+    projectId: input.projectId,
+    hostId: input.hostId,
+    cwd: input.cwd,
+    providerId: input.providerId,
+    model: input.model,
+    reasoning: input.reasoning,
+    expectedOrigin: "plugin",
+    expectedOriginPluginId: pluginId,
+    expectedVisibility: "visible",
+    expectedParentThreadId: null,
+    expectedOriginKind: null,
+    expectedWorkspaceProvisionType: "unmanaged",
+    bootstrapRequired: input.bootstrap !== undefined,
+    state: "reserved",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function continuationIdentityMatches(
+  input: AgentStartRequest,
+  reservation: LaunchReservation,
+): boolean {
+  return (
+    input.runId === reservation.runId &&
+    input.logicalParentThreadId === reservation.logicalParentThreadId &&
+    input.environmentId === reservation.logicalParentEnvironmentId &&
+    input.projectId === reservation.projectId &&
+    input.hostId === reservation.hostId &&
+    input.cwd === reservation.cwd &&
+    input.providerId === reservation.providerId &&
+    input.model === reservation.model &&
+    input.reasoning === reservation.reasoning &&
+    Boolean(input.bootstrap) === reservation.bootstrapRequired &&
+    nodeFromLabel(input.label) === reservation.nodeId
+  );
+}
+
+function dispatchIdentityMismatch(
+  reservation: LaunchReservation,
+  context: MessageDispatchHookContext,
+): string | undefined {
+  const { environment, host, project, requestedExecution, thread } = context;
+  if (reservation.threadId !== undefined && thread.id !== reservation.threadId) {
+    return "bound thread";
+  }
+  if (thread.projectId !== reservation.projectId || project.id !== reservation.projectId) {
+    return "project";
+  }
+  if (thread.providerId !== reservation.providerId) return "thread provider";
+  if (requestedExecution.providerId !== reservation.providerId) {
+    return "requested provider";
+  }
+  if (requestedExecution.model !== reservation.model) return "requested model";
+  if (requestedExecution.reasoningLevel !== reservation.reasoning) {
+    return "requested reasoning";
+  }
+  if (context.origin !== reservation.expectedOrigin) return "dispatch origin";
+  if (context.originPluginId !== reservation.expectedOriginPluginId) {
+    return "dispatch origin plugin";
+  }
+  if (thread.originPluginId !== reservation.expectedOriginPluginId) {
+    return "thread origin plugin";
+  }
+  if (
+    context.parentThreadId !== reservation.expectedParentThreadId ||
+    thread.parentThreadId !== reservation.expectedParentThreadId
+  ) {
+    return "parent topology";
+  }
+  if (thread.originKind !== reservation.expectedOriginKind) return "origin topology";
+  if (thread.visibility !== reservation.expectedVisibility) return "visibility";
+  if (context.attempt !== "start-turn") return "dispatch attempt";
+  if (context.startedOnBehalfOf !== null) return "delegated topology";
+  if (!environment || !thread.environmentId || environment.id !== thread.environmentId) {
+    return "environment";
+  }
+  if (
+    reservation.environmentId !== undefined &&
+    environment.id !== reservation.environmentId
+  ) {
+    return "bound environment";
+  }
+  if (
+    environment.projectId !== reservation.projectId ||
+    environment.hostId !== reservation.hostId ||
+    environment.path !== reservation.cwd ||
+    environment.workspaceProvisionType !== reservation.expectedWorkspaceProvisionType
+  ) {
+    return "environment identity";
+  }
+  if (!host || host.id !== reservation.hostId) return "host";
+  return undefined;
 }
 
 function decodeBootstrap(token: string): {
@@ -183,7 +318,6 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
 	const host = bb.hosts.experimental_client({ contract: hostRpcContract, experimental_signals: hostSignals });
   const blockedAnswersInFlight = new Set<string>();
 	const blockedAnswersSent = new Set<string>();
-  const pendingBootstrapHashes = new Set<string>();
 	host.experimental_onSignal("projectionChanged", ({ payload }) => {
 	  bb.realtime.publish("projection-invalidated", { runId: payload.runId });
 	});
@@ -195,25 +329,61 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
     const marker = /^\[\[bb-meta-worker:v1:([A-Za-z0-9_-]{32,4096})\]\]/u.exec(context.input.text);
 	const threadCorrelation = correlations.list().find((item) => item.threadId === context.thread.id);
 	if (marker) {
-	  if (context.originPluginId !== undefined && context.originPluginId !== null && context.originPluginId !== bb.pluginId) {
-		return { action: "reject", message: "Meta Harness rejected a bootstrap marker outside its launch path." };
-	  }
 	  const token = marker[1] ?? "";
-	  const correlation = correlations.getByToken(token);
-	  if (!correlation) {
-		return pendingBootstrapHashes.has(tokenHash(token))
-		  ? { action: "wait", reason: "meta-harness is binding the one-time worker bootstrap" }
-		  : { action: "reject", message: "Meta Harness rejected an unrecognized bootstrap marker." };
+	  const reservation = correlations.getReservationByToken(token);
+	  if (!reservation || !reservation.bootstrapRequired) {
+		return { action: "reject", message: "Meta Harness rejected an unrecognized bootstrap marker." };
 	  }
-	  if (correlation.threadId !== context.thread.id) {
-		return { action: "reject", message: "Meta Harness rejected a thread-mismatched bootstrap marker." };
+	  const mismatch = dispatchIdentityMismatch(reservation, context);
+	  if (mismatch) {
+		if (reservation.state === "reserved") {
+		  try {
+			correlations.mark(reservation.runId, "failed", `dispatch mismatch: ${mismatch}`);
+		  } catch (error) {
+			bb.log.error(`could not persist rejected bootstrap dispatch: ${String(error)}`);
+		  }
+		}
+		return { action: "reject", message: `Meta Harness rejected a bootstrap ${mismatch} mismatch.` };
 	  }
-	  if (correlation.bootstrapClaimedAt !== undefined) {
-		return { action: "reject", message: "Meta Harness rejected a replayed bootstrap marker." };
+	  try {
+		const binding = correlations.bind(
+		  reservation.bootstrapTokenHash,
+		  context.thread.id,
+		  context.environment!.id,
+		);
+		if (binding.kind === "thread-mismatch") {
+		  return { action: "reject", message: "Meta Harness rejected a thread-mismatched bootstrap marker." };
+		}
+		if (binding.kind !== "bound") {
+		  return { action: "reject", message: "Meta Harness rejected an unavailable bootstrap reservation." };
+		}
+		if (binding.correlation.bootstrapClaimedAt !== undefined) {
+		  return { action: "reject", message: "Meta Harness rejected a replayed bootstrap marker." };
+		}
+		return { action: "proceed" };
+	  } catch (error) {
+		bb.log.error(`bootstrap bind persistence failed: ${String(error)}`);
+		return { action: "reject", message: "Meta Harness rejected a bootstrap persistence failure." };
 	  }
-	  return { action: "proceed" };
+	}
+	if (/^\[\[bb-meta-worker:/u.test(context.input.text)) {
+	  return { action: "reject", message: "Meta Harness rejected a malformed bootstrap marker." };
 	}
 	if (threadCorrelation && threadCorrelation.bootstrapClaimedAt === undefined) {
+	  return { action: "reject", message: "Meta Harness rejected a missing worker bootstrap marker." };
+	}
+	const missingReservation = correlations.listReservations().find(
+	  (reservation) =>
+		reservation.bootstrapRequired &&
+		reservation.state === "reserved" &&
+		dispatchIdentityMismatch(reservation, context) === undefined,
+	);
+	if (missingReservation) {
+	  try {
+		correlations.mark(missingReservation.runId, "failed", "dispatch missing bootstrap marker");
+	  } catch (error) {
+		bb.log.error(`could not persist missing bootstrap marker: ${String(error)}`);
+	  }
 	  return { action: "reject", message: "Meta Harness rejected a missing worker bootstrap marker." };
 	}
 	if (threadCorrelation) {
@@ -243,22 +413,38 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
     }
   }
 
-  async function verifiedThread(input: AgentStartRequest, threadId: string) {
+  async function verifiedThread(
+    input: AgentStartRequest,
+    threadId: string,
+    expectedEnvironmentId?: string,
+  ) {
     const full = await bb.sdk.threads.get({ threadId, include: "environment,host" });
-    const execution = await bb.sdk.threads.defaultExecutionOptions({ threadId });
-    const environment = (full as typeof full & { environment?: { hostId: string; path: string | null; workspaceProvisionType: string } | null }).environment;
+    const environment = (
+      full as typeof full & {
+        environment?: {
+          id: string;
+          projectId: string;
+          hostId: string;
+          path: string | null;
+          workspaceProvisionType: string;
+        } | null;
+      }
+    ).environment;
     if (
       !full.environmentId ||
+      full.id !== threadId ||
       full.projectId !== input.projectId ||
       full.providerId !== "pi" ||
       full.parentThreadId !== null ||
       full.originKind !== null ||
+      full.originPluginId !== bb.pluginId ||
       full.visibility !== "visible" ||
+      environment?.id !== full.environmentId ||
+      environment.projectId !== input.projectId ||
       environment?.hostId !== input.hostId ||
       environment.path !== input.cwd ||
       environment.workspaceProvisionType !== "unmanaged" ||
-      execution?.model !== input.model ||
-      execution.reasoningLevel !== input.reasoning
+      (expectedEnvironmentId !== undefined && full.environmentId !== expectedEnvironmentId)
     ) {
       throw new Error("spawned BB thread identity mismatch");
     }
@@ -378,27 +564,93 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
     if (!parsed.success) return json({ error: "REQUEST_INVALID" }, 400);
     const input = parsed.data;
     await verifyParent(input);
-    const prior = correlations.getByRun(input.runId);
-    if (prior) {
+
+    const priorCorrelation = correlations.getByRun(input.runId);
+    if (input.continuation) {
+      if (!priorCorrelation) return json({ error: "RUN_UNKNOWN" }, 404);
       if (
-        prior.logicalParentThreadId !== input.logicalParentThreadId ||
-        prior.hostId !== input.hostId
+        priorCorrelation.logicalParentThreadId !== input.logicalParentThreadId ||
+        priorCorrelation.hostId !== input.hostId
       ) {
         return json({ error: "CORRELATION_MISMATCH" }, 409);
       }
-      const environmentId = await verifiedThread(input, prior.threadId);
-      if (input.continuation) {
-        if (input.prompt !== CONTINUE_TOKEN) return json({ error: "CONTINUATION_INVALID" }, 409);
-        await answerBlocked(prior);
+      if (input.prompt !== CONTINUE_TOKEN) {
+        return json({ error: "CONTINUATION_INVALID" }, 409);
       }
-      return json(startResponse(input, prior, environmentId));
+      const reservation = correlations.getReservationByRun(input.runId);
+	  if (
+		reservation &&
+		(reservation.state !== "bound" || !continuationIdentityMatches(input, reservation))
+	  ) {
+		return json({ error: "CORRELATION_MISMATCH" }, 409);
+	  }
+      const environmentId = await verifiedThread(
+        input,
+        priorCorrelation.threadId,
+        reservation?.environmentId,
+      );
+      await answerBlocked(priorCorrelation);
+      return json(startResponse(input, priorCorrelation, environmentId));
     }
-    if (input.continuation) return json({ error: "RUN_UNKNOWN" }, 404);
+	const existingReservation = correlations.getReservationByRun(input.runId);
+	if (priorCorrelation && !existingReservation) {
+	  if (
+		priorCorrelation.logicalParentThreadId !== input.logicalParentThreadId ||
+		priorCorrelation.hostId !== input.hostId
+	  ) {
+		return json({ error: "CORRELATION_MISMATCH" }, 409);
+	  }
+	  const environmentId = await verifiedThread(input, priorCorrelation.threadId);
+	  return json(startResponse(input, priorCorrelation, environmentId));
+	}
 
 	const provisional = newBootstrapToken();
 	const token = input.bootstrap ? bootstrapToken(input, provisional) : provisional;
+	const bootstrapTokenHash = tokenHash(token);
+	const proposedReservation = launchReservation(input, bb.pluginId, bootstrapTokenHash);
+	let reserved: ReturnType<typeof correlations.reserve>;
+	try {
+	  reserved = correlations.reserve(proposedReservation);
+	} catch (error) {
+	  bb.log.error(`launch reservation persistence failed: ${String(error)}`);
+	  throw error;
+	}
+	if (!reserved.created) {
+	  const prior = reserved.reservation;
+	  if (prior.requestFingerprint !== proposedReservation.requestFingerprint) {
+		return json({ error: "LAUNCH_FINGERPRINT_MISMATCH", state: prior.state }, 409);
+	  }
+	  if (prior.state !== "bound" || !prior.threadId || !prior.environmentId) {
+		return json(
+		  {
+			error: prior.state === "reserved"
+			  ? "LAUNCH_IN_PROGRESS"
+			  : prior.state === "failed"
+				? "LAUNCH_FAILED"
+				: "LAUNCH_OUTCOME_UNKNOWN",
+			state: prior.state,
+		  },
+		  503,
+		);
+	  }
+	  const correlation = correlations.getByRun(input.runId);
+	  if (!correlation || correlation.threadId !== prior.threadId) {
+		return json({ error: "LAUNCH_OUTCOME_UNKNOWN", state: "unknown" }, 503);
+	  }
+	  const environmentId = await verifiedThread(
+		input,
+		correlation.threadId,
+		prior.environmentId,
+	  );
+	  return json(startResponse(input, correlation, environmentId));
+	}
+
+	if (priorCorrelation) {
+	  correlations.mark(input.runId, "failed", "legacy correlation conflicts with launch reservation");
+	  return json({ error: "CORRELATION_MISMATCH" }, 409);
+	}
+
 	const prompt = input.bootstrap ? `[[bb-meta-worker:v1:${token}]]\n${input.prompt}` : input.prompt;
-	if (input.bootstrap) pendingBootstrapHashes.add(tokenHash(token));
 	let spawned;
 	try {
 	  spawned = await bb.sdk.threads.spawn({
@@ -417,45 +669,73 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
       },
 	  });
 	} catch (error) {
-	  pendingBootstrapHashes.delete(tokenHash(token));
+	  try {
+		const current = correlations.getReservationByRun(input.runId);
+		if (current?.state === "reserved") {
+		  correlations.mark(input.runId, "unknown", "threads.spawn returned an indeterminate outcome");
+		} else if (current?.state === "bound" && current.threadId && current.environmentId) {
+		  try {
+			await verifiedThread(input, current.threadId, current.environmentId);
+		  } catch {
+			correlations.mark(input.runId, "unknown", "bound thread could not be verified after spawn failure");
+		  }
+		}
+	  } catch (markError) {
+		bb.log.error(`could not reconcile failed launch outcome: ${String(markError)}`);
+	  }
 	  throw error;
 	}
-    const threadId = threadIdOf(spawned);
-    let environmentId: string;
-    try {
-      environmentId = await verifiedThread(input, threadId);
-    } catch (error) {
-	  pendingBootstrapHashes.delete(tokenHash(token));
-      await bb.sdk.threads.stop({ threadId });
-      throw error;
-    }
-    const now = Date.now();
-    const graphId = graphFromPrompt(input.prompt);
-    const nodeId = nodeFromLabel(input.label);
-    const correlation: Correlation = {
-      runId: input.runId,
-      threadId,
-      logicalParentThreadId: input.logicalParentThreadId,
-      ...(graphId ? { graphId } : {}),
-      ...(nodeId ? { nodeId } : {}),
-      hostId: input.hostId,
-      bootstrapTokenHash: tokenHash(token),
-	  ...(!input.bootstrap ? { bootstrapClaimedAt: now } : {}),
-      createdAt: now,
-      updatedAt: now,
-    };
-    try {
-      correlations.insert(correlation);
-    } catch (error) {
-	  pendingBootstrapHashes.delete(tokenHash(token));
-      await bb.sdk.threads.stop({ threadId });
-      const winner = correlations.getByRun(input.runId);
-      if (!winner) throw error;
-      const winnerEnvironmentId = await verifiedThread(input, winner.threadId);
-      return json(startResponse(input, winner, winnerEnvironmentId));
-    }
-	pendingBootstrapHashes.delete(tokenHash(token));
-    await bb.experimental_hooks.recheck("message.dispatch");
+
+	let threadId: string;
+	try {
+	  threadId = threadIdOf(spawned);
+	} catch (error) {
+	  correlations.mark(input.runId, "unknown", "threads.spawn returned no usable thread identity");
+	  throw error;
+	}
+
+	let correlation: Correlation;
+	let environmentId: string;
+	try {
+	  if (input.bootstrap) {
+		const bound = correlations.getReservationByRun(input.runId);
+		const boundCorrelation = correlations.getByRun(input.runId);
+		if (
+		  bound?.state !== "bound" ||
+		  bound.threadId !== threadId ||
+		  !bound.environmentId ||
+		  !boundCorrelation ||
+		  boundCorrelation.threadId !== threadId
+		) {
+		  throw new Error("spawn returned before the bootstrap hook durably bound its thread");
+		}
+		correlation = boundCorrelation;
+		environmentId = await verifiedThread(input, threadId, bound.environmentId);
+	  } else {
+		environmentId = await verifiedThread(input, threadId);
+		const binding = correlations.bind(
+		  bootstrapTokenHash,
+		  threadId,
+		  environmentId,
+		  Date.now(),
+		);
+		if (binding.kind !== "bound") {
+		  throw new Error(`advisor launch reservation could not bind: ${binding.kind}`);
+		}
+		correlation = binding.correlation;
+	  }
+	} catch (error) {
+	  try {
+		correlations.mark(input.runId, "failed", "post-spawn identity or durable binding failed");
+	  } catch (markError) {
+		bb.log.error(`could not persist failed launch: ${String(markError)}`);
+	  }
+	  await bb.sdk.threads.stop({ threadId }).catch((stopError) => {
+		bb.log.error(`could not stop rejected launch ${threadId}: ${String(stopError)}`);
+	  });
+	  throw error;
+	}
+
     bb.realtime.publish("projection-invalidated", { runId: input.runId });
     return json(startResponse(input, correlation, environmentId));
   }
@@ -569,10 +849,12 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
   bb.rpc.register(metaHarnessRpcContract, {
     async snapshot({ graphId }) {
       const allCorrelations = correlations.list();
+	  const allReservations = correlations.listReservations();
       const matchingHosts = new Set(
-        allCorrelations
-          .filter((item) => !item.graphId || item.graphId === graphId)
-          .map((item) => item.hostId),
+		[
+		  ...allCorrelations.filter((item) => !item.graphId || item.graphId === graphId),
+		  ...allReservations.filter((item) => !item.graphId || item.graphId === graphId),
+		].map((item) => item.hostId),
       );
       const configuredHost = process.env.PI_META_HOST_ID?.trim();
       let graphHostId = configuredHost;
@@ -629,6 +911,17 @@ export default async function metaHarnessPlugin(bb: BbPluginApi): Promise<void> 
         waves: graph.waves.map((nodeIds, index) => ({ index: index + 1, nodeIds })),
         nodes,
         edges: graph.nodes.flatMap((node) => node.dependsOn.map((from) => ({ from, to: node.id }))),
+		launchReservations: allReservations.map((reservation) => ({
+		  runId: reservation.runId,
+		  state: reservation.state,
+		  ...(reservation.threadId ? { threadId: reservation.threadId } : {}),
+		  hostId: reservation.hostId,
+		  projectId: reservation.projectId,
+		  cwd: reservation.cwd,
+		  createdAt: reservation.createdAt,
+		  updatedAt: reservation.updatedAt,
+		  ...(reservation.failureReason ? { failureReason: reservation.failureReason } : {}),
+		})),
         wakeAdmissions: wakes.list(),
       };
     },

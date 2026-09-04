@@ -16,6 +16,16 @@ const snapshot = {
     { id: "checker", role: "checker", dependsOn: ["maker", "blocked-right"], worktree: "/worktrees/checker", status: "planned" },
   ],
   edges: [{ from: "maker", to: "checker" }, { from: "blocked-right", to: "checker" }],
+  launchReservations: [{
+    runId: "run-launch",
+    state: "unknown" as const,
+    hostId: "host-1",
+    projectId: "project-1",
+    cwd: "/worktrees/launch",
+    createdAt: 1,
+    updatedAt: 2,
+    failureReason: "spawn response was lost",
+  }],
   wakeAdmissions: [{ logicalParentThreadId: "parent-1", settlementGeneration: generation, runId: "run-maker", state: "unknown" as const }],
 };
 
@@ -52,6 +62,9 @@ describe("app", () => {
     expect(rendered.getAllByText(/run-maker/)).toHaveLength(2);
     expect(rendered.getByText(/Result · \/advisor\/maker\/result.md/)).toBeTruthy();
     expect(rendered.getByText(/Log · \/detach\/maker\/output.log/)).toBeTruthy();
+    expect(rendered.getByText("Launch reservations")).toBeTruthy();
+    expect(rendered.getByText(/run-launch/)).toBeTruthy();
+    expect(rendered.getByText("spawn response was lost")).toBeTruthy();
 
     fireEvent.click(rendered.getAllByRole("button", { name: "Open" })[1]!);
     expect(rendered.navigateCalls.at(-1)).toMatchObject({ threadId: "thread-blocked" });

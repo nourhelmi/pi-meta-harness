@@ -4,7 +4,11 @@ Private, additive BB transport and projection for the existing Meta Harness and 
 
 Meta Harness remains authoritative for workstreams, advisor sessions, roles, graphs, waves, dependency order, and worktree isolation. pi-detach remains authoritative for run IDs, logs, reserved result artifacts, validation, settlement, same-run continuation, durable run projection, and settlement generations. BB owns only visible unparented thread transport, additive presentation, reconstructible correlation, lifecycle invalidation, and ordinary wake delivery after pi-detach authorization.
 
-The plugin SQLite database stores only reconstructible run/thread correlation and wake admission (`pending`, `claimed`, `sent`, or `unknown`). `unknown` requires an explicit operator retry or skip. A skipped admission stays visibly `unknown`; it is never mislabeled `sent`. This PoC claims one ordinary wake on the validated common path, not literal crash-safe exactly-once delivery.
+The plugin SQLite database stores only reconstructible run/thread correlation, bootstrap launch admission, and wake admission. Before calling `threads.spawn`, the adapter inserts one launch reservation keyed by the canonical pi-detach run ID. It stores a SHA-256 of the one-time token, an immutable request fingerprint, expected dispatch identity/topology, and an honest `reserved`, `bound`, `failed`, or `unknown` state—never the raw token or canonical graph/run/result/settlement truth. Same-run retries can read the reservation but cannot create another root; a changed fingerprint is rejected, and an unbound or ambiguous outcome stays operator-visible instead of being retried automatically.
+
+At BB's pre-provider `message.dispatch` checkpoint, the bootstrap marker must resolve to that durable reservation and match the held request's project, environment, host, cwd, provider, model, reasoning, origin, visibility, and unparented topology. Reservation and correlation bind in one SQLite transaction before the hook returns `proceed`. Post-spawn verification reads only stable public-SDK thread/environment/topology fields; project defaults are deliberately irrelevant because they describe future requests, not the held dispatch. The one-time claim remains thread-bound and Pi strips the marker before model input.
+
+Wake admission uses `pending`, `claimed`, `sent`, or `unknown`. `unknown` requires an explicit operator retry or skip. A skipped admission stays visibly `unknown`; it is never mislabeled `sent`. This PoC claims one ordinary wake on the validated common path, not literal crash-safe exactly-once delivery.
 
 ## Pinned runtime
 
@@ -57,7 +61,7 @@ pnpm bb:dev plugin reload meta-harness
 pnpm bb:dev plugin logs meta-harness
 ```
 
-The plugin adds one stable `navPanel`; it does not replace BB's thread list or sidebar. The panel refetches canonical graph/run/artifact state on initial render, realtime invalidation, websocket reconnect, and host-worker restart. Open, stop, message, typed `BB-POC-CONTINUE`, and explicit ambiguous-wake controls use public SDK/RPC paths.
+The plugin adds one stable `navPanel`; it does not replace BB's thread list or sidebar. The panel refetches canonical graph/run/artifact state on initial render, realtime invalidation, websocket reconnect, and host-worker restart. It also exposes launch reservations so an unbound `reserved`, `failed`, or `unknown` launch is diagnosable without another spawn. Open, stop, message, typed `BB-POC-CONTINUE`, and explicit ambiguous-wake controls use public SDK/RPC paths.
 
 ## Deterministic verification
 
