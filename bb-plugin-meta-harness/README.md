@@ -51,7 +51,7 @@ install -m 600 /Users/nour/.pi/agent/auth.json /Users/nour/.bb/meta-harness-pi/a
 
 ## Build and install
 
-From `/private/tmp/get-bb-research`, with the setup exports present and Node 24 first on PATH:
+From `/private/tmp/get-bb-bootstrap-api`, with the setup exports present and Node 24 first on PATH:
 
 ```sh
 pnpm bb:dev plugin build /Users/nour/Dev/pi-meta-harness-worktrees/bb-adapter-poc/bb-plugin-meta-harness

@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const bbRoot = resolve(
-  process.env.BB_PINNED_SOURCE_ROOT ?? "/private/tmp/get-bb-research",
+  process.env.BB_PINNED_SOURCE_ROOT ?? "/private/tmp/get-bb-bootstrap-api",
 );
-const expectedCommit = "f88f000164aa1e822fbc92d7327dc5c891918dfb";
+const expectedCommit = "5c6f1520bd5c1870a5d22e3268bc57f9f10b3fdd";
 const cli = resolve(bbRoot, "packages/scripts/dist/commands/run-cli.js");
 
 const git = spawnSync("git", ["-C", bbRoot, "rev-parse", "HEAD"], {
