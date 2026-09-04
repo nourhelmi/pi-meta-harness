@@ -54,7 +54,7 @@ The Harbor toolchain is pinned and invoked lazily through `uvx` — Docker and
 
 ## 🎬 Run the committed dataset
 
-The committed dataset contains two broad trajectory tasks and three focused
+The committed dataset contains three broad trajectory tasks and three focused
 calibration tasks.
 
 **Broad trajectories:**
@@ -66,7 +66,17 @@ calibration tasks.
   — a privacy-safe normalized trace from a successful complex workstream:
   baseline correction, serial high-risk repairs, a runtime data-safety stop,
   defects found after static approval, targeted evidence recapture, and an
-  external-effect boundary.
+  external-effect boundary;
+- [`scope-inflation-after-diagnosis`](../evals/harbor/scope-inflation-after-diagnosis)
+  — a privacy-safe normalized trace from a real small-defect workstream that
+  went wrong in the process rather than the outcome: the advisor found the
+  single bypassing surface within minutes, then expanded the packet into a
+  shared-behavior rewrite on the strength of the request's absolute wording,
+  asked a modal product question that blocked the session for over an hour,
+  relaunched two finished workers only to repair result-artifact headings, and
+  added a checker for a diff it had itself made large. Its checkpoints reward
+  re-sizing after diagnosis, non-blocking questions, treating artifact stalls
+  as format problems, and splitting the delivery.
 
 **Generic calibration tasks:**
 
@@ -181,19 +191,25 @@ keep three dimensions separate:
    required successful or blocked checker, planner, scout, builder, or foreman settlement);
 3. **Measurement** — control validity of the run itself.
 
-Role-neutral routing cases additionally score allowed roles, a retry-tolerant
-successful-worker ceiling, graph-plan ceilings, and required maker-before-review
-order. Failed launch evidence retains only an allowlisted category such as
-`startup-blocked`, `quota`, or `artifact-invalid`; arbitrary worker output and
-identities remain excluded. Worker attempts and duration are explanatory rather
-than quality rewards.
+Role-neutral routing and sizing cases additionally score allowed roles, a
+retry-tolerant successful-worker ceiling, graph-plan ceilings, a user-question
+ceiling (`maximumUserQuestions`; a hermetic run has no user, so a budget of zero
+asserts the packet already settles every material decision), and required
+maker-before-review order. Failed launch evidence retains only an allowlisted
+category such as `startup-blocked`, `quota`, or `artifact-invalid`; arbitrary
+worker output and identities remain excluded. Worker attempts and duration are
+explanatory rather than quality rewards.
 
 ### Live cases
 
-Twelve cases. The original nine are **capability** cases — their visible
-packets deliberately prescribe the role behavior under test. The final three are
+Fourteen cases. The original nine are **capability** cases — their visible
+packets deliberately prescribe the role behavior under test. The next three are
 **routing** cases — their visible packets are role-neutral, and the external
 evaluator scores whether the advisor selected the smallest justified topology.
+The final two are **sizing** cases — their visible packets are phrased the way a
+user actually writes a bug report (a symptom, "intermittently", and an absolute
+"never anywhere" invariant) while the hidden verifier rewards the smallest change
+that fixes the observed sink and rejects a rewrite of shared behavior.
 
 | Case | Start | Behavior under test | Required delegation |
 | --- | --- | --- | --- |
@@ -209,13 +225,15 @@ evaluator scores whether the advisor selected the smallest justified topology.
 | `single-maker-fast-path` | 🔴 failing | A small deterministic repair stays with one builder and avoids unrelated roles or graph planning. | route-selected builder only |
 | `cohesive-medium-maker` | 🔴 failing | One builder owns diagnosis, implementation, and verification across two adjacent modules sharing one decision set. | route-selected builder only |
 | `risk-triggered-checker` | 🔴 failing | A security-sensitive authorization repair receives fresh independent review after the maker settles. | route-selected builder, then checker |
+| `absolute-request-minimal-fix` | 🔴 failing | An absolutely-phrased report about raw markup has one bypassing surface; the fix stays in that surface, the shared renderer and its raw-text fallback stay byte-identical, and no question goes to the absent user. | route-selected builder only |
+| `two-defects-ship-small-first` | 🔴 failing | Two real small defects (a bypassing surface and a loader that rejects the persisted admin record) ship together, while the tempting shared-renderer redesign is recorded in `findings.json` instead of built. | route-selected builder only |
 
 Repository tests prove the three passing or safely blocked cases start and remain read-only passes,
 and prove each mutation case fails before and passes after its exact expected
 repair — validating fixtures and verifiers without consuming subscription
 quota. Live runs evaluate the real advisor behavior.
 
-Every case declares its maximum **useful** worker width. Eleven cases correctly
+Every case declares its maximum **useful** worker width. Thirteen cases correctly
 have width `1` because their stages share a write surface or have real
 dependencies; only `parallel-evidence-merge` exposes width `2`. The result and
 dashboard report same-turn launch width, observable worker-interval overlap,
@@ -499,6 +517,25 @@ near-duplicate launches, and stop/redirect/invalidation/auth signals. These
 facts help a judge inspect the process, but they do not prove correctness,
 causation, communication quality, or user value. A parallel wave can be
 wasteful, and a serial step can be correct.
+
+Two measurements exist specifically so a bad session cannot read as a good one:
+
+- `userWait` and `elapsed.blockedOnUserMs` report the time between a
+  `ask_user_question` call and its answer (or the user's next chat message).
+  That time is excluded from `activeElapsedMs` instead of being capped to five
+  minutes, so a session that waited over an hour on the user no longer looks
+  busy. The dashboard and comparison reports show it as "Blocked on user".
+- `workers.artifactInvalidLaunches`, `artifactRepairs`, and
+  `artifactRepairedWorkers` separate result-artifact validation failures (a
+  finished worker whose `result.md` failed heading checks) from substantive
+  failures. A relaunch whose only job was to repair the report is an artifact
+  repair; it never counts toward `recoveredWorkers` or `recoveryRatio`, so
+  report-format noise cannot look like resilience.
+
+Regenerate a committed case's deterministic baseline after a metric change with
+`node scripts/advisor-eval.mjs baseline evals/cases/<case>/fixture.json`, then
+rematerialize its Harbor task with `harbor-task --output evals/harbor/<case>`;
+repository tests compare both byte-for-byte.
 
 ## 💸 Cost and quota interpretation
 

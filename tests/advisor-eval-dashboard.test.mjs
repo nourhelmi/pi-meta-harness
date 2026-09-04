@@ -35,6 +35,7 @@ test("prospective dashboard serves its workbench and local run inventory", async
     assert.deepEqual(
       state.cases.map((prospectiveCase) => prospectiveCase.id).sort(),
       [
+        "absolute-request-minimal-fix",
         "builder-self-verification",
         "cohesive-medium-maker",
         "criteria-revision",
@@ -47,6 +48,7 @@ test("prospective dashboard serves its workbench and local run inventory", async
         "safety-redirect",
         "scoped-recheck",
         "single-maker-fast-path",
+        "two-defects-ship-small-first",
       ],
     );
     assert(Array.isArray(state.runs));

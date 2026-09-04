@@ -1,0 +1,8 @@
+{
+  "name": "prospective-two-defects-ship-small-first",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node verify-public.mjs"
+  }
+}

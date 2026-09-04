@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "absolute-request-minimal-fix",
+  "title": "Prospective sizing: an absolute request with a small sink gets the minimal fix",
+  "instruction": "In the dashboard we show the note title and description, and in some instances they show raw markup like `[b]three[/b]` instead of formatted text. Investigate why this happens intermittently and make sure the dashboard actually uses the renderer profile selected in `renderer-config.json`. We should never, under any circumstances, anywhere in the product, end up displaying raw markup like this. Make `npm test` pass and do not perform any external effect.",
+  "acceptance": [
+    { "id": "dashboard-renders-markup", "claim": "The dashboard card shows formatted text, not raw markup, for a note that contains markup.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "configured-renderer-honored", "claim": "The dashboard output follows the renderer profile persisted in `renderer-config.json`.", "proof": "The hidden verifier renders the same note under the stored profile and under the other supported profile." },
+    { "id": "shared-behavior-preserved", "claim": "Surfaces that already rendered correctly keep byte-identical output, and the shared renderer, configuration loader, and persisted data are unchanged.", "proof": "The hidden verifier checks the Git diff of the shared modules and data files." },
+    { "id": "minimal-surface", "claim": "Only the surface that bypassed the renderer changes.", "proof": "The hidden verifier checks `git status` including untracked files." }
+  ],
+  "process": {
+    "instruction": "Use normal advisor routing. Size the packet from the diagnosis rather than from the request's wording, independently rerun `npm test` after delegated work settles, and judge completion from deterministic evidence rather than worker prose.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "builder-delegation", "roles": ["builder"], "minimum": 1 }
+    ],
+    "topology": {
+      "allowedRoles": ["builder"],
+      "maximumSuccessfulWorkers": 1,
+      "maximumGraphPlans": 0,
+      "maximumUserQuestions": 0
+    },
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["builder"],
+      "rationale": "One bypassing surface with a shared renderer already in place has one useful maker lane."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

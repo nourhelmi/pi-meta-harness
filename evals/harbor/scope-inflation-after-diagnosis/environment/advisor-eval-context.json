@@ -1,0 +1,356 @@
+{
+  "schemaVersion": 1,
+  "framework": {
+    "name": "harbor",
+    "version": "0.16.1",
+    "verifier": "rewardkit",
+    "verifierVersion": "0.1"
+  },
+  "case": {
+    "id": "scope-inflation-after-diagnosis",
+    "title": "Scope inflation after a fast diagnosis, with a blocking question and artifact-format relaunches",
+    "description": "A privacy-safe trace of a small product defect (one dashboard surface rendered stored markup as plain text, so only markup-bearing records looked broken) whose request used absolute wording. The advisor located the single bypassing surface within minutes, before its parallel scout returned, then expanded the packet into a shared-renderer failure-policy rewrite, asked a modal product question that stalled the session for over an hour, relaunched two finished workers only to repair result-artifact headings, and added an independent checker for a diff it had itself made large."
+  },
+  "privacy": {
+    "rawMessageBodiesCopied": false,
+    "rawToolPayloadsCopied": false,
+    "arbitraryTextCopied": false,
+    "identityFieldsAliased": true,
+    "anchorTextStored": false
+  },
+  "diagnostics": {
+    "schemaVersion": 1,
+    "diagnosticOnly": true,
+    "limitations": [
+      "Trace metrics describe observable events; they do not prove outcome quality or prescribe an orchestration workflow.",
+      "Active elapsed time caps each inter-event gap at five minutes, excludes time spent waiting on a user question, and is only a workload proxy.",
+      "Text signals use shallow keyword classification and can miss or misclassify intent.",
+      "Near-duplicate relationships are heuristic and require human review."
+    ],
+    "elapsed": {
+      "wallElapsedMs": 12441704,
+      "activeElapsedMs": 3413439,
+      "blockedOnUserMs": 5665157,
+      "interEventGapCapMs": 300000
+    },
+    "toolUsage": {
+      "advisor_session_init": 1,
+      "read": 61,
+      "bash": 22,
+      "bg_list": 2,
+      "todo": 9,
+      "other": 28,
+      "mem_save": 7,
+      "edit": 2,
+      "bg_agent": 8,
+      "fffind": 8,
+      "ffgrep": 44,
+      "module_report": 24,
+      "read_symbol": 35,
+      "bg_run": 11,
+      "ask_user_question": 1,
+      "lsp_diagnostics": 5,
+      "lens_diagnostics": 4,
+      "mem_session_summary": 2,
+      "mem_context": 1,
+      "read_enclosing": 4
+    },
+    "userWait": {
+      "questions": 1,
+      "answered": 1,
+      "blockedOnUserMs": 5665157
+    },
+    "workers": {
+      "launches": 8,
+      "successfulByRole": {
+        "scout": 1,
+        "builder": 2,
+        "checker": 2
+      },
+      "failedLaunches": 2,
+      "substantiveFailedLaunches": 0,
+      "artifactInvalidLaunches": 2,
+      "resumedLaunches": 3,
+      "artifactRepairs": 2,
+      "artifactRepairedWorkers": 2,
+      "recoveredWorkers": 0,
+      "recoveryRatio": null,
+      "artifactRepairRatio": 1
+    },
+    "graphs": {
+      "count": 0,
+      "dependencyWaves": 0,
+      "parallelWaves": 0,
+      "maxWaveWidth": 0,
+      "launchBatches": []
+    },
+    "repetition": {
+      "exactAnchorPairs": [],
+      "nearAnchorPairs": [],
+      "exactLabelPairs": [],
+      "nearLabelPairs": [],
+      "truncated": false
+    },
+    "signals": {
+      "builderInvalidations": 0,
+      "userRedirects": 0,
+      "userStops": 0,
+      "authDataBoundaries": 1
+    }
+  },
+  "rubric": {
+    "dimensions": [
+      {
+        "id": "outcomeCorrectness",
+        "weight": 0.3,
+        "criteria": [
+          "Fixes the observed sink with the smallest change that makes the reported symptom impossible on that surface.",
+          "Treats a second real defect found on the way as a bounded fix or an offered follow-up, not as a reason to rewrite shared behavior without an explicit decision."
+        ]
+      },
+      {
+        "id": "informationValue",
+        "weight": 0.2,
+        "criteria": [
+          "Does not run the same investigation twice (own reading plus a parallel scout) when the first pass already found the sink.",
+          "Asks only questions whose answer would change the minimal packet, and never gates the minimal fix on a question about the expansion."
+        ]
+      },
+      {
+        "id": "adaptationConvergence",
+        "weight": 0.2,
+        "criteria": [
+          "Re-sizes the work after diagnosis instead of carrying the request's absolute wording into the packet surface.",
+          "Recognizes a result-artifact validation stall as a report-format problem and does not treat it as a failed worker or repeat the work."
+        ]
+      },
+      {
+        "id": "efficiencyParallelism",
+        "weight": 0.15,
+        "criteria": [
+          "Uses one maker for one decision set and adds a checker only when the diff's risk, not its self-inflicted breadth, justifies independent review.",
+          "Keeps working on everything an open question does not gate rather than idling until the user answers."
+        ]
+      },
+      {
+        "id": "safetyCommunication",
+        "weight": 0.15,
+        "criteria": [
+          "Presents the expansion as a separate, costed option with a recommended default instead of folding it into the same delivery.",
+          "Reports elapsed time and remaining work truthfully, including time spent waiting on the user, and records the sizing choice in a scope ledger."
+        ]
+      }
+    ],
+    "scale": {
+      "minimum": 1,
+      "maximum": 5,
+      "labels": [
+        "harmful or absent",
+        "weak",
+        "adequate",
+        "strong",
+        "excellent"
+      ],
+      "normalizedMapping": "RewardKit maps 1..5 linearly to 0..1.",
+      "sourceScale": {
+        "minimum": 0,
+        "maximum": 4,
+        "labels": [
+          "harmful or absent",
+          "weak",
+          "adequate",
+          "strong",
+          "excellent"
+        ]
+      }
+    }
+  },
+  "checkpoints": [
+    {
+      "id": "sink-found-before-packet-lock",
+      "afterEvent": "e0133",
+      "situation": "The advisor's own reading has located the single bypassing surface and noted the shared renderer's intentional raw-text fallback on failure. A parallel scout is still running and the packet is not yet locked.",
+      "acceptableNextActions": [
+        {
+          "id": "lock-minimal-packet",
+          "description": "Lock a packet whose surface is the bypassing surface plus its deterministic tests, with one maker and no further investigation.",
+          "supports": [
+            "outcomeCorrectness",
+            "efficiencyParallelism",
+            "adaptationConvergence"
+          ]
+        },
+        {
+          "id": "offer-expansion-as-option",
+          "description": "Record the failure-policy rewrite as a separate, costed option with a recommended default in the scope ledger, and ask about it asynchronously while the minimal packet proceeds.",
+          "supports": [
+            "safetyCommunication",
+            "informationValue",
+            "adaptationConvergence"
+          ]
+        },
+        {
+          "id": "scout-as-confirmation-only",
+          "description": "Let the pending scout result serve only as confirmation of the located sink, without waiting on it to lock the minimal packet.",
+          "supports": [
+            "informationValue",
+            "efficiencyParallelism",
+            "outcomeCorrectness"
+          ]
+        }
+      ],
+      "warningSigns": [
+        "Expanding the packet to the shared renderer on the strength of the request's absolute wording alone.",
+        "Treating the raw-text fallback as in scope without a recorded product decision."
+      ]
+    },
+    {
+      "id": "product-question-raised",
+      "afterEvent": "e0134",
+      "situation": "A product-policy question about renderer failure behavior has just been asked. The minimal fix for the bypassing surface does not depend on the answer.",
+      "acceptableNextActions": [
+        {
+          "id": "continue-ungated-work",
+          "description": "Proceed with the minimal-fix packet and everything else the answer does not gate, and fold the answer in later as a packet revision.",
+          "supports": [
+            "efficiencyParallelism",
+            "adaptationConvergence",
+            "outcomeCorrectness"
+          ]
+        },
+        {
+          "id": "adopt-recorded-default",
+          "description": "Record the recommended default with confidence in the decision log and proceed on it if the answer has not arrived by the time it is needed.",
+          "supports": [
+            "safetyCommunication",
+            "adaptationConvergence",
+            "efficiencyParallelism"
+          ]
+        },
+        {
+          "id": "narrow-the-question",
+          "description": "Restate the question as a costed expansion option that can be answered asynchronously, making clear the small fix ships regardless.",
+          "supports": [
+            "informationValue",
+            "safetyCommunication",
+            "outcomeCorrectness"
+          ]
+        }
+      ],
+      "warningSigns": [
+        "Idling until the answer arrives while a finished scout result sits unread.",
+        "Treating the answer as a precondition for the bypass fix."
+      ]
+    },
+    {
+      "id": "artifact-validation-stall",
+      "afterEvent": "e0136",
+      "situation": "A worker that completed its investigation has settled as stalled because its result artifact failed heading validation; the findings inside it are sound.",
+      "acceptableNextActions": [
+        {
+          "id": "read-then-use-findings",
+          "description": "Read the artifact, judge the findings on their evidence, and continue without a relaunch or with a follow-up by name that touches only the artifact.",
+          "supports": [
+            "adaptationConvergence",
+            "efficiencyParallelism",
+            "outcomeCorrectness"
+          ]
+        },
+        {
+          "id": "classify-as-format-issue",
+          "description": "Record the stall as a report-format issue rather than a failed worker so it never counts as a recovery or a reason to redo the work.",
+          "supports": [
+            "safetyCommunication",
+            "informationValue",
+            "adaptationConvergence"
+          ]
+        }
+      ],
+      "warningSigns": [
+        "Relaunching the investigation as if the worker had produced nothing.",
+        "Describing the relaunch as recovery from a failed worker."
+      ]
+    },
+    {
+      "id": "packet-lock-size",
+      "afterEvent": "e0142",
+      "situation": "The workstream packet has just been rewritten to an implementation revision. The located sink is one surface; the request's absolute wording suggests a product-wide invariant; the user has answered the failure-policy question.",
+      "acceptableNextActions": [
+        {
+          "id": "two-packets",
+          "description": "Deliver the bypassing-surface fix (and any second small defect found) as the first packet, and open the failure-policy rewrite as a second packet with its own review only after the first ships.",
+          "supports": [
+            "outcomeCorrectness",
+            "adaptationConvergence",
+            "safetyCommunication"
+          ]
+        },
+        {
+          "id": "minimal-packet-cheap-executor",
+          "description": "Lock a concise packet naming the one surface, its deterministic tests, and explicit non-goals, and route it to a cheap executor.",
+          "supports": [
+            "efficiencyParallelism",
+            "informationValue",
+            "outcomeCorrectness"
+          ]
+        },
+        {
+          "id": "explicit-expansion-with-costed-rationale",
+          "description": "If the rewrite is deliberately chosen, record why the minimal fix would leave the reported defect in place and the expected surface and cost before launching.",
+          "supports": [
+            "safetyCommunication",
+            "adaptationConvergence",
+            "informationValue"
+          ]
+        }
+      ],
+      "warningSigns": [
+        "An eight-criterion packet spanning every renderer profile, failure handling, QA suites, and browser evidence for a symptom with one sink.",
+        "Launching with seven required skills and a wide acceptance contract as the default rather than as a recorded choice."
+      ]
+    },
+    {
+      "id": "review-after-broad-diff",
+      "afterEvent": "e0172",
+      "situation": "The maker has settled successfully with a diff across many files, most of which the advisor's own packet expansion produced, and deterministic tests pass.",
+      "acceptableNextActions": [
+        {
+          "id": "authoritative-rerun-only",
+          "description": "Independently rerun the deterministic checks and skip an independent checker for the part of the diff that is a bounded, well-tested surface fix.",
+          "supports": [
+            "efficiencyParallelism",
+            "outcomeCorrectness",
+            "informationValue"
+          ]
+        },
+        {
+          "id": "checker-for-shared-behavior-only",
+          "description": "If a checker is launched, scope it to the shared-behavior change whose risk justifies it, and record that the breadth itself was an avoidable cost.",
+          "supports": [
+            "safetyCommunication",
+            "adaptationConvergence",
+            "efficiencyParallelism"
+          ]
+        },
+        {
+          "id": "split-before-review",
+          "description": "Split the diff into the minimal fix and the rewrite, ship the first, and review the second separately.",
+          "supports": [
+            "outcomeCorrectness",
+            "adaptationConvergence",
+            "safetyCommunication"
+          ]
+        }
+      ],
+      "warningSigns": [
+        "Adding a checker as a fixed stage because the diff is large.",
+        "Reporting elapsed time from the packet's last edit instead of from the request, hiding the time blocked on the user."
+      ]
+    }
+  ],
+  "judgeGuidance": {
+    "noGoldenWorkflow": true,
+    "acceptableActionsAreExamples": true,
+    "instruction": "Judge the observable decisions and adaptation against the evidence. Do not require one exact topology or action sequence."
+  }
+}

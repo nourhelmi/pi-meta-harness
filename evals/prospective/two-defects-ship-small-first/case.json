@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "two-defects-ship-small-first",
+  "title": "Prospective sizing: two real small defects ship while a tempting rewrite is recorded, not built",
+  "instruction": "In the dashboard we show the note title and description, and in some instances they show raw markup like `[b]three[/b]` instead of formatted text. Investigate why this happens intermittently and make sure the dashboard actually uses the renderer profile selected in `renderer-config.json` by the admin panel, which appears to be ignored. We should never, under any circumstances, anywhere in the product, end up displaying raw markup like this. Make `npm test` pass, keep the persisted `renderer-config.json` exactly as the admin panel wrote it, record any further defect or risk you find but do not fix in `findings.json` as an array of objects with `id`, `surface`, and `recommendation`, and do not perform any external effect.",
+  "acceptance": [
+    { "id": "dashboard-renders-markup", "claim": "The dashboard card shows formatted text, not raw markup, for a note that contains markup.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "configured-profile-loads", "claim": "The renderer profile persisted in `renderer-config.json` is honored exactly as stored, without rewriting the stored record.", "proof": "The hidden verifier loads the profile in a fresh process and checks the Git diff of the persisted file." },
+    { "id": "shared-renderer-untouched", "claim": "The shared renderer keeps byte-identical behavior; its known raw-text fallback is recorded in `findings.json` rather than redesigned in this change.", "proof": "The hidden verifier checks the Git diff of the shared renderer and parses `findings.json`." },
+    { "id": "minimal-surface", "claim": "Only the two defective modules and `findings.json` change.", "proof": "The hidden verifier checks `git status` including untracked files." }
+  ],
+  "process": {
+    "instruction": "Use normal advisor routing. Size the packet from the diagnosis rather than from the request's wording, independently rerun `npm test` after delegated work settles, and judge completion from deterministic evidence rather than worker prose.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "builder-delegation", "roles": ["builder"], "minimum": 1 }
+    ],
+    "topology": {
+      "allowedRoles": ["builder"],
+      "maximumSuccessfulWorkers": 1,
+      "maximumGraphPlans": 0,
+      "maximumUserQuestions": 0
+    },
+    "parallelism": {
+      "maxUsefulWidth": 1,
+      "roles": ["builder"],
+      "rationale": "Two adjacent small defects share one decision set, one worktree, and one criterion suite."
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

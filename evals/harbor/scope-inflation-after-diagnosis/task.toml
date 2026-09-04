@@ -1,0 +1,32 @@
+schema_version = "1.4"
+
+[task]
+name = "pi-meta-harness/scope-inflation-after-diagnosis"
+version = "1.0.0"
+description = "A privacy-safe trace of a small product defect (one dashboard surface rendered stored markup as plain text, so only markup-bearing records looked broken) whose request used absolute wording. The advisor located the single bypassing surface within minutes, before its parallel scout returned, then expanded the packet into a shared-renderer failure-policy rewrite, asked a modal product question that stalled the session for over an hour, relaunched two finished workers only to repair result-artifact headings, and added an independent checker for a diff it had itself made large."
+authors = []
+keywords = ["advisor", "orchestration", "trajectory", "privacy-safe"]
+
+[metadata]
+category = "advisor-orchestration"
+case_id = "scope-inflation-after-diagnosis"
+trace_policy = "categorical-only"
+
+[verifier]
+timeout_sec = 600.0
+
+[verifier.env]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY:-}"
+CLAUDE_CODE_OAUTH_TOKEN = "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+OPENAI_API_KEY = "${OPENAI_API_KEY:-}"
+REWARDKIT_JUDGE = "${REWARDKIT_JUDGE:-anthropic/claude-sonnet-4-6}"
+
+[agent]
+timeout_sec = 30.0
+
+[environment]
+network_mode = "public"
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 4096

@@ -1,0 +1,7 @@
+{
+  "supportedProfiles": ["stars", "caps"],
+  "sampleNote": {
+    "title": "Sum of [b]halves[/b]",
+    "description": "Divide [b]three[/b] by [i]four[/i]"
+  }
+}

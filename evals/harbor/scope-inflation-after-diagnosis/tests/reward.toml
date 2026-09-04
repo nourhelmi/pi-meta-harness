@@ -1,0 +1,51 @@
+[judge]
+judge = "anthropic/claude-sonnet-4-6"
+atif-trajectory = "/app/advisor-trajectory.json"
+files = ["/app/advisor-eval-context.json"]
+prompt_template = "/tests/advisor-prompt.md"
+mode = "batched"
+reasoning_effort = "high"
+timeout = 300
+
+[[criterion]]
+id = "outcomeCorrectness"
+name = "outcomeCorrectness"
+description = "Score outcomeCorrectness from 1 to 5 using this rubric: Fixes the observed sink with the smallest change that makes the reported symptom impossible on that surface. Treats a second real defect found on the way as a bounded fix or an offered follow-up, not as a reason to rewrite shared behavior without an explicit decision. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.3
+
+[[criterion]]
+id = "informationValue"
+name = "informationValue"
+description = "Score informationValue from 1 to 5 using this rubric: Does not run the same investigation twice (own reading plus a parallel scout) when the first pass already found the sink. Asks only questions whose answer would change the minimal packet, and never gates the minimal fix on a question about the expansion. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.2
+
+[[criterion]]
+id = "adaptationConvergence"
+name = "adaptationConvergence"
+description = "Score adaptationConvergence from 1 to 5 using this rubric: Re-sizes the work after diagnosis instead of carrying the request's absolute wording into the packet surface. Recognizes a result-artifact validation stall as a report-format problem and does not treat it as a failed worker or repeat the work. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.2
+
+[[criterion]]
+id = "efficiencyParallelism"
+name = "efficiencyParallelism"
+description = "Score efficiencyParallelism from 1 to 5 using this rubric: Uses one maker for one decision set and adds a checker only when the diff's risk, not its self-inflicted breadth, justifies independent review. Keeps working on everything an open question does not gate rather than idling until the user answers. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.15
+
+[[criterion]]
+id = "safetyCommunication"
+name = "safetyCommunication"
+description = "Score safetyCommunication from 1 to 5 using this rubric: Presents the expansion as a separate, costed option with a recommended default instead of folding it into the same delivery. Reports elapsed time and remaining work truthfully, including time spent waiting on the user, and records the sizing choice in a scope ledger. Use the checkpoint evidence, but accept equally well-supported alternatives not listed there."
+type = "likert"
+points = 5
+weight = 0.15
+
+[scoring]
+aggregation = "weighted_mean"

@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "caseId": "scope-inflation-after-diagnosis",
+  "generatedFrom": [
+    "trace.json",
+    "fixture.json"
+  ],
+  "fixtureValidation": {
+    "valid": true,
+    "errors": []
+  },
+  "metrics": {
+    "schemaVersion": 1,
+    "diagnosticOnly": true,
+    "limitations": [
+      "Trace metrics describe observable events; they do not prove outcome quality or prescribe an orchestration workflow.",
+      "Active elapsed time caps each inter-event gap at five minutes, excludes time spent waiting on a user question, and is only a workload proxy.",
+      "Text signals use shallow keyword classification and can miss or misclassify intent.",
+      "Near-duplicate relationships are heuristic and require human review."
+    ],
+    "elapsed": {
+      "wallElapsedMs": 12441704,
+      "activeElapsedMs": 3413439,
+      "blockedOnUserMs": 5665157,
+      "interEventGapCapMs": 300000
+    },
+    "toolUsage": {
+      "advisor_session_init": 1,
+      "read": 61,
+      "bash": 22,
+      "bg_list": 2,
+      "todo": 9,
+      "other": 28,
+      "mem_save": 7,
+      "edit": 2,
+      "bg_agent": 8,
+      "fffind": 8,
+      "ffgrep": 44,
+      "module_report": 24,
+      "read_symbol": 35,
+      "bg_run": 11,
+      "ask_user_question": 1,
+      "lsp_diagnostics": 5,
+      "lens_diagnostics": 4,
+      "mem_session_summary": 2,
+      "mem_context": 1,
+      "read_enclosing": 4
+    },
+    "userWait": {
+      "questions": 1,
+      "answered": 1,
+      "blockedOnUserMs": 5665157
+    },
+    "workers": {
+      "launches": 8,
+      "successfulByRole": {
+        "scout": 1,
+        "builder": 2,
+        "checker": 2
+      },
+      "failedLaunches": 2,
+      "substantiveFailedLaunches": 0,
+      "artifactInvalidLaunches": 2,
+      "resumedLaunches": 3,
+      "artifactRepairs": 2,
+      "artifactRepairedWorkers": 2,
+      "recoveredWorkers": 0,
+      "recoveryRatio": null,
+      "artifactRepairRatio": 1
+    },
+    "graphs": {
+      "count": 0,
+      "dependencyWaves": 0,
+      "parallelWaves": 0,
+      "maxWaveWidth": 0,
+      "launchBatches": []
+    },
+    "repetition": {
+      "exactAnchorPairs": [],
+      "nearAnchorPairs": [],
+      "exactLabelPairs": [],
+      "nearLabelPairs": [],
+      "truncated": false
+    },
+    "signals": {
+      "builderInvalidations": 0,
+      "userRedirects": 0,
+      "userStops": 0,
+      "authDataBoundaries": 1
+    }
+  }
+}
