@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -297,9 +298,38 @@ test("BB worker consumes one private initialization before model input", async (
 
     const { hooks, entries } = install();
 		await hooks.session_start?.({}, context);
+		const privateValue = {
+			role: "builder",
+			runDir,
+			resultPath: join(runDir, "result.md"),
+			maxTurns: 9,
+			launchModel: "openai/gpt-5.6",
+			launchThinking: "high",
+			allowSubagents: false,
+			runId: "run-1",
+		};
+		const payloadSha256 = createHash("sha256")
+			.update(JSON.stringify(privateValue, Object.keys(privateValue).sort()))
+			.digest("hex");
 		const registry = Reflect.get(globalThis, Symbol.for("get-bb.provider-session-initialization.v1")) as {
 			consume(payload: unknown): Promise<unknown>;
 		};
+		await assert.rejects(
+			registry.consume({
+				descriptor: {
+					version: 1,
+					kind: "initial",
+					pluginId: "meta-harness",
+					reservationId: "reservation-1",
+					threadId: "worker-thread",
+					inputSha256: "a".repeat(64),
+					generation: 1,
+					payloadSha256: "0".repeat(64),
+				},
+				value: privateValue,
+			}),
+			/RECEIPT_MISMATCH/,
+		);
 		const receipt = await registry.consume({
 			descriptor: {
 				version: 1,
@@ -309,18 +339,9 @@ test("BB worker consumes one private initialization before model input", async (
 				threadId: "worker-thread",
 				inputSha256: "a".repeat(64),
 				generation: 1,
-				payloadSha256: "b".repeat(64),
+				payloadSha256,
 			},
-			value: {
-				role: "builder",
-				runDir,
-				resultPath: join(runDir, "result.md"),
-				maxTurns: 9,
-				launchModel: "openai/gpt-5.6",
-				launchThinking: "high",
-				allowSubagents: false,
-				runId: "run-1",
-			},
+			value: privateValue,
 		});
 		assert.deepEqual(receipt, {
 			version: 1,
@@ -330,7 +351,7 @@ test("BB worker consumes one private initialization before model input", async (
 			threadId: "worker-thread",
 			inputSha256: "a".repeat(64),
 			generation: 1,
-			payloadSha256: "b".repeat(64),
+			payloadSha256,
 			consumed: true,
 		});
 		assert.equal(entries.length, 0, "private role state must not enter Pi session entries");
@@ -354,18 +375,9 @@ test("BB worker consumes one private initialization before model input", async (
 					threadId: "worker-thread",
 					inputSha256: "a".repeat(64),
 					generation: 1,
-					payloadSha256: "b".repeat(64),
+					payloadSha256,
 				},
-				value: {
-					role: "builder",
-					runDir,
-					resultPath: join(runDir, "result.md"),
-					maxTurns: 9,
-					launchModel: "openai/gpt-5.6",
-					launchThinking: "high",
-					allowSubagents: false,
-					runId: "run-1",
-				},
+				value: privateValue,
 			}),
 			/REPLAY/,
 		);

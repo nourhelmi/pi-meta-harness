@@ -65,6 +65,15 @@ interface PrivateInitializationRegistry {
 
 const PRIVATE_INITIALIZATION_REGISTRY = Symbol.for("get-bb.provider-session-initialization.v1");
 
+function canonicalPrivateValue(value: unknown): string {
+	if (value === null || typeof value !== "object") return JSON.stringify(value);
+	if (Array.isArray(value)) return `[${value.map(canonicalPrivateValue).join(",")}]`;
+	return `{${Object.entries(value)
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalPrivateValue(entry)}`)
+		.join(",")}}`;
+}
+
 function privateInitializationRegistry(): PrivateInitializationRegistry {
 	const existing = Reflect.get(globalThis, PRIVATE_INITIALIZATION_REGISTRY) as
 		| PrivateInitializationRegistry
@@ -84,6 +93,11 @@ function privateInitializationRegistry(): PrivateInitializationRegistry {
 			};
 		},
 		async consume(payload) {
+			const payloadSha256 = createHash("sha256")
+				.update(canonicalPrivateValue(payload.value))
+				.digest("hex");
+			if (payloadSha256 !== payload.descriptor.payloadSha256)
+				throw new Error("PRIVATE_INITIALIZATION_RECEIPT_MISMATCH");
 			const key = `${payload.descriptor.threadId}:${payload.descriptor.generation}`;
 			if (consumed.has(key)) throw new Error("PRIVATE_INITIALIZATION_REPLAY");
 			const consumer = consumers.get(payload.descriptor.pluginId);
