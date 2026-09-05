@@ -62,6 +62,9 @@ const PORTABLE_COPY_ENTRIES = [
   ["extensions/advisor-worker.ts", "extensions/advisor-worker.ts"],
   ["extensions/advisor-pi-host.ts", "extensions/advisor-pi-host.ts"],
   ["extensions/advisor-core", "extensions/advisor-core"],
+  // extensions/advisor-core/advisor-state.ts imports ../../scripts/advisor-core/advisor-state.mjs,
+  // so the plain-Node helpers must also sit at scripts/advisor-core in the installed tree.
+  ["scripts/advisor-core", "scripts/advisor-core"],
   ["extensions/herdr-blocked-bridge.ts", "extensions/herdr-blocked-bridge.ts"],
   ["extensions/claude-schema-compat.ts", "extensions/claude-schema-compat.ts"],
   ["extensions/unified-edit.ts", "extensions/unified-edit.ts"],

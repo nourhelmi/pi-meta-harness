@@ -95,6 +95,18 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
       relative,
     );
   }
+  // The installed extensions must actually load from the installed tree, not only exist.
+  // Package imports resolve through the repository's node_modules, as the live Pi provides its own.
+  await symlink(join(ROOT, "node_modules"), join(target, "node_modules"));
+  for (const extension of ["advisor-session.ts", "advisor-worker.ts", "advisor-pi-host.ts"]) {
+    const loaded = spawnSync(
+      process.execPath,
+      ["--import", "tsx", "-e", `import(${JSON.stringify(join(target, "extensions", extension))}).then(() => process.stdout.write("loaded"))`],
+      { encoding: "utf8", cwd: ROOT },
+    );
+    assert.equal(loaded.status, 0, `${extension}: ${loaded.stderr}`);
+    assert.equal(loaded.stdout, "loaded", extension);
+  }
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@^0.1.4"));
   assert(packageSources.includes("npm:pi-better-edit@^1.4.3"));
   assert(packageSources.includes("npm:pi-claude-agent-sdk@^0.8.6"));
