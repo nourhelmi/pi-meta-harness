@@ -17,9 +17,9 @@ const HARNESS = join(ROOT, "scripts", "meta-harness.mjs");
 const NAMES = ["codex-max", "codex-lean", "anthropic-heavy", "balanced", "grok-cycle"];
 const LOCKED_EXECUTORS = {
   "codex-max": ["openai-codex/gpt-5.6-sol", "high"],
-  "codex-lean": ["openai-codex/gpt-5.6-luna", "max"],
-  "anthropic-heavy": ["openai-codex/gpt-5.6-luna", "max"],
-  balanced: ["openai-codex/gpt-5.6-luna", "max"],
+  "codex-lean": ["openai-codex/gpt-5.6-sol", "high"],
+  "anthropic-heavy": ["openai-codex/gpt-5.6-sol", "high"],
+  balanced: ["openai-codex/gpt-5.6-sol", "high"],
   "grok-cycle": ["claude-bridge/claude-sonnet-5", "medium"],
 };
 

@@ -103,10 +103,10 @@ The shipped locked-packet executors are:
 
 | Profile | Cheap executor |
 | --- | --- |
-| `codex-max` | Luna max |
-| `codex-lean` | Luna max |
-| `balanced` | Luna max |
-| `anthropic-heavy` | Luna max while Codex capacity remains |
+| `codex-max` | Sol high |
+| `codex-lean` | Sol high |
+| `balanced` | Sol high |
+| `anthropic-heavy` | Sol high while Codex capacity remains |
 | `grok-cycle` | Sonnet medium |
 
 This is advisory task-fit guidance, not a model allowlist or a deterministic
@@ -181,16 +181,17 @@ the detailed task and capacity guidance.
 | --- | --- |
 | planner | Astra xhigh, Astra high |
 | builder | Astra xhigh, Astra high (bounded judgment), Sol high (locked packet), Grok high |
-| checker | Astra high, Sol high |
-| reducer | Astra high |
+| checker | Sol xhigh, Sol high |
+| reducer | Sol xhigh |
 | scout | Sol high, Grok high |
 | browser-verifier | Sol high, Astra high |
 
 Astra (GPT-6) is the advisor session model at high, the planner and foreman at
-xhigh, the difficult implementation workhorse at xhigh, and the review,
-reduction, and bounded-judgment implementation choice at high. It also takes
-all UX work, greenfield or existing, with `frontend-design` loaded. Sol high
-is the procedural tier: scouting, browser verification, routine checks, and
+xhigh, the difficult implementation workhorse at xhigh, and the
+bounded-judgment implementation choice at high. It also takes all UX work,
+greenfield or existing, with `frontend-design` loaded. Sol xhigh is the
+fresh-context reviewer and reducer, including adversarial checks. Sol high is
+the procedural tier: scouting, browser verification, routine checks, and
 locked execution packets; it stops instead of making material product or
 architecture decisions. Grok stays as the capacity alternate for research and
 bounded backend work. This profile recommends no Anthropic model.
@@ -199,16 +200,16 @@ bounded backend work. This profile recommends no Anthropic model.
 
 | Role | Ordered recommendations |
 | --- | --- |
-| planner | Sol high |
-| builder | Sol high, Sonnet high, Luna max (locked packet) |
-| checker | Sol medium, Sonnet high, Luna max |
-| reducer | Sol medium, Sonnet high, Luna max |
-| scout | Luna max, Sonnet high |
-| browser-verifier | Luna max, Sonnet high |
+| planner | Astra high |
+| builder | Astra high, Sonnet high, Sol high (locked packet) |
+| checker | Sol xhigh, Sonnet high |
+| reducer | Sol xhigh, Sonnet high |
+| scout | Sol high, Sonnet high |
+| browser-verifier | Sol high, Sonnet high |
 
-Sol high plans and handles hard builds, while Sol medium handles adversarial
+Astra high plans and handles hard builds, while Sol xhigh handles adversarial
 review and hefty reduction. Sonnet handles medium well-known work and ordinary
-review; Luna handles locked execution packets and procedural work. Fable is
+review; Sol high handles locked execution packets and procedural work. Fable is
 advisor-session guidance rather than a worker recommendation in this profile.
 
 ### `anthropic-heavy` — spend the 5-hour window deliberately
@@ -216,14 +217,14 @@ advisor-session guidance rather than a worker recommendation in this profile.
 | Role | Ordered recommendations |
 | --- | --- |
 | planner | Fable high, Grok high |
-| builder | Sonnet high, Opus medium, Grok high, Luna max (locked packet) |
-| checker | Sonnet high, Opus medium, Luna max, Grok high |
+| builder | Sonnet high, Opus medium, Grok high, Sol high (locked packet) |
+| checker | Sonnet high, Opus medium, Sol high, Grok high |
 | reducer | Sonnet high, Opus medium |
-| scout | Luna max, Grok high, Sonnet high |
-| browser-verifier | Luna max, Grok high |
+| scout | Sol high, Grok high, Sonnet high |
+| browser-verifier | Sol high, Grok high |
 
 Sonnet is the decision-bearing implementation and review workhorse, Opus is the
-greenfield UX or extreme-risk option, Luna uses remaining Codex for locked
+greenfield UX or extreme-risk option, Sol high uses remaining Codex for locked
 execution packets and procedural work, and Grok remains the profile's existing
 capacity fallback.
 
@@ -231,16 +232,17 @@ capacity fallback.
 
 | Role | Ordered recommendations |
 | --- | --- |
-| planner | Fable high, Sol high |
-| builder | Sonnet high, Sol high, Sol medium (bounded judgment), Opus medium, Luna max (locked packet) |
-| checker | Sonnet high, Opus medium, Luna max |
-| reducer | Sonnet high, Opus medium, Luna max |
-| scout | Luna max, Sonnet high |
-| browser-verifier | Luna max, Sonnet high |
+| planner | Fable high, Astra high |
+| builder | Sonnet high, Astra high (hard backend), Opus medium, Sol high (locked packet) |
+| checker | Sonnet high, Opus medium, Sol xhigh |
+| reducer | Sonnet high, Opus medium, Sol xhigh |
+| scout | Sol high, Sonnet high |
+| browser-verifier | Sol high, Sonnet high |
 
-Sonnet is the default decision-bearing maker and checker; Sol high or medium
-takes hard backend work by scope; Opus takes greenfield UX; Luna executes locked
-packets and procedural work. Grok is intentionally absent from
+Sonnet is the default decision-bearing maker and checker; Astra high
+takes hard backend work; Opus takes greenfield UX; Sol high executes locked
+packets and procedural work and Sol xhigh is the Codex review and reduction
+alternate. Grok is intentionally absent from
 the recommendations but is still not blocked at runtime.
 
 ### `grok-cycle` — no Codex recommendations

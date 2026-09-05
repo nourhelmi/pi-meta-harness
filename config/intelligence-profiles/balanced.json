@@ -2,31 +2,31 @@
   "name": "balanced",
   "models": {
     "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at high and the advisor session switches to Sol. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
+      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Astra at high and the advisor session switches to Astra. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
       "defaultThinking": "high"
     },
-    "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Hard-implementation workhorse for long or difficult backend, data, service, mixed-stack, and genuinely hard debugging, and the planning fallback when Fable is unavailable because Anthropic session capacity is reached. Use as the advisor model in the same capacity fallback. Use medium for bounded hard implementation or test design that still needs material judgment; use high for planning and substantial builds, escalating to xhigh or max only for genuinely difficult debugging. Prefer Luna when the approach and material decisions are already locked. Frontend routes elsewhere: greenfield UX is Opus, all other UX is Sonnet. Checking, review, and reduction are Sonnet-tier, not Sol.",
+    "openai-codex/gpt-6-astra": {
+      "character": "Advisory: Hard-implementation workhorse for long or difficult backend, data, service, mixed-stack, and genuinely hard debugging, and the planning fallback when Fable is unavailable because Anthropic session capacity is reached. Use as the advisor model in the same capacity fallback. Use high for planning, substantial builds, and bounded hard implementation that still needs material judgment, escalating to xhigh only for genuinely difficult debugging. Prefer Sol high when the approach and material decisions are already locked. Frontend routes elsewhere: greenfield UX is Opus, all other UX is Sonnet. Checking, review, and reduction are Sonnet-tier first, with Sol xhigh as the Codex alternate.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: The default decision-bearing builder and the default adversarial-tier reviewer. Medium and well-known implementation that still needs material judgment, all existing-UX work, tests, reduction, schema/auth/security/money checks, and final whole-diff review before PR. Prefer Luna for a locked execution packet. Prefer a fresh Sonnet context for review of a Sonnet build; escalate to Opus when the risk is extreme. Load frontend-design for UX work. 1M window. Not recommended for planning; genuinely hard backend goes to Sol high or medium by scope; greenfield UX goes to Opus.",
+      "character": "Advisory: The default decision-bearing builder and the default adversarial-tier reviewer. Medium and well-known implementation that still needs material judgment, all existing-UX work, tests, reduction, schema/auth/security/money checks, and final whole-diff review before PR. Prefer Sol high for a locked execution packet. Prefer a fresh Sonnet context for review of a Sonnet build; escalate to Opus when the risk is extreme. Load frontend-design for UX work. 1M window. Not recommended for planning; genuinely hard backend goes to Astra high; greenfield UX goes to Opus.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-opus-5": {
       "character": "Advisory: Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, preferably with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or the risk is extreme. Runs at medium. Generally avoid using as the default builder — that is Sonnet. If an Opus launch hits a capacity limit, the UX fallback is Sonnet with frontend-design, not Grok. Not recommended for planning or routine existing-UX tweaks.",
       "defaultThinking": "medium"
     },
-    "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: Extremely cheap procedural-tier workhorse and preferred executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Luna owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. 272K window. Generally avoid planning, hard or decision-bearing implementation, and adversarial-tier checking. Recommended reasoning is max.",
-      "defaultThinking": "max"
+    "openai-codex/gpt-5.6-sol": {
+      "character": "Advisory: The procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Generally avoid decision-bearing implementation at high. Recommended reasoning is high for procedural work and xhigh when Sol takes review or reduction.",
+      "defaultThinking": "high"
     }
   },
   "recommendations": {
     "scout": [
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred for bounded investigation in this profile."
       },
       {
@@ -42,7 +42,7 @@
         "fit": "Preferred for planning in this profile."
       },
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "high",
         "fit": "Planning fallback when the preferred choice is unavailable or a different fit is justified."
       }
@@ -59,9 +59,9 @@
         "fit": "Alternate for reduction when scope, risk, or capacity warrants."
       },
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
-        "fit": "Alternate for reduction when scope, risk, or capacity warrants."
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "xhigh",
+        "fit": "Codex alternate for reduction when scope, risk, or capacity warrants."
       }
     ],
     "builder": [
@@ -71,14 +71,9 @@
         "fit": "Preferred implementation choice in this profile."
       },
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "high",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
-      },
-      {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
-        "fit": "Use for bounded hard implementation or test design that still needs material local judgment; prefer Luna for a locked execution packet."
+        "fit": "Alternate implementation choice for hard backend or mixed-stack work; select by task character, risk, and capacity."
       },
       {
         "model": "claude-bridge/claude-opus-5",
@@ -86,8 +81,8 @@
         "fit": "Alternate implementation choice; select by task character, risk, and capacity."
       },
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
@@ -110,15 +105,15 @@
         "fit": "Alternate review choice; select by review tier, risk, and capacity."
       },
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
-        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "xhigh",
+        "fit": "Codex alternate review choice; select by review tier, risk, and capacity."
       }
     ],
     "browser-verifier": [
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred for browser verification in this profile."
       },
       {

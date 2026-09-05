@@ -5,28 +5,28 @@
       "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic Fable capacity is reached, planning falls back to Grok at high and the advisor session switches to Grok.",
       "defaultThinking": "high"
     },
-    "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: Use leftover Codex quota here first: the procedural-tier workhorse and preferred executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Luna owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Recommended reasoning is max. If Codex is fully exhausted, existing profile fallback guidance still applies.",
-      "defaultThinking": "max"
+    "openai-codex/gpt-5.6-sol": {
+      "character": "Advisory: Use leftover Codex quota here first: the procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Generally avoid decision-bearing implementation at high. Recommended reasoning is high. If Codex is fully exhausted, existing profile fallback guidance still applies.",
+      "defaultThinking": "high"
     },
     "claude-bridge/claude-opus-5": {
       "character": "Advisory: Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, preferably with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or the risk is extreme. Runs at medium. Generally avoid using as the default builder — that is Sonnet. Grok is the UX fallback after a capacity limit. Not recommended for planning or routine existing-UX tweaks.",
       "defaultThinking": "medium"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: The decision-bearing implementation workhorse and the default adversarial-tier reviewer. Backend, mixed-stack, substantial existing-UX, tests, reduction, schema/auth/security/money checks, and final whole-diff review. Prefer Luna for a locked execution packet while Codex capacity is available. Prefer a fresh Sonnet context for review of a Sonnet build. Load frontend-design for UX work. 1M window. Not recommended for planning. Opus takes greenfield UX while the 5-hour window is fresh.",
+      "character": "Advisory: The decision-bearing implementation workhorse and the default adversarial-tier reviewer. Backend, mixed-stack, substantial existing-UX, tests, reduction, schema/auth/security/money checks, and final whole-diff review. Prefer Sol for a locked execution packet while Codex capacity is available. Prefer a fresh Sonnet context for review of a Sonnet build. Load frontend-design for UX work. 1M window. Not recommended for planning. Opus takes greenfield UX while the 5-hour window is fresh.",
       "defaultThinking": "high"
     },
     "cursor/grok-4.6": {
-      "character": "Advisory: Overflow generalist when Anthropic capacity is tight: research, bounded backend, mixed-stack, existing-UX, planning fallback, and procedural work if Luna is unavailable. Load frontend-design for UX work. 200K window — keep packets bounded. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
+      "character": "Advisory: Overflow generalist when Anthropic capacity is tight: research, bounded backend, mixed-stack, existing-UX, planning fallback, and procedural work if Sol is unavailable. Load frontend-design for UX work. 200K window — keep packets bounded. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
       "defaultThinking": "high"
     }
   },
   "recommendations": {
     "scout": [
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred for bounded investigation in this profile."
       },
       {
@@ -81,8 +81,8 @@
         "fit": "Alternate implementation choice; select by task character, risk, and capacity."
       },
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred cheap executor for a locked execution packet while Codex capacity remains: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
@@ -105,8 +105,8 @@
         "fit": "Alternate review choice; select by review tier, risk, and capacity."
       },
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Alternate review choice; select by review tier, risk, and capacity."
       },
       {
@@ -117,8 +117,8 @@
     ],
     "browser-verifier": [
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred for browser verification in this profile."
       },
       {

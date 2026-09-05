@@ -2,11 +2,11 @@
   "name": "codex-max",
   "models": {
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: The advisor's own session model and the top-tier model for planning, implementation, review, and every kind of UX work. The advisor session runs at high; planner nodes, foremen, and substantial builds run at xhigh; fresh-context review, synthesis, adversarial checking on schema, auth, security, money, and data boundaries, and bounded implementation that still needs material local judgment run at high. All UX work, greenfield or existing, uses Astra with frontend-design loaded. Escalate to xhigh only for genuinely difficult debugging. Prefer Sol high, not Astra, when an execution packet has already locked the approach and material decisions.",
+      "character": "Advisory: The advisor's own session model and the top-tier model for planning, implementation, and every kind of UX work. The advisor session runs at high; planner nodes, foremen, and substantial builds run at xhigh; bounded implementation that still needs material local judgment runs at high. All UX work, greenfield or existing, uses Astra with frontend-design loaded. Escalate to xhigh only for genuinely difficult debugging. Review and reduction are Sol xhigh, not Astra. Prefer Sol high, not Astra, when an execution packet has already locked the approach and material decisions.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Generally avoid adversarial-tier checking and decision-bearing implementation. Recommended reasoning is high.",
+      "character": "Advisory: The procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Generally avoid decision-bearing implementation at high. Recommended reasoning is high for procedural work and xhigh for review and reduction.",
       "defaultThinking": "high"
     },
     "cursor/grok-4.6": {
@@ -41,8 +41,8 @@
     ],
     "reducer": [
       {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "xhigh",
         "fit": "Preferred for synthesis and conflict reduction in this profile."
       }
     ],
@@ -77,8 +77,8 @@
     ],
     "checker": [
       {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "xhigh",
         "fit": "Preferred fresh-context review choice in this profile, including adversarial checks on schema, auth, security, money, and data boundaries."
       },
       {

@@ -167,8 +167,9 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(guide.name, "codex-max");
   assert.equal(guide.recommendations.planner[0].model, "openai-codex/gpt-6-astra");
   assert.equal(guide.recommendations.planner[0].thinking, "xhigh");
-  assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-6-astra");
-  assert.equal(guide.recommendations.checker[0].thinking, "high");
+  assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-5.6-sol");
+  assert.equal(guide.recommendations.checker[0].thinking, "xhigh");
+  assert.equal(guide.recommendations.reducer[0].thinking, "xhigh");
   assert(!JSON.stringify(guide).includes("claude-bridge/"), "codex-max recommends no Anthropic model");
   assert.equal(guide.recommendations.builder[0].thinking, "xhigh");
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-max\n");
@@ -1013,7 +1014,7 @@ test("reinstall keeps a switched intelligence profile", async () => {
   assert.deepEqual(await readFile(join(target, "bg-agent-profiles.json")), fixedRoles);
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-lean");
-  assert.equal(guide.recommendations.planner[0].model, "openai-codex/gpt-5.6-sol");
+  assert.equal(guide.recommendations.planner[0].model, "openai-codex/gpt-6-astra");
   assert.equal(guide.recommendations.builder[1].model, "claude-bridge/claude-sonnet-5");
   assert(!Object.keys(guide.models).some((id) => id.startsWith("cursor/")));
   const doctor = run("doctor", "--target", target);

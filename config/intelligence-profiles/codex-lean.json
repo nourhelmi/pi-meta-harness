@@ -2,27 +2,27 @@
   "name": "codex-lean",
   "models": {
     "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model. The advisor session runs at medium. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, implementation, or planner nodes. Planner in this profile is Sol. When Anthropic capacity is reached, the advisor session switches to Sol at high. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
+      "character": "Advisory: The advisor's own session model. The advisor session runs at medium. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, implementation, or planner nodes. Planner in this profile is Astra. When Anthropic capacity is reached, the advisor session switches to Astra at high. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
       "defaultThinking": "high"
     },
-    "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Planner by default, and the hard-implementation workhorse: long or difficult backend, data, service, mixed-stack, and genuinely hard debugging. Also the advisor-session fallback when Fable is at Anthropic capacity. Use medium for token-efficient adversarial schema/auth/security/money/final whole-diff review and hefty reduction. Use high for planning and substantial builds; escalate to xhigh or max only for genuinely difficult debugging. Generally avoid assigning scouting, browser verification, or short-leash chores — those are Luna or Sonnet. Frontend: hard or unfamiliar UX may use Sol with frontend-design loaded; medium well-known UX is Sonnet; tiny tweaks are Luna.",
+    "openai-codex/gpt-6-astra": {
+      "character": "Advisory: Planner by default at high, and the hard-implementation workhorse: long or difficult backend, data, service, mixed-stack, and genuinely hard debugging, escalating to xhigh only when genuinely needed. Also the advisor-session fallback when Fable is at Anthropic capacity. Review and reduction are Sol xhigh; scouting, browser verification, short-leash chores, and locked execution packets are Sol high; medium well-known work may be Sonnet. Load frontend-design for UX work.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: Cheap enough to spend in this profile: medium well-known implementation that still needs material judgment, scouting when Luna is a poor fit, reduction, and review that is not adversarial-tier. Bounded Anthropic 5-hour bursts. Load frontend-design for UX work. Generally avoid assigning planning, genuinely hard or unfamiliar implementation (that is Sol high), adversarial schema/auth/security/money/final whole-diff review (that is Sol medium), or locked execution packets (those are Luna). Grok is not a fallback here — switch to grok-cycle instead.",
+      "character": "Advisory: Cheap enough to spend in this profile: medium well-known implementation that still needs material judgment, scouting when Sol is a poor fit, reduction, and review that is not adversarial-tier. Bounded Anthropic 5-hour bursts. Load frontend-design for UX work. Generally avoid assigning planning, genuinely hard or unfamiliar implementation (that is Astra high), adversarial schema/auth/security/money/final whole-diff review (that is Sol xhigh), or locked execution packets (those are Sol high). Grok is not a fallback here — switch to grok-cycle instead.",
       "defaultThinking": "high"
     },
-    "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: Extremely cheap Codex leftover: the preferred executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Luna owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. 272K window. Generally avoid planning, hard or decision-bearing implementation, and adversarial-tier checking. Recommended reasoning is max.",
-      "defaultThinking": "max"
+    "openai-codex/gpt-5.6-sol": {
+      "character": "Advisory: The procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Generally avoid decision-bearing implementation at high. Recommended reasoning is high for procedural work and xhigh for review and reduction.",
+      "defaultThinking": "high"
     }
   },
   "recommendations": {
     "scout": [
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred for bounded investigation in this profile."
       },
       {
@@ -33,7 +33,7 @@
     ],
     "planner": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "high",
         "fit": "Preferred for planning in this profile."
       }
@@ -41,23 +41,18 @@
     "reducer": [
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "thinking": "xhigh",
         "fit": "Preferred for synthesis and conflict reduction in this profile."
       },
       {
         "model": "claude-bridge/claude-sonnet-5",
         "thinking": "high",
         "fit": "Alternate for reduction when scope, risk, or capacity warrants."
-      },
-      {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
-        "fit": "Alternate for reduction when scope, risk, or capacity warrants."
       }
     ],
     "builder": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "high",
         "fit": "Preferred implementation choice in this profile."
       },
@@ -67,14 +62,14 @@
         "fit": "Alternate implementation choice; select by task character, risk, and capacity."
       },
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
     "foreman": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "high",
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       }
@@ -82,24 +77,19 @@
     "checker": [
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "thinking": "xhigh",
         "fit": "Preferred fresh-context review choice in this profile."
       },
       {
         "model": "claude-bridge/claude-sonnet-5",
         "thinking": "high",
         "fit": "Alternate review choice; select by review tier, risk, and capacity."
-      },
-      {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
-        "fit": "Alternate review choice; select by review tier, risk, and capacity."
       }
     ],
     "browser-verifier": [
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred for browser verification in this profile."
       },
       {
