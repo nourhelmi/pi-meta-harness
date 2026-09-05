@@ -564,6 +564,11 @@ async function installHostBindings(options) {
 
   const sourceSnippetPath = join(LIVE_TARGET, spec.installedSnippet);
   const sourceAgentPath = join(LIVE_TARGET, spec.installedAgent);
+  if (!(await exists(sourceSnippetPath)) || !(await exists(sourceAgentPath))) {
+    throw new Error(
+      `install-host-bindings needs the materialized ${options.host} binding under ${join(LIVE_TARGET, "advisor-hosts")}; run the harness installer (npm run bootstrap, or node scripts/meta-harness.mjs install --live) first.`,
+    );
+  }
   const snippet = await readJson(sourceSnippetPath);
   const sourceAgent = await readFile(sourceAgentPath);
   const target = hostBindingTarget(options, spec);

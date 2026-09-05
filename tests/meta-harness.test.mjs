@@ -260,6 +260,26 @@ test("install-host-bindings merges Claude Code user settings with backup and byt
   await rm(parent, { recursive: true, force: true });
 });
 
+test("install-host-bindings names the installer prerequisite when advisor-hosts is not installed", async () => {
+  const parent = await temporaryTarget();
+  const home = join(parent, "home");
+  const agentDir = join(parent, "agent");
+  await mkdir(home, { recursive: true });
+  const result = runWith(
+    { env: { HOME: home, PI_CODING_AGENT_DIR: agentDir } },
+    "install-host-bindings",
+    "--host",
+    "codex",
+    "--scope",
+    "user",
+  );
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /needs the materialized codex binding under .*advisor-hosts; run the harness installer/);
+  assert.doesNotMatch(result.stderr, /ENOENT/);
+  assert.equal(await stat(join(home, ".codex")).catch(() => undefined), undefined);
+  await rm(parent, { recursive: true, force: true });
+});
+
 test("install-host-bindings merges Codex project hooks without touching config.toml", async () => {
   const parent = await temporaryTarget();
   const home = join(parent, "home");
