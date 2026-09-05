@@ -207,7 +207,10 @@ failure probe — which concrete input or replay must be rejected, what must not
 change, and which command proves it — rather than as a property name.
 "Finalize is idempotent" is a property; "replaying finalize with a different
 key against the same media is rejected with `IDEMPOTENCY_KEY_REUSE`" is a
-criterion. The maker holds the deepest code context in the route: tell it to
+criterion. A packet never carries a formatter or lint pass as an acceptance
+criterion; when the repository's required CI gate enforces one, the criterion
+is that gate command and the maker or checker runs the fixer before rerunning
+it. The maker holds the deepest code context in the route: tell it to
 trace the capability end to end before editing, to edit only inside the
 packet, and to report adjacent defects and sharper criteria instead of
 absorbing them.
@@ -617,7 +620,12 @@ notes, never blockers. A checker FAIL binds only when tied to a violated
 acceptance criterion or an unrepaired finding at the packet tier's FAIL bar
 (see Risk tiers); unscoped or repaired findings are notes and never flip a
 verdict. Never assign a worker a result path: criteria
-reference the worker's own run directory only.
+reference the worker's own run directory only. Auto-fixable mechanical
+findings — formatter output, lint autofix, generated-file drift, result
+artifact formatting — are repaired inline by whichever agent finds them and
+never bind a verdict or stall a run; a formatter-only or lint-only FAIL is a
+note, and a repaired mechanical finding is closed by the rerun, never by
+another maker round.
 
 ## Delegation decision tree
 

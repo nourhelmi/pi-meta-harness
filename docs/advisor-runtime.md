@@ -28,7 +28,7 @@ delivery boundary, and capability verdicts are specified by the
 10. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work, but create a graph only for real independent ownership or dependency boundaries.
 11. Parallel builders require explicit approval and separate worktrees.
 12. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
-13. Keep a builder alive only for a planned bounded repair. Makers run one fresh-context review of their own diff before handoff on Standard and High packets; that is maker evidence, not independent review. Every checker starts fresh, judges against the packet tier's FAIL bar, and repairs small qualifying findings inline in any round, including repair rounds.
+13. Keep a builder alive only for a planned bounded repair. Makers run one fresh-context review of their own diff before handoff on Standard and High packets; that is maker evidence, not independent review. Every checker starts fresh, judges against the packet tier's FAIL bar, and repairs small qualifying findings inline in any round, including repair rounds. Auto-fixable mechanical findings (formatter output, lint autofix, generated-file drift, result formatting) are repaired inline by whoever finds them and never bind a verdict; a formatter or lint pass is never an acceptance criterion on its own.
 14. Keep global advisor routines paused because open Pi processes share routine state.
 
 ## Blocked signals

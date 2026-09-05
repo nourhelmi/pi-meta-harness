@@ -213,3 +213,24 @@ test("risk tiers fix the review route and checker bar while makers explore freel
   assert.match(runtime, /Settlement stalls only when that artifact is missing or blank/);
   assert(JSON.parse(roles).profiles.builder.cliArgs.includes("--advisor-worker-allow-subagents"));
 });
+
+test("mechanical findings are repaired inline and never bind a verdict or become criteria", async () => {
+  const [source, checker, runtime] = await Promise.all([
+    text("skills/advisor/SKILL.md"),
+    text("skills/advisor-worker/roles/checker/SKILL.md"),
+    text("docs/advisor-runtime.md"),
+  ]);
+
+  const hygiene = section(source, "## Verdict hygiene", "## Delegation decision tree");
+  assert.match(hygiene, /Auto-fixable mechanical\s+findings[\s\S]*formatter output, lint autofix, generated-file drift, result\s+artifact formatting[\s\S]*never bind a verdict or stall a run/);
+  assert.match(hygiene, /formatter-only or lint-only FAIL is a\s+note/);
+  assert.match(source, /A packet never carries a formatter or lint pass as an acceptance\s+criterion/);
+  assert.match(source, /runs the fixer before rerunning\s+it/);
+
+  const mandate = section(checker, "## Inline repair mandate", "## ");
+  assert.match(mandate, /formatter-only or lint-only diff[\s\S]*always mechanical/);
+  assert.match(mandate, /never return it as a FAIL/);
+
+  assert.match(runtime, /mechanical findings \(formatter output, lint autofix, generated-file drift, result formatting\) are repaired inline by whoever finds them and never bind a verdict/);
+  assert.match(runtime, /formatter or lint pass is never an acceptance criterion on its own/);
+});

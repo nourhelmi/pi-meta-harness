@@ -71,7 +71,10 @@ report them all.
 of severity and regardless of the state of product findings: repair them
 inline whenever the fix stays in non-product files you already reviewed and
 the affected criteria rerun green. An oversized product finding never blocks
-the inline repair of test-only findings.
+the inline repair of test-only findings. A formatter-only or lint-only diff,
+generated-file drift, or result-artifact formatting is always mechanical:
+run the fixer, rerun the affected criteria, record it under **Repaired
+inline**, and never return it as a FAIL.
 
 Commit qualifying fixes with a conventional message, rerun the affected
 criteria, and add a **Repaired inline** section to `result.md`: each finding,
