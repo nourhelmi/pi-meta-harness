@@ -65,6 +65,18 @@ async function loadPanel() {
   return app.navPanels[0]!;
 }
 
+function traceIndexTouchActions(css: string): string[] {
+  return Array.from(
+    css.matchAll(/\.trace-index\s*\{([^{}]*)\}/giu),
+    ([, declarations]) => declarations ?? "",
+  ).flatMap((declarations) =>
+    Array.from(
+      declarations.matchAll(/\btouch-action\s*:\s*([^;]*?)(?:;|$)/giu),
+      ([, value]) => value?.trim() ?? "",
+    ),
+  );
+}
+
 describe("Advisor trace nav panel", () => {
   it("exposes a uniquely labeled busy region without owning a main landmark", async () => {
     const panel = await loadPanel();
@@ -173,16 +185,70 @@ describe("Advisor trace nav panel", () => {
       expect(indexRule?.style.getPropertyValue("overscroll-behavior-y")).toBe(
         "contain",
       );
-      const mobileCss = css.slice(
-        css.indexOf("@media (max-width: 860px)"),
-        css.indexOf("@media (max-width: 520px)"),
-      );
-      const indexCss = mobileCss.match(/\.trace-index\s*\{([^}]*)\}/u)?.[1] ?? "";
-      const touchActions = Array.from(
-        indexCss.matchAll(/\btouch-action:\s*([^;]+);/gu),
-        ([, value]) => value?.trim(),
-      );
-      expect(touchActions).toEqual(["manipulation"]);
+      const replaceTouchAction = (replacement: string): string => {
+        const mutated = css.replace("touch-action: manipulation;", replacement);
+        expect(mutated).not.toBe(css);
+        return mutated;
+      };
+      const mutations = [
+        {
+          name: "prior pan-y",
+          css: replaceTouchAction("touch-action: pan-y;"),
+        },
+        {
+          name: "duplicate declarations in one rule",
+          css: replaceTouchAction(
+            "touch-action: pan-y;\n    touch-action: manipulation;",
+          ),
+        },
+        {
+          name: "unsupported fallback then manipulation",
+          css: replaceTouchAction(
+            "touch-action: unsupported;\n    touch-action: manipulation;",
+          ),
+        },
+        {
+          name: "later duplicate rule overriding to pan-y",
+          css: `${css}\n.trace-index { touch-action: pan-y; }\n`,
+        },
+        {
+          name: "final no-semicolon pan-y",
+          css: replaceTouchAction(
+            "touch-action: manipulation;\n    touch-action: pan-y",
+          ),
+        },
+      ];
+
+      expect(traceIndexTouchActions(css)).toEqual(["manipulation"]);
+      expect(
+        mutations.map(({ name, css: mutatedCss }) => ({
+          name,
+          values: traceIndexTouchActions(mutatedCss),
+        })),
+      ).toEqual([
+        { name: "prior pan-y", values: ["pan-y"] },
+        {
+          name: "duplicate declarations in one rule",
+          values: ["pan-y", "manipulation"],
+        },
+        {
+          name: "unsupported fallback then manipulation",
+          values: ["unsupported", "manipulation"],
+        },
+        {
+          name: "later duplicate rule overriding to pan-y",
+          values: ["manipulation", "pan-y"],
+        },
+        {
+          name: "final no-semicolon pan-y",
+          values: ["manipulation", "pan-y"],
+        },
+      ]);
+      for (const mutation of mutations) {
+        expect(traceIndexTouchActions(mutation.css), mutation.name).not.toEqual(
+          ["manipulation"],
+        );
+      }
     } finally {
       styleElement.remove();
     }
