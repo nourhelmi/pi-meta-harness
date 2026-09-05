@@ -400,6 +400,7 @@ function TraceDetailView({ state }: { state: DetailState }) {
 }
 
 export function TracePanel(_props: PluginNavPanelProps) {
+  const surfaceTitleId = useId();
   const rpc = useRpc<TraceRpcContract>();
   const settings = useSettings();
   const connection = useRealtimeConnectionState();
@@ -529,8 +530,9 @@ export function TracePanel(_props: PluginNavPanelProps) {
   );
 
   return (
-    <main
+    <section
       className="trace-surface"
+      aria-labelledby={surfaceTitleId}
       aria-busy={
         listState.status === "loading" || detailState.status === "loading"
       }
@@ -538,7 +540,7 @@ export function TracePanel(_props: PluginNavPanelProps) {
       <header className="trace-toolbar">
         <div>
           <p className="trace-eyebrow">Advisor Core · read-only projection</p>
-          <h1>Execution traces</h1>
+          <h1 id={surfaceTitleId}>Execution traces</h1>
         </div>
         <div className="trace-toolbar-actions">
           <span
@@ -578,7 +580,7 @@ export function TracePanel(_props: PluginNavPanelProps) {
           <TraceDetailView state={detailState} />
         </section>
       </div>
-    </main>
+    </section>
   );
 }
 

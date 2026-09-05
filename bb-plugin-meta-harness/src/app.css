@@ -566,14 +566,21 @@
 
 @media (max-width: 860px) {
   .trace-layout {
+    flex: 0 0 auto;
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: clamp(12rem, 36vh, 19rem) auto;
+    min-height: auto;
   }
 
   .trace-index {
+    min-height: 12rem;
     max-height: 19rem;
-    overflow: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+    touch-action: pan-y;
   }
 
   .trace-run-fields,

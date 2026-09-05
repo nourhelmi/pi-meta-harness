@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { fireEvent } from "@testing-library/react";
 import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
 import { afterEach, describe, expect, it } from "vitest";
@@ -64,6 +66,118 @@ async function loadPanel() {
 }
 
 describe("Advisor trace nav panel", () => {
+  it("exposes a uniquely labeled busy region without owning a main landmark", async () => {
+    const panel = await loadPanel();
+    let resolveList!: (response: TraceListResponse) => void;
+    const pendingList = new Promise<TraceListResponse>((resolve) => {
+      resolveList = resolve;
+    });
+    const slot = renderSlot(
+      panel,
+      { subPath: "" },
+      {
+        settings: { hostId: "host-1", stateRoot: "/advisor" },
+        rpc: { listTraces: () => pendingList },
+      },
+    );
+    mounted.push(slot);
+
+    const title = slot.getByRole("heading", {
+      level: 1,
+      name: "Execution traces",
+    });
+    const region = slot.getByRole("region", { name: "Execution traces" });
+    expect(region.tagName).toBe("SECTION");
+    expect(region.getAttribute("aria-labelledby")).toBe(title.id);
+    expect(title.id).not.toBe("");
+    expect(
+      Array.from(slot.container.querySelectorAll("[id]")).filter(
+        (element) => element.id === title.id,
+      ),
+    ).toHaveLength(1);
+    expect(region.getAttribute("aria-busy")).toBe("true");
+    expect(slot.container.querySelector("main")).toBeNull();
+
+    resolveList({ ok: true, traces: [] });
+    await slot.findByText("No canonical traces");
+    expect(region.getAttribute("aria-busy")).toBe("false");
+  });
+
+  it("pins a mobile trace index while preserving desktop and wrapping contracts", async () => {
+    const css = await readFile(resolve(process.cwd(), "src/app.css"), "utf8");
+    const styleElement = document.createElement("style");
+    styleElement.textContent = css;
+    document.head.append(styleElement);
+
+    try {
+      const topLevelRules = Array.from(styleElement.sheet?.cssRules ?? []);
+      const isStyleRule = (rule: CSSRule): rule is CSSStyleRule =>
+        "selectorText" in rule && typeof rule.selectorText === "string";
+      const styleRule = (selector: string): CSSStyleRule | undefined =>
+        topLevelRules.find(
+          (rule): rule is CSSStyleRule =>
+            isStyleRule(rule) && rule.selectorText === selector,
+        );
+      const groupedStyleRule = (selector: string): CSSStyleRule | undefined =>
+        topLevelRules.find(
+          (rule): rule is CSSStyleRule =>
+            isStyleRule(rule) &&
+            rule.selectorText
+              .split(",")
+              .some((candidate) => candidate.trim() === selector),
+        );
+      expect(
+        styleRule(".trace-layout")?.style.getPropertyValue(
+          "grid-template-columns",
+        ),
+      ).toBe("minmax(17rem, 22rem) minmax(0, 1fr)");
+      expect(
+        styleRule(".trace-index-row")?.style.getPropertyValue("min-width"),
+      ).toBe("0");
+      expect(
+        groupedStyleRule(".trace-run-id")?.style.getPropertyValue(
+          "overflow-wrap",
+        ),
+      ).toBe("anywhere");
+      expect(
+        styleRule(".trace-wrap-path")?.style.getPropertyValue("word-break"),
+      ).toBe("break-word");
+
+      const mobileRule = topLevelRules.find(
+        (rule): rule is CSSMediaRule =>
+          "conditionText" in rule &&
+          rule.conditionText === "(max-width: 860px)",
+      );
+      expect(mobileRule).toBeDefined();
+
+      const mobileRules = Array.from(mobileRule?.cssRules ?? []);
+      const layoutRule = mobileRules.find(
+        (rule): rule is CSSStyleRule =>
+          "selectorText" in rule && rule.selectorText === ".trace-layout",
+      );
+      const indexRule = mobileRules.find(
+        (rule): rule is CSSStyleRule =>
+          "selectorText" in rule && rule.selectorText === ".trace-index",
+      );
+
+      expect(layoutRule?.style.getPropertyValue("grid-template-columns")).toBe(
+        "minmax(0, 1fr)",
+      );
+      expect(layoutRule?.style.getPropertyValue("grid-template-rows")).toBe(
+        "clamp(12rem, 36vh, 19rem) auto",
+      );
+      expect(layoutRule?.style.getPropertyValue("flex")).toBe("0 0 auto");
+      expect(indexRule?.style.getPropertyValue("min-height")).toBe("12rem");
+      expect(indexRule?.style.getPropertyValue("max-height")).toBe("19rem");
+      expect(indexRule?.style.getPropertyValue("overflow-y")).toBe("auto");
+      expect(indexRule?.style.getPropertyValue("overscroll-behavior-y")).toBe(
+        "contain",
+      );
+    } finally {
+      styleElement.remove();
+    }
+  });
+
   it("shows an accessible configuration state without making RPC calls", async () => {
     const panel = await loadPanel();
     const slot = renderSlot(panel, { subPath: "" });
