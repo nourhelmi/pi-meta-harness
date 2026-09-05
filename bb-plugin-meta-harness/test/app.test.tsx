@@ -173,6 +173,16 @@ describe("Advisor trace nav panel", () => {
       expect(indexRule?.style.getPropertyValue("overscroll-behavior-y")).toBe(
         "contain",
       );
+      const mobileCss = css.slice(
+        css.indexOf("@media (max-width: 860px)"),
+        css.indexOf("@media (max-width: 520px)"),
+      );
+      const indexCss = mobileCss.match(/\.trace-index\s*\{([^}]*)\}/u)?.[1] ?? "";
+      const touchActions = Array.from(
+        indexCss.matchAll(/\btouch-action:\s*([^;]+);/gu),
+        ([, value]) => value?.trim(),
+      );
+      expect(touchActions).toEqual(["manipulation"]);
     } finally {
       styleElement.remove();
     }

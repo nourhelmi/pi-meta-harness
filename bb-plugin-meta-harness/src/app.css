@@ -580,7 +580,7 @@
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scrollbar-gutter: stable;
-    touch-action: pan-y;
+    touch-action: manipulation;
   }
 
   .trace-run-fields,
