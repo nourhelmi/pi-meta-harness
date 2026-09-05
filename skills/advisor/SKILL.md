@@ -247,9 +247,9 @@ review surface, not a gate.
 Frontend routing is scope- and capacity-aware guidance, and the preferred IDs
 come from the live guide:
 
-- in `codex-max`, every UX packet, greenfield or existing, uses Astra (xhigh
-  for substantial work, high for bounded tweaks) with `frontend-design`; no
-  Anthropic model is recommended there;
+- in `codex-max`, every UX builder, greenfield or existing and substantial or
+  bounded, uses Astra high with `frontend-design`; no Anthropic model is
+  recommended there;
 - in the other guides, genuinely new or greenfield UX uses the model whose
   character reserves it for greenfield UX (Opus while Anthropic capacity is
   healthy), always with `frontend-design`; if that model is missing, capacity
@@ -271,12 +271,13 @@ extreme-risk work named in the live character notes, and reserve Fable for the
 advisor session (at medium) or guide-recommended planning (at high); if Fable
 reaches capacity, prefer the fallback in its character note (Astra at high in
 `codex-lean` and `balanced`, Grok in `grok-cycle` and `anthropic-heavy`). In
-`codex-max` the advisor session runs on Astra at high and planning on Astra at
-xhigh. These are strong defaults, not role allowlists; depart when capability
-and task risk justify it and record the rationale when material. Workers still
+`codex-max` the advisor session and planner nodes run on Astra at max;
+foremen run on Astra at xhigh. These are strong defaults, not role allowlists;
+depart when capability and task risk justify it and record the rationale when
+material. Workers still
 cannot silently change the advisor's active model.
 For non-UX work, normally pick the implementation workhorse from the live characters
-(Astra xhigh or high by task in `codex-max`, with Sol high for locked packets and
+(Astra high for all builders in `codex-max`, with Sol high for locked packets and
 Sol xhigh for review and reduction; Astra/Sonnet/Sol by hardness in `codex-lean`;
 Sonnet default with Astra high for hard backend in `balanced`; Grok in
 `grok-cycle`; Sonnet in `anthropic-heavy`). The shipped guides recommend Cursor

@@ -79,6 +79,32 @@ test("named advisor guides are structurally valid and cover every role", async (
   }
 });
 
+test("codex-max reserves max for advisor and planner, xhigh for foreman, and high for Astra builders", async () => {
+  const guide = JSON.parse(
+    await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"),
+  );
+  const astra = "openai-codex/gpt-6-astra";
+  const sol = "openai-codex/gpt-5.6-sol";
+  const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
+  assert.equal(guide.models[astra].defaultThinking, "max");
+  assert.deepEqual(identities("planner"), [[astra, "max"]]);
+  assert.deepEqual(identities("foreman"), [[astra, "xhigh"]]);
+  assert.deepEqual(identities("builder"), [
+    [astra, "high"],
+    [sol, "high"],
+    ["cursor/grok-4.6", "high"],
+  ]);
+  assert.deepEqual(identities("checker"), [[sol, "xhigh"], [sol, "high"]]);
+  assert.deepEqual(identities("reducer"), [[sol, "xhigh"]]);
+  assert.deepEqual(identities("scout")[0], [sol, "high"]);
+  assert.deepEqual(identities("browser-verifier"), [[sol, "high"], [astra, "high"]]);
+  assert(!Object.keys(guide.models).some((model) => /^(anthropic|claude-bridge)\//.test(model)));
+  assert.match(guide.models[astra].character, /advisor session and planner nodes run at max/);
+  assert.match(guide.models[astra].character, /foremen run at xhigh/);
+  assert.match(guide.models[astra].character, /all Astra builders run at high, including substantial builds/);
+  assert.match(guide.models[astra].character, /All UX implementation.*uses Astra high with frontend-design/);
+});
+
 test("every guide provides a native-routable choice for every semantic role", async () => {
   const nativeProviders = new Set(["openai-codex", "openai", "claude-bridge", "anthropic"]);
   for (const name of NAMES) {

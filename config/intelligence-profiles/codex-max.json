@@ -2,8 +2,8 @@
   "name": "codex-max",
   "models": {
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: The advisor's own session model and the top-tier model for planning, implementation, and every kind of UX work. The advisor session runs at high; planner nodes, foremen, and substantial builds run at xhigh; bounded implementation that still needs material local judgment runs at high. All UX work, greenfield or existing, uses Astra with frontend-design loaded. Escalate to xhigh only for genuinely difficult debugging. Review and reduction are Sol xhigh, not Astra. Prefer Sol high, not Astra, when an execution packet has already locked the approach and material decisions.",
-      "defaultThinking": "high"
+      "character": "Advisory: The advisor's own session model and the top-tier model for planning, implementation, and every kind of UX work. The advisor session and planner nodes run at max; foremen run at xhigh; all Astra builders run at high, including substantial builds and bounded implementation that needs material local judgment. All UX implementation, greenfield or existing, uses Astra high with frontend-design loaded. Concentrate deeper reasoning on advisor and planner decisions rather than raising builder effort by task size. Review and reduction are Sol xhigh, not Astra. Prefer Sol high, not Astra, when an execution packet has already locked the approach and material decisions.",
+      "defaultThinking": "max"
     },
     "openai-codex/gpt-5.6-sol": {
       "character": "Advisory: The procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Generally avoid decision-bearing implementation at high. Recommended reasoning is high for procedural work and xhigh for review and reduction.",
@@ -30,13 +30,8 @@
     "planner": [
       {
         "model": "openai-codex/gpt-6-astra",
-        "thinking": "xhigh",
-        "fit": "Preferred for planning in this profile."
-      },
-      {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
-        "fit": "Planning at high when the plan is small or capacity is tight."
+        "thinking": "max",
+        "fit": "Preferred for planning: concentrate maximum reasoning on decisions that shape downstream work."
       }
     ],
     "reducer": [
@@ -49,13 +44,8 @@
     "builder": [
       {
         "model": "openai-codex/gpt-6-astra",
-        "thinking": "xhigh",
-        "fit": "Preferred implementation choice, including all UX work with frontend-design loaded."
-      },
-      {
-        "model": "openai-codex/gpt-6-astra",
         "thinking": "high",
-        "fit": "Use for bounded implementation that still needs material local judgment; prefer Sol high when the execution packet has locked the approach."
+        "fit": "Preferred for all decision-bearing implementation, including substantial builds and all UX work with frontend-design loaded; prefer Sol high for a locked execution packet."
       },
       {
         "model": "openai-codex/gpt-5.6-sol",

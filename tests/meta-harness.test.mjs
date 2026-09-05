@@ -166,12 +166,16 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-max");
   assert.equal(guide.recommendations.planner[0].model, "openai-codex/gpt-6-astra");
-  assert.equal(guide.recommendations.planner[0].thinking, "xhigh");
+  assert.equal(guide.models["openai-codex/gpt-6-astra"].defaultThinking, "max");
+  assert.equal(guide.recommendations.planner[0].thinking, "max");
+  assert.equal(guide.recommendations.foreman[0].model, "openai-codex/gpt-6-astra");
+  assert.equal(guide.recommendations.foreman[0].thinking, "xhigh");
   assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-5.6-sol");
   assert.equal(guide.recommendations.checker[0].thinking, "xhigh");
   assert.equal(guide.recommendations.reducer[0].thinking, "xhigh");
   assert(!JSON.stringify(guide).includes("claude-bridge/"), "codex-max recommends no Anthropic model");
-  assert.equal(guide.recommendations.builder[0].thinking, "xhigh");
+  assert.equal(guide.recommendations.builder[0].model, "openai-codex/gpt-6-astra");
+  assert.equal(guide.recommendations.builder[0].thinking, "high");
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-max\n");
   assert(settings.enabledModels.includes("claude-bridge/claude-fable-5-1"));
   assert(settings.enabledModels.includes("claude-bridge/claude-sonnet-5"));

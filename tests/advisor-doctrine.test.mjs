@@ -11,6 +11,29 @@ const section = (source, heading, nextHeading) => {
   return source.slice(start, end === -1 ? source.length : end);
 };
 
+test("codex-max guidance agrees on max decisions, xhigh foremen, and high Astra builders", async () => {
+  const [advisor, profiles, switcher] = await Promise.all([
+    text("skills/advisor/SKILL.md"),
+    text("docs/intelligence-profiles.md"),
+    text("skills/switch-intelligence-profile/SKILL.md"),
+  ]);
+  assert.match(advisor, /in `codex-max`, every UX builder[\s\S]{0,150}uses Astra high with `frontend-design`/);
+  assert.match(advisor, /`codex-max` the advisor session and planner nodes run on Astra at max;\s+foremen run on Astra at xhigh/);
+  assert.match(advisor, /Astra high for all builders in `codex-max`/);
+  const card = section(profiles, "### `codex-max`", "### `codex-lean`");
+  assert.match(card, /\| advisor \| Astra max/);
+  assert.match(card, /\| planner \| Astra max/);
+  assert.match(card, /\| builder \| Astra high/);
+  assert.match(card, /\| foreman \| Astra xhigh/);
+  assert.match(card, /All Astra builders use high, including substantial implementation/);
+  assert.doesNotMatch(card, /Luna|advisor session model at high|workhorse at xhigh/);
+  const row = switcher.split("\n").find((line) => line.startsWith("| `codex-max` |"));
+  assert.match(row, /Astra high; Sol high for locked packets \| Sol xhigh \| Sol high/);
+  assert.doesNotMatch(row, /Luna/);
+  assert.match(switcher, /advisor and planner use Astra max, the foreman uses Astra\s+xhigh/);
+  assert.match(switcher, /https:\/\/github.com\/nourhelmi\/pi-meta-harness\/blob\/main\/docs\/intelligence-profiles.md/);
+});
+
 test("advisor topology defaults cohesive work to an empowered maker without making worker count the objective", async () => {
   const source = await text("skills/advisor/SKILL.md");
   const adaptive = section(source, "## Adaptive topology and the single-maker fast path", "## Foreman delegation");

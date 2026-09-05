@@ -63,10 +63,16 @@ inconsistent pair rather than guessing which side is authoritative.
 
 | Name | When | Workhorse | Adversarial review | Procedural |
 | --- | --- | --- | --- | --- |
-| `codex-max` | Codex weekly is healthy | Sol xhigh / high by task | Sol high | Luna |
+| `codex-max` | Codex weekly is healthy | Astra high; Sol high for locked packets | Sol xhigh | Sol high |
 | `codex-lean` | Codex remainder is usable | Sol / Sonnet / Luna by hardness | Sol medium | Luna, Sonnet |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
 | `balanced` | Codex builds hard, Anthropic checks, no Grok | Sonnet default; Sol high/medium hard; Opus greenfield UX | Sonnet, Opus if extreme-risk | Luna, Sonnet |
 | `grok-cycle` | No Codex; Grok owns maker + hefty review | Grok | Grok | Sonnet |
 
-Deep dive: [`docs/intelligence-profiles.md`](../../docs/intelligence-profiles.md).
+In `codex-max`, the advisor and planner use Astra max, the foreman uses Astra
+xhigh, and every Astra builder uses high, including substantial and all UX
+implementation. Review and reduction use Sol xhigh. Changing this guidance does
+not switch the running advisor's reasoning level.
+
+Deep dive: [`docs/intelligence-profiles.md`](https://github.com/nourhelmi/pi-meta-harness/blob/main/docs/intelligence-profiles.md)
+(the repository link also works from an installed skill).

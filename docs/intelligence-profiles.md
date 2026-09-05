@@ -179,22 +179,29 @@ the detailed task and capacity guidance.
 
 | Role | Ordered recommendations |
 | --- | --- |
-| planner | Astra xhigh, Astra high |
-| builder | Astra xhigh, Astra high (bounded judgment), Sol high (locked packet), Grok high |
+| advisor | Astra max (session guidance) |
+| planner | Astra max |
+| builder | Astra high (all decision-bearing work), Sol high (locked packet), Grok high |
+| foreman | Astra xhigh |
 | checker | Sol xhigh, Sol high |
 | reducer | Sol xhigh |
 | scout | Sol high, Grok high |
 | browser-verifier | Sol high, Astra high |
 
-Astra (GPT-6) is the advisor session model at high, the planner and foreman at
-xhigh, the difficult implementation workhorse at xhigh, and the
-bounded-judgment implementation choice at high. It also takes all UX work,
-greenfield or existing, with `frontend-design` loaded. Sol xhigh is the
+Astra (GPT-6) is the advisor session and planner model at max. Foremen use
+Astra xhigh. All Astra builders use high, including substantial implementation,
+bounded-judgment work, and every kind of UX work. Greenfield and existing UX
+both load `frontend-design`. Sol xhigh is the
 fresh-context reviewer and reducer, including adversarial checks. Sol high is
 the procedural tier: scouting, browser verification, routine checks, and
 locked execution packets; it stops instead of making material product or
 architecture decisions. Grok stays as the capacity alternate for research and
 bounded backend work. This profile recommends no Anthropic model.
+
+This split concentrates deeper reasoning on decisions that shape downstream
+work; lower total task cost is a hypothesis, not a measured guarantee.
+Changing the guide does not change an already-running advisor's reasoning
+level or a worker's launch identity.
 
 ### `codex-lean` — spend the Codex remainder carefully
 
