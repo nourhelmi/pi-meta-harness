@@ -18,11 +18,15 @@ import {
   projectTrace,
   validateTrace,
 } from "../scripts/advisor-trace.mjs";
+import { parseGraphBlock } from "../scripts/advisor-core/host-binding.mjs";
 
 const run = promisify(execFile);
 const CLI = fileURLToPath(new URL("../scripts/advisor-trace.mjs", import.meta.url));
 const DONE = join(FIXTURES_DIR, "one-worker-done.jsonl");
 const BLOCKED = join(FIXTURES_DIR, "one-worker-blocked.jsonl");
+const GRAPH = join(FIXTURES_DIR, "graph-two-waves.jsonl");
+const REPLY = join(FIXTURES_DIR, "blocked-reply-resume.jsonl");
+const CANCEL = join(FIXTURES_DIR, "cancel.jsonl");
 
 const fixture = async (path) => parseTrace(await readFile(path, "utf8"));
 const clone = (events) => JSON.parse(JSON.stringify(events));
@@ -32,17 +36,17 @@ const expectCode = (result, code) => {
   assert.ok(codes(result).includes(code), `expected ${code}, got ${JSON.stringify(result.problems)}`);
 };
 
-test("both fixtures validate with zero problems and together cover every v1 event type", async () => {
+test("all five fixtures validate with zero problems and together cover every protocol 1.1 event type", async () => {
   const schema = await loadSchema();
   const seen = new Set();
-  for (const path of [DONE, BLOCKED]) {
+  for (const path of [DONE, BLOCKED, GRAPH, REPLY, CANCEL]) {
     const events = await fixture(path);
     const result = validateTrace(events, schema);
     assert.deepEqual(result, { ok: true, problems: [] }, `${path}: ${JSON.stringify(result.problems)}`);
     for (const event of events) seen.add(event.type);
   }
   assert.deepEqual([...seen].sort(), [...eventTypes(schema)].sort());
-  assert.equal(eventTypes(schema).length, 8);
+  assert.equal(eventTypes(schema).length, 14);
 });
 
 test("the CLI exits 0 on a valid fixture and 1 with named problems on a broken trace", async () => {
@@ -61,6 +65,32 @@ test("the CLI exits 0 on a valid fixture and 1 with named problems on a broken t
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("the shared GRAPH parser reads fixed keys and stops at the blank line", () => {
+  const parsed = parseGraphBlock([
+    "Execute the node.",
+    "GRAPH:",
+    "  graph: parser-graph",
+    "  node: builder-1",
+    "  wave: 2",
+    "  repair: 1",
+    "  upstream: /one/result.md, /two/result.md",
+    "  downstream: checker-1, browser-1",
+    "",
+    "  node: ignored",
+  ].join("\n"));
+  assert.deepEqual(parsed, {
+    graph: "parser-graph",
+    node: "builder-1",
+    wave: 2,
+    repair: 1,
+    upstream: ["/one/result.md", "/two/result.md"],
+    downstream: ["checker-1", "browser-1"],
+  });
+  assert.equal(parseGraphBlock("GRAPH:\n  graph: ../escape\n  node: builder\n  wave: 1\n"), undefined);
+  assert.equal(parseGraphBlock(`GRAPH:\n  graph: ${"g".repeat(122)}\n  node: ${"n".repeat(128)}\n  wave: 1\n`)?.wave, 1);
+  assert.equal(parseGraphBlock(`GRAPH:\n  graph: ${"g".repeat(123)}\n  node: builder\n  wave: 1\n`), undefined);
 });
 
 test("projection derives node state, result status, and the parent wake", async () => {
@@ -85,12 +115,36 @@ test("projection derives node state, result status, and the parent wake", async 
   assert.equal(blocked.nodes[0].settledStatus, "blocked");
   assert.equal(blocked.nodes[0].blockedRequest.kind, "decision");
   assert.equal(blocked.nodes[0].surfaceClosed, false);
+
+  const resumed = projectTrace(await fixture(REPLY));
+  assert.equal(resumed.nodes[0].attempts, 2);
+  assert.deepEqual(resumed.nodes[0].replies, [{
+    at: "2026-09-05T11:02:00.000Z",
+    text: "Use the per-project state file.",
+    source: "advisor",
+  }]);
+  assert.equal(resumed.nodes[0].state, "settled");
+  assert.equal(resumed.nodes[0].settledStatus, "done");
+  assert.deepEqual(resumed.wakes.map(({ generation }) => generation), [1, 2]);
+
+  const graph = projectTrace(await fixture(GRAPH));
+  assert.equal(graph.run.graph, "fixture-graph");
+  assert.equal(graph.run.waves.length, 2);
+  assert.ok(graph.run.waves.every(({ completedAt }) => completedAt));
+  assert.equal(graph.nodes.length, 3);
+
+  const cancelled = projectTrace(await fixture(CANCEL));
+  assert.equal(cancelled.nodes[0].cancelRequested, true);
+  assert.equal(cancelled.nodes[0].attempts, 1);
 });
 
 test("structural rules each reject a specific mutation with their own code", async () => {
   const schema = await loadSchema();
   const done = await fixture(DONE);
   const blocked = await fixture(BLOCKED);
+  const graph = await fixture(GRAPH);
+  const reply = await fixture(REPLY);
+  const cancel = await fixture(CANCEL);
   const reseq = (events) => events.map((event, index) => ({ ...event, seq: index + 1 }));
   const check = (events) => validateTrace(events, schema);
 
@@ -127,6 +181,48 @@ test("structural rules each reject a specific mutation with their own code", asy
   relaunch.splice(3, 0, { ...relaunch[1] });
   expectCode(check(reseq(relaunch)), RULE_CODES.ORDER);
 
+  // graph planning is unique and precedes launches; waves are contiguous and gated
+  const secondPlan = clone(graph);
+  secondPlan.splice(2, 0, { ...secondPlan[1] });
+  expectCode(check(reseq(secondPlan)), RULE_CODES.GRAPH);
+  const latePlan = clone(graph);
+  const plan = latePlan.splice(1, 1)[0];
+  latePlan.splice(4, 0, plan);
+  for (const event of latePlan) event.at = "2026-09-05T10:00:00.000Z";
+  expectCode(check(reseq(latePlan)), RULE_CODES.GRAPH);
+  const earlyWaveTwo = reseq(graph.filter((event) => !(event.type === "wave.completed" && event.data.wave === 1)));
+  expectCode(check(earlyWaveTwo), RULE_CODES.WAVE);
+  const unsettledWave = clone(graph);
+  const completion = unsettledWave.splice(9, 1)[0];
+  unsettledWave.splice(7, 0, completion);
+  for (const event of unsettledWave) event.at = "2026-09-05T10:00:00.000Z";
+  expectCode(check(reseq(unsettledWave)), RULE_CODES.WAVE);
+
+  // replies require a blocked settlement and the next node event must resume it
+  const replyWhileRunning = clone(done);
+  replyWhileRunning.splice(2, 0, {
+    ...reply[7],
+    run: done[0].run,
+    node: done[1].node,
+    parent: done[1].parent,
+    at: done[2].at,
+    data: { text: "continue", source: "advisor" },
+  });
+  expectCode(check(reseq(replyWhileRunning)), RULE_CODES.REPLY);
+  const danglingReply = reseq(reply.filter((event) => event.type !== "node.resumed"));
+  expectCode(check(danglingReply), RULE_CODES.REPLY);
+  const resumeDone = clone(done);
+  resumeDone.push({
+    ...reply[8],
+    seq: 8,
+    run: done[0].run,
+    node: done[1].node,
+    parent: done[1].parent,
+    at: done.at(-1).at,
+    data: { reason: "follow-up" },
+  });
+  expectCode(check(resumeDone), RULE_CODES.RESUME);
+
   // validated requires written with the same path
   const unwritten = reseq(done.filter((event) => event.type !== "node.result.written"));
   expectCode(check(unwritten), RULE_CODES.RESULT_ORDER);
@@ -152,7 +248,32 @@ test("structural rules each reject a specific mutation with their own code", asy
   const silentBlock = reseq(blocked.filter((event) => event.type !== "node.blocked"));
   expectCode(check(silentBlock), RULE_CODES.BLOCKED);
 
-  // wakes: only after settlement, to the right parent, one per child, increasing generation
+  // a blocked node may be cancelled and wake again for the cancellation settlement
+  const blockedCancel = clone(blocked);
+  blockedCancel.push({
+    ...clone(cancel[2]),
+    seq: 9,
+    at: blocked.at(-1).at,
+    run: blocked[0].run,
+    node: blocked[1].node,
+    parent: blocked[1].parent,
+  });
+  blockedCancel.push({
+    ...clone(cancel[3]),
+    seq: 10,
+    at: blocked.at(-1).at,
+    run: blocked[0].run,
+    node: blocked[1].node,
+    parent: blocked[1].parent,
+  });
+  blockedCancel.push({
+    ...clone(blocked[7]),
+    seq: 11,
+    data: { ...blocked[7].data, childStatus: "cancelled", wakeGeneration: 2 },
+  });
+  assert.deepEqual(check(blockedCancel), { ok: true, problems: [] });
+
+  // wakes: only after a new settlement, to the right parent, increasing generation
   const eagerWake = clone(done);
   [eagerWake[5], eagerWake[6]] = [eagerWake[6], eagerWake[5]];
   expectCode(check(reseq(eagerWake)), RULE_CODES.WAKE);
@@ -165,6 +286,9 @@ test("structural rules each reject a specific mutation with their own code", asy
   const badGeneration = clone(done);
   badGeneration[6].data.wakeGeneration = 3;
   expectCode(check(badGeneration), RULE_CODES.WAKE);
+  const nonIncreasingGeneration = clone(reply);
+  nonIncreasingGeneration.at(-1).data.wakeGeneration = 1;
+  expectCode(check(nonIncreasingGeneration), RULE_CODES.WAKE);
   const statusDrift = clone(done);
   statusDrift[6].data.childStatus = "failed";
   expectCode(check(statusDrift), RULE_CODES.WAKE);

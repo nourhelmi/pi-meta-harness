@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -112,6 +112,28 @@ function runId(sessionId, ordinal = 1, prefix = "cx") {
 
 function resultMarkdown(status = "PASS", { claims = true, statusBody } = {}) {
   return `# Status\n\n${status}${statusBody ? `\n\n${statusBody}` : ""}\n\n${claims ? "# Claims\n\nAC1 maps to direct evidence.\n\n" : ""}# Evidence\n\nThe recorded hook sequence passed.\n\n# Files\n\nOnly the packet surface changed.\n\n# Decisions\n\nAdvisor Core owns settlement.\n\n# Remaining Risk\n\nNo live Codex session was run.\n`;
+}
+
+async function writeGraphManifest(root, graph, node) {
+  await mkdir(join(root, "graphs"), { recursive: true });
+  await writeFile(join(root, "graphs", `${graph}.json`), JSON.stringify({
+    version: 1,
+    graphId: graph,
+    goal: "Native graph correlation fixture.",
+    advisorSessionId: "advisor-session",
+    workstream: "codex-host-test",
+    maxParallel: 1,
+    maxRepairLoops: 1,
+    allowParallelBuilders: false,
+    nodes: [{ id: node, role: "builder", task: "trace", acceptance: ["trace"], requiredSkills: [] }],
+    waves: [[node]],
+    warnings: [],
+    createdAt: "2026-09-05T10:00:00.000Z",
+  }), "utf8");
+}
+
+function graphPrompt(graph, node) {
+  return `RISK TIER: Standard.\n\nGRAPH:\n  graph: ${graph}\n  node: ${node}\n  wave: 1\n  repair: 0\n  upstream:\n  downstream: review\n\nACCEPTANCE CRITERIA:\n1. The graph trace validates.`;
 }
 
 async function withRoot(fn) {
@@ -231,6 +253,36 @@ test("real captured Codex hooks emit one valid done trace and a SubagentStop gen
     ), "utf8"));
     assert.equal(mapping.nativeAgentId, payloads.agentId);
     assert.equal(mapping.nickname, "Maxwell");
+  });
+});
+
+test("GRAPH block uses manifest run and node ids and emits graph planning correlation", async () => {
+  await withRoot(async (root) => {
+    const graph = "codex-native-graph";
+    const node = "codex-builder";
+    await writeGraphManifest(root, graph, node);
+    const payloads = await recordedPayloads("v2", "graph");
+    payloads.pre.tool_input.message = graphPrompt(graph, node);
+    assert.equal((await runHook(payloads.pre, root)).stdout, "");
+    const started = await runHook(payloads.start, root);
+    assert.match(started.stdout, /SubagentStart/);
+    const trace = await validated(root, `graph-${graph}`);
+    assert.equal(trace.events[0].data.graph, graph);
+    assert.deepEqual(trace.events.map((event) => event.type), [
+      "run.created",
+      "graph.planned",
+      "wave.started",
+      "node.launched",
+    ]);
+    assert.equal(trace.events.at(-1).node, node);
+    const resultPath = JSON.parse(started.stdout).hookSpecificOutput.additionalContext.match(/exactly: (.+)/)?.[1];
+    assert.ok(resultPath);
+    await writeFile(resultPath, resultMarkdown(), "utf8");
+    assert.equal((await runHook(payloads.stop, root)).stdout, "");
+    const completed = await validated(root, `graph-${graph}`);
+    assert.equal(completed.events.some((event) =>
+      event.type === "wave.completed" && event.data.wave === 1 && event.data.nodes[0] === node
+    ), true);
   });
 });
 

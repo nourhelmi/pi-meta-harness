@@ -363,9 +363,10 @@ Every new `bg_agent` call supplies `model`, `thinking`, `prompt`, enumerated
 `requiredSkills`, while a freeform launch omits `role` and carries its whole
 contract in the prompt. Every maker prompt states the declared risk tier and
 links evidence by path. When the launch belongs to a graph or repair loop,
-include a `GRAPH` block in the prompt: node id, upstream result paths,
-downstream consumers, repair round with its enumerated findings, and risk
-tier — workers act on their position instead of rediscovering it. Successful
+include the fixed block `GRAPH:` followed by indented `graph`, `node`, `wave`,
+and optional `repair`, comma-separated `upstream`, and comma-separated
+`downstream` key-value lines, ending at a blank line; keep the risk tier in the
+packet — workers act on their position instead of rediscovering it. Successful
 panes close automatically. Blocked or failed panes remain visible. Set
 `keepAlive: true` only for a builder that is expected to receive bounded
 checker feedback; preserve it on follow-ups until that planned repair window

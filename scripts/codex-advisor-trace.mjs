@@ -14,6 +14,7 @@ import {
   parseAcceptance,
   parseRiskTier,
   readJson,
+  resolveGraphLaunch,
   reserveResult,
   withLock,
   writeJsonAtomic,
@@ -141,9 +142,12 @@ async function subagentStart(payload, root, paths) {
       const ordinalState = objectValue(await readJson(paths.ordinal));
       const priorOrdinal = Number.isSafeInteger(ordinalState?.value) && ordinalState.value >= 0 ? ordinalState.value : 0;
       const ordinal = priorOrdinal + 1;
-      const runId = `cx-${hash(payload.session_id)}-${ordinal}`;
-      const nodeId = `advisor-maker-${hash(agentId)}`;
-      const resultPath = join(root, "runs", HOST, runId, "result.md");
+      const graph = await resolveGraphLaunch(root, prompt);
+      const runId = graph ? `graph-${graph.graph}` : `cx-${hash(payload.session_id)}-${ordinal}`;
+      const nodeId = graph?.node ?? `advisor-maker-${hash(agentId)}`;
+      const resultPath = graph
+        ? join(root, "runs", HOST, runId, nodeId, "result.md")
+        : join(root, "runs", HOST, runId, "result.md");
       mapping = {
         runId,
         nodeId,
@@ -156,6 +160,7 @@ async function subagentStart(payload, root, paths) {
         label: stringValue(pending.taskName) ?? MAKER,
         model: stringValue(pending.model) ?? "unknown",
         thinking: stringValue(pending.thinking) ?? "unspecified",
+        ...(graph ? { graph } : {}),
         ...(stringValue(pending.nativeAgentId) ? { nativeAgentId: stringValue(pending.nativeAgentId) } : {}),
         ...(stringValue(pending.nativeTaskName) ? { nativeTaskName: stringValue(pending.nativeTaskName) } : {}),
         ...(stringValue(pending.nickname) ? { nickname: stringValue(pending.nickname) } : {}),
@@ -167,20 +172,37 @@ async function subagentStart(payload, root, paths) {
 
     await reserveResult(mapping.resultPath);
     await appendTrace(root, mapping.runId, HOST, (events) => {
-      if (events.length > 0) return [];
-      return [
-        {
+      const drafts = [];
+      if (events.length === 0) drafts.push({
           type: "run.created",
           node: null,
           parent: null,
           data: {
             workstream: stringValue(process.env.ADVISOR_WORKSTREAM) ?? HOST,
             goal: mapping.prompt,
+            ...(mapping.graph?.graph ? { graph: mapping.graph.graph } : {}),
             stateRoot: root,
             root: { node: ROOT_NODE, session: payload.session_id },
           },
-        },
-        {
+        });
+      if (mapping.graph?.plan && !events.some((event) => event.type === "graph.planned")) drafts.push({
+        type: "graph.planned",
+        node: null,
+        parent: null,
+        data: mapping.graph.plan,
+      });
+      const priorWaveCompleted = mapping.graph?.wave === 1 || events.some((event) =>
+        event.type === "wave.completed" && event.data.wave === mapping.graph.wave - 1
+      );
+      if (mapping.graph?.plan && priorWaveCompleted && !events.some((event) => event.type === "wave.started" && event.data.wave === mapping.graph.wave)) {
+        drafts.push({
+          type: "wave.started",
+          node: null,
+          parent: null,
+          data: { wave: mapping.graph.wave, nodes: mapping.graph.plan.waves[mapping.graph.wave - 1] },
+        });
+      }
+      if (!events.some((event) => event.type === "node.launched" && event.node === mapping.nodeId)) drafts.push({
           type: "node.launched",
           node: mapping.nodeId,
           parent: ROOT_NODE,
@@ -200,8 +222,8 @@ async function subagentStart(payload, root, paths) {
               toolUseId: mapping.toolUseId,
             },
           },
-        },
-      ];
+        });
+      return drafts;
     });
     await unlink(paths.pending).catch((error) => {
       if (error?.code !== "ENOENT") throw error;
@@ -276,6 +298,16 @@ async function subagentStop(payload, root, paths) {
         },
       };
       drafts.push(settlement);
+      const waveNodes = mapping.graph?.plan?.waves?.[mapping.graph.wave - 1];
+      if (waveNodes?.length === 1 && waveNodes[0] === mapping.nodeId &&
+          !events.some((event) => event.type === "wave.completed" && event.data.wave === mapping.graph.wave)) {
+        drafts.push({
+          type: "wave.completed",
+          node: null,
+          parent: null,
+          data: { wave: mapping.graph.wave, nodes: waveNodes },
+        });
+      }
       drafts.push(...wakeDraft([...events, ...drafts], mapping, settlement));
       return drafts;
     });

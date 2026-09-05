@@ -140,6 +140,28 @@ test("blocked settlement doctrine documents Pi prompt and worker result signals"
   assert.match(blocked, /Status starts with `BLOCKED`[\s\S]*parent `bg_agent` settles it as blocked[\s\S]*request[\s\S]*sound fires/);
   assert.match(blocked, /pi-detach discovers Pi worker result artifacts through the[\s\S]*`advisor-worker` session entry[\s\S]*`resultDiscovery`/i);
 });
+test("protocol step 6 fixes GRAPH syntax and host support boundaries", async () => {
+  const [advisor, contract, protocol, runtime] = await Promise.all([
+    text("skills/advisor/SKILL.md"),
+    text("skills/advisor-worker/references/WORKER_CONTRACT.md"),
+    text("docs/advisor-protocol.md"),
+    text("docs/advisor-runtime.md"),
+  ]);
+
+  for (const source of [advisor, contract]) {
+    for (const key of ["graph", "node", "wave", "repair", "upstream", "downstream"]) {
+      assert.match(source, new RegExp("`" + key + "`"));
+    }
+    assert.match(source, /`GRAPH:`/);
+    assert.match(source, /blank line/);
+  }
+  assert.match(protocol, /^## Step 6 host support$/m);
+  assert.match(protocol, /\| Pi \+ pi-detach \| yes \| yes \| yes \| yes \| yes \|/);
+  assert.match(protocol, /\| Claude Code \| yes \| single-maker correlation only \| no \| no \| no \|/);
+  assert.match(protocol, /\| Codex \| yes \| single-maker correlation only \| no \| no \| no \|/);
+  assert.match(protocol, /\| 6\. Graphs, BLOCKED replies, cancellation, resume \| done \(Pi reference; native hosts graph correlation only\) \|/);
+  assert.match(runtime, /Protocol step 6[\s\S]*Pi is the[\s\S]*reference implementation/);
+});
 test("result validation doctrine is lenient and status-driven", async () => {
   const protocol = await text("docs/advisor-protocol.md");
   const validation = section(protocol, "## Result validation", "## Pi host binding");

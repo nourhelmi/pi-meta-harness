@@ -21,8 +21,9 @@ The worker owns one bounded node only.
    in `result.md` and keep working. Stop and report only when new evidence
    invalidates a frozen criterion or the fixed approach, so the parent can
    issue and record an explicit packet revision; never revise criteria yourself.
-5. When the packet carries a `GRAPH` block (node id, upstream result paths,
-   downstream consumers, repair round, risk tier), read the referenced
+5. When the packet carries a `GRAPH:` block, parse its indented `graph`, `node`,
+   `wave`, optional `repair`, comma-separated `upstream`, and comma-separated
+   `downstream` lines until the blank line, then read the referenced
    upstream results and every evidence path the packet links before task
    work, stay inside your node, and treat a
    declared repair round as scoped to its enumerated findings.

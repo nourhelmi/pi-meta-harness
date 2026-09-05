@@ -146,6 +146,79 @@ export function parseAcceptance(prompt) {
   return criteria.length > 0 ? criteria : ["result.md validates with the six required headings"];
 }
 
+const TRACE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+// Canonical run ids are capped at 128 characters; graph runs add `graph-`.
+const GRAPH_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,121}$/;
+
+/** Parse the fixed indented GRAPH block shared by every host binding. */
+export function parseGraphBlock(prompt) {
+  const lines = prompt.split(/\r?\n/);
+  const start = lines.findIndex((line) => /^\s*GRAPH:\s*$/.test(line));
+  if (start < 0) return undefined;
+  const values = {};
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim()) break;
+    const match = /^\s+([a-z]+):\s*(.*?)\s*$/.exec(line);
+    if (!match) break;
+    values[match[1]] = match[2];
+  }
+  const graph = stringValue(values.graph);
+  const node = stringValue(values.node);
+  const wave = integerValue(values.wave, 1);
+  const repair = values.repair === undefined ? undefined : integerValue(values.repair, 0);
+  if (!graph || !node || !GRAPH_ID.test(graph) || !TRACE_ID.test(node) || wave === undefined) return undefined;
+  if (values.repair !== undefined && repair === undefined) return undefined;
+  return {
+    graph,
+    node,
+    wave,
+    ...(repair !== undefined ? { repair } : {}),
+    ...(values.upstream !== undefined ? { upstream: commaList(values.upstream) } : {}),
+    ...(values.downstream !== undefined ? { downstream: commaList(values.downstream) } : {}),
+  };
+}
+
+function stringValue(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function integerValue(value, minimum) {
+  if (typeof value !== "string" || !/^\d+$/.test(value.trim())) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= minimum ? parsed : undefined;
+}
+
+function commaList(value) {
+  return value.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+export async function readGraphManifest(root, graph) {
+  return readJson(join(root, "graphs", `${graph}.json`));
+}
+
+export async function resolveGraphLaunch(root, prompt) {
+  const block = parseGraphBlock(prompt);
+  if (!block) return undefined;
+  const value = await readGraphManifest(root, block.graph);
+  const waves = Array.isArray(value?.waves)
+    ? value.waves.map((wave) => Array.isArray(wave) ? wave.filter((node) => typeof node === "string" && TRACE_ID.test(node)) : [])
+    : [];
+  const valid = value?.graphId === block.graph && waves.length > 0 && waves[block.wave - 1]?.includes(block.node) &&
+    Number.isSafeInteger(value?.maxParallel) && value.maxParallel >= 1 &&
+    Number.isSafeInteger(value?.maxRepairLoops) && value.maxRepairLoops >= 0;
+  return {
+    ...block,
+    ...(valid ? {
+      plan: {
+        graph: block.graph,
+        waves,
+        maxParallel: value.maxParallel,
+        maxRepairLoops: value.maxRepairLoops,
+      },
+    } : {}),
+  };
+}
+
 export function blockedKind(text) {
   if (/\bcredential(?:s)?\b|\bapi[ -]?key\b|\bpassword\b|\bsecret\b|\bauth(?:entication)? token\b/i.test(text)) {
     return "credential";

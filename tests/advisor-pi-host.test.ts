@@ -99,6 +99,28 @@ async function writeResult(root: string, name: string, markdown: string): Promis
 	return path;
 }
 
+async function writeGraphManifest(root: string, graphId: string, waves: string[][]): Promise<void> {
+	await mkdir(join(root, "graphs"), { recursive: true });
+	await writeFile(join(root, "graphs", `${graphId}.json`), JSON.stringify({
+		version: 1,
+		graphId,
+		goal: `Exercise graph ${graphId}.`,
+		advisorSessionId: "advisor-session-1234",
+		workstream: "pi-host-adapter",
+		maxParallel: 2,
+		maxRepairLoops: 1,
+		allowParallelBuilders: false,
+		nodes: waves.flat().map((id) => ({ id, role: "builder", task: id, acceptance: [`${id} settles.`], requiredSkills: [] })),
+		waves,
+		warnings: [],
+		createdAt: "2026-09-05T10:00:00.000Z",
+	}), "utf8");
+}
+
+function graphPrompt(graph: string, node: string, wave: number): string {
+	return `RISK TIER: Standard. Execute the graph node.\n\nGRAPH:\n  graph: ${graph}\n  node: ${node}\n  wave: ${wave}\n  repair: 0\n  upstream:\n  downstream:\n\nACCEPTANCE CRITERIA:\n1. The graph trace validates.`;
+}
+
 function launchInput(overrides: Record<string, unknown> = {}) {
 	return {
 		prompt: "RISK TIER: Standard. Emit the canonical advisor trace.",
@@ -202,6 +224,53 @@ test("promoted done launch emits one valid settled node and one generation-1 wak
 	});
 });
 
+test("GRAPH launches share one run, emit gated waves, complete settled waves, and fall back when the manifest is missing", async () => {
+	await withStateRoot(async (root) => {
+		const graph = "pi-two-wave";
+		await writeGraphManifest(root, graph, [["plan-node"], ["build-node"]]);
+		const host = installedHost();
+		const firstPath = await writeResult(root, "graph-plan", resultMarkdown());
+		await launchPromoted(host, "detach-plan", firstPath, launchInput({
+			role: "planner",
+			prompt: graphPrompt(graph, "plan-node", 1),
+		}));
+
+		const tracePath = join(root, "traces", `graph-${graph}.jsonl`);
+		let traced = await validatedTrace(tracePath);
+		assert.deepEqual(traced.events.slice(0, 4).map((event) => event.type), [
+			"run.created",
+			"graph.planned",
+			"wave.started",
+			"node.launched",
+		]);
+		assert.equal((traced.events[0]?.data as Record<string, unknown>).graph, graph);
+		assert.equal(traced.events[3]?.node, "plan-node");
+
+		await host.dispatch("message_end", settlementMessage("detach-plan", firstPath, "done"));
+		traced = await validatedTrace(tracePath);
+		const settlement = traced.events.find((event) => event.type === "node.settled" && event.node === "plan-node");
+		const completion = traced.events.find((event) => event.type === "wave.completed" && (event.data as Record<string, unknown>).wave === 1);
+		assert.ok(settlement && completion);
+		assert.equal(completion.at, settlement.at, "wave completion is appended in the settlement batch");
+
+		const secondPath = await writeResult(root, "graph-build", resultMarkdown());
+		await launchPromoted(host, "detach-build", secondPath, launchInput({
+			prompt: graphPrompt(graph, "build-node", 2),
+		}));
+		traced = await validatedTrace(tracePath);
+		assert.ok(traced.events.some((event) => event.type === "wave.started" && (event.data as Record<string, unknown>).wave === 2));
+		assert.ok(traced.events.some((event) => event.type === "node.launched" && event.node === "build-node"));
+
+		const fallbackPath = await writeResult(root, "missing-graph", resultMarkdown());
+		await launchPromoted(host, "detach-fallback", fallbackPath, launchInput({
+			prompt: graphPrompt("absent-graph", "missing-node", 1),
+		}));
+		const fallback = await validatedTrace(join(root, "traces", "detach-fallback.jsonl"));
+		assert.equal(fallback.events.some((event) => event.type === "graph.planned"), false);
+		await access(join(root, "runs", "pi", "detach-fallback", "graph-manifest-missing.json"));
+	});
+});
+
 test("blocked result emits node.blocked before result.written and settles blocked", async () => {
 	await withStateRoot(async (root) => {
 		const runId = "blocked123";
@@ -225,6 +294,79 @@ test("blocked result emits node.blocked before result.written and settles blocke
 		});
 		const launch = events.find((event) => event.type === "node.launched");
 		assert.equal((launch?.data as Record<string, unknown>).harness, "claude-code");
+	});
+});
+
+test("name follow-up replies to and resumes the same blocked node before its second settlement", async () => {
+	await withStateRoot(async (root) => {
+		const runId = "reply123";
+		const resumedRunId = "reply456";
+		const resultPath = await writeResult(
+			root,
+			runId,
+			resultMarkdown("BLOCKED", { statusBody: "Choose the product storage boundary." }),
+		);
+		const host = installedHost();
+		await launchPromoted(host, runId, resultPath, launchInput({ keepAlive: true }));
+		await host.dispatch("message_end", settlementMessage(runId, resultPath, "blocked"));
+
+		await writeFile(resultPath, resultMarkdown(), "utf8");
+		const input = launchInput({ role: undefined, name: `builder-${runId}`, prompt: "Use the per-project state file." });
+		await host.dispatch("tool_call", { type: "tool_call", toolName: "bg_agent", toolCallId: "call-reply", input });
+		await host.dispatch("tool_result", {
+			type: "tool_result",
+			toolName: "bg_agent",
+			toolCallId: "call-reply",
+			input,
+			content: [{ type: "text", text: "Agent resumed." }],
+			isError: false,
+			details: promotedDetails(resumedRunId, resultPath, {
+				runtime: "existing",
+				agentName: `builder-${runId}`,
+			}),
+		});
+		await host.dispatch("message_end", settlementMessage(resumedRunId, resultPath, "done", {
+			agentName: `builder-${runId}`,
+		}));
+
+		const { events, projection } = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+		const blocked = events.find((event) => event.type === "node.blocked");
+		const reply = events.find((event) => event.type === "node.reply.sent");
+		assert.equal((reply?.data as Record<string, unknown>).replyTo, blocked?.seq);
+		assert.equal(reply?.node, `builder-${runId}`);
+		assert.ok(events.some((event) => event.type === "node.resumed" && event.node === `builder-${runId}`));
+		assert.deepEqual(projection.wakes.map(({ generation }) => generation), [1, 2]);
+		await assert.rejects(access(join(root, "traces", `${resumedRunId}.jsonl`)), { code: "ENOENT" });
+	});
+});
+
+test("bg_stop call and result request cancellation before the killed settlement", async () => {
+	await withStateRoot(async (root) => {
+		const runId = "cancel123";
+		const resultPath = await writeResult(root, runId, "");
+		const host = installedHost();
+		await launchPromoted(host, runId, resultPath);
+		await host.dispatch("tool_call", {
+			type: "tool_call",
+			toolName: "bg_stop",
+			toolCallId: "call-stop",
+			input: { runId },
+		});
+		await host.dispatch("tool_result", {
+			type: "tool_result",
+			toolName: "bg_stop",
+			toolCallId: "call-stop",
+			input: { runId },
+			content: [{ type: "text", text: `Stopped ${runId}.` }],
+			isError: false,
+			details: { runId, stopped: true },
+		});
+		await host.dispatch("message_end", settlementMessage(runId, resultPath, "working", { status: "killed" }));
+
+		const { events, projection } = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+		assert.ok(events.some((event) => event.type === "node.cancel.requested" && (event.data as Record<string, unknown>).reason === "bg_stop"));
+		assert.equal(projection.nodes[0]?.settledStatus, "cancelled");
+		assert.equal(projection.wakes.length, 1);
 	});
 });
 
@@ -477,6 +619,45 @@ test("name follow-up is a new run and reuses the observed harness identity", asy
 		assert.equal(launch?.node, "freeform-follow123");
 		assert.equal((launch?.data as Record<string, unknown>).harness, "codex");
 		assert.equal((launch?.data as Record<string, unknown>).riskTier, "high");
+	});
+});
+
+test("name follow-up to a canonically done node still creates a new run", async () => {
+	await withStateRoot(async (root) => {
+		const originalRunId = "done-follow-original";
+		const followRunId = "done-follow-new";
+		const originalPath = await writeResult(root, originalRunId, resultMarkdown());
+		const followPath = await writeResult(root, followRunId, resultMarkdown());
+		const host = installedHost();
+		await launchPromoted(host, originalRunId, originalPath);
+		await host.dispatch("message_end", settlementMessage(originalRunId, originalPath, "done"));
+
+		const input = launchInput({ role: undefined, name: `builder-${originalRunId}`, prompt: "Run a separate follow-up." });
+		await host.dispatch("tool_call", { type: "tool_call", toolName: "bg_agent", toolCallId: "call-done-follow", input });
+		await host.dispatch("tool_result", {
+			type: "tool_result",
+			toolName: "bg_agent",
+			toolCallId: "call-done-follow",
+			input,
+			content: [{ type: "text", text: "Agent settled inline." }],
+			isError: false,
+			details: {
+				runId: followRunId,
+				promoted: false,
+				status: "exited",
+				agentState: "done",
+				runtime: "existing",
+				agentName: `builder-${originalRunId}`,
+				resultPath: followPath,
+				resultStatus: "PASS",
+				reusable: false,
+			},
+		});
+
+		const original = await validatedTrace(join(root, "traces", `${originalRunId}.jsonl`));
+		const follow = await validatedTrace(join(root, "traces", `${followRunId}.jsonl`));
+		assert.equal(original.events.some((event) => event.type === "node.resumed"), false);
+		assert.equal(follow.events.find((event) => event.type === "node.launched")?.node, `freeform-${followRunId}`);
 	});
 });
 

@@ -23,9 +23,15 @@
     "type": {
       "enum": [
         "run.created",
+        "graph.planned",
+        "wave.started",
+        "wave.completed",
         "node.launched",
         "node.progress",
         "node.blocked",
+        "node.reply.sent",
+        "node.cancel.requested",
+        "node.resumed",
         "node.result.written",
         "node.result.validated",
         "node.settled",
@@ -40,6 +46,18 @@
       "then": { "properties": { "node": { "type": "null" }, "parent": { "type": "null" }, "data": { "$ref": "#/$defs/run.created" } } }
     },
     {
+      "if": { "properties": { "type": { "const": "graph.planned" } } },
+      "then": { "properties": { "node": { "type": "null" }, "parent": { "type": "null" }, "data": { "$ref": "#/$defs/graph.planned" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "wave.started" } } },
+      "then": { "properties": { "node": { "type": "null" }, "parent": { "type": "null" }, "data": { "$ref": "#/$defs/wave.started" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "wave.completed" } } },
+      "then": { "properties": { "node": { "type": "null" }, "parent": { "type": "null" }, "data": { "$ref": "#/$defs/wave.completed" } } }
+    },
+    {
       "if": { "properties": { "type": { "const": "node.launched" } } },
       "then": { "properties": { "node": { "$ref": "#/$defs/id" }, "parent": { "$ref": "#/$defs/id" }, "data": { "$ref": "#/$defs/node.launched" } } }
     },
@@ -50,6 +68,18 @@
     {
       "if": { "properties": { "type": { "const": "node.blocked" } } },
       "then": { "properties": { "node": { "$ref": "#/$defs/id" }, "parent": { "$ref": "#/$defs/id" }, "data": { "$ref": "#/$defs/node.blocked" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "node.reply.sent" } } },
+      "then": { "properties": { "node": { "$ref": "#/$defs/id" }, "parent": { "$ref": "#/$defs/id" }, "data": { "$ref": "#/$defs/node.reply.sent" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "node.cancel.requested" } } },
+      "then": { "properties": { "node": { "$ref": "#/$defs/id" }, "parent": { "$ref": "#/$defs/id" }, "data": { "$ref": "#/$defs/node.cancel.requested" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "node.resumed" } } },
+      "then": { "properties": { "node": { "$ref": "#/$defs/id" }, "parent": { "$ref": "#/$defs/id" }, "data": { "$ref": "#/$defs/node.resumed" } } }
     },
     {
       "if": { "properties": { "type": { "const": "node.result.written" } } },
@@ -98,6 +128,36 @@
         }
       }
     },
+    "graph.planned": {
+      "type": "object",
+      "required": ["graph", "waves", "maxParallel", "maxRepairLoops"],
+      "additionalProperties": false,
+      "properties": {
+        "graph": { "$ref": "#/$defs/id" },
+        "waves": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/id" }
+          }
+        },
+        "maxParallel": { "type": "integer", "minimum": 1 },
+        "maxRepairLoops": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "wave": {
+      "type": "object",
+      "required": ["wave", "nodes"],
+      "additionalProperties": false,
+      "properties": {
+        "wave": { "type": "integer", "minimum": 1 },
+        "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }
+      }
+    },
+    "wave.started": { "$ref": "#/$defs/wave" },
+    "wave.completed": { "$ref": "#/$defs/wave" },
     "node.launched": {
       "type": "object",
       "required": ["role", "label", "harness", "model", "thinking", "cwd", "riskTier", "acceptance"],
@@ -142,6 +202,28 @@
           }
         }
       }
+    },
+    "node.reply.sent": {
+      "type": "object",
+      "required": ["text", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["advisor", "user"] },
+        "replyTo": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "node.cancel.requested": {
+      "type": "object",
+      "required": ["reason"],
+      "additionalProperties": false,
+      "properties": { "reason": { "type": "string", "minLength": 1 } }
+    },
+    "node.resumed": {
+      "type": "object",
+      "required": ["reason"],
+      "additionalProperties": false,
+      "properties": { "reason": { "enum": ["reply", "restart", "follow-up"] } }
     },
     "node.result.written": {
       "type": "object",

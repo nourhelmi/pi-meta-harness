@@ -1,6 +1,7 @@
-import { readFile, readdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { type GraphBlock, parseGraphBlock, readGraphManifest } from "../scripts/advisor-core/host-binding.mjs";
 import {
 	advisorStateRoot,
 	restoredState,
@@ -47,6 +48,15 @@ interface BgAgentDetails {
 	resultStatus?: unknown;
 	reusable?: unknown;
 	settlementNote?: unknown;
+}
+
+interface BgStopInput {
+	runId?: unknown;
+}
+
+interface BgStopDetails {
+	runId?: unknown;
+	stopped?: unknown;
 }
 
 interface RunRecordDetails {
@@ -101,6 +111,23 @@ interface ArtifactInspection {
 	path?: string;
 	validation: ResultArtifactValidation;
 	statusBody?: string;
+}
+
+interface GraphManifest {
+	graphId: string;
+	goal?: string;
+	waves: string[][];
+	maxParallel: number;
+	maxRepairLoops: number;
+}
+
+interface TrackedNode {
+	runId: string;
+	node: string;
+	parent: string;
+	detachRunId: string;
+	agentName?: string;
+	identity?: HarnessIdentity;
 }
 
 const ROOT_NODE = "advisor";
@@ -327,6 +354,116 @@ function stringRecord(value: unknown): Record<string, unknown> | undefined {
 	return value !== null && typeof value === "object" ? value as Record<string, unknown> : undefined;
 }
 
+function graphManifest(value: unknown, block: GraphBlock): GraphManifest | undefined {
+	const manifest = stringRecord(value);
+	const graphId = stringValue(manifest?.graphId);
+	const waves = Array.isArray(manifest?.waves)
+		? manifest.waves.map((wave) => Array.isArray(wave) ? wave.map(stringValue).filter((node): node is string => Boolean(node)) : [])
+		: [];
+	const maxParallel = manifest?.maxParallel;
+	const maxRepairLoops = manifest?.maxRepairLoops;
+	if (
+		graphId !== block.graph ||
+		waves.length === 0 ||
+		!waves[block.wave - 1]?.includes(block.node) ||
+		!Number.isSafeInteger(maxParallel) ||
+		(maxParallel as number) < 1 ||
+		!Number.isSafeInteger(maxRepairLoops) ||
+		(maxRepairLoops as number) < 0
+	) return undefined;
+	return {
+		graphId,
+		...(stringValue(manifest?.goal) ? { goal: stringValue(manifest?.goal) } : {}),
+		waves,
+		maxParallel: maxParallel as number,
+		maxRepairLoops: maxRepairLoops as number,
+	};
+}
+
+function lastNodeEvent(events: CanonicalEvent[], node: string, type: string): CanonicalEvent | undefined {
+	return events.findLast((event) => event.node === node && event.type === type);
+}
+
+function nodeIsSettled(events: Array<Pick<CanonicalEvent, "node" | "type">>, node: string): boolean {
+	const lifecycle = events.filter((event) => event.node === node && (event.type === "node.settled" || event.type === "node.resumed"));
+	return lifecycle.at(-1)?.type === "node.settled";
+}
+
+function nodeCanCancel(events: CanonicalEvent[], node: string): boolean {
+	const settlement = lastNodeEvent(events, node, "node.settled");
+	const resume = lastNodeEvent(events, node, "node.resumed");
+	if (!settlement || (resume && resume.seq > settlement.seq)) return true;
+	return settlement.data.status === "blocked";
+}
+
+function trackedNodeFromLaunch(event: CanonicalEvent): TrackedNode | undefined {
+	if (event.type !== "node.launched" || !event.node || !event.parent) return undefined;
+	const launchRef = stringRecord(event.data.launchRef);
+	const detachRunId = stringValue(launchRef?.detachRunId);
+	if (!detachRunId) return undefined;
+	return {
+		runId: event.run,
+		node: event.node,
+		parent: event.parent,
+		detachRunId,
+		...(stringValue(launchRef?.agentName) ? { agentName: stringValue(launchRef?.agentName) } : {}),
+		...(priorHarnessIdentity(event) ? { identity: priorHarnessIdentity(event) } : {}),
+	};
+}
+
+async function traceFiles(root: string): Promise<Array<{ path: string; events: CanonicalEvent[] }>> {
+	let files: string[];
+	try {
+		files = await readdir(join(root, "traces"));
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+		throw error;
+	}
+	const traces = [];
+	for (const file of files.filter((name) => name.endsWith(".jsonl"))) {
+		const path = join(root, "traces", file);
+		try {
+			const events = (await readFile(path, "utf8")).split("\n").filter(Boolean).map((line) => JSON.parse(line) as CanonicalEvent);
+			traces.push({ path, events });
+		} catch {
+			// Corrupt unrelated traces cannot be used for correlation.
+		}
+	}
+	return traces;
+}
+
+async function findTrackedNode(
+	root: string,
+	match: { detachRunId?: string; agentName?: string; blocked?: boolean },
+): Promise<TrackedNode | undefined> {
+	let latest: { at: number; target: TrackedNode } | undefined;
+	for (const { events } of await traceFiles(root)) {
+		for (const event of events) {
+			const target = trackedNodeFromLaunch(event);
+			if (!target) continue;
+			if (match.detachRunId && target.detachRunId !== match.detachRunId) continue;
+			if (match.agentName && target.agentName !== match.agentName) continue;
+			if (match.blocked) {
+				const settlement = lastNodeEvent(events, target.node, "node.settled");
+				const resume = lastNodeEvent(events, target.node, "node.resumed");
+				if (settlement?.data.status !== "blocked" || (resume && resume.seq > settlement.seq)) continue;
+			}
+			const at = Date.parse(event.at);
+			if (!latest || at >= latest.at) latest = { at, target };
+		}
+	}
+	return latest?.target;
+}
+
+async function writeRunNote(path: string, value: unknown): Promise<void> {
+	await mkdir(dirname(path), { recursive: true });
+	try {
+		await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+	}
+}
+
 function priorHarnessIdentity(event: CanonicalEvent): HarnessIdentity | undefined {
 	if (event.type !== "node.launched") return undefined;
 	const harness = event.data.harness;
@@ -386,17 +523,28 @@ async function findPersistedHarnessIdentity(root: string, agentName: string): Pr
 	return latest?.identity;
 }
 
-function settlementDrafts(events: CanonicalEvent[], settlement: Settlement, artifact: ArtifactInspection): CanonicalEventDraft[] {
-	const launch = events.find((event) => event.type === "node.launched");
+function settlementDrafts(
+	events: CanonicalEvent[],
+	settlement: Settlement,
+	artifact: ArtifactInspection,
+	node: string,
+): CanonicalEventDraft[] {
+	const launch = events.find((event) => event.type === "node.launched" && event.node === node);
 	if (!launch || !launch.node || !launch.parent) return [];
-	if (events.some((event) => event.type === "node.settled" && event.node === launch.node)) return [];
 
 	const nativeStatus = nativeSettlement(settlement);
+	const lastSettlement = lastNodeEvent(events, launch.node, "node.settled");
+	const lastResume = lastNodeEvent(events, launch.node, "node.resumed");
+	const openAttempt = !lastSettlement || Boolean(lastResume && lastResume.seq > lastSettlement.seq);
+	const blockedCancellation = nativeStatus === "cancelled" && lastSettlement?.data.status === "blocked" &&
+		(lastNodeEvent(events, launch.node, "node.cancel.requested")?.seq ?? 0) > lastSettlement.seq;
+	if (!openAttempt && !blockedCancellation) return [];
 	const status = (nativeStatus === "done" || nativeStatus === "blocked") && !artifact.validation.valid
 		? "stalled"
 		: nativeStatus;
 	const drafts: CanonicalEventDraft[] = [];
-	if (nativeStatus === "blocked" && !events.some((event) => event.type === "node.blocked" && event.node === launch.node)) {
+	const priorBlocked = lastNodeEvent(events, launch.node, "node.blocked");
+	if (nativeStatus === "blocked" && (!priorBlocked || (lastResume && lastResume.seq > priorBlocked.seq))) {
 		const requestText = artifact.statusBody ?? settlement.settlementNote ??
 			(settlement.tail.trim() || "Agent is blocked and needs a decision.");
 		drafts.push({
@@ -406,7 +554,7 @@ function settlementDrafts(events: CanonicalEvent[], settlement: Settlement, arti
 			data: { request: { kind: blockedKind(requestText), text: requestText } },
 		});
 	}
-	if (artifact.present && artifact.path) {
+	if (!blockedCancellation && artifact.present && artifact.path) {
 		drafts.push({
 			type: "node.result.written",
 			node: launch.node,
@@ -448,14 +596,28 @@ function settlementDrafts(events: CanonicalEvent[], settlement: Settlement, arti
 			...(artifact.present && artifact.path ? { resultPath: artifact.path } : {}),
 		},
 	});
+	const graph = events.find((event) => event.type === "graph.planned");
+	if (graph) {
+		const waveIndex = (graph.data.waves as string[][]).findIndex((nodes) => nodes.includes(launch.node as string));
+		const wave = waveIndex + 1;
+		const nodes = waveIndex >= 0 ? (graph.data.waves as string[][])[waveIndex] : undefined;
+		const completed = events.some((event) => event.type === "wave.completed" && event.data.wave === wave);
+		const started = events.some((event) => event.type === "wave.started" && event.data.wave === wave);
+		const combined = [...events, ...drafts] as Array<Pick<CanonicalEvent, "node" | "type">>;
+		if (nodes && started && !completed && nodes.every((candidate) => nodeIsSettled(combined, candidate))) {
+			drafts.push({ type: "wave.completed", node: null, parent: null, data: { wave, nodes } });
+		}
+	}
 	return drafts;
 }
 
 export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 	const pending = new Map<string, PendingLaunch>();
+	const pendingStops = new Map<string, { binding: Binding; detachRunId: string }>();
 	const earlySettlements = new Map<string, Settlement>();
 	const stores = new Map<string, AdvisorTraceStore>();
 	const identities = new Map<string, HarnessIdentity>();
+	const detachTargets = new Map<string, TrackedNode>();
 
 	async function binding(ctx: ExtensionContext): Promise<Binding | undefined> {
 		const state = await restoredState(ctx);
@@ -469,23 +631,41 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 		return { state, root, store };
 	}
 
-	async function settle(binding: Binding, settlement: Settlement): Promise<boolean> {
+	function rememberTarget(root: string, target: TrackedNode): void {
+		detachTargets.set(`${root}\0${target.detachRunId}`, target);
+	}
+
+	async function resolveTarget(active: Binding, settlement: Settlement): Promise<TrackedNode | undefined> {
+		return detachTargets.get(`${active.root}\0${settlement.runId}`) ??
+			(await findTrackedNode(active.root, { detachRunId: settlement.runId })) ??
+			(settlement.agentName ? await findTrackedNode(active.root, { agentName: settlement.agentName }) : undefined);
+	}
+
+	async function settle(active: Binding, settlement: Settlement): Promise<boolean> {
 		let observedLaunch = false;
-		await binding.store.update(settlement.runId, async (events) => {
-			if (!events.some((event) => event.type === "node.launched")) return [];
-			observedLaunch = true;
-			const launch = events.find((event) => event.type === "node.launched");
+		const target = await resolveTarget(active, settlement);
+		if (!target) return false;
+		await active.store.update(target.runId, async (events) => {
+			const launch = events.find((event) => event.type === "node.launched" && event.node === target.node);
+			if (!launch) return [];
 			const launchPath = stringValue(launch?.data.resultPath);
 			const artifact = await inspectArtifact(settlement.resultPath ?? launchPath);
-			return settlementDrafts(events, settlement, artifact);
+			const drafts = settlementDrafts(events, settlement, artifact, target.node);
+			observedLaunch = drafts.length > 0;
+			return drafts;
 		});
 		return observedLaunch;
 	}
 
 	pi.on("tool_call", async (event, ctx) => {
-		if (event.toolName !== "bg_agent") return;
 		const active = await binding(ctx);
 		if (!active) return;
+		if (event.toolName === "bg_stop") {
+			const detachRunId = stringValue((event.input as BgStopInput).runId);
+			if (detachRunId) pendingStops.set(event.toolCallId, { binding: active, detachRunId });
+			return;
+		}
+		if (event.toolName !== "bg_agent") return;
 		pending.set(event.toolCallId, {
 			binding: active,
 			cwd: ctx.cwd,
@@ -494,6 +674,31 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("tool_result", async (event, ctx) => {
+		if (event.toolName === "bg_stop") {
+			const capturedStop = pendingStops.get(event.toolCallId);
+			pendingStops.delete(event.toolCallId);
+			if (!capturedStop) return;
+			const details = (stringRecord(event.details) ?? {}) as BgStopDetails;
+			const detachRunId = stringValue(details.runId);
+			if (details.stopped !== true || !detachRunId || detachRunId !== capturedStop.detachRunId) return;
+			const target = detachTargets.get(`${capturedStop.binding.root}\0${detachRunId}`) ??
+				(await findTrackedNode(capturedStop.binding.root, { detachRunId }));
+			if (!target) return;
+			await capturedStop.binding.store.update(target.runId, (events) => {
+				if (!nodeCanCancel(events, target.node)) return [];
+				const lastCancel = lastNodeEvent(events, target.node, "node.cancel.requested");
+				const lastResume = lastNodeEvent(events, target.node, "node.resumed");
+				const lastSettlement = lastNodeEvent(events, target.node, "node.settled");
+				if ((lastCancel?.seq ?? 0) > Math.max(lastResume?.seq ?? 0, lastSettlement?.seq ?? 0)) return [];
+				return [{
+					type: "node.cancel.requested",
+					node: target.node,
+					parent: target.parent,
+					data: { reason: "bg_stop" },
+				}];
+			});
+			return;
+		}
 		if (event.toolName !== "bg_agent") return;
 		const captured = pending.get(event.toolCallId);
 		pending.delete(event.toolCallId);
@@ -503,6 +708,44 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 		if (!runId) return;
 		const input = captured.input;
 		const agentName = stringValue(details.agentName);
+		const prompt = stringValue(input.prompt);
+		if (details.runtime === "existing" && agentName && prompt) {
+			const replyTarget = await findTrackedNode(captured.binding.root, { agentName, blocked: true });
+			if (replyTarget) {
+				await captured.binding.store.update(replyTarget.runId, (events) => {
+					const settlement = lastNodeEvent(events, replyTarget.node, "node.settled");
+					const blocked = lastNodeEvent(events, replyTarget.node, "node.blocked");
+					const resumed = lastNodeEvent(events, replyTarget.node, "node.resumed");
+					if (settlement?.data.status !== "blocked" || !blocked || (resumed && resumed.seq > settlement.seq)) return [];
+					return [
+						{
+							type: "node.reply.sent",
+							node: replyTarget.node,
+							parent: replyTarget.parent,
+							data: { text: prompt, source: "advisor", replyTo: blocked.seq },
+						},
+						{
+							type: "node.resumed",
+							node: replyTarget.node,
+							parent: replyTarget.parent,
+							data: { reason: "reply" },
+						},
+					];
+				});
+				const resumedTarget = { ...replyTarget, detachRunId: runId };
+				rememberTarget(captured.binding.root, resumedTarget);
+				if (replyTarget.identity) identities.set(`${captured.binding.root}\0${agentName}`, replyTarget.identity);
+				const early = earlySettlements.get(runId);
+				if (early) {
+					earlySettlements.delete(runId);
+					await settle(captured.binding, early);
+				} else if (details.promoted === false) {
+					const inline = runSettlement(details, eventText(event.content));
+					if (inline) await settle(captured.binding, inline);
+				}
+				return;
+			}
+		}
 		let identity: HarnessIdentity | undefined;
 		const harness = mapRuntime(details.runtime);
 		if (harness) {
@@ -517,25 +760,54 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 		if (!identity) return;
 
 		const role = launchRole(input, details);
-		const node = `${role}-${runId}`;
-		const prompt = stringValue(input.prompt);
+		const parsedGraph = prompt ? parseGraphBlock(prompt) : undefined;
+		const manifestValue = parsedGraph ? await readGraphManifest(captured.binding.root, parsedGraph.graph) : undefined;
+		const manifest = parsedGraph ? graphManifest(manifestValue, parsedGraph) : undefined;
+		const logicalRunId = manifest ? `graph-${manifest.graphId}` : runId;
+		const node = manifest && parsedGraph ? parsedGraph.node : `${role}-${runId}`;
 		const resultPath = stringValue(details.resultPath);
 		const paneId = stringValue(details.paneId);
-		await captured.binding.store.update(runId, (events) => {
-			if (events.length > 0) return [];
-			return [
-				{
+		if (parsedGraph && !manifest) {
+			await writeRunNote(join(captured.binding.root, "runs", "pi", runId, "graph-manifest-missing.json"), {
+				note: "GRAPH block fell back to a single-launch run because its manifest was missing or unusable.",
+				graph: parsedGraph.graph,
+				fallbackRun: runId,
+			});
+		}
+		await captured.binding.store.update(logicalRunId, (events) => {
+			const drafts: CanonicalEventDraft[] = [];
+			if (events.length === 0) drafts.push({
 					type: "run.created",
 					node: null,
 					parent: null,
 					data: {
 						workstream: captured.binding.state.workstream,
-						...(prompt ? { goal: prompt } : {}),
+						...(manifest?.goal || prompt ? { goal: manifest?.goal ?? prompt } : {}),
+						...(manifest ? { graph: manifest.graphId } : {}),
 						stateRoot: captured.binding.root,
 						root: { node: ROOT_NODE, session: captured.binding.state.sessionId },
 					},
+				});
+			if (manifest && !events.some((item) => item.type === "graph.planned")) drafts.push({
+				type: "graph.planned",
+				node: null,
+				parent: null,
+				data: {
+					graph: manifest.graphId,
+					waves: manifest.waves,
+					maxParallel: manifest.maxParallel,
+					maxRepairLoops: manifest.maxRepairLoops,
 				},
-				{
+			});
+			if (manifest && parsedGraph && !events.some((item) => item.type === "wave.started" && item.data.wave === parsedGraph.wave)) {
+				drafts.push({
+					type: "wave.started",
+					node: null,
+					parent: null,
+					data: { wave: parsedGraph.wave, nodes: manifest.waves[parsedGraph.wave - 1] },
+				});
+			}
+			if (!events.some((item) => item.type === "node.launched" && item.node === node)) drafts.push({
 					type: "node.launched",
 					node,
 					parent: ROOT_NODE,
@@ -554,9 +826,18 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 							...(agentName ? { agentName } : {}),
 						},
 					},
-				},
-			];
+				});
+			return drafts;
 		});
+		const target: TrackedNode = {
+			runId: logicalRunId,
+			node,
+			parent: ROOT_NODE,
+			detachRunId: runId,
+			...(agentName ? { agentName } : {}),
+			identity,
+		};
+		rememberTarget(captured.binding.root, target);
 		if (agentName) identities.set(`${captured.binding.root}\0${agentName}`, identity);
 		const early = earlySettlements.get(runId);
 		if (early) {

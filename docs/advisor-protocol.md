@@ -45,7 +45,7 @@ type RuntimeCapabilities = {
 }
 ```
 
-## 🧾 Canonical event trace (v1)
+## 🧾 Canonical event trace (protocol revision 1.1, `v: 1`)
 
 A run is one logical advisor execution: a single worker launch or one graph
 execution. Its trace is an append-only JSONL file, one event per line, at
@@ -73,7 +73,7 @@ Every event carries the same nine fields:
 | `node` | node the event is about; `null` only for run-level events; the parent node for `parent.awakened` |
 | `parent` | logical parent of `node` (the advisor root or a foreman); `null` for the root and run-level events |
 | `host` | emitting host: `pi`, `claude-code`, or `codex` |
-| `type` | one of the eight types below |
+| `type` | one of the fourteen types below |
 | `data` | type-specific payload |
 
 ### Event types
@@ -81,9 +81,15 @@ Every event carries the same nine fields:
 | Type | When a host emits it | Required data |
 | --- | --- | --- |
 | `run.created` | the advisor opens a run | `workstream`, `root.node`, `root.session` |
+| `graph.planned` | a manifest-backed graph is correlated to the run | `graph`, `waves`, `maxParallel`, `maxRepairLoops` |
+| `wave.started` | a contiguous graph wave opens | `wave`, `nodes` |
+| `wave.completed` | every listed node in a started wave has settled | `wave`, `nodes` |
 | `node.launched` | a worker starts | `role`, `label`, `harness`, `model`, `thinking`, `cwd`, `riskTier`, `acceptance` |
 | `node.progress` | a bounded non-terminal note | `note` |
 | `node.blocked` | the worker needs a decision, permission, credential, or external action | `request.kind`, `request.text` |
+| `node.reply.sent` | the advisor or user answers a blocked node | `text`, `source`; optional `replyTo` |
+| `node.cancel.requested` | the host accepted a cancellation request | `reason` |
+| `node.resumed` | a blocked, stalled, or restartable node begins another attempt | `reason` |
 | `node.result.written` | the durable `result.md` exists | `path` |
 | `node.result.validated` | the host checked the result headings and Status line | `path`, `valid`, `problems` |
 | `node.settled` | the worker reached a terminal state | `status`, `reason` |
@@ -101,27 +107,57 @@ The schema fixes shapes. These rules fix order, and
 
 1. The first event is `run.created`, exactly once. `seq` is contiguous from 1,
    all events share one `run`, and `at` never decreases.
-2. A node's first event is `node.launched`; a node launches once; a settled
-   node accepts no further node events. `parent` is stable across a node's
-   events and resolves to the run root or to a launched, unsettled node.
+2. A node's first event is `node.launched`, and a node launches once. `parent`
+   is stable across a node's events and resolves to the run root or to a
+   launched, unsettled node.
 3. `node.result.validated` follows `node.result.written` for the same path. A
    valid result carries its `status`; an invalid one lists `problems`.
 4. A `done` or `blocked` settlement requires a prior `node.result.validated`
    with `valid: true`. `failed`, `stalled`, and `cancelled` do not. A
    `blocked` settlement requires a prior `node.blocked` carrying the request.
-5. `parent.awakened` follows the child's `node.settled`, targets the child's
-   recorded parent, happens once per child, repeats the settlement status, and
-   carries a `wakeGeneration` that increases by one per parent.
+5. `graph.planned` appears at most once and before any `node.launched`.
+6. `wave.started` and `wave.completed` require `graph.planned`; waves are
+   contiguous from 1, wave N starts only after N-1 completes, and completion
+   requires every listed node to be settled.
+7. A settled node accepts no further node events except a legal resume, or a
+   cancellation request on a blocked node. `node.resumed` follows a blocked or
+   stalled settlement; reason `restart` may also resume a node before any
+   settlement. Resume returns the node to running for another attempt.
+8. `node.reply.sent` is legal only after a blocked settlement. Its next event
+   for that node is `node.resumed` with reason `reply`; when present, `replyTo`
+   identifies the answered `node.blocked` sequence.
+9. `node.cancel.requested` is legal while running or blocked. A later
+   `cancelled` settlement is expected but not required because the host may not
+   observe it.
+10. `parent.awakened` follows a settlement since that child's previous wake,
+   targets the recorded parent, repeats that settlement status, and carries a
+   `wakeGeneration` that increases by one per parent. A resumed node may settle
+   and wake its parent again.
 
 Rule 4 plus rule 5 encode the durable decision from the BB proof of concept:
 **wake the logical parent only after canonical result validation**, while
 failures still wake the parent with a reason.
 
-### Reserved for later steps
+### `GRAPH` launch block
 
-Replies to BLOCKED, cancellation, resume, and graph or wave events are not in
-v1. They arrive after the one-worker lifecycle is stable on every host. Do not
-emit unlisted types; the schema rejects them.
+Hosts share one fixed parser for an optional launch block. `GRAPH:` is followed
+by indented `key: value` lines and ends at the next blank line. `graph`, `node`,
+and `wave` are required; `repair`, `upstream`, and `downstream` are optional.
+The list fields are comma-separated.
+
+```text
+GRAPH:
+  graph: packet-9
+  node: protocol-builder
+  wave: 2
+  repair: 0
+  upstream: /state/runs/planner/result.md
+  downstream: protocol-checker, browser-proof
+
+```
+
+The manifest is `<root>/graphs/<graph>.json`. A graph run is
+`graph-<graph>` and uses the block's node id.
 
 ## 🔍 Validate and project
 
@@ -131,9 +167,13 @@ node scripts/advisor-trace.mjs project  config/advisor-core/fixtures/one-worker-
 ```
 
 `validate` exits 0 on a conforming trace and prints `CODE seq N: message` lines
-otherwise. `project` prints the reference projection a surface renders: the run,
+otherwise. `project` prints the reference projection a surface renders: the run
+with optional `graph` and wave records (`wave`, `nodes`, `startedAt`,
+`completedAt`),
 each node with a derived state (`running`, `blocked`, `result-written`,
-`result-validated`, `result-invalid`, `settled`), and the wakes delivered.
+`result-validated`, `result-invalid`, `settled`), its settlement `attempts`,
+`replies`, and `cancelRequested`, and the wakes delivered. `node.resumed`
+returns derived state to `running` while retaining the last settlement fields.
 The validator has no dependencies and implements the JSON Schema subset the
 schema file uses, so hosts in other languages can validate with any 2020-12
 implementation and get the same shape verdicts.
@@ -162,20 +202,30 @@ by the script and TypeScript Advisor Core validators.
 
 ## Pi host binding
 
-Pi plus pi-detach is the first v1 host binding. The top-level
+Pi plus pi-detach is the reference protocol 1.1 host binding. The top-level
 `advisor-pi-host` extension registers no tools: in an initialized advisor
-session it observes Pi's `tool_call` and `tool_result` events for `bg_agent`,
+session it observes Pi's `tool_call` and `tool_result` events for `bg_agent`
+and `bg_stop`,
 then observes promoted settlement through `message_end` when the message role
 is `custom` and its type is `detach_agent_settled`. It does not poll, watch
 files, or ask pi-detach to understand advisor semantics.
 
-Each successful `bg_agent` launch becomes its own canonical run. The run id is
+Without a `GRAPH` block, each successful `bg_agent` launch becomes its own
+canonical run. The run id is
 the pi-detach `details.runId` (or the settled `RunRecord.id`), its worker node
 is `<role-or-freeform>-<runId>`, and its parent is the `advisor` root. Native
 runtime names map as `pi` → `pi`, `codex` → `codex`, and `claude` →
 `claude-code`. The adapter parses `risk tier` followed by `low`, `standard`, or
 `high` from the launch prompt, case-insensitively; an absent or unrecognized
 tier defaults to `high`.
+
+With a valid `GRAPH` block and manifest, Pi uses run `graph-<graph>` and the
+block's node id. The first launch appends `run.created`, `graph.planned`, and
+`wave.started` before `node.launched`; later waves start only once. The
+settlement batch appends `wave.completed` when every node listed in that wave
+has settled. A missing or unusable manifest falls back to the ordinary
+single-launch run and records `runs/pi/<detachRunId>/graph-manifest-missing.json`
+without breaking the `bg_agent` result pipeline.
 
 Advisor Core reads and validates the durable result itself. The host emits
 `node.result.written` only for a nonempty artifact and emits
@@ -186,9 +236,13 @@ blank result stalls rather than borrowing pi-detach's settlement truth. When
 pi-detach supplies a typed `settlementNote`, the adapter prefers it to parsed
 tail text for the canonical settlement reason.
 
-Name-based `bg_agent` follow-up is intentionally limited in v1: even when it
-reuses a live native agent name, it creates a new run and worker node rather
-than resuming the prior canonical run.
+A name-based `bg_agent` follow-up whose native runtime is `existing` resumes the
+same canonical node only when its latest settlement is `blocked`. Pi appends
+`node.reply.sent` with the prompt and blocked sequence, then `node.resumed`;
+the next settlement wakes the parent at the next generation. Follow-up to any
+other state retains the single-launch behavior. A successful `bg_stop` result
+for a tracked detach run appends `node.cancel.requested`; the later killed
+pi-detach settlement becomes canonical `cancelled` and wakes the parent.
 
 ## Claude Code host binding
 
@@ -280,9 +334,12 @@ Claude Code's native RuntimeCapabilities are: `backgroundWorkers: true`;
 `visibleWorkers: partial` (task panel/transcript, not an independent advisor
 surface); `independentControl: partial`; `interactiveBlockedState: partial`;
 `durableResults: partial`; `restartRecovery: partial`; and
-`nestedDelegation: true`, disabled for `advisor-maker`. This v1 adapter uses
-foreground workers only, emits no `node.progress`, and does not implement
-BLOCKED replies, cancellation, resume, or graphs.
+`nestedDelegation: true`, disabled for `advisor-maker`. This adapter uses
+foreground workers only and emits no `node.progress`. It parses the shared
+`GRAPH` block and, when the manifest exists, correlates the native maker to run
+`graph-<graph>` and the declared node with `graph.planned` and `wave.started`.
+It does not coordinate completion beyond its single maker, reply to BLOCKED,
+cancel, or resume nodes.
 
 ## Codex host binding
 
@@ -381,8 +438,19 @@ children retain parent authority); `interactiveBlockedState: partial` (no
 canonical durable request contract); `durableResults: partial` (Codex does not
 reserve or validate advisor artifacts); `restartRecovery: partial` (thread
 recovery does not recover adapter correlation and wake state); and
-`nestedDelegation: true`, disabled for `advisor-maker`. This adapter does not
-implement BLOCKED replies, cancellation commands, resume, or graphs.
+`nestedDelegation: true`, disabled for `advisor-maker`. It parses the shared
+`GRAPH` block and, when the manifest exists, correlates the native maker to run
+`graph-<graph>` and the declared node with `graph.planned` and `wave.started`.
+It does not coordinate completion beyond its single maker, reply to BLOCKED,
+cancel, or resume nodes.
+
+## Step 6 host support
+
+| Host | Graph correlation | Wave completion | BLOCKED reply | Cancel request | Node resume |
+| --- | --- | --- | --- | --- | --- |
+| Pi + pi-detach | yes | yes | yes | yes | yes |
+| Claude Code | yes | single-maker correlation only | no | no | no |
+| Codex | yes | single-maker correlation only | no | no | no |
 
 ## 🗺️ Migration status
 
@@ -393,7 +461,7 @@ implement BLOCKED replies, cancellation commands, resume, or graphs.
 | 3. Pi plus pi-detach as the first conforming host | done |
 | 4. Claude Code host adapter, one maker only | done |
 | 5. Codex host adapter with the same conformance tests | done |
-| 6. Graphs, BLOCKED replies, cancellation, resume | pending |
+| 6. Graphs, BLOCKED replies, cancellation, resume | done (Pi reference; native hosts graph correlation only) |
 
 The schema is owned here and consumed by hosts; pi-detach remains pinned by
 commit and unaware of advisor semantics. The skill relayout into
