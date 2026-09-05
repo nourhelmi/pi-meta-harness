@@ -71,6 +71,21 @@ interface RunRecordDetails {
 	closeOnSettle?: unknown;
 }
 
+interface PiDetachAgentSettledSignal {
+	v?: unknown;
+	id?: unknown;
+	kind?: unknown;
+	promoted?: unknown;
+	status?: unknown;
+	endedAt?: unknown;
+	agentName?: unknown;
+	paneId?: unknown;
+	resultPath?: unknown;
+	resultStatus?: unknown;
+	settlementNote?: unknown;
+	closeOnSettle?: unknown;
+}
+
 type Harness = "pi" | "codex" | "claude-code";
 type SettledStatus = "done" | "blocked" | "failed" | "stalled" | "cancelled";
 
@@ -90,6 +105,20 @@ interface PendingLaunch {
 	binding: Binding;
 	cwd: string;
 	input: BgAgentInput;
+}
+
+interface Lifecycle {
+	active: boolean;
+	ctx: ExtensionContext;
+	tasks: Set<Promise<void>>;
+	unsubscribe?: () => void;
+}
+
+interface HeldSettlement {
+	binding: Binding;
+	settlement: Settlement;
+	isActive: () => boolean;
+	allowAgentNameFallback: boolean;
 }
 
 interface Settlement {
@@ -131,6 +160,7 @@ interface TrackedNode {
 }
 
 const ROOT_NODE = "advisor";
+const AGENT_SETTLED_EVENT = "pi-detach:agent-settled";
 
 function stringValue(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -246,6 +276,40 @@ function messageSettlement(details: RunRecordDetails, tail: string): Settlement 
 		...(stringValue(details.settlementNote) ? { settlementNote: stringValue(details.settlementNote) } : {}),
 		...(boolValue(details.closeOnSettle) !== undefined ? { closeOnSettle: boolValue(details.closeOnSettle) } : {}),
 		tail,
+	};
+}
+
+function busSettlement(value: unknown): Settlement | undefined {
+	const details = stringRecord(value) as PiDetachAgentSettledSignal | undefined;
+	if (
+		details?.v !== 1 ||
+		details.kind !== "agent" ||
+		details.promoted !== true ||
+		details.status !== "killed" ||
+		typeof details.endedAt !== "number" ||
+		!Number.isFinite(details.endedAt)
+	) return undefined;
+	const runId = stringValue(details.id);
+	if (!runId) return undefined;
+	const optionalStrings = [
+		details.agentName,
+		details.paneId,
+		details.resultPath,
+		details.resultStatus,
+		details.settlementNote,
+	];
+	if (optionalStrings.some((item) => item !== undefined && !stringValue(item))) return undefined;
+	if (details.closeOnSettle !== undefined && typeof details.closeOnSettle !== "boolean") return undefined;
+	return {
+		runId,
+		status: "killed",
+		...(stringValue(details.agentName) ? { agentName: stringValue(details.agentName) } : {}),
+		...(stringValue(details.paneId) ? { paneId: stringValue(details.paneId) } : {}),
+		...(stringValue(details.resultPath) ? { resultPath: stringValue(details.resultPath) } : {}),
+		...(stringValue(details.resultStatus) ? { resultStatus: stringValue(details.resultStatus) } : {}),
+		...(stringValue(details.settlementNote) ? { settlementNote: stringValue(details.settlementNote) } : {}),
+		...(boolValue(details.closeOnSettle) !== undefined ? { closeOnSettle: boolValue(details.closeOnSettle) } : {}),
+		tail: "",
 	};
 }
 
@@ -614,10 +678,13 @@ function settlementDrafts(
 export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 	const pending = new Map<string, PendingLaunch>();
 	const pendingStops = new Map<string, { binding: Binding; detachRunId: string }>();
-	const earlySettlements = new Map<string, Settlement>();
+	const earlySettlements = new Map<string, HeldSettlement>();
+	const heldSettlements = new Map<string, HeldSettlement>();
 	const stores = new Map<string, AdvisorTraceStore>();
 	const identities = new Map<string, HarnessIdentity>();
 	const detachTargets = new Map<string, TrackedNode>();
+	let lifecycle: Lifecycle | undefined;
+	let lifecycleEpoch = 0;
 
 	async function binding(ctx: ExtensionContext): Promise<Binding | undefined> {
 		const state = await restoredState(ctx);
@@ -635,27 +702,143 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 		detachTargets.set(`${root}\0${target.detachRunId}`, target);
 	}
 
-	async function resolveTarget(active: Binding, settlement: Settlement): Promise<TrackedNode | undefined> {
+	async function resolveTarget(
+		active: Binding,
+		settlement: Settlement,
+		allowAgentNameFallback: boolean,
+	): Promise<TrackedNode | undefined> {
 		return detachTargets.get(`${active.root}\0${settlement.runId}`) ??
 			(await findTrackedNode(active.root, { detachRunId: settlement.runId })) ??
-			(settlement.agentName ? await findTrackedNode(active.root, { agentName: settlement.agentName }) : undefined);
+			(allowAgentNameFallback && settlement.agentName
+				? await findTrackedNode(active.root, { agentName: settlement.agentName })
+				: undefined);
 	}
 
-	async function settle(active: Binding, settlement: Settlement): Promise<boolean> {
+	async function settle(
+		active: Binding,
+		settlement: Settlement,
+		isActive: () => boolean = () => true,
+		allowAgentNameFallback = true,
+	): Promise<boolean> {
+		if (!isActive()) return false;
 		let observedLaunch = false;
-		const target = await resolveTarget(active, settlement);
-		if (!target) return false;
+		const target = await resolveTarget(active, settlement, allowAgentNameFallback);
+		if (!target || !isActive()) return false;
 		await active.store.update(target.runId, async (events) => {
+			if (!isActive()) return [];
 			const launch = events.find((event) => event.type === "node.launched" && event.node === target.node);
 			if (!launch) return [];
 			const launchPath = stringValue(launch?.data.resultPath);
 			const artifact = await inspectArtifact(settlement.resultPath ?? launchPath);
+			if (!isActive()) return [];
 			const drafts = settlementDrafts(events, settlement, artifact, target.node);
 			observedLaunch = drafts.length > 0;
 			return drafts;
 		});
 		return observedLaunch;
 	}
+
+	function stopPending(active: Binding, detachRunId: string): boolean {
+		return [...pendingStops.values()].some((item) =>
+			item.binding.root === active.root && item.detachRunId === detachRunId
+		);
+	}
+
+	async function observeSettlement(
+		active: Binding,
+		settlement: Settlement,
+		isActive: () => boolean = () => true,
+		allowAgentNameFallback = true,
+	): Promise<void> {
+		if (!isActive()) return;
+		const key = `${active.root}\0${settlement.runId}`;
+		if (stopPending(active, settlement.runId)) {
+			const prior = heldSettlements.get(key);
+			if (!prior || settlement.status === "killed") {
+				heldSettlements.set(key, { binding: active, settlement, isActive, allowAgentNameFallback });
+			}
+			return;
+		}
+		const observedLaunch = await settle(active, settlement, isActive, allowAgentNameFallback);
+		if (!isActive()) return;
+		if (!observedLaunch && pending.size > 0) {
+			earlySettlements.set(key, { binding: active, settlement, isActive, allowAgentNameFallback });
+		}
+	}
+
+	async function releaseHeldSettlement(root: string, detachRunId: string): Promise<void> {
+		const key = `${root}\0${detachRunId}`;
+		const held = heldSettlements.get(key);
+		if (!held) return;
+		heldSettlements.delete(key);
+		await observeSettlement(
+			held.binding,
+			held.settlement,
+			held.isActive,
+			held.allowAgentNameFallback,
+		);
+	}
+
+	function clearRuntimeState(): void {
+		pending.clear();
+		pendingStops.clear();
+		earlySettlements.clear();
+		heldSettlements.clear();
+		identities.clear();
+		detachTargets.clear();
+		stores.clear();
+	}
+
+	function deactivateLifecycle(activeLifecycle: Lifecycle | undefined): void {
+		if (!activeLifecycle) return;
+		activeLifecycle.active = false;
+		activeLifecycle.unsubscribe?.();
+		activeLifecycle.unsubscribe = undefined;
+	}
+
+	async function drainLifecycle(activeLifecycle: Lifecycle): Promise<void> {
+		await Promise.allSettled([...activeLifecycle.tasks]);
+		if (lifecycle !== activeLifecycle) return;
+		lifecycle = undefined;
+		clearRuntimeState();
+	}
+
+	pi.on("session_start", async (_event, ctx) => {
+		const epoch = ++lifecycleEpoch;
+		const previousLifecycle = lifecycle;
+		deactivateLifecycle(previousLifecycle);
+		if (previousLifecycle) await drainLifecycle(previousLifecycle);
+		if (lifecycleEpoch !== epoch) return;
+		if (!previousLifecycle) clearRuntimeState();
+		const activeLifecycle: Lifecycle = { active: true, ctx, tasks: new Set() };
+		lifecycle = activeLifecycle;
+		activeLifecycle.unsubscribe = pi.events.on(AGENT_SETTLED_EVENT, (value) => {
+			const task = (async () => {
+				const settlement = busSettlement(value);
+				if (!settlement || !activeLifecycle.active || lifecycle !== activeLifecycle) return;
+				const active = await binding(activeLifecycle.ctx);
+				if (!active || !activeLifecycle.active || lifecycle !== activeLifecycle) return;
+				await observeSettlement(
+					active,
+					settlement,
+					() => activeLifecycle.active && lifecycle === activeLifecycle,
+					false,
+				);
+			})().catch(() => {
+				// Shared-bus delivery must never leak a rejected promise into Pi.
+			});
+			activeLifecycle.tasks.add(task);
+			void task.then(() => activeLifecycle.tasks.delete(task));
+			return task;
+		});
+	});
+
+	pi.on("session_shutdown", async () => {
+		++lifecycleEpoch;
+		const activeLifecycle = lifecycle;
+		deactivateLifecycle(activeLifecycle);
+		if (activeLifecycle) await drainLifecycle(activeLifecycle);
+	});
 
 	pi.on("tool_call", async (event, ctx) => {
 		const active = await binding(ctx);
@@ -676,27 +859,39 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 	pi.on("tool_result", async (event, ctx) => {
 		if (event.toolName === "bg_stop") {
 			const capturedStop = pendingStops.get(event.toolCallId);
-			pendingStops.delete(event.toolCallId);
 			if (!capturedStop) return;
 			const details = (stringRecord(event.details) ?? {}) as BgStopDetails;
 			const detachRunId = stringValue(details.runId);
-			if (details.stopped !== true || !detachRunId || detachRunId !== capturedStop.detachRunId) return;
-			const target = detachTargets.get(`${capturedStop.binding.root}\0${detachRunId}`) ??
-				(await findTrackedNode(capturedStop.binding.root, { detachRunId }));
-			if (!target) return;
-			await capturedStop.binding.store.update(target.runId, (events) => {
-				if (!nodeCanCancel(events, target.node)) return [];
-				const lastCancel = lastNodeEvent(events, target.node, "node.cancel.requested");
-				const lastResume = lastNodeEvent(events, target.node, "node.resumed");
-				const lastSettlement = lastNodeEvent(events, target.node, "node.settled");
-				if ((lastCancel?.seq ?? 0) > Math.max(lastResume?.seq ?? 0, lastSettlement?.seq ?? 0)) return [];
-				return [{
-					type: "node.cancel.requested",
-					node: target.node,
-					parent: target.parent,
-					data: { reason: "bg_stop" },
-				}];
-			});
+			const accepted = event.isError === false && details.stopped === true && Boolean(detachRunId) &&
+				detachRunId === capturedStop.detachRunId;
+			try {
+				if (accepted && detachRunId) {
+					const target = detachTargets.get(`${capturedStop.binding.root}\0${detachRunId}`) ??
+						(await findTrackedNode(capturedStop.binding.root, { detachRunId }));
+					if (target) await capturedStop.binding.store.update(target.runId, (events) => {
+						if (!nodeCanCancel(events, target.node)) return [];
+						const lastCancel = lastNodeEvent(events, target.node, "node.cancel.requested");
+						const lastResume = lastNodeEvent(events, target.node, "node.resumed");
+						const lastSettlement = lastNodeEvent(events, target.node, "node.settled");
+						if ((lastCancel?.seq ?? 0) > Math.max(lastResume?.seq ?? 0, lastSettlement?.seq ?? 0)) return [];
+						return [{
+							type: "node.cancel.requested",
+							node: target.node,
+							parent: target.parent,
+							data: { reason: "bg_stop" },
+						}];
+					});
+				}
+			} catch {
+				// Trace observation must not break the stop tool pipeline or strand terminal evidence.
+			} finally {
+				if (pendingStops.get(event.toolCallId) === capturedStop) pendingStops.delete(event.toolCallId);
+				try {
+					await releaseHeldSettlement(capturedStop.binding.root, capturedStop.detachRunId);
+				} catch {
+					// Held evidence is removed before observation, so a failed append cannot be miscorrelated later.
+				}
+			}
 			return;
 		}
 		if (event.toolName !== "bg_agent") return;
@@ -735,10 +930,16 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 				const resumedTarget = { ...replyTarget, detachRunId: runId };
 				rememberTarget(captured.binding.root, resumedTarget);
 				if (replyTarget.identity) identities.set(`${captured.binding.root}\0${agentName}`, replyTarget.identity);
-				const early = earlySettlements.get(runId);
+				const earlyKey = `${captured.binding.root}\0${runId}`;
+				const early = earlySettlements.get(earlyKey);
 				if (early) {
-					earlySettlements.delete(runId);
-					await settle(captured.binding, early);
+					earlySettlements.delete(earlyKey);
+					await settle(
+						captured.binding,
+						early.settlement,
+						early.isActive,
+						early.allowAgentNameFallback,
+					);
 				} else if (details.promoted === false) {
 					const inline = runSettlement(details, eventText(event.content));
 					if (inline) await settle(captured.binding, inline);
@@ -839,10 +1040,16 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 		};
 		rememberTarget(captured.binding.root, target);
 		if (agentName) identities.set(`${captured.binding.root}\0${agentName}`, identity);
-		const early = earlySettlements.get(runId);
+		const earlyKey = `${captured.binding.root}\0${runId}`;
+		const early = earlySettlements.get(earlyKey);
 		if (early) {
-			earlySettlements.delete(runId);
-			await settle(captured.binding, early);
+			earlySettlements.delete(earlyKey);
+			await settle(
+				captured.binding,
+				early.settlement,
+				early.isActive,
+				early.allowAgentNameFallback,
+			);
 		} else if (details.promoted === false) {
 			const inline = runSettlement(details, eventText(event.content));
 			if (inline) await settle(captured.binding, inline);
@@ -856,7 +1063,6 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 		const details = (stringRecord(event.message.details) ?? {}) as RunRecordDetails;
 		const settlement = messageSettlement(details, eventText(event.message.content));
 		if (!settlement) return;
-		const observedLaunch = await settle(active, settlement);
-		if (!observedLaunch && pending.size > 0) earlySettlements.set(settlement.runId, settlement);
+		await observeSettlement(active, settlement);
 	});
 }

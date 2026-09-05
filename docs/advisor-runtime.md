@@ -15,7 +15,10 @@ delivery boundary, and capability verdicts are specified by the
 [Codex host binding](advisor-protocol.md#codex-host-binding).
 Protocol step 6 adds manifest-backed graph correlation to every host; Pi is the
 reference implementation for wave completion, BLOCKED reply, cancellation, and
-node resume.
+node resume. Pi cancellation receipt is a silent shared-bus observation:
+`parent.awakened` records durable parent-host receipt and does not imply that a
+model response started; pi-detach's killed state ends supervision, not the
+native agent process.
 
 ## 📏 Runtime rules
 

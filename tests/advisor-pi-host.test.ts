@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { createEventBus } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import advisorPiHostExtension from "../extensions/advisor-pi-host.ts";
 
@@ -12,7 +15,7 @@ interface TraceTools {
 	loadSchema(): Promise<unknown>;
 	parseTrace(text: string): Array<Record<string, unknown>>;
 	projectTrace(events: Array<Record<string, unknown>>): {
-		nodes: Array<{ state: string; settledStatus: string | null; resultStatus: string | null }>;
+		nodes: Array<{ state: string; settledStatus: string | null; resultStatus: string | null; cancelRequested: boolean }>;
 		wakes: Array<{ generation: number }>;
 	};
 	validateTrace(
@@ -42,6 +45,9 @@ function advisorBranch(sessionId = "advisor-session-1234") {
 
 function installedHost(branch: unknown[] = advisorBranch()) {
 	const handlers = new Map<string, Handler[]>();
+	const busHandlers = new Map<string, Set<(value: unknown) => unknown>>();
+	const busInvocations: Promise<void>[] = [];
+	const eventBus = createEventBus();
 	let registerToolCalls = 0;
 	const pi = {
 		on: (event: string, handler: Handler) => {
@@ -51,6 +57,26 @@ function installedHost(branch: unknown[] = advisorBranch()) {
 		},
 		registerTool: () => {
 			registerToolCalls += 1;
+		},
+		events: {
+			on(channel: string, handler: (value: unknown) => unknown) {
+				const current = busHandlers.get(channel) ?? new Set();
+				const trackedHandler = (value: unknown) => {
+					const invocation = Promise.resolve(handler(value)).then(() => undefined);
+					busInvocations.push(invocation);
+					return invocation;
+				};
+				current.add(trackedHandler);
+				busHandlers.set(channel, current);
+				const unsubscribe = eventBus.on(channel, trackedHandler);
+				return () => {
+					unsubscribe();
+					current.delete(trackedHandler);
+				};
+			},
+			emit(channel: string, value: unknown) {
+				eventBus.emit(channel, value);
+			},
 		},
 	} as unknown as ExtensionAPI;
 	advisorPiHostExtension(pi);
@@ -62,14 +88,36 @@ function installedHost(branch: unknown[] = advisorBranch()) {
 			getSessionId: () => "advisor-session-1234",
 		},
 	} as unknown as ExtensionContext;
+	for (const handler of handlers.get("session_start") ?? []) handler({ type: "session_start", reason: "startup" }, ctx);
 	return {
 		dispatch: async (event: string, value: unknown) => {
 			for (const handler of handlers.get(event) ?? []) await handler(value, ctx);
 		},
+		emitBus: (value: unknown) => {
+			const invocationIndex = busInvocations.length;
+			eventBus.emit("pi-detach:agent-settled", value);
+			return Promise.all(busInvocations.slice(invocationIndex)).then(() => undefined);
+		},
+		listenerCount: () => busHandlers.get("pi-detach:agent-settled")?.size ?? 0,
 		get registerToolCalls() {
 			return registerToolCalls;
 		},
 	};
+}
+
+async function waitUntil(assertion: () => Promise<void> | void, timeoutMs = 2_000): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	let lastError: unknown;
+	while (Date.now() < deadline) {
+		try {
+			await assertion();
+			return;
+		} catch (error) {
+			lastError = error;
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		}
+	}
+	throw lastError;
 }
 
 async function withStateRoot(run: (root: string) => Promise<void>): Promise<void> {
@@ -173,6 +221,75 @@ function settlementMessage(runId: string, resultPath: string, agentState: string
 			},
 		},
 	};
+}
+
+function killedSignal(runId: string, overrides: Record<string, unknown> = {}) {
+	return {
+		v: 1,
+		id: runId,
+		kind: "agent",
+		promoted: true,
+		status: "killed",
+		endedAt: Date.now(),
+		agentName: `builder-${runId}`,
+		paneId: `pane-${runId}`,
+		settlementNote: "sent esc to interrupt the turn; the agent is still alive in its pane",
+		closeOnSettle: false,
+		...overrides,
+	};
+}
+
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+	let resolve!: () => void;
+	const promise = new Promise<void>((value) => {
+		resolve = value;
+	});
+	return { promise, resolve };
+}
+
+async function seedRunningTrace(root: string, runId: string): Promise<string> {
+	const tracePath = join(root, "traces", `${runId}.jsonl`);
+	await mkdir(join(root, "traces"), { recursive: true });
+	const events = [
+		{
+			v: 1,
+			seq: 1,
+			at: "2026-09-05T00:00:00.000Z",
+			run: runId,
+			node: null,
+			parent: null,
+			host: "pi",
+			type: "run.created",
+			data: {
+				workstream: "pi-host-adapter",
+				stateRoot: root,
+				root: { node: "advisor", session: "advisor-session-1234" },
+			},
+		},
+		{
+			v: 1,
+			seq: 2,
+			at: "2026-09-05T00:00:01.000Z",
+			run: runId,
+			node: `builder-${runId}`,
+			parent: "advisor",
+			host: "pi",
+			type: "node.launched",
+			data: {
+				role: "builder",
+				label: "builder · cancellation race",
+				harness: "pi",
+				model: "openai-codex/gpt-5.6-sol",
+				thinking: "high",
+				cwd: process.cwd(),
+				riskTier: "high",
+				acceptance: ["Cancellation ordering survives asynchronous host boundaries."],
+				launchRef: { detachRunId: runId, agentName: `builder-${runId}` },
+			},
+		},
+	];
+	await writeFile(tracePath, `${events.map((event) => JSON.stringify(event)).join("\n")}\n`, "utf8");
+	return tracePath;
 }
 
 async function launchPromoted(
@@ -340,7 +457,7 @@ test("name follow-up replies to and resumes the same blocked node before its sec
 	});
 });
 
-test("bg_stop call and result request cancellation before the killed settlement", async () => {
+test("bus-only killed delivery settles cancelled after an accepted bg_stop request without requiring an artifact", async () => {
 	await withStateRoot(async (root) => {
 		const runId = "cancel123";
 		const resultPath = await writeResult(root, runId, "");
@@ -361,12 +478,186 @@ test("bg_stop call and result request cancellation before the killed settlement"
 			isError: false,
 			details: { runId, stopped: true },
 		});
-		await host.dispatch("message_end", settlementMessage(runId, resultPath, "working", { status: "killed" }));
 
-		const { events, projection } = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+		let traced = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+		assert.equal(traced.projection.nodes[0]?.cancelRequested, true);
+		assert.equal(traced.projection.nodes[0]?.state, "running", "a successful stop result is request-only");
+		assert.equal(traced.events.some((event) => event.type === "node.settled"), false);
+
+		host.emitBus(killedSignal(runId, { resultPath }));
+		await waitUntil(async () => {
+			traced = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+			assert.equal(traced.projection.nodes[0]?.settledStatus, "cancelled");
+		});
+
+		const { events, projection } = traced;
 		assert.ok(events.some((event) => event.type === "node.cancel.requested" && (event.data as Record<string, unknown>).reason === "bg_stop"));
 		assert.equal(projection.nodes[0]?.settledStatus, "cancelled");
 		assert.equal(projection.wakes.length, 1);
+		assert.equal(events.some((event) => event.type === "node.result.written"), false);
+	});
+});
+
+test("terminal bus delivery before stop result is held behind accepted request; rejected stop invents no request", async () => {
+	await withStateRoot(async (root) => {
+		const acceptedId = "race-before-accepted";
+		const acceptedPath = await writeResult(root, acceptedId, "");
+		const host = installedHost();
+		await launchPromoted(host, acceptedId, acceptedPath);
+		await host.dispatch("tool_call", {
+			type: "tool_call", toolName: "bg_stop", toolCallId: "stop-before-accepted", input: { runId: acceptedId },
+		});
+		host.emitBus(killedSignal(acceptedId, { resultPath: acceptedPath }));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		let accepted = await validatedTrace(join(root, "traces", `${acceptedId}.jsonl`));
+		assert.equal(accepted.events.some((event) => event.type === "node.settled"), false);
+		await host.dispatch("tool_result", {
+			type: "tool_result", toolName: "bg_stop", toolCallId: "stop-before-accepted",
+			input: { runId: acceptedId }, content: [], isError: false,
+			details: { runId: acceptedId, stopped: true },
+		});
+		await waitUntil(async () => {
+			accepted = await validatedTrace(join(root, "traces", `${acceptedId}.jsonl`));
+			assert.equal(accepted.projection.nodes[0]?.settledStatus, "cancelled");
+		});
+		const acceptedTypes = accepted.events.map((event) => event.type);
+		assert.ok(acceptedTypes.indexOf("node.cancel.requested") < acceptedTypes.indexOf("node.settled"));
+
+		const rejectedId = "race-before-rejected";
+		const rejectedPath = await writeResult(root, rejectedId, "");
+		await launchPromoted(host, rejectedId, rejectedPath);
+		await host.dispatch("tool_call", {
+			type: "tool_call", toolName: "bg_stop", toolCallId: "stop-before-rejected", input: { runId: rejectedId },
+		});
+		host.emitBus(killedSignal(rejectedId, { resultPath: rejectedPath }));
+		await host.dispatch("tool_result", {
+			type: "tool_result", toolName: "bg_stop", toolCallId: "stop-before-rejected",
+			input: { runId: rejectedId }, content: [], isError: true,
+			details: { runId: rejectedId, stopped: true },
+		});
+		let rejected: Awaited<ReturnType<typeof validatedTrace>> | undefined;
+		await waitUntil(async () => {
+			rejected = await validatedTrace(join(root, "traces", `${rejectedId}.jsonl`));
+			assert.equal(rejected.projection.nodes[0]?.settledStatus, "cancelled");
+		});
+		assert.equal(rejected?.events.some((event) => event.type === "node.cancel.requested"), false);
+	});
+});
+
+test("persisted stop lookup keeps terminal evidence contained until the accepted request is durable", async () => {
+	await withStateRoot(async (root) => {
+		const runId = "persisted-stop-race";
+		const tracePath = await seedRunningTrace(root, runId);
+		const host = installedHost();
+		await host.dispatch("tool_call", {
+			type: "tool_call",
+			toolName: "bg_stop",
+			toolCallId: "persisted-stop-call",
+			input: { runId },
+		});
+
+		const fsPromises = fs.promises as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+		const originalReaddir = fsPromises.readdir!;
+		const readdirEntered = deferred();
+		const releaseReaddir = deferred();
+		let gated = false;
+		fsPromises.readdir = async (...args: unknown[]) => {
+			if (!gated && String(args[0]) === join(root, "traces")) {
+				gated = true;
+				readdirEntered.resolve();
+				await releaseReaddir.promise;
+			}
+			return originalReaddir(...args);
+		};
+		syncBuiltinESMExports();
+
+		let stopResult: Promise<void> | undefined;
+		try {
+			stopResult = host.dispatch("tool_result", {
+				type: "tool_result",
+				toolName: "bg_stop",
+				toolCallId: "persisted-stop-call",
+				input: { runId },
+				content: [],
+				isError: false,
+				details: { runId, stopped: true },
+			});
+			await readdirEntered.promise;
+			await host.emitBus(killedSignal(runId));
+
+			const contained = await validatedTrace(tracePath);
+			assert.deepEqual(contained.events.map((event) => event.type), ["run.created", "node.launched"]);
+			assert.equal(contained.projection.nodes[0]?.state, "running");
+		} finally {
+			releaseReaddir.resolve();
+			fsPromises.readdir = originalReaddir;
+			syncBuiltinESMExports();
+		}
+		await stopResult;
+
+		const completed = await validatedTrace(tracePath);
+		const types = completed.events.map((event) => event.type);
+		assert.ok(types.indexOf("node.cancel.requested") < types.indexOf("node.settled"));
+		assert.equal(completed.projection.nodes[0]?.settledStatus, "cancelled");
+		assert.deepEqual(completed.projection.wakes.map(({ generation }) => generation), [1]);
+	});
+});
+
+test("early bus settlement correlates after launch result and duplicate bus/message evidence is idempotent", async () => {
+	await withStateRoot(async (root) => {
+		const runId = "bus-early123";
+		const resultPath = await writeResult(root, runId, "");
+		const host = installedHost();
+		const input = launchInput();
+		await host.dispatch("tool_call", { type: "tool_call", toolName: "bg_agent", toolCallId: "call-bus-early", input });
+		host.emitBus(killedSignal(runId, { resultPath }));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		await assert.rejects(access(join(root, "traces", `${runId}.jsonl`)), { code: "ENOENT" });
+		await host.dispatch("tool_result", {
+			type: "tool_result", toolName: "bg_agent", toolCallId: "call-bus-early", input,
+			content: [{ type: "text", text: "Agent promoted." }], isError: false,
+			details: promotedDetails(runId, resultPath),
+		});
+		let traced = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+		assert.equal(traced.projection.nodes[0]?.settledStatus, "cancelled");
+		const count = traced.events.length;
+
+		host.emitBus(killedSignal(runId, { resultPath }));
+		await host.dispatch("message_end", settlementMessage(runId, resultPath, "working", { status: "killed" }));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		traced = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+		assert.equal(traced.events.length, count);
+		assert.equal(traced.events.filter((event) => event.type === "node.settled").length, 1);
+		assert.equal(traced.events.filter((event) => event.type === "parent.awakened").length, 1);
+	});
+});
+
+test("killed bus evidence leaves unrelated and already-terminal nodes unchanged", async () => {
+	await withStateRoot(async (root) => {
+		const doneId = "already-done123";
+		const donePath = await writeResult(root, doneId, resultMarkdown());
+		const otherId = "other-running123";
+		const otherPath = await writeResult(root, otherId, resultMarkdown());
+		const host = installedHost();
+		await launchPromoted(host, doneId, donePath);
+		await launchPromoted(host, otherId, otherPath);
+		await host.dispatch("message_end", settlementMessage(doneId, donePath, "done"));
+		const before = await readFile(join(root, "traces", `${doneId}.jsonl`), "utf8");
+		host.emitBus(killedSignal(doneId, { resultPath: donePath }));
+		host.emitBus(killedSignal("unknown-live-id", { agentName: `builder-${otherId}` }));
+		await new Promise((resolve) => setTimeout(resolve, 30));
+		assert.equal(await readFile(join(root, "traces", `${doneId}.jsonl`), "utf8"), before);
+		let other = await validatedTrace(join(root, "traces", `${otherId}.jsonl`));
+		assert.equal(other.events.some((event) => event.type === "node.settled"), false);
+		await assert.rejects(access(join(root, "traces", "unknown-live-id.jsonl")), { code: "ENOENT" });
+
+		await host.dispatch("session_shutdown", { type: "session_shutdown", reason: "reload" });
+		const restarted = installedHost();
+		restarted.emitBus(killedSignal("unknown-restart-id", { agentName: `builder-${otherId}` }));
+		await new Promise((resolve) => setTimeout(resolve, 30));
+		other = await validatedTrace(join(root, "traces", `${otherId}.jsonl`));
+		assert.equal(other.events.some((event) => event.type === "node.settled"), false);
+		await assert.rejects(access(join(root, "traces", "unknown-restart-id.jsonl")), { code: "ENOENT" });
 	});
 });
 
@@ -475,6 +766,154 @@ test("ordinary Pi session with no advisor state emits no trace", async () => {
 		await launchPromoted(host, "ordinary123", resultPath);
 		await assert.rejects(access(join(root, "traces", "ordinary123.jsonl")), { code: "ENOENT" });
 		assert.equal(host.registerToolCalls, 0);
+	});
+});
+
+test("bus receiver filters malformed, non-cancellation, unknown, and uninitialized signals", async () => {
+	await withStateRoot(async (root) => {
+		const host = installedHost();
+		for (const value of [
+			null,
+			{},
+			{ ...killedSignal("bad-version"), v: 2 },
+			{ ...killedSignal("not-killed"), status: "exited" },
+			{ ...killedSignal("not-agent"), kind: "watch" },
+			{ ...killedSignal("not-promoted"), promoted: false },
+			{ ...killedSignal("no-ended-at"), endedAt: undefined },
+			{ ...killedSignal("bad-ended-at"), endedAt: Number.NaN },
+			{ ...killedSignal("bad-optional"), settlementNote: 42 },
+			killedSignal("unknown-run"),
+		]) host.emitBus(value);
+		await new Promise((resolve) => setTimeout(resolve, 30));
+		await assert.rejects(access(join(root, "traces")), { code: "ENOENT" });
+
+		const ordinary = installedHost([]);
+		ordinary.emitBus(killedSignal("ordinary-uninitialized"));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		await assert.rejects(access(join(root, "traces", "ordinary-uninitialized.jsonl")), { code: "ENOENT" });
+	});
+});
+
+test("session lifecycle prevents duplicate listeners and late post-teardown writes", async () => {
+	await withStateRoot(async (root) => {
+		const runId = "teardown123";
+		const resultPath = await writeResult(root, runId, "");
+		const host = installedHost();
+		assert.equal(host.listenerCount(), 1);
+		await host.dispatch("session_start", { type: "session_start", reason: "reload" });
+		assert.equal(host.listenerCount(), 1, "reload replaces rather than duplicates the bus listener");
+		await launchPromoted(host, runId, resultPath);
+		const tracePath = join(root, "traces", `${runId}.jsonl`);
+		const before = await readFile(tracePath, "utf8");
+
+		host.emitBus(killedSignal(runId, { resultPath }));
+		await host.dispatch("session_shutdown", { type: "session_shutdown", reason: "reload" });
+		assert.equal(host.listenerCount(), 0);
+		await new Promise((resolve) => setTimeout(resolve, 30));
+		assert.equal(await readFile(tracePath, "utf8"), before, "an in-flight old-generation callback cannot append");
+
+		host.emitBus(killedSignal(runId, { resultPath }));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		assert.equal(await readFile(tracePath, "utf8"), before, "teardown signals have no listener");
+		await host.dispatch("session_start", { type: "session_start", reason: "reload" });
+		assert.equal(host.listenerCount(), 1, "a new generation installs exactly one listener");
+	});
+});
+
+test("shutdown and same-instance reinit drain a settlement append before completing teardown", async () => {
+	await withStateRoot(async (root) => {
+		const fsPromises = fs.promises as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+		const originalAppendFile = fsPromises.appendFile!;
+		let activeGate: {
+			runId: string;
+			entered: ReturnType<typeof deferred>;
+			release: ReturnType<typeof deferred>;
+			used: boolean;
+		} | undefined;
+		fsPromises.appendFile = async (...args: unknown[]) => {
+			const path = String(args[0]);
+			const contents = String(args[1]);
+			if (
+				activeGate &&
+				!activeGate.used &&
+				path.endsWith(`${activeGate.runId}.jsonl`) &&
+				contents.includes('"type":"node.settled"')
+			) {
+				activeGate.used = true;
+				activeGate.entered.resolve();
+				await activeGate.release.promise;
+			}
+			return originalAppendFile(...args);
+		};
+		syncBuiltinESMExports();
+
+		async function proveDrain(kind: "shutdown" | "reinit"): Promise<void> {
+			const runId = `drain-${kind}`;
+			const tracePath = await seedRunningTrace(root, runId);
+			const host = installedHost();
+			activeGate = { runId, entered: deferred(), release: deferred(), used: false };
+			const busDelivery = host.emitBus(killedSignal(runId));
+			await activeGate.entered.promise;
+
+			const transition = host.dispatch(
+				kind === "shutdown" ? "session_shutdown" : "session_start",
+				kind === "shutdown"
+					? { type: "session_shutdown", reason: "reload" }
+					: { type: "session_start", reason: "reload" },
+			);
+			assert.equal(host.listenerCount(), 0, `${kind} unsubscribes before draining`);
+			let transitionResolved = false;
+			void transition.then(() => {
+				transitionResolved = true;
+			});
+			try {
+				await new Promise<void>((resolve) => setImmediate(resolve));
+				assert.equal(transitionResolved, false, `${kind} cannot resolve while append is held`);
+				const blockedTrace = await validatedTrace(tracePath);
+				assert.deepEqual(blockedTrace.events.map((event) => event.type), ["run.created", "node.launched"]);
+			} finally {
+				activeGate.release.resolve();
+			}
+
+			await Promise.all([busDelivery, transition]);
+			assert.equal(transitionResolved, true);
+			assert.equal(host.listenerCount(), kind === "reinit" ? 1 : 0);
+			const completed = await validatedTrace(tracePath);
+			assert.equal(completed.projection.nodes[0]?.settledStatus, "cancelled");
+			const atCompletedTeardown = await readFile(tracePath, "utf8");
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			assert.equal(await readFile(tracePath, "utf8"), atCompletedTeardown, "no write occurs after teardown resolves");
+		}
+
+		try {
+			await proveDrain("shutdown");
+			await proveDrain("reinit");
+		} finally {
+			activeGate?.release.resolve();
+			fsPromises.appendFile = originalAppendFile;
+			syncBuiltinESMExports();
+		}
+	});
+});
+
+test("asynchronous bus handler failures are contained without unhandled rejection", async () => {
+	await withStateRoot(async (root) => {
+		const runId = "bus-error123";
+		const resultPath = await writeResult(root, runId, "");
+		const host = installedHost();
+		await launchPromoted(host, runId, resultPath);
+		await rm(join(root, "traces"), { recursive: true, force: true });
+		await writeFile(join(root, "traces"), "not a directory", "utf8");
+		const unhandled: unknown[] = [];
+		const onUnhandled = (reason: unknown) => unhandled.push(reason);
+		process.on("unhandledRejection", onUnhandled);
+		try {
+			host.emitBus(killedSignal(runId, { resultPath }));
+			await new Promise((resolve) => setTimeout(resolve, 40));
+			assert.deepEqual(unhandled, []);
+		} finally {
+			process.off("unhandledRejection", onUnhandled);
+		}
 	});
 });
 

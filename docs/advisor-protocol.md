@@ -127,8 +127,9 @@ The schema fixes shapes. These rules fix order, and
    for that node is `node.resumed` with reason `reply`; when present, `replyTo`
    identifies the answered `node.blocked` sequence.
 9. `node.cancel.requested` is legal while running or blocked. A later
-   `cancelled` settlement is expected but not required because the host may not
-   observe it.
+   `cancelled` settlement is expected but not required by the host-neutral
+   protocol. The Pi binding observes finalized promoted-agent kills through its
+   shared event bus.
 10. `parent.awakened` follows a settlement since that child's previous wake,
    targets the recorded parent, repeats that settlement status, and carries a
    `wakeGeneration` that increases by one per parent. A resumed node may settle
@@ -206,9 +207,12 @@ Pi plus pi-detach is the reference protocol 1.1 host binding. The top-level
 `advisor-pi-host` extension registers no tools: in an initialized advisor
 session it observes Pi's `tool_call` and `tool_result` events for `bg_agent`
 and `bg_stop`,
-then observes promoted settlement through `message_end` when the message role
-is `custom` and its type is `detach_agent_settled`. It does not poll, watch
-files, or ask pi-detach to understand advisor semantics.
+then observes normal promoted settlement through `message_end` when the message
+role is `custom` and its type is `detach_agent_settled`. Finalized killed-agent
+settlement arrives instead on Pi's supported shared event bus as
+`pi-detach:agent-settled`. That signal is silent: it sends no message, prompt,
+steer, follow-up, or model turn. The adapter does not poll, watch files, or ask
+pi-detach to understand advisor semantics.
 
 Without a `GRAPH` block, each successful `bg_agent` launch becomes its own
 canonical run. The run id is
@@ -242,7 +246,13 @@ same canonical node only when its latest settlement is `blocked`. Pi appends
 the next settlement wakes the parent at the next generation. Follow-up to any
 other state retains the single-launch behavior. A successful `bg_stop` result
 for a tracked detach run appends `node.cancel.requested`; the later killed
-pi-detach settlement becomes canonical `cancelled` and wakes the parent.
+pi-detach settlement becomes canonical `cancelled` and records one
+`parent.awakened`. Here awakening means the parent host received and durably
+recorded the settlement; cancellation intentionally does not start an LLM
+response. If the terminal signal races ahead of the `bg_stop` result, the
+adapter holds it until that result preserves accepted-request ordering. A
+pi-detach killed agent is a finalized supervision outcome, not evidence that
+the native process exited or acknowledged Escape.
 
 ## Claude Code host binding
 
