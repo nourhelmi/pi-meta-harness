@@ -131,6 +131,64 @@ describe("Meta reference projector conformance", () => {
     }
   });
 
+  it("rejects leading and later-line BOMs like the reference CLI", async () => {
+    const stateRoot = await mkdtemp(join(tmpdir(), "bb-trace-bom-"));
+    const traces = join(stateRoot, "traces");
+    await import("node:fs/promises").then(({ mkdir }) => mkdir(traces));
+    const events = syntheticDoneEvents();
+    const cases = [
+      { fileName: "leading-bom.jsonl", bomIndex: 0, lineNumber: 1 },
+      { fileName: "later-bom.jsonl", bomIndex: 3, lineNumber: 4 },
+    ];
+
+    try {
+      for (const { fileName, bomIndex, lineNumber } of cases) {
+        const path = join(traces, fileName);
+        await writeFile(
+          path,
+          `${events
+            .map(
+              (event, index) =>
+                `${index === bomIndex ? "\uFEFF" : ""}${JSON.stringify(event)}`,
+            )
+            .join("\n")}\n`,
+        );
+        const response = await createTraceStore().readTrace(
+          stateRoot,
+          fileName,
+        );
+        expect(response).toMatchObject({
+          ok: false,
+          error: {
+            code: "MALFORMED_JSON",
+            message: expect.stringMatching(
+              new RegExp(`line ${lineNumber}: invalid JSON`, "u"),
+            ),
+          },
+        });
+        expect(response).not.toHaveProperty("trace");
+
+        const failure = await run(process.execPath, [
+          referenceCli,
+          "project",
+          path,
+        ]).then(
+          () => {
+            throw new Error(`Reference CLI accepted ${fileName}`);
+          },
+          (error: unknown) =>
+            error as { code: number; stderr: string; stdout: string },
+        );
+        expect(failure.code).toBe(1);
+        expect(failure.stderr).toMatch(
+          new RegExp(`^line ${lineNumber}: invalid JSON`, "u"),
+        );
+      }
+    } finally {
+      await rm(stateRoot, { recursive: true, force: true });
+    }
+  });
+
   it("projects a partial append exactly like the reference complete prefix", async () => {
     const stateRoot = await mkdtemp(join(tmpdir(), "bb-trace-partial-"));
     const traces = join(stateRoot, "traces");

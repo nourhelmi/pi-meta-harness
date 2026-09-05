@@ -209,6 +209,130 @@ describe("fail-closed canonical trace file policy", () => {
     });
   });
 
+  it("preserves and rejects leading and later-line BOMs without mutation", async () => {
+    const events = syntheticDoneEvents();
+    const cases = [
+      {
+        fileName: "leading-bom.jsonl",
+        content: events
+          .map(
+            (event, index) =>
+              `${index === 0 ? "\uFEFF" : ""}${JSON.stringify(event)}`,
+          )
+          .join("\n"),
+      },
+      {
+        fileName: "later-bom.jsonl",
+        content: events
+          .map(
+            (event, index) =>
+              `${index === 3 ? "\uFEFF" : ""}${JSON.stringify(event)}`,
+          )
+          .join("\n"),
+      },
+    ];
+
+    for (const { fileName, content } of cases) {
+      const path = await writeTrace(fileName, `${content}\n`);
+      const before = sha256(await readFile(path));
+      const response = await createTraceStore().readTrace(stateRoot, fileName);
+      expect(response).toMatchObject({
+        ok: false,
+        error: { code: "MALFORMED_JSON" },
+      });
+      expect(response).not.toHaveProperty("trace");
+      expect(sha256(await readFile(path))).toBe(before);
+    }
+  });
+
+  it("rejects definitely invalid UTF-8 tails through detail and list reads without mutation", async () => {
+    const complete = Buffer.from(asJsonl(syntheticDoneEvents()));
+    const cases = [
+      { fileName: "tail-ff.jsonl", invalidBytes: Buffer.from([0xff]) },
+      {
+        fileName: "tail-c0-80-fe.jsonl",
+        invalidBytes: Buffer.from([0xc0, 0x80, 0xfe]),
+      },
+    ];
+    const hashes = new Map<string, string>();
+
+    for (const { fileName, invalidBytes } of cases) {
+      const path = join(tracesPath, fileName);
+      await writeFile(
+        path,
+        Buffer.concat([
+          complete,
+          Buffer.from('{"partial":"'),
+          invalidBytes,
+        ]),
+      );
+      hashes.set(fileName, sha256(await readFile(path)));
+      const response = await createTraceStore().readTrace(stateRoot, fileName);
+      expect(response).toMatchObject({
+        ok: false,
+        partial: true,
+        error: { code: "INVALID_UTF8" },
+      });
+      expect(response).not.toHaveProperty("trace");
+      expect(sha256(await readFile(path))).toBe(hashes.get(fileName));
+    }
+
+    const listed = await createTraceStore().listTraces(stateRoot);
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) return;
+    for (const { fileName } of cases) {
+      const summary = listed.traces.find(
+        (candidate) => candidate.fileName === fileName,
+      );
+      expect(summary).toMatchObject({
+        ok: false,
+        partial: true,
+        error: { code: "INVALID_UTF8" },
+      });
+      expect(summary).not.toHaveProperty("runId");
+      expect(sha256(await readFile(join(tracesPath, fileName)))).toBe(
+        hashes.get(fileName),
+      );
+    }
+  });
+
+  it("tolerates a torn terminal multibyte sequence as a partial append without mutation", async () => {
+    const path = join(tracesPath, "torn-multibyte.jsonl");
+    await writeFile(
+      path,
+      Buffer.concat([
+        Buffer.from(asJsonl(syntheticDoneEvents())),
+        Buffer.from('{"note":"'),
+        Buffer.from([0xe2, 0x82]),
+      ]),
+    );
+    const before = sha256(await readFile(path));
+    const detail = await createTraceStore().readTrace(
+      stateRoot,
+      "torn-multibyte.jsonl",
+    );
+    expect(detail).toMatchObject({
+      ok: true,
+      trace: {
+        partial: true,
+        projection: { run: { lastSeq: 7 } },
+      },
+    });
+    const listed = await createTraceStore().listTraces(stateRoot);
+    expect(listed).toMatchObject({
+      ok: true,
+      traces: [
+        {
+          ok: true,
+          fileName: "torn-multibyte.jsonl",
+          partial: true,
+          runId: "synthetic-run-1",
+        },
+      ],
+    });
+    expect(sha256(await readFile(path))).toBe(before);
+  });
+
   it("omits one unterminated append fragment and rereads appended events from scratch", async () => {
     const path = await writeTrace(
       "append.jsonl",

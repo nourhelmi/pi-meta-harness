@@ -559,7 +559,22 @@ function parseSnapshot(
       { partial },
     );
   }
-  const decoder = new TextDecoder("utf-8", { fatal: true });
+  try {
+    new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+      tailBytes,
+      { stream: true },
+    );
+  } catch (error) {
+    throw new TracePolicyError(
+      "INVALID_UTF8",
+      `Trace ${fileName} contains invalid UTF-8 in the unterminated tail`,
+      { partial, cause: error },
+    );
+  }
+  const decoder = new TextDecoder("utf-8", {
+    fatal: true,
+    ignoreBOM: true,
+  });
   const lines: string[] = [];
   let lineStart = 0;
   for (let index = 0; index < completeBytes.length; index += 1) {
