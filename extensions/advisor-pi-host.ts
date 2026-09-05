@@ -8,6 +8,7 @@ import {
 } from "./advisor-core/advisor-state.ts";
 import {
 	type ResultArtifactValidation,
+	resultStatusBody,
 	validateResultArtifact,
 } from "./advisor-core/result-artifact.ts";
 import {
@@ -99,6 +100,7 @@ interface ArtifactInspection {
 	present: boolean;
 	path?: string;
 	validation: ResultArtifactValidation;
+	statusBody?: string;
 }
 
 const ROOT_NODE = "advisor";
@@ -222,7 +224,15 @@ function messageSettlement(details: RunRecordDetails, tail: string): Settlement 
 
 async function inspectArtifact(path: string | undefined): Promise<ArtifactInspection> {
 	if (!path) {
-		return { present: false, validation: { valid: false, problems: ["result artifact path is missing"] } };
+		return {
+			present: false,
+			validation: {
+				valid: false,
+				classification: "terminal",
+				problems: ["result artifact path is missing"],
+				notes: [],
+			},
+		};
 	}
 	let markdown: string;
 	try {
@@ -230,12 +240,35 @@ async function inspectArtifact(path: string | undefined): Promise<ArtifactInspec
 	} catch (error) {
 		const code = (error as NodeJS.ErrnoException).code;
 		const problem = code === "ENOENT" ? "result artifact is missing" : `result artifact could not be read: ${(error as Error).message}`;
-		return { present: false, path, validation: { valid: false, problems: [problem] } };
+		return {
+			present: false,
+			path,
+			validation: {
+				valid: false,
+				classification: "terminal",
+				problems: [problem],
+				notes: [],
+			},
+		};
 	}
 	if (!markdown.trim()) {
-		return { present: false, path, validation: { valid: false, problems: ["result artifact is empty"] } };
+		return {
+			present: false,
+			path,
+			validation: {
+				valid: false,
+				classification: "terminal",
+				problems: ["result artifact is empty"],
+				notes: [],
+			},
+		};
 	}
-	return { present: true, path, validation: validateResultArtifact(markdown) };
+	return {
+		present: true,
+		path,
+		validation: validateResultArtifact(markdown),
+		statusBody: resultStatusBody(markdown),
+	};
 }
 
 function nativeSettlement(settlement: Settlement): SettledStatus {
@@ -279,6 +312,7 @@ function settlementReason(
 	settlement: Settlement,
 	artifact: ArtifactInspection,
 ): string {
+	if (settlement.settlementNote) return settlement.settlementNote;
 	if (status === "stalled" && (nativeStatus === "done" || nativeStatus === "blocked")) {
 		return `result artifact is invalid: ${artifact.validation.problems.join("; ")}`;
 	}
@@ -363,7 +397,7 @@ function settlementDrafts(events: CanonicalEvent[], settlement: Settlement, arti
 		: nativeStatus;
 	const drafts: CanonicalEventDraft[] = [];
 	if (nativeStatus === "blocked" && !events.some((event) => event.type === "node.blocked" && event.node === launch.node)) {
-		const requestText = artifact.validation.statusBody ?? settlement.settlementNote ??
+		const requestText = artifact.statusBody ?? settlement.settlementNote ??
 			(settlement.tail.trim() || "Agent is blocked and needs a decision.");
 		drafts.push({
 			type: "node.blocked",
@@ -386,7 +420,7 @@ function settlementDrafts(events: CanonicalEvent[], settlement: Settlement, arti
 			data: {
 				path: artifact.path,
 				valid: artifact.validation.valid,
-				problems: artifact.validation.problems,
+				problems: artifact.validation.valid ? artifact.validation.notes : artifact.validation.problems,
 				...(artifact.validation.valid && artifact.validation.status ? { status: artifact.validation.status } : {}),
 			},
 		});

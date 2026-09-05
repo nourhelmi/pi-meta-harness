@@ -209,11 +209,11 @@ async function subagentStop(payload, root, paths) {
       if (!launch) return [];
       const artifact = await inspectArtifact(mapping.resultPath);
       const valid = artifact.validation.valid;
-      const blocked = valid && /^BLOCKED\b/i.test(artifact.validation.status ?? "");
+      const blocked = valid && artifact.validation.classification === "blocked";
       const status = valid ? (blocked ? "blocked" : "done") : "stalled";
       const drafts = [];
       if (blocked) {
-        const text = artifact.validation.statusBody ?? "Advisor maker is blocked and needs a decision.";
+        const text = artifact.statusBody ?? "Advisor maker is blocked and needs a decision.";
         drafts.push({
           type: "node.blocked",
           node: mapping.nodeId,
@@ -235,7 +235,7 @@ async function subagentStop(payload, root, paths) {
           data: {
             path: mapping.resultPath,
             valid,
-            problems: artifact.validation.problems,
+            problems: valid ? artifact.validation.notes : artifact.validation.problems,
             ...(valid && artifact.validation.status ? { status: artifact.validation.status } : {}),
           },
         });

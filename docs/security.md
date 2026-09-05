@@ -8,7 +8,8 @@ public data.**
 - first-party TypeScript extensions and skills;
 - advisory model names and reasoning guidance, plus instructional role
   boundaries and prompt-cycle caps;
-- safe Pi settings with compatible npm ranges or exact Git commits;
+- safe Pi settings with compatible npm ranges, latest-tracking first-party Git
+  sources, or exact third-party Git commits;
 - MCP command definitions that use environment placeholders;
 - third-party source URLs, licenses, versions, revisions, and content hashes;
 - installer, validation, CI, and documentation files;

@@ -1,7 +1,7 @@
 import { appendFile, mkdir, open, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { validateResultArtifact } from "./result-artifact.mjs";
+import { resultStatusBody, validateResultArtifact } from "./result-artifact.mjs";
 
 export async function readJson(path) {
   try {
@@ -100,12 +100,32 @@ export async function inspectArtifact(path) {
     const problem = error?.code === "ENOENT"
       ? "result artifact is missing"
       : `result artifact could not be read: ${error.message}`;
-    return { present: false, validation: { valid: false, problems: [problem] } };
+    return {
+      present: false,
+      validation: {
+        valid: false,
+        classification: "terminal",
+        problems: [problem],
+        notes: [],
+      },
+    };
   }
   if (!markdown.trim()) {
-    return { present: false, validation: { valid: false, problems: ["result artifact is empty"] } };
+    return {
+      present: false,
+      validation: {
+        valid: false,
+        classification: "terminal",
+        problems: ["result artifact is empty"],
+        notes: [],
+      },
+    };
   }
-  return { present: true, validation: validateResultArtifact(markdown) };
+  return {
+    present: true,
+    validation: validateResultArtifact(markdown),
+    statusBody: resultStatusBody(markdown),
+  };
 }
 
 export function parseRiskTier(prompt) {

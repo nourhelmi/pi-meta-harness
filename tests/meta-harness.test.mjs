@@ -67,7 +67,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   for (const model of removedModels) assert(!settings.enabledModels.includes(model));
   assert(!settings.enabledModels.includes("claude-bridge/claude-fable-5"));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
-  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach@19e5f3af9bffcffdff7e79f3e7f653813396fcb3"));
+  assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach"));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@^0.1.4"));
   assert(packageSources.includes("npm:pi-better-edit@^1.4.3"));
   assert(packageSources.includes("npm:pi-claude-agent-sdk@^0.8.6"));
@@ -457,14 +457,28 @@ test("Herdr configuration installs with a restorable backup", async () => {
   await rm(target, { recursive: true, force: true });
 });
 
-test("managed npm packages use caret ranges and Git packages use exact commits", async () => {
+test("managed npm packages use caret ranges, first-party Git tracks latest, and third-party Git stays pinned", async () => {
   const settings = JSON.parse(await readFile(join(ROOT, "config", "settings.overlay.json"), "utf8"));
   for (const entry of settings.packages) {
     const source = packageSource(entry);
     const caretNpm = /^npm:(?:@[^/]+\/[^@]+|[^@]+)@\^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(source);
     const exactGit = /^git:.+@[0-9a-f]{40}$/.test(source);
-    assert(caretNpm || exactGit, `Package is not a caret npm range or exact Git commit: ${source}`);
+    const firstPartyLatest = /^git:https:\/\/github\.com\/nourhelmi\/[^/@\s]+$/.test(source);
+    assert(caretNpm || exactGit || firstPartyLatest, `Package source has no approved update policy: ${source}`);
+    if (source.includes("nourhelmi/pi-detach")) assert.equal(source, "git:https://github.com/nourhelmi/pi-detach");
+    if (source.startsWith("git:") && !firstPartyLatest) {
+      assert(exactGit, `Third-party Git package is not pinned: ${source}`);
+    }
   }
+});
+
+test("plan reports first-party latest-tracking Git sources", () => {
+  const plan = run("plan");
+  assert.equal(plan.status, 0, plan.stderr);
+  assert.match(
+    plan.stdout,
+    /PACKAGE first-party latest-tracking: git:https:\/\/github\.com\/nourhelmi\/pi-detach/,
+  );
 });
 
 test("exact Git pin fetch verification is explicit and bounded", async () => {
@@ -475,6 +489,7 @@ test("exact Git pin fetch verification is explicit and bounded", async () => {
   assert.match(script, /const GIT_PIN_FETCH_TIMEOUT_MS = 20_000/);
   assert.match(script, /timeout: GIT_PIN_FETCH_TIMEOUT_MS/);
   assert.match(script, /\["-C", checkout, "fetch", "--quiet", "--depth", "1", pin\.url, pin\.commit\]/);
+  assert.match(script, /SKIPPED .*first-party latest-tracking; pi update refreshes origin\/HEAD/);
 });
 
 test("reviewed pi-skill-tags metadata matches its managed commit pin", async () => {

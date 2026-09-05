@@ -1,0 +1,164 @@
+[
+  {
+    "name": "markdown headings with PASS",
+    "markdown": "# Status\nPASS\n# Claims\nClaim prose.\n# Evidence\nEvidence prose.\n# Files\nFile prose.\n# Decisions\nDecision prose.\n# Remaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "PASS",
+      "classification": "terminal",
+      "problems": [],
+      "notes": []
+    }
+  },
+  {
+    "name": "plain labels without hashes",
+    "markdown": "Status\nPASS\nClaims\nClaim prose.\nEvidence\nEvidence prose.\nFiles\nFile prose.\nDecisions\nDecision prose.\nRemaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "PASS",
+      "classification": "terminal",
+      "problems": [],
+      "notes": []
+    }
+  },
+  {
+    "name": "bold inline labels",
+    "markdown": "**Status**: PASS\n**Claims**\nClaim prose.\n**Evidence**\nEvidence prose.\n**Files**\nFile prose.\n**Decisions**\nDecision prose.\n**Remaining Risk**\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "PASS",
+      "classification": "terminal",
+      "problems": [],
+      "notes": []
+    }
+  },
+  {
+    "name": "nested detail headings with prose",
+    "markdown": "## Status\nPASS\n### detail\nStatus prose.\n## Claims\n### AC1\nClaim prose.\n## Evidence\n### Command\nEvidence prose.\n## Files\nFile prose.\n## Decisions\nDecision prose.\n## Remaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "PASS",
+      "classification": "terminal",
+      "problems": [],
+      "notes": []
+    }
+  },
+  {
+    "name": "missing Claims label",
+    "markdown": "# Status\nPASS\n# Evidence\nEvidence prose.\n# Files\nFile prose.\n# Decisions\nDecision prose.\n# Remaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "PASS",
+      "classification": "terminal",
+      "problems": [],
+      "notes": ["missing Claims"]
+    }
+  },
+  {
+    "name": "Claims has only a nested heading",
+    "markdown": "# Status\nPASS\n# Claims\n## AC1\n# Evidence\nEvidence prose.\n# Files\nFile prose.\n# Decisions\nDecision prose.\n# Remaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "PASS",
+      "classification": "terminal",
+      "problems": [],
+      "notes": ["empty Claims"]
+    }
+  },
+  {
+    "name": "fallback DONE on second line",
+    "markdown": "Worker result\nDONE\n# Claims\nClaim prose.\n# Evidence\nEvidence prose.\n# Files\nFile prose.\n# Decisions\nDecision prose.\n# Remaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "DONE",
+      "classification": "terminal",
+      "problems": [],
+      "notes": ["missing Status"]
+    }
+  },
+  {
+    "name": "no status anywhere",
+    "markdown": "Worker result\nSummary prose.\n# Claims\nClaim prose.\n# Evidence\nEvidence prose.\n# Files\nFile prose.\n# Decisions\nDecision prose.\n# Remaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "classification": "terminal",
+      "problems": [],
+      "notes": ["missing Status", "no Status line found"]
+    }
+  },
+  {
+    "name": "blocked with inline reason",
+    "markdown": "Status: BLOCKED: need a decision on X\nClaims\nClaim prose.\nEvidence\nEvidence prose.\nFiles\nFile prose.\nDecisions\nDecision prose.\nRemaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "BLOCKED: need a decision on X",
+      "classification": "blocked",
+      "problems": [],
+      "notes": []
+    }
+  },
+  {
+    "name": "in progress",
+    "markdown": "Status\nIN PROGRESS\nClaims\nClaim prose.\nEvidence\nEvidence prose.\nFiles\nFile prose.\nDecisions\nDecision prose.\nRemaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "IN PROGRESS",
+      "classification": "in-progress",
+      "problems": [],
+      "notes": []
+    }
+  },
+  {
+    "name": "blocked appears only in Evidence",
+    "markdown": "# Status\nPASS\n# Claims\nClaim prose.\n# Evidence\nThe build is blocked by CI.\n# Files\nFile prose.\n# Decisions\nDecision prose.\n# Remaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "PASS",
+      "classification": "terminal",
+      "problems": [],
+      "notes": []
+    }
+  },
+  {
+    "name": "compact hash labels",
+    "markdown": "#Status: BLOCKED: need approval\n#Claims\nClaim prose.\n#Evidence\nEvidence prose.\n#Files\nFile prose.\n#Decisions\nDecision prose.\n#Remaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "BLOCKED: need approval",
+      "classification": "blocked",
+      "problems": [],
+      "notes": []
+    }
+  },
+  {
+    "name": "double hyphen in progress is terminal",
+    "markdown": "Status: IN--PROGRESS\nClaims\nClaim prose.\nEvidence\nEvidence prose.\nFiles\nFile prose.\nDecisions\nDecision prose.\nRemaining Risk\nRisk prose.\n",
+    "expected": {
+      "valid": true,
+      "status": "IN--PROGRESS",
+      "classification": "terminal",
+      "problems": [],
+      "notes": []
+    }
+  },
+  {
+    "name": "empty file",
+    "markdown": "",
+    "expected": {
+      "valid": false,
+      "classification": "terminal",
+      "problems": ["result artifact is empty"],
+      "notes": []
+    }
+  },
+  {
+    "name": "whitespace only",
+    "markdown": "  \n\t\n",
+    "expected": {
+      "valid": false,
+      "classification": "terminal",
+      "problems": ["result artifact is empty"],
+      "notes": []
+    }
+  }
+]

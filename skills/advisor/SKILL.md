@@ -149,9 +149,9 @@ Native Codex and Claude role launches receive an automatically generated bounded
 use the pane transcript as the durable result. The session's persisted worker
 mode is authoritative over per-launch requests; an explicit role-profile
 transport constraint takes precedence. Never pass a conflicting per-launch
-harness. Native
-settlement validates the required result headings before closing; a missing,
-empty, or malformed artifact stalls the run and keeps its pane visible for repair.
+harness. Native settlement stalls only for a missing or blank result artifact.
+Missing, empty, or differently formatted expected sections are advisory notes
+surfaced to the parent and do not prevent settlement.
 
 Native routing supports `openai-codex/*`/`openai/*` through Codex and
 `claude-bridge/*`/`anthropic/*` through Claude Code. A Cursor-only recommendation

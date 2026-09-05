@@ -161,7 +161,7 @@ test("recorded foreground hook payloads emit one valid done trace and generation
   });
 });
 
-test("blocked, invalid, missing, and Agent failure settlements all validate", async () => {
+test("blocked, lenient, blank, missing, and Agent failure settlements all validate", async () => {
   await withRoot(async (root) => {
     const blockedPayloads = await recordedPayloads("blocked");
     const blocked = await complete(
@@ -172,10 +172,23 @@ test("blocked, invalid, missing, and Agent failure settlements all validate", as
     assert.ok(blocked.events.findIndex((event) => event.type === "node.blocked") < blocked.events.findIndex((event) => event.type === "node.result.written"));
     assert.equal(blocked.projection.nodes[0].settledStatus, "blocked");
 
-    const invalidPayloads = await recordedPayloads("invalid");
-    const invalid = await complete(root, invalidPayloads, resultMarkdown("PASS", { claims: false }));
-    assert.equal(invalid.projection.nodes[0].settledStatus, "stalled");
-    assert.equal(invalid.projection.nodes[0].resultValid, false);
+    const lenientPayloads = await recordedPayloads("lenient");
+    const lenient = await complete(root, lenientPayloads, "Status\nPASS\n");
+    assert.equal(lenient.projection.nodes[0].settledStatus, "done");
+    assert.equal(lenient.projection.nodes[0].resultStatus, "PASS");
+    const validation = lenient.events.find((event) => event.type === "node.result.validated");
+    assert.equal(validation.data.valid, true);
+    assert.deepEqual(validation.data.problems, [
+      "missing Claims",
+      "missing Evidence",
+      "missing Files",
+      "missing Decisions",
+      "missing Remaining Risk",
+    ]);
+
+    const blankPayloads = await recordedPayloads("blank");
+    const blank = await complete(root, blankPayloads, "");
+    assert.equal(blank.projection.nodes[0].settledStatus, "stalled");
 
     const missingPayloads = await recordedPayloads("missing");
     const missingStart = await startRun(root, missingPayloads);
@@ -327,6 +340,7 @@ test("only SubagentStart emits context; malformed stdin exits zero and writes no
 test("shipped Claude Code hooks and advisor-maker definition satisfy the contract", async () => {
   const hooksPath = new URL("../config/advisor-core/hosts/claude-code/hooks.json", import.meta.url);
   const hooks = JSON.parse(await readFile(hooksPath, "utf8"));
+  assert.deepEqual(hooks.env, { CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1" });
   const expected = {
     PreToolUse: "Agent",
     SubagentStart: "advisor-maker",
@@ -351,6 +365,8 @@ test("shipped Claude Code hooks and advisor-maker definition satisfy the contrac
     assert.match(body, new RegExp(`\\b${heading}\\b`));
   }
   assert.match(agent, /background: false/);
+  assert.match(agent, /does not force foreground execution/);
+  assert.match(agent, /CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1.*required/s);
   assert.match(agent, /disallowedTools: Agent/);
 });
 
@@ -360,6 +376,8 @@ test("protocol documents the Claude Code binding and marks migration step 4 done
   for (const hook of ["PreToolUse", "SubagentStart", "SubagentStop", "PostToolUse", "PostToolUseFailure"]) {
     assert.match(protocol, new RegExp("`" + hook + "`"));
   }
+  assert.match(protocol, /CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1[\s\S]*required/);
+  assert.match(protocol, /background: false[\s\S]*does not force foreground execution/);
   for (const capability of [
     "backgroundWorkers: true",
     "visibleWorkers: partial",

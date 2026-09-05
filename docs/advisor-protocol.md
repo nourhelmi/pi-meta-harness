@@ -145,6 +145,21 @@ trace that validates and projects equivalently to the reference host, and a
 surface conforms when it renders a fixture trace from files alone, with no
 host transcript or provider bridge.
 
+## Result validation
+
+Advisor Core result validation v2 stalls only for a missing, unreadable, or
+blank artifact. It extracts the first Status label whether formatted as a
+Markdown heading, plain label, or bold label; without a Status label it scans
+the first ten nonempty lines for a known status token. Only that status line
+can classify the result as `blocked` or `in-progress`; any other or unknown
+status is terminal.
+
+Status, Claims, Evidence, Files, Decisions, and Remaining Risk remain the
+expected template. Missing or empty sections produce advisory notes, carried
+with `valid: true` in `node.result.validated.data.problems`; they never stall
+settlement. This is the shared `result-artifact-v2` rule implemented identically
+by the script and TypeScript Advisor Core validators.
+
 ## Pi host binding
 
 Pi plus pi-detach is the first v1 host binding. The top-level
@@ -165,11 +180,11 @@ tier defaults to `high`.
 Advisor Core reads and validates the durable result itself. The host emits
 `node.result.written` only for a nonempty artifact and emits
 `node.result.validated` from Core's verdict before settlement. A pi-detach
-`done` or `idle` therefore becomes canonical `done` only when the artifact has
-nonempty Status, Claims, Evidence, Files, Decisions, and Remaining Risk
-sections; subsection-organized content counts, while a heading with no prose
-does not. Invalid or missing results stall rather than borrowing pi-detach's
-settlement truth.
+`done` or `idle` becomes canonical `done` for any nonblank artifact. Missing
+or empty expected sections are validation notes; only a missing, unreadable, or
+blank result stalls rather than borrowing pi-detach's settlement truth. When
+pi-detach supplies a typed `settlementNote`, the adapter prefers it to parsed
+tail text for the canonical settlement reason.
 
 Name-based `bg_agent` follow-up is intentionally limited in v1: even when it
 reuses a live native agent name, it creates a new run and worker node rather
@@ -179,7 +194,9 @@ than resuming the prior canonical run.
 
 Claude Code is a second v1 execution host for exactly one maker per canonical
 run. It uses the native `Agent` tool and a custom subagent whose frontmatter
-name is `advisor-maker`. The standalone plain-Node binding is
+name is `advisor-maker`. The definition's `background: false` flag does not
+force foreground execution; `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` is
+required for the foreground parent wake. The standalone plain-Node binding is
 [`../scripts/claude-advisor-trace.mjs`](../scripts/claude-advisor-trace.mjs).
 It never blocks a hook, changes tool input, grants permission, or treats the
 worker's final chat message as a durable result.
@@ -221,10 +238,10 @@ Launch packet fields come from the `Agent` prompt and documented hook fields:
 
 The binding reserves
 `<stateRoot>/runs/claude-code/<runId>/result.md` empty before launch context is
-returned. A nonempty artifact must pass the same six-heading and Status-line
-rules as the Pi binding. Missing, empty, or invalid output settles `stalled`;
-a valid BLOCKED artifact emits the blocked request before result-written and
-settles `blocked`; another valid terminal artifact settles `done`.
+returned. Missing, unreadable, or blank output settles `stalled`; a nonblank
+BLOCKED artifact emits the blocked request before result-written and settles
+`blocked`; another nonblank terminal artifact settles `done`. Section notes
+are carried in the validation event and do not change settlement.
 
 ### Install the Claude Code binding
 
@@ -238,12 +255,14 @@ settles `blocked`; another valid terminal artifact settles `done`.
    [`../config/advisor-core/hosts/claude-code/agents/advisor-maker.md`](../config/advisor-core/hosts/claude-code/agents/advisor-maker.md)
    to project `.claude/agents/advisor-maker.md` or
    `~/.claude/agents/advisor-maker.md`.
-3. Set `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` for sessions using this v1
-   binding. Background launch is unsupported because it has no equivalent
-   foreground parent-delivery hook. The agent definition also sets
-   `background: false` and removes `Agent` from the maker's tools. As a
-   session-wide alternative, `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` disables
-   nested delegation.
+3. Merge the snippet's top-level
+   `env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` setting for sessions using this
+   v1 binding. This environment setting is required: the agent definition's
+   `background: false` flag alone does not force foreground execution.
+   Background launch is unsupported because it has no equivalent foreground
+   parent-delivery hook. The definition removes `Agent` from the maker's
+   tools; `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` is an optional session-wide
+   nested-delegation guard.
 
 Claude Code's native RuntimeCapabilities are: `backgroundWorkers: true`;
 `visibleWorkers: partial` (task panel/transcript, not an independent advisor
@@ -263,19 +282,16 @@ observer, or a live `codex` subprocess. No hook blocks, returns a permission
 decision, rewrites tool input, or substitutes `last_assistant_message` for the
 durable artifact.
 
-The shipped hook snippet has exactly five matcher groups:
-
-The spawn matcher is `^(spawn_agent|Agent|multi_agent_v1\.spawn_agent)$`; the
-wait matcher is `^(wait_agent|multi_agent_v1\.wait_agent)$`; both subagent
-groups match `advisor-maker`.
+The shipped hook snippet has exactly four hook groups. The spawn matcher is
+`^(spawn_agent|Agent|multi_agent_v1\.spawn_agent)$`, both subagent groups match
+`advisor-maker`, and there is no wait matcher.
 
 | Hook | Matcher | Canonical action |
 | --- | --- | --- |
 | `PreToolUse` | `^(spawn_agent\|Agent\|multi_agent_v1\.spawn_agent)$` | Record the qualifying `advisor-maker` launch's `tool_use_id`, prompt (`message` or text `items`), task name, requested model and reasoning effort, session, and cwd. Emit no trace. |
 | `SubagentStart` | `advisor-maker` | Reserve the result path, lazily append `run.created` and `node.launched`, and return the exact path through `hookSpecificOutput.additionalContext`. |
-| `PostToolUse` | `^(spawn_agent\|Agent\|multi_agent_v1\.spawn_agent)$` | Record V1 `agent_id` and `nickname`, or V2 canonical `task_name` and `nickname`, for wait correlation. Emit no canonical event. |
-| `SubagentStop` | `advisor-maker` | Inspect the reserved artifact, emit `node.blocked` first for a valid BLOCKED result, then the result and validation events when nonempty, and settle from Advisor Core validation. |
-| `PostToolUse` | `^(wait_agent\|multi_agent_v1\.wait_agent)$` | On a non-timed-out delivery for a settled child that has not woken its parent, append `parent.awakened`. V1 may also settle an unstopped errored child as failed or an interrupted/shutdown child as cancelled before waking. |
+| `PostToolUse` | `^(spawn_agent\|Agent\|multi_agent_v1\.spawn_agent)$` | Parse an object response or a JSON string response. Record V1 `agent_id` and `nickname`, or V2 canonical `task_name` and `nickname`. Emit no canonical event. |
+| `SubagentStop` | `advisor-maker` | Inspect the reserved artifact and append one ordered batch: `node.blocked` when Status is BLOCKED, result-written and validation events for a nonempty artifact, `node.settled`, then `parent.awakened` with the next wake generation. |
 
 `run.created` is lazy: a normal Codex session, a non-maker spawn, and the
 maker's spawn `PreToolUse` do not create a canonical run. The first matching
@@ -301,19 +317,17 @@ Launch fields are fixed from the spawn input and packet:
 
 Before `node.launched`, the binding reserves
 `<stateRoot>/runs/codex/<runId>/result.md`. `SubagentStop` uses the shared Core
-six-heading and Status-line validator. A valid BLOCKED result settles
-`blocked`; another valid result settles `done`; invalid, empty, or missing
-output settles `stalled`. A V1 wait status of `errored` settles an unstopped
-child `failed`; `interrupted` and `shutdown` settle it `cancelled`.
+result validator. A nonblank BLOCKED result settles `blocked`; another nonblank
+result settles `done`; missing, unreadable, or blank output settles `stalled`.
+Section notes are carried in `node.result.validated.data.problems` with
+`valid: true`.
 
-Parent delivery is foreground and wait-based in v1. The root must call
-`wait_agent` for the maker. A timed-out wait emits no wake, and a later
-non-timed-out delivery emits exactly one. If the root never waits, there is no
-wake in the canonical trace. V2 wait output identifies mailbox delivery but
-does not identify the child or repeat its status, so this binding relies on
-the one-maker boundary and wakes the oldest settled, unwoken maker. It rejects
-the explicit `Wait interrupted by new input.` response as non-delivery. Codex
-hooks expose no bounded canonical progress note, so the v1 adapter emits no
+Codex delivers child completion to the parent natively and automatically, so
+`SubagentStop` records the canonical `parent.awakened` immediately after
+`node.settled`. No hook fires for `wait_agent`; a wait payload that somehow
+reaches the binding is ignored. In v1, a child that dies without
+`SubagentStop` remains unsettled because no wait-status fallback exists. Codex
+hooks expose no bounded canonical progress note, so the adapter emits no
 `node.progress`.
 
 ### Install the Codex binding

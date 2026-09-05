@@ -234,12 +234,19 @@ function packageSource(entry) {
   return typeof entry === "string" ? entry : entry?.source;
 }
 
+function isFirstPartyLatestGitSource(source) {
+  return typeof source === "string"
+    && /^git:https:\/\/github\.com\/nourhelmi\/[^/@\s]+$/.test(source);
+}
+
 function packageSourceIsApproved(source) {
   if (typeof source !== "string") return false;
   if (source.startsWith("npm:")) {
     return /^npm:(?:@[^/]+\/[^@]+|[^@]+)@\^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(source);
   }
-  if (source.startsWith("git:")) return /@[0-9a-f]{40}$/.test(source);
+  if (source.startsWith("git:")) {
+    return isFirstPartyLatestGitSource(source) || /@[0-9a-f]{40}$/.test(source);
+  }
   return false;
 }
 
@@ -452,6 +459,12 @@ async function plan(options) {
   for (const [source, destination] of MERGE_ENTRIES) {
     console.log(`MERGE ${source} -> ${destination}`);
   }
+  const settingsOverlay = await readJson(join(ROOT, "config", "settings.overlay.json"), {});
+  for (const source of (settingsOverlay.packages ?? []).map(packageSource)) {
+    if (isFirstPartyLatestGitSource(source)) {
+      console.log(`PACKAGE first-party latest-tracking: ${source}`);
+    }
+  }
   console.log("PRESERVE intelligence-profiles/ACTIVE when its named guide still exists");
   console.log("REFUSE install before mutation when ACTIVE and advisor-intelligence.json are inconsistent");
   console.log("MATERIALIZE selected guide -> advisor-intelligence.json");
@@ -619,7 +632,7 @@ async function doctor(options) {
   const installedSources = new Set((settings.packages ?? []).map(packageSource));
   for (const entry of overlay.packages ?? []) {
     if (!packageSourceIsApproved(packageSource(entry))) {
-      errors.push(`Pi package source is not a caret npm range or full Git commit: ${packageSource(entry)}`);
+      errors.push(`Pi package source is not a caret npm range, first-party latest Git source, or full Git commit: ${packageSource(entry)}`);
     }
     if (!installedIds.has(packageIdentity(entry))) errors.push(`Missing Pi package setting: ${packageSource(entry)}`);
     if (!installedIds.has(packageIdentity(entry))) errors.push(`Missing Pi package setting: ${packageSource(entry)}`);
@@ -911,8 +924,13 @@ async function verifyGitPins() {
   const gitSources = (overlay.packages ?? [])
     .map(packageSource)
     .filter((source) => typeof source === "string" && source.startsWith("git:"));
-  const pins = gitSources.map(exactGitPin);
-  const invalid = gitSources.filter((_, index) => !pins[index]);
+  const latest = gitSources.filter(isFirstPartyLatestGitSource);
+  for (const source of latest) {
+    console.log(`SKIPPED ${source} (first-party latest-tracking; pi update refreshes origin/HEAD)`);
+  }
+  const pinSources = gitSources.filter((source) => !isFirstPartyLatestGitSource(source));
+  const pins = pinSources.map(exactGitPin);
+  const invalid = pinSources.filter((_, index) => !pins[index]);
   if (invalid.length) throw new Error(`Git package source is not pinned to a full commit: ${invalid.join(", ")}`);
 
   const temporary = await mkdtemp(join(tmpdir(), "pi-meta-harness-git-pins-"));

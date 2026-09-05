@@ -114,18 +114,21 @@ snapshots are not duplicated.
 
 ## 📌 Reproducibility boundary
 
-First-party files are exact, npm packages follow compatible caret ranges, and
-Git packages use full commits. Each third-party skill group records a full
-source commit and Git tree. The installer fetches that commit directly,
-verifies both IDs, copies the selected skills, and then verifies each installed
-folder against its SHA-256 lock.
+First-party files are exact, npm packages follow compatible caret ranges,
+first-party Git package sources track origin/HEAD, and third-party Git packages
+use full commits. Each third-party skill group records a full source commit and
+Git tree. The installer fetches that commit directly, verifies both IDs, copies
+the selected skills, and then verifies each installed folder against its
+SHA-256 lock.
 
 Host package managers remain an update boundary: Homebrew resolves current
 compatible Herdr and Engram builds, while the live doctor enforces the
 supported minimums. Pi and agent-browser use compatible npm ranges and live
 minimum-version checks.
 
-Unit tests enforce full 40-hex Git package pins without network access. Run
-`node scripts/meta-harness.mjs verify-git-pins` as an explicit publication or
-cutover preflight to fetch each exact commit with a per-pin timeout. Keeping
-the network check opt-in preserves deterministic offline tests.
+Unit tests enforce latest-tracking first-party Git sources and full 40-hex
+third-party Git package pins without network access. Run `node
+scripts/meta-harness.mjs verify-git-pins` as an explicit publication or cutover
+preflight to fetch each exact third-party commit with a per-pin timeout; the
+command reports and skips first-party latest-tracking sources. Keeping the
+network check opt-in preserves deterministic offline tests.

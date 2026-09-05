@@ -20,11 +20,35 @@ const run = promisify(execFile);
 const SCRIPT = fileURLToPath(new URL("../scripts/codex-advisor-trace.mjs", import.meta.url));
 const CLAUDE_SCRIPT = fileURLToPath(new URL("../scripts/claude-advisor-trace.mjs", import.meta.url));
 const HOOK_FIXTURES = fileURLToPath(new URL("./fixtures/codex-hooks", import.meta.url));
+const LIVE_CAPTURE = join(HOOK_FIXTURES, "live-capture.jsonl");
 const CLAUDE_FIXTURES = fileURLToPath(new URL("./fixtures/claude-code-hooks", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 async function fixture(directory, name) {
   return JSON.parse(await readFile(join(directory, name), "utf8"));
+}
+
+async function capturedPayloads() {
+  const payloads = (await readFile(LIVE_CAPTURE, "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  const pre = payloads.find((payload) => payload.hook_event_name === "PreToolUse");
+  const start = payloads.find((payload) => payload.hook_event_name === "SubagentStart");
+  const postSpawn = payloads.find((payload) => payload.hook_event_name === "PostToolUse");
+  const stop = payloads.find((payload) => payload.hook_event_name === "SubagentStop");
+  assert.ok(pre && start && postSpawn && stop);
+  assert.equal(typeof postSpawn.tool_response, "string");
+  return {
+    pre,
+    start,
+    postSpawn,
+    stop,
+    sequence: payloads,
+    sessionId: pre.session_id,
+    agentId: start.agent_id,
+    spawnToolUseId: pre.tool_use_id,
+  };
 }
 
 async function recordedPayloads(version = "v2", suffix = "001") {
@@ -162,10 +186,15 @@ async function completeClaude(root) {
   return validated(root, runId(pre.session_id, 1, "cc"));
 }
 
-test("recorded V2 hooks emit one valid done trace and generation-1 wait wake", async () => {
+test("real captured Codex hooks emit one valid done trace and a SubagentStop generation-1 wake", async () => {
   await withRoot(async (root) => {
-    const payloads = await recordedPayloads("v2", "done");
-    const { events, projection, startOutput, resultPath } = await complete(root, payloads);
+    const payloads = await capturedPayloads();
+    const started = await startRun(root, payloads);
+    assert.equal((await runHook(payloads.postSpawn, root)).stdout, "");
+    await writeFile(started.resultPath, resultMarkdown(), "utf8");
+    assert.equal((await runHook(payloads.stop, root)).stdout, "");
+    const { events, projection } = await validated(root, started.id);
+    const { startOutput, resultPath } = started;
     assert.match(startOutput.hookSpecificOutput.additionalContext, new RegExp(resultPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.equal(projection.run.host, "codex");
     assert.equal(projection.nodes.length, 1);
@@ -183,19 +212,61 @@ test("recorded V2 hooks emit one valid done trace and generation-1 wait wake", a
     assert.deepEqual(launch.data, {
       ...launch.data,
       role: "builder",
-      label: "codex_trace_done",
+      label: "live-trace-proof-3",
       harness: "codex",
-      model: "gpt-5.6-sol",
-      thinking: "high",
-      cwd: "/Users/example/Dev/example-repo",
-      riskTier: "standard",
-      acceptance: ["The result artifact validates.", "The parent receives one wake."],
+      model: "unknown",
+      thinking: "unspecified",
+      cwd: payloads.pre.cwd,
+      riskTier: "low",
       resultPath,
     });
+    const launchHash = createHash("sha256").update(payloads.spawnToolUseId).digest("hex").slice(0, 32);
+    const mapping = JSON.parse(await readFile(join(
+      root,
+      "hosts",
+      "codex",
+      payloads.sessionId,
+      "launches",
+      launchHash + ".json",
+    ), "utf8"));
+    assert.equal(mapping.nativeAgentId, payloads.agentId);
+    assert.equal(mapping.nickname, "Maxwell");
   });
 });
 
-test("blocked, invalid, missing, failed, cancelled, and timed-out variants settle as fixed", async () => {
+test("real captured hook order preserves spawn identity when PostToolUse precedes SubagentStart", async () => {
+  await withRoot(async (root) => {
+    const payloads = await capturedPayloads();
+    assert.deepEqual(payloads.sequence.map(({ hook_event_name }) => hook_event_name), [
+      "PreToolUse",
+      "PostToolUse",
+      "SubagentStart",
+      "SubagentStop",
+    ]);
+    assert.equal((await runHook(payloads.pre, root)).stdout, "");
+    assert.equal((await runHook(payloads.postSpawn, root)).stdout, "");
+    const started = await runHook(payloads.start, root);
+    const resultPath = JSON.parse(started.stdout).hookSpecificOutput.additionalContext.match(/exactly: (.+)/)?.[1];
+    assert.ok(resultPath);
+    await writeFile(resultPath, resultMarkdown(), "utf8");
+    assert.equal((await runHook(payloads.stop, root)).stdout, "");
+    await validated(root, runId(payloads.sessionId));
+
+    const launchHash = createHash("sha256").update(payloads.spawnToolUseId).digest("hex").slice(0, 32);
+    const mapping = JSON.parse(await readFile(join(
+      root,
+      "hosts",
+      "codex",
+      payloads.sessionId,
+      "launches",
+      launchHash + ".json",
+    ), "utf8"));
+    assert.equal(mapping.nativeAgentId, payloads.agentId);
+    assert.equal(mapping.nickname, "Maxwell");
+  });
+});
+
+test("blocked, lenient, blank, and missing artifacts settle as fixed", async () => {
   await withRoot(async (root) => {
     const blocked = await complete(
       root,
@@ -205,51 +276,38 @@ test("blocked, invalid, missing, failed, cancelled, and timed-out variants settl
     assert.ok(blocked.events.findIndex((event) => event.type === "node.blocked") < blocked.events.findIndex((event) => event.type === "node.result.written"));
     assert.equal(blocked.projection.nodes[0].settledStatus, "blocked");
 
-    const invalid = await complete(root, await recordedPayloads("v2", "invalid"), resultMarkdown("PASS", { claims: false }));
-    assert.equal(invalid.projection.nodes[0].settledStatus, "stalled");
-    assert.equal(invalid.projection.nodes[0].resultValid, false);
+    const lenient = await complete(
+      root,
+      await recordedPayloads("v2", "lenient"),
+      "Status\nPASS\n",
+    );
+    assert.equal(lenient.projection.nodes[0].settledStatus, "done");
+    assert.equal(lenient.projection.nodes[0].resultStatus, "PASS");
+    const validation = lenient.events.find((event) => event.type === "node.result.validated");
+    assert.equal(validation.data.valid, true);
+    assert.deepEqual(validation.data.problems, [
+      "missing Claims",
+      "missing Evidence",
+      "missing Files",
+      "missing Decisions",
+      "missing Remaining Risk",
+    ]);
+
+    const blankPayloads = await recordedPayloads("v2", "blank");
+    const blankStart = await startRun(root, blankPayloads);
+    await runHook(blankPayloads.postSpawn, root);
+    await runHook(blankPayloads.stop, root);
+    const blank = await validated(root, blankStart.id);
+    assert.equal(blank.projection.nodes[0].settledStatus, "stalled");
 
     const missingPayloads = await recordedPayloads("v2", "missing");
     const missingStart = await startRun(root, missingPayloads);
     await runHook(missingPayloads.postSpawn, root);
     await unlink(missingStart.resultPath);
     await runHook(missingPayloads.stop, root);
-    await runHook(missingPayloads.wait, root);
     const missing = await validated(root, missingStart.id);
     assert.equal(missing.projection.nodes[0].settledStatus, "stalled");
     assert.equal(missing.events.some((event) => event.type === "node.result.written"), false);
-
-    const failedPayloads = await recordedPayloads("v1", "failed");
-    const failedStart = await startRun(root, failedPayloads);
-    await runHook(failedPayloads.postSpawn, root);
-    failedPayloads.wait.tool_response.status = { [failedPayloads.agentId]: { errored: "native child failed" } };
-    await runHook(failedPayloads.wait, root);
-    const failed = await validated(root, failedStart.id);
-    assert.equal(failed.projection.nodes[0].settledStatus, "failed");
-    assert.equal(failed.projection.wakes.length, 1);
-
-    const cancelledPayloads = await recordedPayloads("v1", "cancelled");
-    const cancelledStart = await startRun(root, cancelledPayloads);
-    await runHook(cancelledPayloads.postSpawn, root);
-    cancelledPayloads.wait.tool_response.status = { [cancelledPayloads.agentId]: "interrupted" };
-    await runHook(cancelledPayloads.wait, root);
-    const cancelled = await validated(root, cancelledStart.id);
-    assert.equal(cancelled.projection.nodes[0].settledStatus, "cancelled");
-    assert.equal(cancelled.projection.wakes.length, 1);
-
-    const timeoutPayloads = await recordedPayloads("v2", "timeout");
-    const timeoutStart = await startRun(root, timeoutPayloads);
-    await runHook(timeoutPayloads.postSpawn, root);
-    await writeFile(timeoutStart.resultPath, resultMarkdown(), "utf8");
-    await runHook(timeoutPayloads.stop, root);
-    const timedOut = structuredClone(timeoutPayloads.wait);
-    timedOut.tool_response = { message: "Wait timed out.", timed_out: true };
-    await runHook(timedOut, root);
-    const beforeDelivery = await validated(root, timeoutStart.id);
-    assert.equal(beforeDelivery.projection.wakes.length, 0);
-    await runHook(timeoutPayloads.wait, root);
-    const delivered = await validated(root, timeoutStart.id);
-    assert.equal(delivered.projection.wakes.length, 1);
   });
 });
 
@@ -265,7 +323,7 @@ test("done lifecycle conforms to Pi and a Claude Code trace produced in this tes
   });
 });
 
-test("non-maker launches stay untraced, replay is idempotent, and V1 conforms to V2", async () => {
+test("non-maker launches stay untraced, replay and wait are inert, and V1 conforms to V2", async () => {
   await withRoot(async (root) => {
     const other = await recordedPayloads("v2", "other");
     other.pre.tool_input.agent_type = "explorer";
@@ -288,9 +346,13 @@ test("non-maker launches stay untraced, replay is idempotent, and V1 conforms to
     assert.equal(await readFile(first.path, "utf8"), before);
     await validated(root, first.id);
 
-    const v2 = await complete(root, await recordedPayloads("v2", "v2-shape"));
+    const v2Payloads = await recordedPayloads("v2", "v2-shape");
+    const v2 = await complete(root, v2Payloads);
     const v1 = await complete(root, await recordedPayloads("v1", "v1-shape"));
     assert.deepEqual(reducedLifecycle(v1.events), reducedLifecycle(v2.events));
+    const waitBefore = await readFile(v2.path, "utf8");
+    await runHook(v2Payloads.wait, root);
+    assert.equal(await readFile(v2.path, "utf8"), waitBefore);
   });
 });
 
@@ -363,7 +425,7 @@ test("spawn identity state and concurrent duplicate settlement and delivery stay
   });
 });
 
-test("shipped Codex hooks and advisor-maker TOML satisfy the five-group contract", async () => {
+test("shipped Codex hooks and advisor-maker TOML satisfy the four-group contract", async () => {
   const hooksPath = fileURLToPath(new URL("../config/advisor-core/hosts/codex/hooks.json", import.meta.url));
   const hooks = JSON.parse(await readFile(hooksPath, "utf8"));
   assert.deepEqual(Object.keys(hooks.hooks), ["PreToolUse", "SubagentStart", "SubagentStop", "PostToolUse"]);
@@ -373,7 +435,6 @@ test("shipped Codex hooks and advisor-maker TOML satisfy the five-group contract
     ["SubagentStart", "advisor-maker"],
     ["SubagentStop", "advisor-maker"],
     ["PostToolUse", "^(spawn_agent|Agent|multi_agent_v1\\.spawn_agent)$"],
-    ["PostToolUse", "^(wait_agent|multi_agent_v1\\.wait_agent)$"],
   ]);
   for (const group of groups) {
     assert.deepEqual(group.hooks, [{ type: "command", command: "node scripts/codex-advisor-trace.mjs" }]);
@@ -391,7 +452,8 @@ test("shipped Codex hooks and advisor-maker TOML satisfy the five-group contract
   for (const heading of ["Status", "Claims", "Evidence", "Files", "Decisions", "Remaining Risk"]) {
     assert.match(parsed.developer_instructions, new RegExp(`\\b${heading}\\b`));
   }
-  await assert.rejects(access(join(REPO_ROOT, ".codex")), { code: "ENOENT" });
+  const trackedCodexConfig = await run("git", ["ls-files", ".codex"], { cwd: REPO_ROOT });
+  assert.equal(trackedCodexConfig.stdout, "");
 });
 
 test("protocol documents the Codex binding, limitations, trust, installation, and capabilities", async () => {
@@ -403,18 +465,21 @@ test("protocol documents the Codex binding, limitations, trust, installation, an
   for (const matcher of [
     "^(spawn_agent|Agent|multi_agent_v1\\.spawn_agent)$",
     "advisor-maker",
-    "^(wait_agent|multi_agent_v1\\.wait_agent)$",
   ]) assert.ok(protocol.includes(matcher), `protocol lacks matcher ${matcher}`);
   for (const phrase of [
     "cx-<first 16 hex of sha256(session_id)>-<launch ordinal>",
     "lazy",
+    "exactly four hook groups",
+    "JSON string response",
+    "parent.awakened",
     "wait_agent",
-    "no wake",
+    "remains unsettled",
     "node.progress",
     "/hooks",
     "project trust",
     "notify",
   ]) assert.match(protocol, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  assert.equal(protocol.includes("^(wait_agent|multi_agent_v1\\.wait_agent)$"), false);
   for (const capability of [
     "backgroundWorkers: true",
     "visibleWorkers: partial",

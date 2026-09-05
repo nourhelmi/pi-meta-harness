@@ -254,8 +254,8 @@ Full guide (suites, trials, baselines, comparisons, privacy boundary):
 - `config/intelligence-profiles/` — switchable model and reasoning guidance.
 - `config/advisor-core/` — canonical event trace JSON Schema and fixture
   traces every host emits and every surface renders.
-- `config/settings.overlay.json` — safe Pi defaults, compatible npm ranges, and
-  exact Git commits;
+- `config/settings.overlay.json` — safe Pi defaults, compatible npm ranges,
+  latest-tracking first-party Git sources, and exact third-party Git commits;
   reinstall preserves the user's existing runtime model preference.
 - `config/mcp.json` — MCP definitions containing environment placeholders only.
 - `config/skill-sources.json` and `config/third-party-skills.lock.json` —
@@ -277,19 +277,19 @@ Full guide (suites, trials, baselines, comparisons, privacy boundary):
 - `docs/` — runtime, architecture, security, cutover, intelligence, and eval
   references.
 
-`pi-detach` stays in its own public repository and is installed from a full Git
-commit. This harness is the single bootstrap entry that composes it with the
-rest of the setup.
+`pi-detach` stays in its own public repository and tracks origin/HEAD; `pi
+update` refreshes that unpinned first-party source. This harness is the single
+bootstrap entry that composes it with the rest of the setup.
 
 </details>
 
 ## 🛡️ Safety and reproducibility
 
-Pi packages use compatible npm ranges or full reviewed Git commits. Third-party
-skills are fetched at full Git commits, verified against recorded tree IDs,
-copied instead of symlinked, and checked against per-skill SHA-256 hashes. Real
-Pi targets always require `--live`, and every install creates a restorable
-backup first.
+Pi packages use compatible npm ranges, latest-tracking first-party Git sources,
+or full reviewed third-party Git commits. Third-party skills are fetched at
+full Git commits, verified against recorded tree IDs, copied instead of
+symlinked, and checked against per-skill SHA-256 hashes. Real Pi targets always
+require `--live`, and every install creates a restorable backup first.
 
 Use a sandbox when you change the harness:
 

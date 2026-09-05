@@ -1,96 +1,176 @@
 const REQUIRED_SECTIONS = ["Status", "Claims", "Evidence", "Files", "Decisions", "Remaining Risk"] as const;
+const FALLBACK_STATUS = /^(?:PASS|FAIL|DONE|BLOCKED|IN PROGRESS|IN-PROGRESS)\b/i;
 
-interface Heading {
+type ResultClassification = "blocked" | "in-progress" | "terminal";
+
+interface MarkdownHeading {
+	level: number;
+	text: string;
+}
+
+interface SectionLabel {
+	name: typeof REQUIRED_SECTIONS[number];
+	level: number;
+	inline: string;
+}
+
+interface Marker {
 	index: number;
 	level: number;
-	title: string;
+	section?: typeof REQUIRED_SECTIONS[number];
+	inline?: string;
+}
+
+interface StatusInfo {
+	status: string;
+	lineIndex: number;
+	marker?: Marker;
+	lines: string[];
+	allMarkers: Marker[];
 }
 
 export interface ResultArtifactValidation {
 	valid: boolean;
-	problems: string[];
 	status?: string;
-	statusBody?: string;
+	classification: ResultClassification;
+	problems: string[];
+	notes: string[];
 }
 
-function headings(lines: string[]): Heading[] {
-	const result: Heading[] = [];
-	for (const [index, line] of lines.entries()) {
-		const match = /^\s*(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
+function markdownHeading(line: string): MarkdownHeading | undefined {
+	const match = /^\s*(#{1,6})\s*(.+?)\s*#*\s*$/.exec(line);
+	return match ? { level: match[1].length, text: match[2].trim() } : undefined;
+}
+
+function stripInlineMarkup(value: string): string {
+	return value.trim().replace(/^[*_\x60]+/, "").replace(/[*_\x60]+$/, "").trim();
+}
+
+function sectionLabel(line: string): SectionLabel | undefined {
+	const heading = markdownHeading(line);
+	const source = (heading?.text ?? line.trim()).replace(/^[*_\x60]+/, "");
+	for (const name of REQUIRED_SECTIONS) {
+		const escaped = name.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+		const pattern = name === "Status"
+			? "^" + escaped + "[*_\\x60]*(?:(?:\\s*:\\s*|\\s+)(.*))?$"
+			: "^" + escaped + "[*_\\x60]*\\s*:?\\s*$";
+		const match = new RegExp(pattern, "i").exec(source);
 		if (!match) continue;
-		result.push({ index, level: match[1]?.length ?? 1, title: match[2]?.trim() ?? "" });
-	}
-	return result;
-}
-
-function sectionLines(lines: string[], allHeadings: Heading[], heading: Heading): string[] {
-	const end = allHeadings.find(
-		(candidate) => candidate.index > heading.index && candidate.level <= heading.level,
-	)?.index ?? lines.length;
-	return lines.slice(heading.index + 1, end);
-}
-
-function stripStatusMarkup(value: string): string {
-	return value.replace(/^[*_`]+/, "").replace(/[*_`]+$/, "").trim();
-}
-
-export function resultStatusLine(markdown: string): string | undefined {
-	const lines = markdown.split(/\r?\n/);
-	let underStatusHeading = false;
-	for (const line of lines) {
-		if (!underStatusHeading) {
-			underStatusHeading = /^\s*#{1,6}\s+status\s*#*\s*$/i.test(line);
-			continue;
-		}
-		if (/^\s*#{1,6}\s+/.test(line)) return undefined;
-		const status = line.trim();
-		if (!status) continue;
-		return stripStatusMarkup(status) || undefined;
+		return {
+			name,
+			level: heading?.level ?? 1,
+			inline: name === "Status" ? stripInlineMarkup(match[1] ?? "") : "",
+		};
 	}
 	return undefined;
 }
 
+function markers(lines: string[]): Marker[] {
+	const result: Marker[] = [];
+	for (const [index, line] of lines.entries()) {
+		const heading = markdownHeading(line);
+		const section = sectionLabel(line);
+		if (!heading && !section) continue;
+		result.push({
+			index,
+			level: heading?.level ?? section?.level ?? 1,
+			...(section ? { section: section.name, inline: section.inline } : {}),
+		});
+	}
+	return result;
+}
+
+function markerEnd(allMarkers: Marker[], marker: Marker, lineCount: number): number {
+	return allMarkers.find(
+		(candidate) => candidate.index > marker.index && candidate.level <= marker.level,
+	)?.index ?? lineCount;
+}
+
 function prose(lines: string[]): string[] {
-	return lines.map((line) => line.trim()).filter((line) => line && !/^#{1,6}\s+/.test(line));
+	return lines
+		.map((line) => line.trim())
+		.filter((line) => line && !markdownHeading(line));
+}
+
+function statusInfo(markdown: string): StatusInfo | undefined {
+	const lines = markdown.split(/\r?\n/);
+	const allMarkers = markers(lines);
+	const marker = allMarkers.find((candidate) => candidate.section === "Status");
+	if (marker) {
+		if (marker.inline) return { status: marker.inline, lineIndex: marker.index, marker, lines, allMarkers };
+		for (let index = marker.index + 1; index < lines.length; index += 1) {
+			if (!lines[index].trim()) continue;
+			if (markdownHeading(lines[index]) || sectionLabel(lines[index])) break;
+			const status = stripInlineMarkup(lines[index]);
+			return status ? { status, lineIndex: index, marker, lines, allMarkers } : undefined;
+		}
+		return undefined;
+	}
+
+	let seen = 0;
+	for (const [index, line] of lines.entries()) {
+		if (!line.trim()) continue;
+		seen += 1;
+		if (seen > 10) break;
+		const candidate = stripInlineMarkup(line.trim().replace(/^-+\s*/, ""));
+		if (FALLBACK_STATUS.test(candidate)) return { status: candidate, lineIndex: index, lines, allMarkers };
+	}
+	return undefined;
+}
+
+export function resultStatusLine(markdown: string): string | undefined {
+	return statusInfo(markdown)?.status;
+}
+
+export function resultStatusBody(markdown: string): string | undefined {
+	const info = statusInfo(markdown);
+	if (!info || !/^blocked\b/i.test(info.status)) return undefined;
+	let body = "";
+	if (info.marker) {
+		const end = markerEnd(info.allMarkers, info.marker, info.lines.length);
+		body = prose(info.lines.slice(info.lineIndex + 1, end)).join("\n").trim();
+	}
+	const inline = info.status.replace(/^blocked\b\s*[:\-—]?\s*/i, "").trim();
+	return body || inline || undefined;
+}
+
+function classification(status: string | undefined): ResultClassification {
+	if (/^blocked\b/i.test(status ?? "")) return "blocked";
+	if (/^in(?: progress|-progress)\b/i.test(status ?? "")) return "in-progress";
+	return "terminal";
 }
 
 export function validateResultArtifact(markdown: string): ResultArtifactValidation {
-	if (!markdown.trim()) return { valid: false, problems: ["result artifact is empty"] };
+	if (!markdown.trim()) {
+		return {
+			valid: false,
+			classification: "terminal",
+			problems: ["result artifact is empty"],
+			notes: [],
+		};
+	}
 
 	const lines = markdown.split(/\r?\n/);
-	const allHeadings = headings(lines);
-	const problems: string[] = [];
-	const sections = new Map<string, { heading: Heading; lines: string[] }>();
+	const allMarkers = markers(lines);
+	const notes: string[] = [];
 	for (const name of REQUIRED_SECTIONS) {
-		const heading = allHeadings.find((candidate) => candidate.title.toLowerCase() === name.toLowerCase());
-		if (!heading) {
-			problems.push(`missing ${name} section`);
+		const marker = allMarkers.find((candidate) => candidate.section === name);
+		if (!marker) {
+			notes.push("missing " + name);
 			continue;
 		}
-		const body = sectionLines(lines, allHeadings, heading);
-		sections.set(name, { heading, lines: body });
-		if (prose(body).length === 0) problems.push(`${name} section is empty`);
+		const end = markerEnd(allMarkers, marker, lines.length);
+		const content = [marker.inline, ...prose(lines.slice(marker.index + 1, end))].filter(Boolean);
+		if (content.length === 0) notes.push("empty " + name);
 	}
 
 	const status = resultStatusLine(markdown);
-	if (sections.has("Status") && !status && !problems.includes("Status section is empty")) {
-		problems.push("Status section has no first-line status");
-	}
-	const statusSection = sections.get("Status");
-	let statusBody: string | undefined;
-	if (statusSection && status) {
-		const statusLineIndex = statusSection.lines.findIndex((line) => stripStatusMarkup(line.trim()) === status);
-		const body = prose(statusSection.lines.slice(statusLineIndex + 1)).join("\n").trim();
-		const inlineBlockedBody = /^blocked\b/i.test(status)
-			? status.replace(/^blocked\b\s*[:\-—]?\s*/i, "").trim()
-			: "";
-		statusBody = body || inlineBlockedBody || undefined;
-	}
-
+	if (!status) notes.push("no Status line found");
 	return {
-		valid: problems.length === 0,
-		problems,
+		valid: true,
 		...(status ? { status } : {}),
-		...(statusBody ? { statusBody } : {}),
+		classification: classification(status),
+		problems: [],
+		notes,
 	};
 }

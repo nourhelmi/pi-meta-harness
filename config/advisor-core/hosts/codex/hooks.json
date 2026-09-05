@@ -43,15 +43,6 @@
             "command": "node scripts/codex-advisor-trace.mjs"
           }
         ]
-      },
-      {
-        "matcher": "^(wait_agent|multi_agent_v1\\.wait_agent)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node scripts/codex-advisor-trace.mjs"
-          }
-        ]
       }
     ]
   }

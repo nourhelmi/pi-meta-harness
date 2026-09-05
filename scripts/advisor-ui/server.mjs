@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { validateResultArtifact } from "../advisor-core/result-artifact.mjs";
 import { BrokerClient, brokerSocketPath } from "./broker-client.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -41,11 +42,12 @@ function inferResultRole(text) {
 }
 
 function parseResultState(text) {
-	const status = /^##?\s*Status\s*\n+\s*([^\n]+)/im.exec(text)?.[1]?.trim().toLowerCase() ?? "";
-	if (/\b(in progress|running|partial)\b/.test(status)) return "running";
-	if (/\b(blocked|failed|failure|error)\b/.test(status)) return "incomplete";
-	if (/\b(success|complete|completed|pass|passed|pass-with-findings)\b/.test(status)) return "complete";
-	return "unknown";
+	const validation = validateResultArtifact(text);
+	if (!validation.valid) return "unknown";
+	if (validation.classification === "in-progress") return "running";
+	if (validation.classification === "blocked") return "incomplete";
+	if (/^(?:fail|failed|failure|error)\b/i.test(validation.status ?? "")) return "incomplete";
+	return "complete";
 }
 
 async function scanProjects() {

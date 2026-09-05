@@ -92,6 +92,9 @@ test("worker roles share maker ownership, risk context, conditional delegation, 
   assert.match(contract, /explicit packet revision/);
   assert.match(contract, /task-shaped non-destructive[\s\S]*readiness checks/);
   assert.match(contract, /do not turn pre-flight into a universal checklist/);
+  assert.match(contract, /only a missing or blank[\s\S]*stalls settlement/);
+  assert.match(contract, /Keep the final response short/);
+  assert.doesNotMatch(contract, /at most 12 lines/);
   assert.match(builder, /diagnose it, implement it,[\s\S]*task-shaped deterministic tests[\s\S]*ordinary browser exercise/);
   assert.match(builder, /exact command evidence/);
   assert.match(foreman, /only when delegation[\s\S]*shorten the critical path, resolve material uncertainty, or add useful[\s\S]*evidence/);
@@ -136,6 +139,15 @@ test("blocked settlement doctrine documents Pi prompt and worker result signals"
   assert.match(blocked, /blocking Pi UI prompt[\s\S]*marks its Herdr pane blocked through the bridge extension/);
   assert.match(blocked, /Status starts with `BLOCKED`[\s\S]*parent `bg_agent` settles it as blocked[\s\S]*request[\s\S]*sound fires/);
   assert.match(blocked, /pi-detach discovers Pi worker result artifacts through the[\s\S]*`advisor-worker` session entry[\s\S]*`resultDiscovery`/i);
+});
+test("result validation doctrine is lenient and status-driven", async () => {
+  const protocol = await text("docs/advisor-protocol.md");
+  const validation = section(protocol, "## Result validation", "## Pi host binding");
+
+  assert.match(validation, /stalls only for a missing, unreadable, or[\s\S]*blank artifact/);
+  assert.match(validation, /first ten nonempty lines/);
+  assert.match(validation, /Only that status line[\s\S]*blocked[\s\S]*in-progress/);
+  assert.match(validation, /node\.result\.validated\.data\.problems[\s\S]*never stall/);
 });
 test("frozen adaptive prospective case contracts remain byte-identical", async () => {
   const expected = new Map([
@@ -198,5 +210,6 @@ test("risk tiers fix the review route and checker bar while makers explore freel
   assert.match(contract, /every evidence path the packet links/);
   assert.match(runtime, /## 🎚️ Risk tiers/);
   assert.match(runtime, /to the builder\s+for exactly one fresh-review subagent/);
+  assert.match(runtime, /Settlement stalls only when that artifact is missing or blank/);
   assert(JSON.parse(roles).profiles.builder.cliArgs.includes("--advisor-worker-allow-subagents"));
 });

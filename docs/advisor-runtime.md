@@ -10,8 +10,8 @@ The canonical event translation for this runtime is specified by the
 one-maker hook adapter, installation, capability verdicts, and foreground-only
 boundary are specified by the
 [Claude Code host binding](advisor-protocol.md#claude-code-host-binding).
-Codex CLI's hooks-only one-maker adapter, installation, wait-based delivery
-boundary, and capability verdicts are specified by the
+Codex CLI's hooks-only one-maker adapter, installation, native SubagentStop
+delivery boundary, and capability verdicts are specified by the
 [Codex host binding](advisor-protocol.md#codex-host-binding).
 
 ## 📏 Runtime rules
@@ -140,7 +140,7 @@ changes transport, not roles or intelligence policy:
 | Mode | Transport |
 | --- | --- |
 | `pi` | `bg_agent` starts Pi and forwards the selected provider/model/reasoning. |
-| `native` | `openai-codex`/`openai` route to Codex CLI; `claude-bridge`/`anthropic` route to Claude Code. Native workers receive an automatically generated durable result path under the advisor state root, reserved before launch. A successful settlement requires a nonempty artifact with the role-result headings; a section may be organized into deeper subheadings (for example `## AC1` under `# Claims`), and only a section with no prose under it is empty. Otherwise the run becomes `stalled`, its pane remains visible, and the settlement notice names the validation problem so the parent can repair the artifact by name instead of relaunching the work. |
+| `native` | `openai-codex`/`openai` route to Codex CLI; `claude-bridge`/`anthropic` route to Claude Code. Native workers receive an automatically generated durable result path under the advisor state root, reserved before launch. Settlement stalls only when that artifact is missing or blank. Missing, empty, or differently formatted expected sections are advisory notes surfaced to the parent and do not prevent settlement. |
 
 The foreman profile is constrained to `harness: "pi"`, including in an advisor
 session whose other workers use native Codex/Claude. Its delegation permission

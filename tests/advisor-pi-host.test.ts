@@ -228,17 +228,32 @@ test("blocked result emits node.blocked before result.written and settles blocke
 	});
 });
 
-test("invalid result stalls and an unseen settlement writes nothing", async () => {
+test("lenient result settles done, blank result stalls, and an unseen settlement writes nothing", async () => {
 	await withStateRoot(async (root) => {
-		const runId = "invalid123";
-		const resultPath = await writeResult(root, runId, resultMarkdown("PASS", { claims: false }));
+		const runId = "lenient123";
+		const resultPath = await writeResult(root, runId, "Status\nPASS\n");
 		const host = installedHost();
 		await launchPromoted(host, runId, resultPath);
 		await host.dispatch("message_end", settlementMessage(runId, resultPath, "done"));
 
-		const { projection } = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
-		assert.equal(projection.nodes[0]?.settledStatus, "stalled");
-		assert.notEqual(projection.nodes[0]?.settledStatus, "done");
+		const { events, projection } = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+		assert.equal(projection.nodes[0]?.settledStatus, "done");
+		assert.equal(projection.nodes[0]?.resultStatus, "PASS");
+		const validation = events.find((event) => event.type === "node.result.validated");
+		assert.deepEqual((validation?.data as Record<string, unknown>)?.problems, [
+			"missing Claims",
+			"missing Evidence",
+			"missing Files",
+			"missing Decisions",
+			"missing Remaining Risk",
+		]);
+
+		const blankRunId = "blank123";
+		const blankPath = await writeResult(root, blankRunId, "");
+		await launchPromoted(host, blankRunId, blankPath);
+		await host.dispatch("message_end", settlementMessage(blankRunId, blankPath, "done"));
+		const blank = await validatedTrace(join(root, "traces", `${blankRunId}.jsonl`));
+		assert.equal(blank.projection.nodes[0]?.settledStatus, "stalled");
 
 		await host.dispatch("message_end", settlementMessage("unseen999", resultPath, "done"));
 		await assert.rejects(access(join(root, "traces", "unseen999.jsonl")), { code: "ENOENT" });
@@ -273,6 +288,41 @@ test("non-promoted tool result emits the complete valid lifecycle inline", async
 		assert.equal(events[0]?.type, "run.created");
 		assert.equal(events.at(-1)?.type, "parent.awakened");
 		assert.equal(projection.nodes[0]?.settledStatus, "done");
+	});
+});
+
+test("stalled inline settlement prefers the typed settlementNote", async () => {
+	await withStateRoot(async (root) => {
+		const runId = "inline-stalled123";
+		const resultPath = await writeResult(root, runId, resultMarkdown());
+		const host = installedHost();
+		const input = launchInput();
+		await host.dispatch("tool_call", {
+			type: "tool_call",
+			toolName: "bg_agent",
+			toolCallId: "call-inline-stalled",
+			input,
+		});
+		await host.dispatch("tool_result", {
+			type: "tool_result",
+			toolName: "bg_agent",
+			toolCallId: "call-inline-stalled",
+			input,
+			content: [{ type: "text", text: "[detach] fallback tail note" }],
+			isError: false,
+			details: {
+				...promotedDetails(runId, resultPath),
+				promoted: false,
+				status: "exited",
+				agentState: "stalled",
+				settlementNote: "typed stalled settlement note",
+			},
+		});
+
+		const { events, projection } = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+		assert.equal(projection.nodes[0]?.settledStatus, "stalled");
+		const settlement = events.find((event) => event.type === "node.settled");
+		assert.equal((settlement?.data as Record<string, unknown>)?.reason, "typed stalled settlement note");
 	});
 });
 

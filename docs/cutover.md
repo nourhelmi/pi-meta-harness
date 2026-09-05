@@ -13,7 +13,8 @@ Use this procedure to update an existing machine. For a fresh machine, use
 3. Pull the reviewed harness revision.
 4. Run `npm ci` and `npm test`.
 5. Run `node scripts/meta-harness.mjs verify-git-pins` to confirm every exact
-   Git package commit is publicly fetchable. This is an explicit bounded
+   third-party Git package commit is publicly fetchable. The command reports
+   and skips first-party latest-tracking sources. This is an explicit bounded
    network check, not part of normal offline unit tests.
 
 ## 2️⃣ Install
@@ -26,8 +27,9 @@ Use this procedure to update an existing machine. For a fresh machine, use
    preserves the selected `intelligence-profiles/ACTIVE` name, and
    materializes it separately as `advisor-intelligence.json`.
 3. Run `pi update --extensions` to install the configured package sources.
-   npm packages advance within compatible caret ranges; Git packages remain at
-   their reviewed full commits.
+   npm packages advance within compatible caret ranges, first-party Git sources
+   refresh from origin/HEAD, and third-party Git packages remain at their
+   reviewed full commits.
 4. Run `node scripts/meta-harness.mjs install-skills --live` to restore the
    exact-commit third-party skills. It promotes verified copies into the
    single canonical `~/.agents/skills` root, removes duplicate Pi-specific

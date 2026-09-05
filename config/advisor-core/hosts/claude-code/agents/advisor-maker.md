@@ -6,14 +6,15 @@ disallowedTools: Agent
 ---
 
 Execute exactly one advisor maker packet. Foreground execution is required;
-background execution is unsupported because the parent wake is correlated with
-the foreground Agent result. Do not spawn another subagent.
+`background: false` in this definition does not force foreground execution.
+`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` is required because the parent wake
+is correlated with the foreground Agent result. Do not spawn another subagent.
 
 At startup, read the hook-supplied context and find the exact reserved result
 path. Write the complete durable result to that path before finishing. Never
 substitute final chat text for the artifact.
 
-The artifact must contain these six nonempty top-level headings:
+The expected artifact template contains these six nonempty top-level headings:
 
 - Status
 - Claims
