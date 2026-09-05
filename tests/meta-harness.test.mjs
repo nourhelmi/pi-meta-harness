@@ -82,6 +82,19 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert(!settings.enabledModels.includes("claude-bridge/claude-fable-5"));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
   assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach"));
+  // Every extension the installed advisor-session and advisor-worker import must ship with them.
+  for (const relative of [
+    "extensions/advisor-pi-host.ts",
+    "extensions/advisor-core/advisor-state.ts",
+    "extensions/advisor-core/result-artifact.ts",
+    "extensions/advisor-core/trace-store.ts",
+  ]) {
+    assert.equal(
+      await readFile(join(target, relative), "utf8"),
+      await readFile(join(ROOT, relative), "utf8"),
+      relative,
+    );
+  }
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@^0.1.4"));
   assert(packageSources.includes("npm:pi-better-edit@^1.4.3"));
   assert(packageSources.includes("npm:pi-claude-agent-sdk@^0.8.6"));

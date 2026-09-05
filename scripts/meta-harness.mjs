@@ -60,6 +60,8 @@ const PORTABLE_COPY_ENTRIES = [
   ["extensions/advisor-graph.ts", "extensions/advisor-graph.ts"],
   ["extensions/advisor-session.ts", "extensions/advisor-session.ts"],
   ["extensions/advisor-worker.ts", "extensions/advisor-worker.ts"],
+  ["extensions/advisor-pi-host.ts", "extensions/advisor-pi-host.ts"],
+  ["extensions/advisor-core", "extensions/advisor-core"],
   ["extensions/herdr-blocked-bridge.ts", "extensions/herdr-blocked-bridge.ts"],
   ["extensions/claude-schema-compat.ts", "extensions/claude-schema-compat.ts"],
   ["extensions/unified-edit.ts", "extensions/unified-edit.ts"],
