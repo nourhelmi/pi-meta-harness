@@ -15,6 +15,10 @@ export const RULE_CODES = Object.freeze({
   SETTLE: "E_SETTLE",
   BLOCKED: "E_BLOCKED",
   WAKE: "E_WAKE",
+  GRAPH: "E_GRAPH",
+  WAVE: "E_WAVE",
+  REPLY: "E_REPLY",
+  RESUME: "E_RESUME",
 });
 
 type AdvisorHost = "pi" | "claude-code" | "codex";
@@ -111,7 +115,43 @@ type ParentAwakenedEvent = EventEnvelope<
   }
 > & { node: string };
 
+type GraphPlannedEvent = EventEnvelope<
+  "graph.planned",
+  {
+    graph: string;
+    waves: string[][];
+    maxParallel: number;
+    maxRepairLoops: number;
+  }
+> & { node: null; parent: null };
+
+type WaveEvent<Type extends "wave.started" | "wave.completed"> = EventEnvelope<
+  Type,
+  { wave: number; nodes: string[] }
+> & { node: null; parent: null };
+
+type NodeReplySentEvent = EventEnvelope<
+  "node.reply.sent",
+  { text: string; source: "advisor" | "user"; replyTo?: number }
+> & { node: string; parent: string };
+
+type NodeCancelRequestedEvent = EventEnvelope<
+  "node.cancel.requested",
+  { reason: string }
+> & { node: string; parent: string };
+
+type NodeResumedEvent = EventEnvelope<
+  "node.resumed",
+  { reason: "reply" | "restart" | "follow-up" }
+> & { node: string; parent: string };
+
 export type CanonicalEvent =
+  | GraphPlannedEvent
+  | WaveEvent<"wave.started">
+  | WaveEvent<"wave.completed">
+  | NodeReplySentEvent
+  | NodeCancelRequestedEvent
+  | NodeResumedEvent
   | RunCreatedEvent
   | NodeLaunchedEvent
   | NodeProgressEvent
@@ -342,21 +382,25 @@ const RESULT_GATED_STATUSES = new Set<SettledStatus>(["done", "blocked"]);
 
 interface NodeValidationState {
   parent: string;
-  blocked: boolean;
+  blockedSeq: number | undefined;
   written: string | undefined;
   validated: { path: string; valid: boolean } | undefined;
-  settled: { status: SettledStatus } | undefined;
-  awakened: boolean;
+  settled: { status: SettledStatus; seq: number } | undefined;
+  settlements: { status: SettledStatus; seq: number }[];
+  wakeCount: number;
+  pendingReply: number | undefined;
+  cancelSeq: number | undefined;
 }
 
+// Package-local port of the canonical reference. Keep event order, diagnostics,
+// and retained projection history aligned; conformance tests compare both.
 export function validateTrace(
   events: readonly CanonicalEvent[],
   schema: JsonSchema = CANONICAL_EVENT_SCHEMA,
 ): TraceValidation {
   const problems: TraceValidationProblem[] = [];
-  const report = (code: string, seq: number, message: string): void => {
+  const report = (code: string, seq: number, message: string) =>
     problems.push({ code, seq, message });
-  };
 
   events.forEach((event, index) => {
     for (const message of checkSchema(schema, event)) {
@@ -367,7 +411,7 @@ export function validateTrace(
       );
     }
   });
-  if (problems.length > 0) return { ok: false, problems };
+  if (problems.length) return { ok: false, problems };
 
   if (events.length === 0) {
     report(
@@ -378,42 +422,46 @@ export function validateTrace(
     return { ok: false, problems };
   }
 
-  const runId = events[0]!.run;
+  const runId = events[0].run;
   let previousTime = -Infinity;
   events.forEach((event, index) => {
-    if (event.seq !== index + 1) {
+    if (event.seq !== index + 1)
       report(
         RULE_CODES.SEQ,
         event.seq,
         `expected seq ${index + 1}; seq must be contiguous from 1`,
       );
-    }
-    if (event.run !== runId) {
+    if (event.run !== runId)
       report(
         RULE_CODES.RUN,
         event.seq,
         `run "${event.run}" differs from the trace run "${runId}"`,
       );
-    }
     const time = Date.parse(event.at);
-    if (time < previousTime) {
+    if (time < previousTime)
       report(
         RULE_CODES.TIME,
         event.seq,
         "timestamp is earlier than the previous event",
       );
-    }
     previousTime = Math.max(previousTime, time);
   });
 
-  const first = events[0]!;
-  if (first.type !== "run.created") {
-    report(RULE_CODES.FIRST, first.seq, "the first event must be run.created");
+  if (events[0].type !== "run.created") {
+    report(
+      RULE_CODES.FIRST,
+      events[0].seq,
+      "the first event must be run.created",
+    );
     return { ok: false, problems };
   }
-  const root = first.data.root.node;
+  const root = events[0].data.root.node;
   const nodes = new Map<string, NodeValidationState>();
   const wakeGenerations = new Map<string, number>();
+  let graphPlan: GraphPlannedEvent | undefined;
+  let launchedNodes = 0;
+  const startedWaves = new Map<number, string[]>();
+  const completedWaves = new Set<number>();
 
   for (const event of events.slice(1)) {
     const { seq, type, node: nodeId } = event;
@@ -426,7 +474,80 @@ export function validateTrace(
       continue;
     }
 
+    if (type === "graph.planned") {
+      if (graphPlan)
+        report(
+          RULE_CODES.GRAPH,
+          seq,
+          "graph.planned may appear at most once per run",
+        );
+      if (launchedNodes > 0)
+        report(
+          RULE_CODES.GRAPH,
+          seq,
+          "graph.planned must appear before node.launched",
+        );
+      graphPlan = event;
+      continue;
+    }
+
+    if (type === "wave.started" || type === "wave.completed") {
+      const wave = event.data.wave;
+      if (!graphPlan) {
+        report(RULE_CODES.WAVE, seq, `${type} requires graph.planned`);
+        continue;
+      }
+      const plannedNodes = graphPlan.data.waves[wave - 1];
+      if (!plannedNodes || !deepEqual(event.data.nodes, plannedNodes)) {
+        report(
+          RULE_CODES.WAVE,
+          seq,
+          `${type} wave ${wave} nodes differ from graph.planned`,
+        );
+      }
+      if (type === "wave.started") {
+        const expected = startedWaves.size + 1;
+        if (wave !== expected)
+          report(
+            RULE_CODES.WAVE,
+            seq,
+            `expected contiguous wave ${expected}, got ${wave}`,
+          );
+        if (startedWaves.has(wave))
+          report(RULE_CODES.WAVE, seq, `wave ${wave} already started`);
+        if (wave > 1 && !completedWaves.has(wave - 1)) {
+          report(
+            RULE_CODES.WAVE,
+            seq,
+            `wave ${wave} started before wave ${wave - 1} completed`,
+          );
+        }
+        startedWaves.set(wave, event.data.nodes);
+      } else {
+        if (!startedWaves.has(wave))
+          report(
+            RULE_CODES.WAVE,
+            seq,
+            `wave ${wave} completed before it started`,
+          );
+        if (completedWaves.has(wave))
+          report(RULE_CODES.WAVE, seq, `wave ${wave} already completed`);
+        for (const listedNode of event.data.nodes) {
+          if (!nodes.get(listedNode)?.settled) {
+            report(
+              RULE_CODES.WAVE,
+              seq,
+              `wave ${wave} node "${listedNode}" has not settled`,
+            );
+          }
+        }
+        completedWaves.add(wave);
+      }
+      continue;
+    }
+
     if (type === "node.launched") {
+      launchedNodes += 1;
       if (nodes.has(nodeId)) {
         report(RULE_CODES.ORDER, seq, `node "${nodeId}" was already launched`);
         continue;
@@ -438,10 +559,7 @@ export function validateTrace(
           seq,
           `parent "${event.parent}" is neither the root node nor a launched node`,
         );
-      } else if (
-        event.parent !== root &&
-        nodes.get(event.parent)?.settled !== undefined
-      ) {
+      } else if (event.parent !== root && nodes.get(event.parent)?.settled) {
         report(
           RULE_CODES.PARENT_LINK,
           seq,
@@ -450,11 +568,14 @@ export function validateTrace(
       }
       nodes.set(nodeId, {
         parent: event.parent,
-        blocked: false,
+        blockedSeq: undefined,
         written: undefined,
         validated: undefined,
         settled: undefined,
-        awakened: false,
+        settlements: [],
+        wakeCount: 0,
+        pendingReply: undefined,
+        cancelSeq: undefined,
       });
       continue;
     }
@@ -468,7 +589,7 @@ export function validateTrace(
           `awakened node "${nodeId}" is neither the root node nor a launched node`,
         );
       }
-      if (child === undefined) {
+      if (!child) {
         report(
           RULE_CODES.WAKE,
           seq,
@@ -476,35 +597,24 @@ export function validateTrace(
         );
         continue;
       }
-      if (child.settled === undefined) {
+      const settlement = child.settlements[child.wakeCount];
+      if (!settlement)
         report(
           RULE_CODES.WAKE,
           seq,
-          `child "${event.data.child}" has not settled; wake only after settlement`,
+          `child "${event.data.child}" has not settled since its previous wake`,
         );
-      }
-      if (child.parent !== nodeId) {
+      if (child.parent !== nodeId)
         report(
           RULE_CODES.WAKE,
           seq,
           `child "${event.data.child}" belongs to parent "${child.parent}", not "${nodeId}"`,
         );
-      }
-      if (child.awakened) {
+      if (settlement && event.data.childStatus !== settlement.status) {
         report(
           RULE_CODES.WAKE,
           seq,
-          `child "${event.data.child}" already woke its parent`,
-        );
-      }
-      if (
-        child.settled !== undefined &&
-        event.data.childStatus !== child.settled.status
-      ) {
-        report(
-          RULE_CODES.WAKE,
-          seq,
-          `childStatus "${event.data.childStatus}" differs from the settlement status "${child.settled.status}"`,
+          `childStatus "${event.data.childStatus}" differs from the settlement status "${settlement.status}"`,
         );
       }
       const expectedGeneration = (wakeGenerations.get(nodeId) ?? 0) + 1;
@@ -519,24 +629,17 @@ export function validateTrace(
         nodeId,
         Math.max(wakeGenerations.get(nodeId) ?? 0, event.data.wakeGeneration),
       );
-      child.awakened = true;
+      if (settlement) child.wakeCount += 1;
       continue;
     }
 
+    // Remaining types are per-node lifecycle events on an already launched node.
     const state = nodes.get(nodeId);
-    if (state === undefined) {
+    if (!state) {
       report(
         RULE_CODES.ORDER,
         seq,
         `${type} for node "${nodeId}" before node.launched`,
-      );
-      continue;
-    }
-    if (state.settled !== undefined) {
-      report(
-        RULE_CODES.ORDER,
-        seq,
-        `${type} for node "${nodeId}" after it settled`,
       );
       continue;
     }
@@ -547,9 +650,103 @@ export function validateTrace(
         `parent "${event.parent}" differs from the launch parent "${state.parent}"`,
       );
     }
+
+    if (
+      state.pendingReply &&
+      !(type === "node.resumed" && event.data.reason === "reply")
+    ) {
+      report(
+        RULE_CODES.REPLY,
+        seq,
+        `node.reply.sent at seq ${state.pendingReply} must be followed by node.resumed with reason "reply"`,
+      );
+      state.pendingReply = undefined;
+    }
+
+    if (type === "node.reply.sent") {
+      if (state.settled?.status !== "blocked") {
+        report(
+          RULE_CODES.REPLY,
+          seq,
+          `node.reply.sent requires the node's last settlement to be blocked`,
+        );
+      }
+      if (
+        event.data.replyTo !== undefined &&
+        event.data.replyTo !== state.blockedSeq
+      ) {
+        report(
+          RULE_CODES.REPLY,
+          seq,
+          `replyTo ${event.data.replyTo} does not identify the last node.blocked event`,
+        );
+      }
+      state.pendingReply = seq;
+      continue;
+    }
+
+    if (type === "node.resumed") {
+      const resumesSettlement =
+        state.settled?.status === "blocked" ||
+        state.settled?.status === "stalled";
+      const restartsUnsettled =
+        event.data.reason === "restart" &&
+        state.settlements.length === 0 &&
+        !state.settled;
+      if (!resumesSettlement && !restartsUnsettled) {
+        report(
+          RULE_CODES.RESUME,
+          seq,
+          "node.resumed requires a blocked or stalled settlement, or restart before any settlement",
+        );
+        continue;
+      }
+      if (event.data.reason === "reply" && !state.pendingReply) {
+        report(
+          RULE_CODES.RESUME,
+          seq,
+          "node.resumed with reason reply requires the preceding node.reply.sent",
+        );
+        continue;
+      }
+      state.pendingReply = undefined;
+      state.blockedSeq = undefined;
+      state.written = undefined;
+      state.validated = undefined;
+      state.settled = undefined;
+      state.cancelSeq = undefined;
+      continue;
+    }
+
+    if (type === "node.cancel.requested") {
+      if (state.settled && state.settled.status !== "blocked") {
+        report(
+          RULE_CODES.ORDER,
+          seq,
+          `node.cancel.requested for node "${nodeId}" after it settled ${state.settled.status}`,
+        );
+        continue;
+      }
+      state.cancelSeq = seq;
+      continue;
+    }
+
+    const cancelsBlocked =
+      type === "node.settled" &&
+      event.data.status === "cancelled" &&
+      state.settled?.status === "blocked" &&
+      (state.cancelSeq ?? -Infinity) > state.settled.seq;
+    if (state.settled && !cancelsBlocked) {
+      report(
+        RULE_CODES.ORDER,
+        seq,
+        `${type} for node "${nodeId}" after it settled`,
+      );
+      continue;
+    }
     switch (type) {
       case "node.blocked":
-        state.blocked = true;
+        state.blockedSeq = seq;
         break;
       case "node.result.written":
         state.written = event.data.path;
@@ -576,20 +773,13 @@ export function validateTrace(
             "an invalid result must list at least one problem",
           );
         }
-        state.validated = {
-          path: event.data.path,
-          valid: event.data.valid,
-        };
+        state.validated = { path: event.data.path, valid: event.data.valid };
         break;
       case "node.settled": {
         const { status } = event.data;
         if (RESULT_GATED_STATUSES.has(status)) {
           const gate = state.validated;
-          if (
-            gate === undefined ||
-            !gate.valid ||
-            gate.path !== state.written
-          ) {
+          if (!gate || !gate.valid || gate.path !== state.written) {
             report(
               RULE_CODES.SETTLE,
               seq,
@@ -597,18 +787,29 @@ export function validateTrace(
             );
           }
         }
-        if (status === "blocked" && !state.blocked) {
+        if (status === "blocked" && !state.blockedSeq) {
           report(
             RULE_CODES.BLOCKED,
             seq,
             "blocked settlement requires a prior node.blocked carrying the request",
           );
         }
-        state.settled = { status };
+        state.settled = { status, seq };
+        state.settlements.push(state.settled);
         break;
       }
       default:
         break;
+    }
+  }
+
+  for (const [nodeId, state] of nodes) {
+    if (state.pendingReply) {
+      report(
+        RULE_CODES.REPLY,
+        state.pendingReply,
+        `node.reply.sent for node "${nodeId}" is not followed by node.resumed`,
+      );
     }
   }
 
@@ -618,28 +819,61 @@ export function validateTrace(
 export function projectTrace(
   events: readonly CanonicalEvent[],
 ): TraceProjection {
-  const first = events[0];
-  const run =
-    first?.type === "run.created"
-      ? {
-          id: first.run,
-          workstream: first.data.workstream,
-          goal: first.data.goal ?? null,
-          graph: first.data.graph ?? null,
-          stateRoot: first.data.stateRoot ?? null,
-          root: first.data.root.node,
-          session: first.data.root.session,
-          host: first.host,
-          createdAt: first.at,
-          lastSeq: events.at(-1)?.seq ?? 0,
-          lastAt: events.at(-1)?.at ?? null,
-        }
-      : null;
+  // The reducer consumes structurally validated traces.
+  const first = events[0] as RunCreatedEvent | undefined;
+  const run: TraceProjection["run"] = first
+    ? {
+        id: first.run,
+        workstream: first.data.workstream,
+        goal: first.data.goal ?? null,
+        graph: first.data.graph ?? null,
+        stateRoot: first.data.stateRoot ?? null,
+        root: first.data.root.node,
+        session: first.data.root.session,
+        host: first.host,
+        createdAt: first.at,
+        lastSeq: events.at(-1)?.seq ?? 0,
+        lastAt: events.at(-1)?.at ?? null,
+        waves: [],
+      }
+    : null;
   const nodes = new Map<string, TraceNode>();
   const wakes: TraceProjection["wakes"] = [];
 
   for (const event of events) {
     if (event.type === "run.created") continue;
+    if (event.type === "graph.planned") {
+      if (run) {
+        run.graph = event.data.graph;
+        run.waves = event.data.waves.map((waveNodes, index) => ({
+          wave: index + 1,
+          nodes: [...waveNodes],
+          startedAt: null,
+          completedAt: null,
+        }));
+      }
+      continue;
+    }
+    if (event.type === "wave.started" || event.type === "wave.completed") {
+      if (run) {
+        let wave = run.waves.find(
+          (candidate) => candidate.wave === event.data.wave,
+        );
+        if (!wave) {
+          wave = {
+            wave: event.data.wave,
+            nodes: [...event.data.nodes],
+            startedAt: null,
+            completedAt: null,
+          };
+          run.waves.push(wave);
+        }
+        wave.nodes = [...event.data.nodes];
+        if (event.type === "wave.started") wave.startedAt = event.at;
+        else wave.completedAt = event.at;
+      }
+      continue;
+    }
     if (event.type === "parent.awakened") {
       wakes.push({
         parent: event.node,
@@ -658,6 +892,9 @@ export function projectTrace(
         state: "running",
         launchedAt: event.at,
         settledAt: null,
+        attempts: 0,
+        replies: [],
+        cancelRequested: false,
         progress: [],
         blockedRequest: null,
         resultPath: event.data.resultPath ?? null,
@@ -671,7 +908,7 @@ export function projectTrace(
       continue;
     }
     const node = nodes.get(event.node);
-    if (node === undefined) continue;
+    if (!node) continue;
     switch (event.type) {
       case "node.progress":
         node.progress.push({ at: event.at, note: event.data.note });
@@ -679,6 +916,19 @@ export function projectTrace(
       case "node.blocked":
         node.state = "blocked";
         node.blockedRequest = { ...event.data.request, at: event.at };
+        break;
+      case "node.reply.sent":
+        node.replies.push({
+          at: event.at,
+          text: event.data.text,
+          source: event.data.source,
+        });
+        break;
+      case "node.cancel.requested":
+        node.cancelRequested = true;
+        break;
+      case "node.resumed":
+        node.state = "running";
         break;
       case "node.result.written":
         node.state = "result-written";
@@ -692,6 +942,7 @@ export function projectTrace(
         break;
       case "node.settled":
         node.state = "settled";
+        node.attempts += 1;
         node.settledAt = event.at;
         node.settledStatus = event.data.status;
         node.settledReason = event.data.reason;

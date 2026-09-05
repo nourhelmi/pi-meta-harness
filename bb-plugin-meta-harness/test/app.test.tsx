@@ -18,6 +18,7 @@ import {
 import {
   syntheticBlockedEvents,
   syntheticDoneEvents,
+  syntheticLifecycleEvents,
   withRunId,
 } from "./fixtures.js";
 
@@ -78,6 +79,78 @@ function traceIndexTouchActions(css: string): string[] {
 }
 
 describe("Advisor trace nav panel", () => {
+  it("renders waves, attempts, replies and cancellation after resume and refresh without duplicating history", async () => {
+    const panel = await loadPanel();
+    const events = syntheticLifecycleEvents();
+    const resumed = events.slice(
+      0,
+      events.findLastIndex(({ type }) => type === "node.resumed") + 1,
+    );
+    let current = detail("lifecycle.jsonl", resumed);
+    const slot = renderSlot(
+      panel,
+      { subPath: "" },
+      {
+        settings: { hostId: "host-1", stateRoot: "/advisor" },
+        rpc: {
+          listTraces: () => ({ ok: true as const, traces: [summary(current)] }),
+          readTrace: () => ({ ok: true as const, trace: current }),
+        },
+      },
+    );
+    mounted.push(slot);
+    await slot.findByRole("region", { name: "Waves" });
+    expect(slot.getByText("Wave 1")).not.toBeNull();
+    expect(slot.getByText("Started")).not.toBeNull();
+    expect(slot.getByText("Completed")).not.toBeNull();
+    expect(
+      slot.getByText("Settlement attempts").nextElementSibling?.textContent,
+    ).toBe("1");
+    expect(
+      slot.getByText("Cancellation requested").nextElementSibling?.textContent,
+    ).toBe("false");
+    expect(slot.getByRole("heading", { name: "Replies" })).not.toBeNull();
+    expect(slot.getByText("user: Use the public SDK.")).not.toBeNull();
+    expect(slot.getByText(/Last blocked request/)).not.toBeNull();
+    expect(slot.queryByText(/^BLOCKED ·/)).toBeNull();
+    expect(
+      slot.getByText(/Result and settlement fields retain/),
+    ).not.toBeNull();
+
+    const written = resumed.find(
+      (event) => event.type === "node.result.written",
+    )!;
+    current = detail("lifecycle.jsonl", [
+      ...resumed,
+      {
+        ...written,
+        seq: resumed.length + 1,
+        data: { path: "/advisor/new-attempt.md" },
+      } as typeof written,
+    ]);
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    await slot.findByText("/advisor/new-attempt.md");
+    expect(slot.getByText("Validated").nextElementSibling?.textContent).toBe(
+      "true",
+    );
+    expect(
+      slot.getByText(/Result and settlement fields retain/),
+    ).not.toBeNull();
+
+    current = detail("lifecycle.jsonl", events);
+    fireEvent.click(slot.getByRole("button", { name: "Refresh" }));
+    await slot.findByText("generation 2");
+    expect(
+      slot.getByText("Settlement attempts").nextElementSibling?.textContent,
+    ).toBe("2");
+    expect(
+      slot.getByText("Cancellation requested").nextElementSibling?.textContent,
+    ).toBe("true");
+    expect(slot.getAllByText("user: Use the public SDK.")).toHaveLength(1);
+    expect(slot.getAllByText("Wave 1")).toHaveLength(1);
+    expect(slot.queryByText(/Result and settlement fields retain/)).toBeNull();
+  });
+
   it("exposes a uniquely labeled busy region without owning a main landmark", async () => {
     const panel = await loadPanel();
     let resolveList!: (response: TraceListResponse) => void;

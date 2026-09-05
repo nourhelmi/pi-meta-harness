@@ -1,4 +1,5 @@
-import { execFile } from "node:child_process";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { execFile, execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -249,5 +250,401 @@ describe("Meta reference projector conformance", () => {
     } finally {
       await rm(stateRoot, { recursive: true, force: true });
     }
+  });
+});
+
+// Invoke the reference only in tests. Production stays an external package.
+describe("current protocol conformance and adversarial ordering", async () => {
+  const schemaBytes = await readFile(
+    resolve(metaRoot, "config/advisor-core/canonical-events.schema.json"),
+  );
+  const schema = JSON.parse(schemaBytes.toString());
+  const fixtures = await Promise.all(
+    [
+      "one-worker-done",
+      "one-worker-blocked",
+      "graph-two-waves",
+      "blocked-reply-resume",
+      "cancel",
+    ].map(async (name) => ({
+      name,
+      path: resolve(metaRoot, `config/advisor-core/fixtures/${name}.jsonl`),
+      events: parseTrace(
+        await readFile(
+          resolve(metaRoot, `config/advisor-core/fixtures/${name}.jsonl`),
+          "utf8",
+        ),
+      ),
+    })),
+  );
+  const { syntheticLifecycleEvents } = await import("./fixtures.js");
+  const { traceProjectionSchema, traceDetailResponseSchema } =
+    await import("../src/contracts.js");
+  type Events = ReturnType<typeof parseTrace>;
+  const normalize = (events: Events): Events =>
+    events.map((event, index) => ({
+      ...event,
+      seq: index + 1,
+      at: "2026-09-05T12:00:00.000Z",
+    }));
+  const fixture = (name: string): Events =>
+    structuredClone(fixtures.find((item) => item.name === name)!.events);
+  const compare = (events: Events, code?: string) => {
+    // Invoke the published reference CLI, including its nonzero validation path.
+    const temporaryRoot = mkdtempSync(join(tmpdir(), "bb-current-protocol-"));
+    const path = join(temporaryRoot, "trace.jsonl");
+    const output = (command: "validate" | "project"): string => {
+      try {
+        return execFileSync(process.execPath, [referenceCli, command, path], {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+      } catch (error) {
+        const failure = error as {
+          status: number;
+          stdout: string;
+          stderr: string;
+        };
+        expect(failure.status).toBe(1);
+        expect(failure.stderr).toBe("");
+        return failure.stdout;
+      }
+    };
+    let expected: ReturnType<typeof validateTrace>;
+    let projection: unknown;
+    try {
+      writeFileSync(path, asJsonl(events));
+      const validationOutput = output("validate");
+      const ok = validationOutput.startsWith("ok:");
+      expected = {
+        ok,
+        problems: ok
+          ? []
+          : validationOutput
+              .trimEnd()
+              .split("\n")
+              .map((line) => {
+                const match = /^(\S+) seq (\d+): (.*)$/u.exec(line);
+                expect(match, line).not.toBeNull();
+                return {
+                  code: match![1]!,
+                  seq: Number(match![2]),
+                  message: match![3]!,
+                };
+              }),
+      };
+      if (
+        !expected.problems.some(({ code }) => code === "E_SCHEMA") &&
+        events[0]?.type === "run.created"
+      ) {
+        projection = JSON.parse(output("project")).projection;
+      }
+    } finally {
+      rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+    expect(validateTrace(events)).toEqual(expected);
+    if (code) {
+      expect(expected.ok).toBe(false);
+      expect(expected.problems.map((problem) => problem.code)).toContain(code);
+    }
+    // The reducer's documented input is a structurally validated trace.
+    if (
+      !expected.problems.some((problem) => problem.code === "E_SCHEMA") &&
+      events[0]?.type === "run.created"
+    ) {
+      expect(projectTrace(events)).toEqual(projection);
+    }
+    return expected;
+  };
+
+  it("keeps schema bytes identical and covers every current event type", async () => {
+    expect(
+      await readFile(
+        resolve(import.meta.dirname, "../src/canonical-events.schema.json"),
+      ),
+    ).toEqual(schemaBytes);
+    expect(
+      [
+        ...new Set(
+          fixtures.flatMap(({ events }) => events.map(({ type }) => type)),
+        ),
+      ].sort(),
+    ).toEqual([...schema.properties.type.enum].sort());
+  });
+
+  for (const { name, path, events } of fixtures) {
+    it(`matches current ${name} CLI output and survives strict RPC serialization`, async () => {
+      const expected = await referenceProject(path);
+      expect(compare(events)).toEqual({ ok: true, problems: [] });
+      expect(projectTrace(events)).toEqual(expected.projection);
+      expect(traceProjectionSchema.parse(expected.projection)).toEqual(
+        expected.projection,
+      );
+      const response = {
+        ok: true,
+        trace: {
+          fileName: `${name}.jsonl`,
+          partial: false,
+          projection: expected.projection,
+          validationProblems: {},
+        },
+      };
+      expect(
+        traceDetailResponseSchema.parse(JSON.parse(JSON.stringify(response))),
+      ).toEqual(response);
+    });
+
+    it(`matches every single-event deletion, duplication and adjacent swap in ${name}`, () => {
+      for (let index = 0; index < events.length; index += 1) {
+        const deleted = structuredClone(events);
+        deleted.splice(index, 1);
+        compare(normalize(deleted));
+        const duplicated = structuredClone(events);
+        duplicated.splice(index, 0, duplicated[index]!);
+        compare(normalize(duplicated));
+        if (index + 1 < events.length) {
+          const swapped = structuredClone(events);
+          [swapped[index], swapped[index + 1]] = [
+            swapped[index + 1]!,
+            swapped[index]!,
+          ];
+          compare(normalize(swapped));
+        }
+      }
+    });
+  }
+
+  it("fails closed with identical diagnostics for malformed fields on every event type", () => {
+    const samples = new Map(
+      fixtures.flatMap(({ events }) =>
+        events.map((event) => [event.type, event] as const),
+      ),
+    );
+    for (const event of samples.values()) {
+      const invalid = [
+        { ...event, extra: true },
+        { ...event, data: { ...event.data, extra: true } },
+        { ...event, data: {} },
+        { ...event, at: "yesterday" },
+        { ...event, seq: 0 },
+        { ...event, host: "unknown" },
+      ];
+      for (const value of invalid) compare([value] as Events, "E_SCHEMA");
+    }
+    for (const data of [
+      { graph: "g", waves: [[]], maxParallel: 1, maxRepairLoops: 0 },
+      { graph: "g", waves: [["../escape"]], maxParallel: 1, maxRepairLoops: 0 },
+      { graph: "g", waves: [["n"]], maxParallel: 0, maxRepairLoops: -1 },
+    ]) {
+      compare(
+        [{ ...fixture("graph-two-waves")[1]!, data }] as Events,
+        "E_SCHEMA",
+      );
+    }
+  });
+
+  it("rejects mismatched wave nodes, absent plans, skipped and duplicate waves", () => {
+    const graph = fixture("graph-two-waves");
+    compare(
+      normalize(graph.filter(({ type }) => type !== "graph.planned")),
+      "E_WAVE",
+    );
+    for (const type of ["wave.started", "wave.completed"] as const) {
+      const changed = structuredClone(graph);
+      const wave = changed.find((event) => event.type === type)!;
+      if (wave.type === type) wave.data.nodes = ["unknown"];
+      compare(changed, "E_WAVE");
+    }
+    compare(
+      normalize(
+        graph.filter(
+          (event) =>
+            !(event.type === "wave.completed" && event.data.wave === 1),
+        ),
+      ),
+      "E_WAVE",
+    );
+  });
+
+  it("enforces reply target, node-local adjacency, dangling replies and resume eligibility", () => {
+    const reply = fixture("blocked-reply-resume");
+    const wrongTarget = structuredClone(reply);
+    const sent = wrongTarget.find((event) => event.type === "node.reply.sent")!;
+    if (sent.type === "node.reply.sent") sent.data.replyTo = 1;
+    compare(wrongTarget, "E_REPLY");
+    const replyIndex = reply.findIndex(
+      ({ type }) => type === "node.reply.sent",
+    );
+    compare(reply.slice(0, replyIndex + 1), "E_REPLY");
+    compare(
+      normalize(reply.filter(({ type }) => type !== "node.reply.sent")),
+      "E_RESUME",
+    );
+    compare(
+      normalize(reply.filter(({ type }) => type !== "node.resumed")),
+      "E_REPLY",
+    );
+    const interrupted = structuredClone(reply);
+    interrupted.splice(replyIndex + 1, 0, {
+      ...sent,
+      type: "node.progress",
+      node: sent.node!,
+      parent: sent.parent!,
+      data: { note: "interruption" },
+    });
+    compare(normalize(interrupted), "E_REPLY");
+    const unrelated = structuredClone(reply);
+    // A run-level or other node's event does not consume the pending reply.
+    const wakeIndex = unrelated.findIndex(
+      ({ type }) => type === "parent.awakened",
+    );
+    const wake = unrelated.splice(wakeIndex, 1)[0]!;
+    unrelated.splice(
+      unrelated.findIndex(({ type }) => type === "node.resumed"),
+      0,
+      wake,
+    );
+    expect(compare(normalize(unrelated))).toEqual({ ok: true, problems: [] });
+    for (const reason of ["reply", "restart", "follow-up"] as const) {
+      const done = fixture("one-worker-done");
+      done.push({
+        ...sent,
+        type: "node.resumed",
+        node: sent.node!,
+        parent: sent.parent!,
+        run: done[0]!.run,
+        data: { reason },
+      });
+      compare(normalize(done), "E_RESUME");
+    }
+  });
+
+  it("resets validation gates on resume while retaining projected history", () => {
+    const events = syntheticLifecycleEvents();
+    expect(compare(events)).toEqual({ ok: true, problems: [] });
+    const resumed = events.slice(
+      0,
+      events.findLastIndex(({ type }) => type === "node.resumed") + 1,
+    );
+    expect(projectTrace(resumed).nodes[0]).toMatchObject({
+      state: "running",
+      attempts: 1,
+      resultValid: true,
+      settledStatus: "blocked",
+      replies: [{ source: "user" }],
+    });
+    const done = {
+      ...events.find((event) => event.type === "node.settled")!,
+      type: "node.settled" as const,
+      data: { status: "done" as const, reason: "must revalidate" },
+    };
+    compare(normalize([...resumed, done]), "E_SETTLE");
+    expect(projectTrace(events).nodes[0]).toMatchObject({
+      attempts: 2,
+      cancelRequested: true,
+      settledStatus: "cancelled",
+    });
+    expect(
+      projectTrace(events).wakes.map(({ generation }) => generation),
+    ).toEqual([1, 2]);
+  });
+
+  it("allows stalled follow-up and pre-settlement restarts but gates later restarts", () => {
+    const stalled = syntheticInvalidResultEvents();
+    const resume = syntheticLifecycleEvents().find(
+      ({ type }) => type === "node.resumed",
+    )!;
+    expect(
+      compare(
+        normalize([
+          ...stalled,
+          { ...resume, data: { reason: "follow-up" } } as Events[number],
+        ]),
+      ),
+    ).toEqual({ ok: true, problems: [] });
+    const running = syntheticDoneEvents().slice(0, 3);
+    expect(compare(normalize([...running, resume]))).toEqual({
+      ok: true,
+      problems: [],
+    });
+  });
+
+  it("allows blocked cancellation with ordered delayed wakes and rejects cancellation without a new request", () => {
+    const blocked = syntheticBlockedEvents();
+    const lifecycle = syntheticLifecycleEvents();
+    const request = lifecycle.find(
+      ({ type }) => type === "node.cancel.requested",
+    )!;
+    const cancelled = lifecycle.find(
+      (event) =>
+        event.type === "node.settled" && event.data.status === "cancelled",
+    )!;
+    const wake = lifecycle.findLast(({ type }) => type === "parent.awakened")!;
+    const delayed = normalize([
+      ...blocked.slice(0, -1),
+      request,
+      cancelled,
+      blocked.at(-1)!,
+      wake,
+    ]);
+    expect(compare(delayed)).toEqual({ ok: true, problems: [] });
+    compare(normalize([...blocked, cancelled]), "E_ORDER");
+    compare(normalize([...syntheticDoneEvents(), request]), "E_ORDER");
+    compare(normalize([...delayed, wake]), "E_WAKE");
+    const wrongStatus = structuredClone(delayed);
+    const firstWake = wrongStatus.find(
+      (event) => event.type === "parent.awakened",
+    )!;
+    if (firstWake.type === "parent.awakened")
+      firstWake.data.childStatus = "cancelled";
+    compare(wrongStatus, "E_WAKE");
+    const wrongGeneration = structuredClone(delayed);
+    const last = wrongGeneration.at(-1)!;
+    if (last.type === "parent.awakened") last.data.wakeGeneration = 1;
+    compare(wrongGeneration, "E_WAKE");
+  });
+
+  it("retains cancellation history across a legal resume", () => {
+    const blocked = syntheticBlockedEvents();
+    const lifecycle = syntheticLifecycleEvents();
+    const request = lifecycle.find(
+      ({ type }) => type === "node.cancel.requested",
+    )!;
+    const resume = lifecycle.find(({ type }) => type === "node.resumed")!;
+    const events = normalize([...blocked, request, resume]);
+    expect(compare(events)).toEqual({ ok: true, problems: [] });
+    expect(projectTrace(events).nodes[0]).toMatchObject({
+      state: "running",
+      cancelRequested: true,
+      attempts: 1,
+    });
+  });
+
+  it("rejects unknown RPC fields and invalid lifecycle field types without stripping", () => {
+    const projection = projectTrace(syntheticLifecycleEvents());
+    expect(traceProjectionSchema.parse(projection)).toEqual(projection);
+    for (const patch of [
+      { attempts: -1 },
+      { attempts: 1.5 },
+      { cancelRequested: "true" },
+      { replies: [{ at: "now", text: "x", source: "system" }] },
+      { extra: true },
+    ]) {
+      expect(
+        traceProjectionSchema.safeParse({
+          ...projection,
+          nodes: [{ ...projection.nodes[0], ...patch }],
+        }).success,
+      ).toBe(false);
+    }
+    expect(
+      traceProjectionSchema.safeParse({
+        ...projection,
+        run: {
+          ...projection.run,
+          waves: [{ ...projection.run!.waves[0], extra: true }],
+        },
+      }).success,
+    ).toBe(false);
   });
 });

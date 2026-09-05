@@ -262,3 +262,88 @@ export function withRunId(
 export function asJsonl(events: readonly CanonicalEvent[]): string {
   return `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
 }
+
+/** One node restarts, blocks, replies/resumes, then cancels in a planned wave. */
+export function syntheticLifecycleEvents(): CanonicalEvent[] {
+  const blocked = syntheticBlockedEvents();
+  const envelope = { ...blocked[1]! };
+  const runEnvelope = { ...blocked[0]! };
+  const events: CanonicalEvent[] = [
+    blocked[0]!,
+    {
+      ...runEnvelope,
+      type: "graph.planned",
+      node: null,
+      parent: null,
+      data: {
+        graph: "current-graph",
+        waves: [["builder-1"]],
+        maxParallel: 1,
+        maxRepairLoops: 1,
+      },
+    },
+    {
+      ...runEnvelope,
+      type: "wave.started",
+      node: null,
+      parent: null,
+      data: { wave: 1, nodes: ["builder-1"] },
+    },
+    blocked[1]!,
+    {
+      ...envelope,
+      type: "node.resumed",
+      node: "builder-1",
+      parent: "advisor",
+      data: { reason: "restart" },
+    },
+    ...blocked.slice(2),
+    {
+      ...envelope,
+      type: "node.reply.sent",
+      node: "builder-1",
+      parent: "advisor",
+      data: { text: "Use the public SDK.", source: "user", replyTo: 6 },
+    },
+    {
+      ...envelope,
+      type: "node.resumed",
+      node: "builder-1",
+      parent: "advisor",
+      data: { reason: "reply" },
+    },
+    {
+      ...envelope,
+      type: "node.cancel.requested",
+      node: "builder-1",
+      parent: "advisor",
+      data: { reason: "Stop requested" },
+    },
+    {
+      ...envelope,
+      type: "node.settled",
+      node: "builder-1",
+      parent: "advisor",
+      data: { status: "cancelled", reason: "Stopped" },
+    },
+    {
+      ...runEnvelope,
+      type: "parent.awakened",
+      node: "advisor",
+      parent: null,
+      data: { child: "builder-1", childStatus: "cancelled", wakeGeneration: 2 },
+    },
+    {
+      ...runEnvelope,
+      type: "wave.completed",
+      node: null,
+      parent: null,
+      data: { wave: 1, nodes: ["builder-1"] },
+    },
+  ];
+  return events.map((event, index) => ({
+    ...event,
+    seq: index + 1,
+    at: "2026-09-05T09:00:00.000Z",
+  }));
+}

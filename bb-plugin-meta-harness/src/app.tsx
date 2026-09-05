@@ -214,7 +214,12 @@ function NodeCard({
         <MetaField label="Risk" value={node.launch.riskTier} />
         <MetaField label="Keep alive" value={node.launch.keepAlive ?? null} />
         <MetaField label="Launched" value={formatTime(node.launchedAt)} />
-        <MetaField label="Settled" value={formatTime(node.settledAt)} />
+        <MetaField label="Last settled" value={formatTime(node.settledAt)} />
+        <MetaField label="Settlement attempts" value={node.attempts} />
+        <MetaField
+          label="Cancellation requested"
+          value={node.cancelRequested}
+        />
         <MetaField label="Working directory" value={node.launch.cwd} path />
       </dl>
 
@@ -247,9 +252,34 @@ function NodeCard({
         </section>
       ) : null}
 
+      {node.replies.length > 0 ? (
+        <section
+          className="trace-node-section"
+          aria-labelledby={`${titleId}-replies`}
+        >
+          <h4 id={`${titleId}-replies`}>Replies</h4>
+          <ol className="trace-event-list">
+            {node.replies.map((reply, index) => (
+              <li key={`${index}-${reply.at}`}>
+                <time dateTime={reply.at}>{formatTime(reply.at)}</time>
+                <span>
+                  {reply.source}: {reply.text}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
       {node.blockedRequest !== null ? (
         <section className="trace-blocked" role="status">
-          <p className="trace-eyebrow">BLOCKED · {node.blockedRequest.kind}</p>
+          <p className="trace-eyebrow">
+            {node.state === "blocked" ||
+            (node.state === "settled" && node.settledStatus === "blocked")
+              ? "BLOCKED"
+              : "Last blocked request"}{" "}
+            · {node.blockedRequest.kind}
+          </p>
           <p>{node.blockedRequest.text}</p>
           {node.blockedRequest.options !== undefined ? (
             <ul>
@@ -269,6 +299,12 @@ function NodeCard({
         aria-labelledby={`${titleId}-result`}
       >
         <h4 id={`${titleId}-result`}>Trace-derived result</h4>
+        {node.state !== "settled" && node.attempts > 0 ? (
+          <p className="trace-note-ok">
+            Result and settlement fields retain the last recorded values until
+            newer events replace them.
+          </p>
+        ) : null}
         <dl className="trace-field-grid">
           <MetaField label="Path" value={node.resultPath} path />
           <MetaField label="Validated" value={node.resultValid} />
@@ -346,6 +382,32 @@ function TraceDetailView({ state }: { state: DetailState }) {
         <MetaField label="Last event" value={formatTime(run.lastAt)} />
         <MetaField label="Last sequence" value={run.lastSeq} />
       </dl>
+
+      {run.waves.length > 0 ? (
+        <section className="trace-section" aria-label="Waves">
+          <div className="trace-section-heading">
+            <h2>Waves</h2>
+            <span>{run.waves.length}</span>
+          </div>
+          <ol className="trace-copy-list">
+            {run.waves.map((wave) => (
+              <li key={wave.wave}>
+                <strong>Wave {wave.wave}</strong> · {wave.nodes.join(", ")}
+                <dl className="trace-field-grid">
+                  <MetaField
+                    label="Started"
+                    value={formatTime(wave.startedAt)}
+                  />
+                  <MetaField
+                    label="Completed"
+                    value={formatTime(wave.completedAt)}
+                  />
+                </dl>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       <section className="trace-section" aria-labelledby="trace-nodes-title">
         <div className="trace-section-heading">

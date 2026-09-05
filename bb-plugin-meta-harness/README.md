@@ -1,6 +1,6 @@
 # bb-plugin-meta-harness
 
-Read-only BB panel for canonical Advisor Core v1 traces. The plugin reads only
+Read-only BB panel for canonical Advisor Core v1 traces (protocol revision 1.1). The plugin reads only
 direct `<stateRoot>/traces/<runId>.jsonl` files through its host entry. BB is a
 projection; it does not read result artifacts, watch files, invoke workers, or
 write advisor state.
@@ -31,3 +31,14 @@ npm test
 npm run test:public-sdk
 ADVISOR_META_ROOT=/absolute/path/to/pi-meta-harness npm run test:conformance
 ```
+
+The package-local schema and TypeScript reducer mirror the current canonical
+reference. Conformance compares schema bytes, all five current protocol fixtures,
+and adversarial event ordering directly against `scripts/advisor-trace.mjs` in
+`ADVISOR_META_ROOT` (the containing repository by default). Reference code is used
+only by tests; the built plugin has no repository runtime dependency.
+
+The panel displays graph waves, settlement-attempt counts, replies, and recorded
+cancellation requests. A resume changes the current state to running; the
+canonical projection retains earlier result, settlement, blocked-request, and
+cancellation metadata. Those fields describe recorded history, not a new result.

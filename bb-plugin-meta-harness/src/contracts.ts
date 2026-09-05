@@ -144,6 +144,16 @@ export const traceProjectionSchema = z
         createdAt: z.string(),
         lastSeq: z.number().int().nonnegative(),
         lastAt: z.string().nullable(),
+        waves: z.array(
+          z
+            .object({
+              wave: z.number().int().positive(),
+              nodes: z.array(z.string()),
+              startedAt: z.string().nullable(),
+              completedAt: z.string().nullable(),
+            })
+            .strict(),
+        ),
       })
       .strict()
       .nullable(),
@@ -156,6 +166,17 @@ export const traceProjectionSchema = z
           state: nodeStateSchema,
           launchedAt: z.string(),
           settledAt: z.string().nullable(),
+          attempts: z.number().int().nonnegative(),
+          replies: z.array(
+            z
+              .object({
+                at: z.string(),
+                text: z.string(),
+                source: z.enum(["advisor", "user"]),
+              })
+              .strict(),
+          ),
+          cancelRequested: z.boolean(),
           progress: z.array(
             z.object({ at: z.string(), note: z.string() }).strict(),
           ),
