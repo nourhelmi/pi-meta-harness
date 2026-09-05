@@ -1,20 +1,33 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cp, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SCRIPT = join(ROOT, "scripts", "meta-harness.mjs");
 
-function run(...args) {
+function runWith(options, ...args) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
-    cwd: ROOT,
+    cwd: options.cwd ?? ROOT,
     encoding: "utf8",
+    env: { ...process.env, ...options.env },
   });
+}
+
+function run(...args) {
+  return runWith({}, ...args);
+}
+
+function hookGroups(snippet) {
+  return Object.values(snippet.hooks).flat();
+}
+
+function hookCommands(snippet) {
+  return hookGroups(snippet).flatMap((group) => group.hooks.map((hook) => hook.command));
 }
 
 function packageSource(entry) {
@@ -22,7 +35,7 @@ function packageSource(entry) {
 }
 
 async function temporaryTarget() {
-  return mkdtemp(join(tmpdir(), "pi-meta-harness-"));
+  return realpath(await mkdtemp(join(tmpdir(), "pi-meta-harness-")));
 }
 
 test("plan does not create the sandbox target", async () => {
@@ -35,6 +48,7 @@ test("plan does not create the sandbox target", async () => {
   assert.match(result.stdout, /COPY  extensions\/herdr-blocked-bridge\.ts -> extensions\/herdr-blocked-bridge\.ts/);
   assert.match(result.stdout, /NEVER mutate bg-agent-profiles\.json/);
   assert.match(result.stdout, /REFUSE install before mutation when ACTIVE and advisor-intelligence\.json are inconsistent/);
+  assert.match(result.stdout, /MATERIALIZE config\/advisor-core\/hosts\/claude-code\/hooks\.json/);
   await assert.rejects(readFile(join(target, "settings.json")));
   await rm(parent, { recursive: true, force: true });
 });
@@ -144,6 +158,251 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(doctor.status, 0, `${doctor.stdout}\n${doctor.stderr}`);
   assert.match(doctor.stdout, /Doctor passed/);
   await rm(target, { recursive: true, force: true });
+});
+
+test("install materializes self-contained advisor host bindings with absolute commands", async () => {
+  const parent = await temporaryTarget();
+  const target = join(parent, "agent");
+  const install = run("install", "--target", target);
+  assert.equal(install.status, 0, install.stderr);
+
+  const installedTrace = join(target, "advisor-hosts", "scripts", "advisor-trace.mjs");
+  const validation = spawnSync(process.execPath, [
+    installedTrace,
+    "validate",
+    join(ROOT, "config", "advisor-core", "fixtures", "one-worker-done.jsonl"),
+  ], { encoding: "utf8" });
+  assert.equal(validation.status, 0, validation.stderr);
+  assert.match(validation.stdout, /ok: 7 event\(s\)/);
+  await stat(join(target, "advisor-hosts", "scripts", "advisor-core", "advisor-state.d.mts"));
+  await stat(join(target, "advisor-hosts", "config", "advisor-core", "canonical-events.schema.json"));
+
+  const expected = {
+    "claude-code": {
+      path: join(target, "advisor-hosts", "claude-code", "settings-snippet.json"),
+      script: join(target, "advisor-hosts", "scripts", "claude-advisor-trace.mjs"),
+      groups: 5,
+    },
+    codex: {
+      path: join(target, "advisor-hosts", "codex", "hooks.json"),
+      script: join(target, "advisor-hosts", "scripts", "codex-advisor-trace.mjs"),
+      groups: 4,
+    },
+  };
+  for (const [host, details] of Object.entries(expected)) {
+    const text = await readFile(details.path, "utf8");
+    const snippet = JSON.parse(text);
+    assert.equal(hookGroups(snippet).length, details.groups);
+    assert(hookCommands(snippet).every((command) => command === `node ${details.script}`));
+    assert.doesNotMatch(text, /node scripts\//);
+    if (host === "claude-code") {
+      assert.equal(snippet.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS, "1");
+    }
+  }
+  await rm(parent, { recursive: true, force: true });
+});
+
+test("install-host-bindings merges Claude Code user settings with backup and byte idempotency", async () => {
+  const parent = await temporaryTarget();
+  const home = join(parent, "home");
+  const agentDir = join(parent, "agent");
+  const claudeDir = join(home, ".claude");
+  const settingsPath = join(claudeDir, "settings.json");
+  const original = {
+    env: { FOO: "kept" },
+    hooks: {
+      SessionStart: [{
+        matcher: "*",
+        hooks: [{ type: "command", command: "existing-session-start" }],
+      }],
+    },
+  };
+  const originalText = `${JSON.stringify(original, null, 2)}\n`;
+  await mkdir(claudeDir, { recursive: true });
+  await writeFile(settingsPath, originalText);
+  const env = { HOME: home, PI_CODING_AGENT_DIR: agentDir };
+  assert.equal(run("install", "--target", agentDir).status, 0);
+
+  const first = runWith(
+    { env },
+    "install-host-bindings",
+    "--host",
+    "claude-code",
+    "--scope",
+    "user",
+  );
+  assert.equal(first.status, 0, first.stderr);
+  const firstText = await readFile(settingsPath, "utf8");
+  const settings = JSON.parse(firstText);
+  assert.deepEqual(settings.hooks.SessionStart[0], original.hooks.SessionStart[0]);
+  assert.equal(settings.env.FOO, "kept");
+  assert.equal(settings.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS, "1");
+  const command = `node ${join(agentDir, "advisor-hosts", "scripts", "claude-advisor-trace.mjs")}`;
+  assert.equal(hookCommands(settings).filter((candidate) => candidate === command).length, 5);
+  assert.equal(
+    await readFile(join(claudeDir, "agents", "advisor-maker.md"), "utf8"),
+    await readFile(join(agentDir, "advisor-hosts", "claude-code", "agents", "advisor-maker.md"), "utf8"),
+  );
+  const backup = first.stdout.match(/^Backup: (.+)$/m)?.[1];
+  assert(backup);
+  assert.equal(await readFile(join(backup, "files", "settings.json"), "utf8"), originalText);
+
+  const second = runWith(
+    { env },
+    "install-host-bindings",
+    "--host",
+    "claude-code",
+    "--scope",
+    "user",
+  );
+  assert.equal(second.status, 0, second.stderr);
+  assert.equal(await readFile(settingsPath, "utf8"), firstText);
+  await rm(parent, { recursive: true, force: true });
+});
+
+test("install-host-bindings merges Codex project hooks without touching config.toml", async () => {
+  const parent = await temporaryTarget();
+  const home = join(parent, "home");
+  const agentDir = join(parent, "agent");
+  const project = join(parent, "project");
+  const projectCodex = join(project, ".codex");
+  const homeCodex = join(home, ".codex");
+  const hooksPath = join(projectCodex, "hooks.json");
+  const projectConfig = join(projectCodex, "config.toml");
+  const homeConfig = join(homeCodex, "config.toml");
+  const existingStop = [{ hooks: [{ type: "command", command: "existing-stop" }] }];
+  await mkdir(projectCodex, { recursive: true });
+  await mkdir(homeCodex, { recursive: true });
+  await writeFile(hooksPath, `${JSON.stringify({ hooks: { Stop: existingStop } }, null, 2)}\n`);
+  await writeFile(projectConfig, "notify = [\"project-sentinel\"]\n");
+  await writeFile(homeConfig, "notify = [\"home-sentinel\"]\n");
+  const env = { HOME: home, PI_CODING_AGENT_DIR: agentDir };
+  assert.equal(run("install", "--target", agentDir).status, 0);
+
+  const install = runWith(
+    { env },
+    "install-host-bindings",
+    "--host",
+    "codex",
+    "--scope",
+    "project",
+    "--cwd",
+    project,
+  );
+  assert.equal(install.status, 0, install.stderr);
+  assert.match(install.stdout, /Codex hooks require trust via \/hooks/);
+  const hooks = JSON.parse(await readFile(hooksPath, "utf8"));
+  assert.deepEqual(hooks.hooks.Stop, existingStop);
+  const command = `node ${join(agentDir, "advisor-hosts", "scripts", "codex-advisor-trace.mjs")}`;
+  assert.equal(hookCommands(hooks).filter((candidate) => candidate === command).length, 4);
+  assert.equal(
+    await readFile(join(projectCodex, "agents", "advisor-maker.toml"), "utf8"),
+    await readFile(join(agentDir, "advisor-hosts", "codex", "agents", "advisor-maker.toml"), "utf8"),
+  );
+  assert.equal(await readFile(projectConfig, "utf8"), "notify = [\"project-sentinel\"]\n");
+  assert.equal(await readFile(homeConfig, "utf8"), "notify = [\"home-sentinel\"]\n");
+  await assert.rejects(readFile(join(homeCodex, "hooks.json")));
+  await rm(parent, { recursive: true, force: true });
+});
+
+test("install-host-bindings supports the remaining scope targets and preserves a Claude env override", async () => {
+  const parent = await temporaryTarget();
+  const home = join(parent, "home");
+  const agentDir = join(parent, "agent");
+  const project = join(parent, "project");
+  const claudeSettings = join(project, ".claude", "settings.local.json");
+  const env = { HOME: home, PI_CODING_AGENT_DIR: agentDir };
+  await mkdir(dirname(claudeSettings), { recursive: true });
+  await writeFile(
+    claudeSettings,
+    `${JSON.stringify({ env: { CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "0" } }, null, 2)}\n`,
+  );
+  assert.equal(run("install", "--target", agentDir).status, 0);
+
+  const claude = runWith(
+    { env },
+    "install-host-bindings",
+    "--host",
+    "claude-code",
+    "--scope",
+    "project",
+    "--cwd",
+    project,
+  );
+  assert.equal(claude.status, 0, claude.stderr);
+  assert.equal(
+    JSON.parse(await readFile(claudeSettings, "utf8")).env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS,
+    "0",
+  );
+  await stat(join(project, ".claude", "agents", "advisor-maker.md"));
+
+  const codex = runWith(
+    { env },
+    "install-host-bindings",
+    "--host",
+    "codex",
+    "--scope",
+    "user",
+  );
+  assert.equal(codex.status, 0, codex.stderr);
+  assert.equal(hookGroups(JSON.parse(await readFile(join(home, ".codex", "hooks.json"), "utf8"))).length, 4);
+  await stat(join(home, ".codex", "agents", "advisor-maker.toml"));
+  await assert.rejects(readFile(join(project, ".codex", "hooks.json")));
+  await rm(parent, { recursive: true, force: true });
+});
+
+test("install-host-bindings dry-run plans changes without writing", async () => {
+  const parent = await temporaryTarget();
+  const home = join(parent, "home");
+  const agentDir = join(parent, "agent");
+  const claudeDir = join(home, ".claude");
+  const settingsPath = join(claudeDir, "settings.json");
+  const agentPath = join(claudeDir, "agents", "advisor-maker.md");
+  await mkdir(dirname(agentPath), { recursive: true });
+  await writeFile(settingsPath, "{\n  \"existing\": true\n}\n");
+  await writeFile(agentPath, "existing agent\n");
+  const env = { HOME: home, PI_CODING_AGENT_DIR: agentDir };
+  assert.equal(run("install", "--target", agentDir).status, 0);
+  const settingsBefore = await readFile(settingsPath);
+  const agentBefore = await readFile(agentPath);
+  const settingsStat = await stat(settingsPath);
+  const agentStat = await stat(agentPath);
+
+  const dryRun = runWith(
+    { env },
+    "install-host-bindings",
+    "--host",
+    "claude-code",
+    "--scope",
+    "user",
+    "--dry-run",
+  );
+  assert.equal(dryRun.status, 0, dryRun.stderr);
+  assert.match(dryRun.stdout, /DRY RUN/);
+  assert.match(dryRun.stdout, /Would update configuration/);
+  assert.match(dryRun.stdout, /Would update agent definition/);
+  assert.deepEqual(await readFile(settingsPath), settingsBefore);
+  assert.deepEqual(await readFile(agentPath), agentBefore);
+  assert.equal((await stat(settingsPath)).mtimeMs, settingsStat.mtimeMs);
+  assert.equal((await stat(agentPath)).mtimeMs, agentStat.mtimeMs);
+  await assert.rejects(stat(join(claudeDir, "backups")));
+  await rm(parent, { recursive: true, force: true });
+});
+
+test("doctor reports resolvable advisor host snippets and warns when absent", async () => {
+  const parent = await temporaryTarget();
+  const target = join(parent, "agent");
+  assert.equal(run("install", "--target", target).status, 0);
+  const installed = run("doctor", "--target", target);
+  assert.equal(installed.status, 0, `${installed.stdout}\n${installed.stderr}`);
+  assert.match(installed.stdout, /Advisor host bindings installed:/);
+  assert.equal((installed.stdout.match(/Advisor host snippet resolves:/g) ?? []).length, 2);
+
+  await rm(join(target, "advisor-hosts"), { recursive: true, force: true });
+  const absent = run("doctor", "--target", target);
+  assert.equal(absent.status, 0, `${absent.stdout}\n${absent.stderr}`);
+  assert.match(absent.stderr, /Warning: advisor-hosts\/ is not installed/);
+  await rm(parent, { recursive: true, force: true });
 });
 
 test("worker runtime uses instructional boundaries without tool blocking", async () => {
@@ -437,6 +696,7 @@ test("restore returns existing files and removes newly managed files", async () 
   assert.equal(await readFile(join(target, "settings.json"), "utf8"), "{\n  \"original\": true\n}\n");
   await assert.rejects(readFile(join(target, "bg-agent-profiles.json")));
   await assert.rejects(readFile(join(target, "advisor-intelligence.json")));
+  await assert.rejects(readFile(join(target, "advisor-hosts", "scripts", "advisor-trace.mjs")));
   await rm(target, { recursive: true, force: true });
 });
 

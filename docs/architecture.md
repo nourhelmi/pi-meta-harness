@@ -80,6 +80,10 @@ the existing `ACTIVE` selection is preserved and rematerialized as
 Before each mutation, the installer creates a scoped backup. It does not reload
 Pi, migrate an active session, or copy authentication.
 
+The Pi install also materializes Claude Code and Codex advisor bindings with
+absolute script paths; `install-host-bindings` merges either host's hooks and
+agent definition at user or project scope without replacing existing groups.
+
 `pi-detach` is not vendored. The settings overlay points to its public
 repository at one full reviewed commit. That transport accepts legacy
 intelligence fields but ignores them; this harness supplies standalone

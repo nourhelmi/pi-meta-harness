@@ -232,7 +232,7 @@ Full guide (suites, trials, baselines, comparisons, privacy boundary):
 | Doc | What's inside |
 | --- | --- |
 | [`advisor-runtime.md`](docs/advisor-runtime.md) | Workstream isolation, adaptive topology, roles, pane rules |
-| [`advisor-protocol.md`](docs/advisor-protocol.md) | Host-neutral layers, canonical event trace, validator, migration status |
+| [`advisor-protocol.md`](docs/advisor-protocol.md) | Host-neutral layers, canonical event trace, host-binding install, migration status |
 | [`intelligence-profiles.md`](docs/intelligence-profiles.md) | Guides, quota pick tree, per-role recommendations |
 | [`advisor-evals.md`](docs/advisor-evals.md) | Live prospective suite + Harbor calibration |
 | [`architecture.md`](docs/architecture.md) | Installer topology and ownership boundaries |
@@ -271,8 +271,8 @@ Full guide (suites, trials, baselines, comparisons, privacy boundary):
 - `scripts/advisor-eval.mjs` and `scripts/advisor-harbor-lib.mjs` —
   privacy-bounded trace normalization and Harbor task materialization.
 - `scripts/intelligence-profile.mjs` — guide validator and mid-session switcher.
-- `scripts/meta-harness.mjs` and `scripts/bootstrap.sh` — install, doctor,
-  restore, validation, and fresh-machine bootstrap.
+- `scripts/meta-harness.mjs` and `scripts/bootstrap.sh` — install, host-binding
+  merge, doctor, restore, validation, and fresh-machine bootstrap.
 - `herdr/` — portable Herdr theme, UI, keybindings, and notification sounds.
 - `docs/` — runtime, architecture, security, cutover, intelligence, and eval
   references.

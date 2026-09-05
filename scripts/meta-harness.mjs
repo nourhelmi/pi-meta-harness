@@ -42,6 +42,7 @@ const LIVE_HERDR_TARGET = resolve(
     : join(homedir(), ".config", "herdr"),
 );
 const BACKUP_ROOT = join("backups", "pi-meta-harness");
+const HOST_BINDING_BACKUP_ROOT = join("backups", "pi-meta-harness-host-bindings");
 const HERDR_BACKUP_ROOT = join("backups", "pi-meta-harness-herdr");
 const SKILL_BACKUP_ROOT = join("backups", "pi-meta-harness-skills");
 const STATE_FILE = ".pi-meta-harness-state.json";
@@ -55,7 +56,7 @@ const GENERATED_SKILL_FILES = new Map([
   ["pretty-mermaid", new Set(["package-lock.json"])],
 ]);
 
-const COPY_ENTRIES = [
+const PORTABLE_COPY_ENTRIES = [
   ["extensions/advisor-graph.ts", "extensions/advisor-graph.ts"],
   ["extensions/advisor-session.ts", "extensions/advisor-session.ts"],
   ["extensions/advisor-worker.ts", "extensions/advisor-worker.ts"],
@@ -81,6 +82,49 @@ const COPY_ENTRIES = [
   ["config/claude-bridge.json", "claude-bridge.json"],
   ["config/markdown-workflows.json", "markdown-workflows.json"],
 ];
+const HOST_BINDING_COPY_ENTRIES = [
+  ["scripts/advisor-trace.mjs", "advisor-hosts/scripts/advisor-trace.mjs"],
+  ["scripts/claude-advisor-trace.mjs", "advisor-hosts/scripts/claude-advisor-trace.mjs"],
+  ["scripts/codex-advisor-trace.mjs", "advisor-hosts/scripts/codex-advisor-trace.mjs"],
+  ["scripts/advisor-core", "advisor-hosts/scripts/advisor-core"],
+  [
+    "config/advisor-core/canonical-events.schema.json",
+    "advisor-hosts/config/advisor-core/canonical-events.schema.json",
+  ],
+  [
+    "config/advisor-core/hosts/claude-code/agents/advisor-maker.md",
+    "advisor-hosts/claude-code/agents/advisor-maker.md",
+  ],
+  [
+    "config/advisor-core/hosts/codex/agents/advisor-maker.toml",
+    "advisor-hosts/codex/agents/advisor-maker.toml",
+  ],
+];
+const COPY_ENTRIES = [...PORTABLE_COPY_ENTRIES, ...HOST_BINDING_COPY_ENTRIES];
+const HOST_BINDING_SPECS = {
+  "claude-code": {
+    configDirectory: ".claude",
+    userConfig: "settings.json",
+    projectConfig: "settings.local.json",
+    installedSnippet: "advisor-hosts/claude-code/settings-snippet.json",
+    installedAgent: "advisor-hosts/claude-code/agents/advisor-maker.md",
+    targetAgent: "agents/advisor-maker.md",
+    shippedSnippet: "config/advisor-core/hosts/claude-code/hooks.json",
+    installedScript: "advisor-hosts/scripts/claude-advisor-trace.mjs",
+  },
+  codex: {
+    configDirectory: ".codex",
+    userConfig: "hooks.json",
+    projectConfig: "hooks.json",
+    installedSnippet: "advisor-hosts/codex/hooks.json",
+    installedAgent: "advisor-hosts/codex/agents/advisor-maker.toml",
+    targetAgent: "agents/advisor-maker.toml",
+    shippedSnippet: "config/advisor-core/hosts/codex/hooks.json",
+    installedScript: "advisor-hosts/scripts/codex-advisor-trace.mjs",
+  },
+};
+const GENERATED_HOST_BINDING_DESTINATIONS = Object.values(HOST_BINDING_SPECS)
+  .map((spec) => spec.installedSnippet);
 const MERGE_ENTRIES = [
   ["config/settings.overlay.json", "settings.json", "settings"],
   ["config/mcp.json", "mcp.json", "object"],
@@ -118,6 +162,7 @@ function usage() {
 Usage:
   node scripts/meta-harness.mjs plan [--target <dir> | --live]
   node scripts/meta-harness.mjs install [--target <dir> | --live] [--allow-active]
+  node scripts/meta-harness.mjs install-host-bindings --host <claude-code|codex> --scope <user|project> [--cwd <dir>] [--dry-run]
   node scripts/meta-harness.mjs doctor [--target <dir> | --live]
   node scripts/meta-harness.mjs restore --backup <dir> [--target <dir> | --live] [--allow-active]
   node scripts/meta-harness.mjs install-herdr-config [--target <dir> | --live] [--allow-active]
@@ -132,13 +177,17 @@ A real Pi target always requires --live. The installer never reloads Pi.`);
 
 function parseArgs(argv) {
   const [command = "help", ...rest] = argv;
-  const options = { command, live: false, allowActive: false };
+  const options = { command, live: false, allowActive: false, dryRun: false };
   for (let index = 0; index < rest.length; index += 1) {
     const value = rest[index];
     if (value === "--live") options.live = true;
     else if (value === "--allow-active") options.allowActive = true;
+    else if (value === "--dry-run") options.dryRun = true;
     else if (value === "--target") options.target = rest[++index];
     else if (value === "--backup") options.backup = rest[++index];
+    else if (value === "--host") options.host = rest[++index];
+    else if (value === "--scope") options.scope = rest[++index];
+    else if (value === "--cwd") options.cwd = rest[++index];
     else throw new Error(`Unknown argument: ${value}`);
   }
   if (options.live && options.target) throw new Error("Choose either --live or --target");
@@ -209,9 +258,13 @@ async function readJson(path, fallback) {
 }
 
 async function atomicJson(path, value) {
+  await atomicWrite(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function atomicWrite(path, value) {
   await mkdir(dirname(path), { recursive: true });
   const temporary = `${path}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await writeFile(temporary, value);
   await rename(temporary, path);
 }
 
@@ -316,6 +369,7 @@ function timestamp() {
 function managedDestinations() {
   return [
     ...COPY_ENTRIES.map(([, destination]) => destination),
+    ...GENERATED_HOST_BINDING_DESTINATIONS,
     ...MERGE_ENTRIES.map(([, destination]) => destination),
     "advisor-intelligence.json",
     "intelligence-profiles/ACTIVE",
@@ -416,6 +470,141 @@ async function installProfileSelection(target) {
   return { name: selection.pointer.name, mode: "existing" };
 }
 
+function snippetHookGroups(snippet, label) {
+  if (!isObject(snippet) || !isObject(snippet.hooks)) {
+    throw new Error(`${label} must contain a hooks object`);
+  }
+  const events = [];
+  for (const [event, groups] of Object.entries(snippet.hooks)) {
+    if (!Array.isArray(groups)) throw new Error(`${label} hook event ${event} must be an array`);
+    for (const group of groups) {
+      if (!isObject(group) || !Array.isArray(group.hooks)) {
+        throw new Error(`${label} hook event ${event} contains an invalid group`);
+      }
+      events.push({ event, group });
+    }
+  }
+  return events;
+}
+
+async function materializeHostBindingSnippets(target) {
+  for (const [host, spec] of Object.entries(HOST_BINDING_SPECS)) {
+    const snippet = await readJson(join(ROOT, spec.shippedSnippet));
+    const command = `node ${join(target, spec.installedScript)}`;
+    for (const { group } of snippetHookGroups(snippet, `${host} shipped snippet`)) {
+      for (const hook of group.hooks) {
+        if (!isObject(hook) || typeof hook.command !== "string") {
+          throw new Error(`${host} shipped snippet contains a hook without a command`);
+        }
+        hook.command = command;
+      }
+    }
+    await atomicJson(join(target, spec.installedSnippet), snippet);
+  }
+}
+
+function mergeHostBindingConfig(existing, snippet, host) {
+  if (!isObject(existing)) throw new Error(`${host} target configuration must be a JSON object`);
+  const merged = structuredClone(existing);
+  if (merged.hooks === undefined) merged.hooks = {};
+  if (!isObject(merged.hooks)) throw new Error(`${host} target hooks must be a JSON object`);
+
+  let changed = false;
+  for (const { event, group } of snippetHookGroups(snippet, `${host} installed snippet`)) {
+    const existingGroups = merged.hooks[event];
+    if (existingGroups === undefined) merged.hooks[event] = [];
+    else if (!Array.isArray(existingGroups)) {
+      throw new Error(`${host} target hook event ${event} must be an array`);
+    }
+    const alreadyInstalled = merged.hooks[event].some((candidate) =>
+      isObject(candidate)
+      && candidate.matcher === group.matcher
+      && Array.isArray(candidate.hooks)
+      && candidate.hooks.some((candidateHook) =>
+        isObject(candidateHook)
+        && group.hooks.some((snippetHook) => candidateHook.command === snippetHook.command)
+      )
+    );
+    if (!alreadyInstalled) {
+      merged.hooks[event].push(structuredClone(group));
+      changed = true;
+    }
+  }
+
+  if (host === "claude-code") {
+    if (merged.env === undefined) merged.env = {};
+    if (!isObject(merged.env)) throw new Error("claude-code target env must be a JSON object");
+    const key = "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS";
+    if (!Object.hasOwn(merged.env, key)) {
+      merged.env[key] = snippet.env[key];
+      changed = true;
+    }
+  }
+  return { changed, merged };
+}
+
+function hostBindingTarget(options, spec) {
+  const projectRoot = resolve(expandHome(options.cwd ?? process.cwd()));
+  const root = options.scope === "user"
+    ? join(homedir(), spec.configDirectory)
+    : join(projectRoot, spec.configDirectory);
+  return {
+    root,
+    configDestination: options.scope === "user" ? spec.userConfig : spec.projectConfig,
+    agentDestination: spec.targetAgent,
+  };
+}
+
+async function installHostBindings(options) {
+  const spec = HOST_BINDING_SPECS[options.host];
+  if (!spec) throw new Error("install-host-bindings requires --host <claude-code|codex>");
+  if (!new Set(["user", "project"]).has(options.scope)) {
+    throw new Error("install-host-bindings requires --scope <user|project>");
+  }
+
+  const sourceSnippetPath = join(LIVE_TARGET, spec.installedSnippet);
+  const sourceAgentPath = join(LIVE_TARGET, spec.installedAgent);
+  const snippet = await readJson(sourceSnippetPath);
+  const sourceAgent = await readFile(sourceAgentPath);
+  const target = hostBindingTarget(options, spec);
+  const configPath = join(target.root, target.configDestination);
+  const agentPath = join(target.root, target.agentDestination);
+  const existingConfig = await readJson(configPath, {});
+  const { changed: configChanged, merged } = mergeHostBindingConfig(
+    existingConfig,
+    snippet,
+    options.host,
+  );
+  const existingAgent = await exists(agentPath) ? await readFile(agentPath) : undefined;
+  const agentChanged = !existingAgent || !existingAgent.equals(sourceAgent);
+  const changes = [
+    ...(configChanged ? [{ path: configPath, type: "configuration" }] : []),
+    ...(agentChanged ? [{ path: agentPath, type: "agent definition" }] : []),
+  ];
+
+  if (options.dryRun) {
+    console.log(`DRY RUN: ${options.host} ${options.scope} host bindings`);
+    if (changes.length === 0) console.log("No changes planned.");
+    for (const change of changes) console.log(`Would update ${change.type}: ${change.path}`);
+  } else if (changes.length === 0) {
+    console.log(`Host bindings already installed for ${options.host} (${options.scope}).`);
+  } else {
+    const backup = await createScopedBackup(
+      target.root,
+      [target.configDestination, target.agentDestination],
+      HOST_BINDING_BACKUP_ROOT,
+    );
+    if (configChanged) await atomicJson(configPath, merged);
+    if (agentChanged) await atomicWrite(agentPath, sourceAgent);
+    for (const change of changes) console.log(`Updated ${change.type}: ${change.path}`);
+    console.log(`Backup: ${backup}`);
+  }
+
+  if (options.host === "codex") {
+    console.log("Codex hooks require trust via /hooks unless launched with --dangerously-bypass-hook-trust (pi-detach passes it).");
+  }
+}
+
 async function install(options) {
   const target = targetFor(options);
   assertLiveSafety(options);
@@ -426,6 +615,7 @@ async function install(options) {
   for (const [source, destination] of COPY_ENTRIES) {
     await copyReplacing(join(ROOT, source), join(target, destination));
   }
+  await materializeHostBindingSnippets(target);
   const removedPackageSources = await readJson(join(ROOT, "config", "package-removals.json"), []);
   const removedModels = await readJson(join(ROOT, "config", "model-removals.json"), []);
   for (const [source, destination, mode] of MERGE_ENTRIES) {
@@ -458,6 +648,9 @@ async function plan(options) {
   }
   for (const [source, destination] of MERGE_ENTRIES) {
     console.log(`MERGE ${source} -> ${destination}`);
+  }
+  for (const spec of Object.values(HOST_BINDING_SPECS)) {
+    console.log(`MATERIALIZE ${spec.shippedSnippet} -> ${spec.installedSnippet} (absolute command)`);
   }
   const settingsOverlay = await readJson(join(ROOT, "config", "settings.overlay.json"), {});
   for (const source of (settingsOverlay.packages ?? []).map(packageSource)) {
@@ -598,10 +791,49 @@ function subsetErrors(actual, expected, path = "config") {
   return errors;
 }
 
+async function reportHostBindingHealth(target) {
+  const hostRoot = join(target, "advisor-hosts");
+  if (!(await exists(hostRoot))) {
+    console.warn("Warning: advisor-hosts/ is not installed; run the harness installer before installing host bindings.");
+    return;
+  }
+  console.log(`Advisor host bindings installed: ${hostRoot}`);
+
+  for (const [host, spec] of Object.entries(HOST_BINDING_SPECS)) {
+    const snippetPath = join(target, spec.installedSnippet);
+    if (!(await exists(snippetPath))) {
+      console.warn(`Warning: ${host} materialized snippet is missing: ${snippetPath}`);
+      continue;
+    }
+    try {
+      const snippet = await readJson(snippetPath);
+      const commands = snippetHookGroups(snippet, `${host} materialized snippet`)
+        .flatMap(({ group }) => group.hooks.map((hook) => hook?.command));
+      if (commands.length === 0) throw new Error("snippet contains no hook commands");
+      const unresolved = new Set();
+      for (const command of commands) {
+        const path = typeof command === "string" && command.startsWith("node ")
+          ? command.slice(5)
+          : undefined;
+        if (!path || !isAbsolute(path) || !(await exists(path))) {
+          unresolved.add(path ?? "<invalid command>");
+        }
+      }
+      if (unresolved.size) {
+        console.warn(`Warning: ${host} materialized snippet has unresolved command path(s): ${[...unresolved].join(", ")}`);
+      } else {
+        console.log(`Advisor host snippet resolves: ${snippetPath}`);
+      }
+    } catch (error) {
+      console.warn(`Warning: ${host} materialized snippet cannot be checked: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+}
+
 async function doctor(options) {
   const target = targetFor(options);
   const errors = [];
-  for (const [source, destination] of COPY_ENTRIES) {
+  for (const [source, destination] of PORTABLE_COPY_ENTRIES) {
     const expected = join(ROOT, source);
     const actual = join(target, destination);
     if (!(await exists(actual))) {
@@ -692,6 +924,7 @@ async function doctor(options) {
       errors.push("Herdr Pi integration is missing or outdated; run install-herdr-integration --live");
     }
   }
+  await reportHostBindingHealth(target);
   errors.push(...await repositorySecurityErrors());
 
   if (errors.length) {
@@ -1043,6 +1276,7 @@ async function main() {
     const options = parseArgs(process.argv.slice(2));
     if (options.command === "plan") await plan(options);
     else if (options.command === "install") await install(options);
+    else if (options.command === "install-host-bindings") await installHostBindings(options);
     else if (options.command === "doctor") await doctor(options);
     else if (options.command === "restore") await restore(options);
     else if (options.command === "install-herdr-config") await installHerdrConfig(options);

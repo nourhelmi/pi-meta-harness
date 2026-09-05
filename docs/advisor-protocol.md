@@ -245,19 +245,31 @@ are carried in the validation event and do not change settlement.
 
 ### Install the Claude Code binding
 
-1. Merge
-   [`../config/advisor-core/hosts/claude-code/hooks.json`](../config/advisor-core/hosts/claude-code/hooks.json)
-   into the `hooks` object in a project `.claude/settings.local.json` or user
-   `~/.claude/settings.json`. The relative Node command assumes Claude Code is
-   running from this repository; use an absolute script path for other cwd
-   layouts.
-2. Copy
-   [`../config/advisor-core/hosts/claude-code/agents/advisor-maker.md`](../config/advisor-core/hosts/claude-code/agents/advisor-maker.md)
-   to project `.claude/agents/advisor-maker.md` or
+After installing the harness, install the binding at user or project scope:
+
+```bash
+node scripts/meta-harness.mjs install-host-bindings --host claude-code --scope user
+node scripts/meta-harness.mjs install-host-bindings --host claude-code --scope project --cwd /path/to/project
+```
+
+The command non-destructively appends the materialized hook groups to
+`~/.claude/settings.json` or `<cwd>/.claude/settings.local.json`, preserves
+existing hooks and environment values, and copies the `advisor-maker` agent
+definition. It uses the absolute binding path under the installed Pi agent
+directory and creates a scoped backup before changing existing files. Use
+`--dry-run` to inspect the planned changes without writing.
+
+Manual fallback:
+
+1. Merge the hook groups from the installed
+   `~/.pi/agent/advisor-hosts/claude-code/settings-snippet.json` into the target
+   settings file without replacing existing hook groups.
+2. Copy the installed
+   `~/.pi/agent/advisor-hosts/claude-code/agents/advisor-maker.md` to project
+   `.claude/agents/advisor-maker.md` or user
    `~/.claude/agents/advisor-maker.md`.
-3. Merge the snippet's top-level
-   `env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` setting for sessions using this
-   v1 binding. This environment setting is required: the agent definition's
+3. Set `env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` only when that key is
+   absent. This environment setting is required: the agent definition's
    `background: false` flag alone does not force foreground execution.
    Background launch is unsupported because it has no equivalent foreground
    parent-delivery hook. The definition removes `Agent` from the maker's
@@ -332,22 +344,35 @@ hooks expose no bounded canonical progress note, so the adapter emits no
 
 ### Install the Codex binding
 
-1. Merge the event groups from
-   [`../config/advisor-core/hosts/codex/hooks.json`](../config/advisor-core/hosts/codex/hooks.json)
-   into user `~/.codex/hooks.json` or a trusted project
-   `.codex/hooks.json`. Do not replace the existing hooks object and do not
-   replace or reuse the user's `notify` command. The relative Node command
-   assumes Codex starts in this repository; use an absolute script path from
-   other cwd layouts.
-2. Copy
-   [`../config/advisor-core/hosts/codex/agents/advisor-maker.toml`](../config/advisor-core/hosts/codex/agents/advisor-maker.toml)
-   to `~/.codex/agents/advisor-maker.toml` or a trusted project
-   `.codex/agents/advisor-maker.toml`. Codex custom-agent files accept normal
-   config keys, so the shipped file sets `[agents] enabled = false` as a second
-   guard against nested delegation.
-3. Open `/hooks`, review the exact non-managed definitions, and trust them.
-   Changed hook definitions are skipped until trusted again. Project hooks and
-   project agents additionally require project trust.
+After installing the harness, install the binding at user or project scope:
+
+```bash
+node scripts/meta-harness.mjs install-host-bindings --host codex --scope user
+node scripts/meta-harness.mjs install-host-bindings --host codex --scope project --cwd /path/to/project
+```
+
+The command non-destructively appends the materialized event groups to
+`~/.codex/hooks.json` or `<cwd>/.codex/hooks.json`, preserves existing groups,
+and copies the `advisor-maker` agent definition. It never reads or writes
+`config.toml`. A scoped backup precedes any write; `--dry-run` only prints the
+plan. Open `/hooks`, review the exact non-managed definitions, and trust them
+unless Codex was launched with `--dangerously-bypass-hook-trust` (pi-detach
+passes it). Changed definitions are skipped until trusted again, and project
+hooks and agents additionally require project trust.
+
+Manual fallback:
+
+1. Merge the event groups from installed
+   `~/.pi/agent/advisor-hosts/codex/hooks.json` into user
+   `~/.codex/hooks.json` or a trusted project `.codex/hooks.json` without
+   removing or reordering existing groups. Do not replace or reuse the user's
+   `notify` command in `config.toml`.
+2. Copy installed
+   `~/.pi/agent/advisor-hosts/codex/agents/advisor-maker.toml` to user
+   `~/.codex/agents/advisor-maker.toml` or a trusted project
+   `.codex/agents/advisor-maker.toml`. The definition keeps
+   `[agents] enabled = false` as a second guard against nested delegation.
+3. Open `/hooks` and trust the definitions unless the bypass flag is active.
 
 Codex's native RuntimeCapabilities are: `backgroundWorkers: true`;
 `visibleWorkers: partial` (native activity and thread views, not a canonical
