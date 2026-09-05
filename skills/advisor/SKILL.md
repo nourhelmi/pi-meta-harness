@@ -98,9 +98,10 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    direction. Neither extreme is doctrine: not a questionnaire, not a silent
    assumption log — value of information decides. Finished work is still
    presented with the full decision log.
-8. **Keep raw evidence out of advisor context.** Workers inspect images, large
-   logs, traces, and generated reports. They return bounded claims and file
-   paths. Do not read image files or large raw outputs directly in an advisor
+8. **Keep large raw evidence out of advisor context.** Workers reduce large
+   logs, traces, and generated reports and return bounded claims and file
+   paths. Read what the user shares directly, including screenshots and
+   images; delegate only when the volume, not the medium, would flood the
    session.
 9. **Every helper agent is visible.** All delegated LLM work uses `bg_agent`,
    which creates a sibling pane in the advisor's Herdr tab and an Agents-list
@@ -246,35 +247,38 @@ review surface, not a gate.
 Frontend routing is scope- and capacity-aware guidance, and the preferred IDs
 come from the live guide:
 
-- genuinely new or greenfield UX uses the model whose character reserves it for
-  greenfield UX (Opus when that model is in the map and Anthropic capacity is
-  healthy), always with `frontend-design`;
-- if that model is missing from the live guide, capacity is tight, or a launch
-  reports a capacity limit, prefer the UX fallback named in that character note
-  — currently Grok. Avoid another scarce-model attempt unless it adds meaningful
-  expected value, and never silently downgrade the UX requirement;
+- in `codex-max`, every UX packet, greenfield or existing, uses Astra (xhigh
+  for substantial work, high for bounded tweaks) with `frontend-design`; no
+  Anthropic model is recommended there;
+- in the other guides, genuinely new or greenfield UX uses the model whose
+  character reserves it for greenfield UX (Opus while Anthropic capacity is
+  healthy), always with `frontend-design`; if that model is missing, capacity
+  is tight, or a launch reports a capacity limit, prefer the UX fallback named
+  in its character note and never silently downgrade the UX requirement;
 - substantial changes to an existing UX use the generalist whose character
-  covers existing UX (Grok; Sonnet in `anthropic-heavy`, `balanced`, or
-  `codex-lean` when the UX is well-known; Sol in `codex-lean` when the UX is
-  hard);
+  covers existing UX (Sonnet in `anthropic-heavy`, `balanced`, or `codex-lean`
+  when the UX is well-known; Astra in `codex-lean` when the UX is hard; Grok
+  in `grok-cycle`);
 - minor targeted tweaks to an existing UX may use the model whose character
-  includes that work (Sol high in `codex-max`; Luna or Sonnet in `codex-lean`
-  and `balanced`; otherwise Grok or Sonnet);
+  includes that work (Sol high or Sonnet in `codex-lean` and `balanced`;
+  otherwise Grok or Sonnet);
 - all UX implementation loads `frontend-design`; load the repository's normal
   frontend skill as well when one exists.
 
-Treat Fable's shared Anthropic session allowance as an important cost and quota
-input. Normally reserve Opus for the greenfield UX or extreme-risk work named in
-the live character notes, and reserve Fable for the advisor session (at medium)
-or guide-recommended planning (at high). These are strong defaults, not role
-allowlists; depart when capability and task risk justify it and record the
-rationale when material. If Fable reaches capacity, prefer the fallback in its
-character note (Sol at max in `codex-max`, `codex-lean`, and `balanced`, Grok in
-`grok-cycle` and `anthropic-heavy`); workers still cannot silently change the
-advisor's active model.
+In guides that map Fable, treat its shared Anthropic session allowance as an
+important cost and quota input: reserve Opus for the greenfield UX or
+extreme-risk work named in the live character notes, and reserve Fable for the
+advisor session (at medium) or guide-recommended planning (at high); if Fable
+reaches capacity, prefer the fallback in its character note (Astra at high in
+`codex-lean` and `balanced`, Grok in `grok-cycle` and `anthropic-heavy`). In
+`codex-max` the advisor session runs on Astra at high and planning on Astra at
+xhigh. These are strong defaults, not role allowlists; depart when capability
+and task risk justify it and record the rationale when material. Workers still
+cannot silently change the advisor's active model.
 For non-UX work, normally pick the implementation workhorse from the live characters
-(Sol xhigh or high by task in `codex-max`; Sol/Sonnet/Luna by hardness in `codex-lean`; Sonnet
-default with Sol high or medium for hard backend in `balanced`; Grok in
+(Astra xhigh or high by task in `codex-max`, with Sol high for locked packets and
+Sol xhigh for review and reduction; Astra/Sonnet/Sol by hardness in `codex-lean`;
+Sonnet default with Astra high for hard backend in `balanced`; Grok in
 `grok-cycle`; Sonnet in `anthropic-heavy`). The shipped guides recommend Cursor
 only as `cursor/grok-4.6`; another Cursor identity is simply an outside-guide
 choice and needs only a concise rationale when material, not a transport
@@ -706,7 +710,8 @@ unless the current owner created a handoff event.
 
 - Before a wide or long run, write the goal, cap, acceptance criteria, and run ID to the
   private session file.
-- Keep tool reads bounded. Delegate image analysis and log reduction.
+- Keep tool reads bounded. Delegate log reduction and bulk artifact review;
+  a screenshot or image the user shares is read directly.
 - When context use reaches about 60%, checkpoint the workstream and use
   `/compact` with instructions to preserve the user goal, constraints,
   decisions, active run IDs, blockers, and next step.
