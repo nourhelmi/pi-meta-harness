@@ -1,118 +1,100 @@
 {
   "name": "codex-max",
   "models": {
-    "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Sol at xhigh and the advisor session switches to Sol at max.",
+    "openai-codex/gpt-6-astra": {
+      "character": "Advisory: The advisor's own session model and the top-tier model for planning, implementation, review, and every kind of UX work. The advisor session runs at high; planner nodes, foremen, and substantial builds run at xhigh; fresh-context review, synthesis, adversarial checking on schema, auth, security, money, and data boundaries, and bounded implementation that still needs material local judgment run at high. All UX work, greenfield or existing, uses Astra with frontend-design loaded. Escalate to xhigh only for genuinely difficult debugging. Prefer Sol high, not Astra, when an execution packet has already locked the approach and material decisions.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Tenacious high-intelligence workhorse for long or difficult backend, data, and service implementation. Use high for token-efficient fresh-context review, synthesis, bounded investigation, ambiguous browser verification, and bounded implementation that still needs material local judgment. Planning fallback and substantial builds run at xhigh. Any advisor session on Sol runs at max. Frontend implementation otherwise routes to Opus or Grok by UX scope. Sol high is also the adversarial checker for schema, auth, security, money, and data boundaries. For builds, xhigh is the default; escalate to max only for genuinely difficult debugging. Prefer Luna, not Sol high, when an execution packet has already locked the approach and material decisions.",
-      "defaultThinking": "xhigh"
-    },
-    "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: Extremely cheap; the procedural-tier workhorse for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet. The packet must fix the material approach, bound the surface, and name deterministic anchors. Luna owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. 272K window. Generally avoid adversarial-tier checking and decision-bearing implementation. Recommended reasoning is max.",
-      "defaultThinking": "max"
-    },
-    "claude-bridge/claude-opus-5": {
-      "character": "Advisory: Reserve for genuinely new or greenfield UX/frontend implementation when Anthropic session capacity is healthy, preferably with frontend-design loaded. Runs at medium reasoning. Grok is the automatic UX fallback when capacity is tight or an Opus launch hits a capacity limit. Not recommended for existing-UX tweaks, checking, review, reduction, planning, or backend.",
-      "defaultThinking": "medium"
+      "character": "Advisory: The procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Generally avoid adversarial-tier checking and decision-bearing implementation. Recommended reasoning is high.",
+      "defaultThinking": "high"
     },
     "cursor/grok-4.6": {
-      "character": "Advisory: High-efficiency generalist at high reasoning. Preferred for research, bounded backend implementation, mixed-stack work, substantial changes to an existing UX, and UX implementation when Opus would consume scarce Anthropic/Fable session capacity. New UX uses Opus while capacity is healthy, then Grok automatically. Load frontend-design for UX work. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default. This guide recommends Cursor only as cursor/grok-4.6.",
+      "character": "Advisory: High-efficiency generalist at high reasoning, kept as the alternate for research and bounded backend or mixed-stack work when Codex capacity is tight. UX work routes to Astra, not Grok. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default. This guide recommends Cursor only as cursor/grok-4.6.",
       "defaultThinking": "high"
     }
   },
   "recommendations": {
     "scout": [
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
-        "fit": "Preferred for bounded investigation in this profile."
-      },
-      {
         "model": "openai-codex/gpt-5.6-sol",
         "thinking": "high",
-        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
+        "fit": "Preferred for bounded investigation in this profile."
       },
       {
         "model": "cursor/grok-4.6",
         "thinking": "high",
-        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
+        "fit": "Alternate for bounded investigation when Codex capacity is tight."
       }
     ],
     "planner": [
       {
-        "model": "claude-bridge/claude-fable-5-1",
-        "thinking": "high",
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "xhigh",
         "fit": "Preferred for planning in this profile."
       },
       {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "xhigh",
-        "fit": "Planning fallback when the preferred choice is unavailable or a different fit is justified."
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "high",
+        "fit": "Planning at high when the plan is small or capacity is tight."
       }
     ],
     "reducer": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "high",
         "fit": "Preferred for synthesis and conflict reduction in this profile."
       }
     ],
     "builder": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "xhigh",
-        "fit": "Preferred implementation choice in this profile."
+        "fit": "Preferred implementation choice, including all UX work with frontend-design loaded."
       },
       {
-        "model": "claude-bridge/claude-opus-5",
-        "thinking": "medium",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "high",
+        "fit": "Use for bounded implementation that still needs material local judgment; prefer Sol high when the execution packet has locked the approach."
       },
       {
         "model": "openai-codex/gpt-5.6-sol",
         "thinking": "high",
-        "fit": "Use for bounded implementation that still needs material local judgment; prefer Luna when the execution packet has locked the approach."
-      },
-      {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       },
       {
         "model": "cursor/grok-4.6",
         "thinking": "high",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
+        "fit": "Alternate for bounded backend or mixed-stack work when Codex capacity is tight."
       }
     ],
     "foreman": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "xhigh",
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       }
     ],
     "checker": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "high",
-        "fit": "Preferred fresh-context review choice in this profile."
+        "fit": "Preferred fresh-context review choice in this profile, including adversarial checks on schema, auth, security, money, and data boundaries."
       },
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
-        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
+        "fit": "Alternate for routine mid-phase checks and repair verification."
       }
     ],
     "browser-verifier": [
       {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "high",
         "fit": "Preferred for browser verification in this profile."
       },
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-astra",
         "thinking": "high",
         "fit": "Alternate for ambiguous visual or behavioral verification."
       }

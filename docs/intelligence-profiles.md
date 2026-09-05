@@ -179,21 +179,21 @@ the detailed task and capacity guidance.
 
 | Role | Ordered recommendations |
 | --- | --- |
-| planner | Fable high, Sol xhigh |
-| builder | Sol xhigh, Opus medium, Sol high (bounded judgment), Luna max (locked packet), Grok high |
-| checker | Sol high, Luna max |
-| reducer | Sol high |
-| scout | Luna max, Sol high, Grok high |
-| browser-verifier | Luna max, Sol high |
+| planner | Astra xhigh, Astra high |
+| builder | Astra xhigh, Astra high (bounded judgment), Sol high (locked packet), Grok high |
+| checker | Astra high, Sol high |
+| reducer | Astra high |
+| scout | Sol high, Grok high |
+| browser-verifier | Sol high, Astra high |
 
-Sol xhigh is the difficult implementation workhorse, while Sol high handles
-token-efficient adversarial review, reduction, bounded investigation, and
-bounded implementation that still needs material judgment. Luna max executes
-locked packets as well as procedural work; it stops instead of making material
-product or architecture decisions. Opus covers greenfield UX, and Grok covers
-bounded research/mixed-stack/existing-UX work.
-Fable remains the advisor/planner default, with Sol xhigh as the planning
-fallback and Sol max as the advisor-session fallback.
+Astra (GPT-6) is the advisor session model at high, the planner and foreman at
+xhigh, the difficult implementation workhorse at xhigh, and the review,
+reduction, and bounded-judgment implementation choice at high. It also takes
+all UX work, greenfield or existing, with `frontend-design` loaded. Sol high
+is the procedural tier: scouting, browser verification, routine checks, and
+locked execution packets; it stops instead of making material product or
+architecture decisions. Grok stays as the capacity alternate for research and
+bounded backend work. This profile recommends no Anthropic model.
 
 ### `codex-lean` — spend the Codex remainder carefully
 
