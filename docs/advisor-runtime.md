@@ -32,11 +32,11 @@ native agent process.
 6. Transfer ownership with an immutable handoff event.
 7. Use Intercom for short conclusions and paths, not transcripts or raw logs.
 8. Launch delegated LLM work only through `bg_agent` — usually a configured semantic role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi.
-9. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. Give makers every known threat-model and risk invariant before implementation. Makers own cohesive diagnosis, implementation, task-shaped tests, and ordinary browser exercise; checkers, when justified, audit the same contract and high-value evidence with scoped verdicts. Every packet declares a risk tier (Low, Standard, High) that fixes the review route and the checker FAIL bar, links evidence by path rather than paraphrase, and phrases criteria as failure probes. Makers explore freely and deliver narrowly: they may propose criteria and report adjacent defects, and the advisor accepts proposals through a recorded packet revision.
+9. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. Give makers every known threat-model and risk invariant before implementation. Makers own cohesive diagnosis, implementation, task-shaped tests, and ordinary browser exercise; checkers, when justified, audit the same contract and high-value evidence with scoped verdicts. Every packet declares a risk tier (Low, Standard, High) that sets review obligations and the checker FAIL bar, links evidence by path rather than paraphrase, and phrases criteria as failure probes. Makers explore freely and deliver narrowly: they may propose criteria and report adjacent defects, and the advisor accepts proposals through a recorded packet revision.
 10. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work, but create a graph only for real independent ownership or dependency boundaries.
 11. One writer owns a checkout at a time, including the advisor and a foreman alongside their helpers. Settle or stop a writing worker before reclaiming its surface. Parallel makers require explicit approval and separate worktrees; independent review uses a frozen revision.
 12. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
-13. Keep a builder alive only for a planned bounded repair. Makers run one fresh-context review of their own diff before handoff on Standard and High packets; that is maker evidence, not independent review. Every checker starts fresh, judges against the packet tier's FAIL bar, and repairs small qualifying findings inline in any round, including repair rounds. Auto-fixable mechanical findings (formatter output, lint autofix, generated-file drift, result formatting) are repaired inline by whoever finds them and never bind a verdict; a formatter or lint pass is never an acceptance criterion on its own.
+13. Keep a builder alive only for a planned bounded repair. Makers prove criteria and inspect their own diff; an extra fresh-context helper requires a named distinct benefit, not just a Standard/High label. High requires a designated independent checker, without an automatic maker-owned reviewer first. Every checker starts fresh, judges against the packet tier's FAIL bar, and repairs small qualifying findings inline in any round, including repair rounds. Auto-fixable mechanical findings (formatter output, lint autofix, generated-file drift, result formatting) are repaired inline by whoever finds them and never bind a verdict; a formatter or lint pass is never an acceptance criterion on its own.
 14. Keep global advisor routines paused because open Pi processes share routine state.
 
 ## Blocked signals
@@ -101,14 +101,24 @@ Graphs require genuine ownership or dependency boundaries; dedicated checkers an
 require a risk or information-value rationale.
 Stop adding launches when another would mostly replay existing evidence.
 
-Makers prove every criterion with task-shaped command evidence. The advisor
-inspects it and chooses the smallest independent authoritative rerun
-appropriate to cost, risk, and oracle strength. Optional checkers independently
-probe the critical or contested evidence rather than replaying every command.
-Delivery runs the repository's actual required merge or CI gates once, without
-unrelated repository-wide sweeps. New evidence that changes success criteria
-requires an explicit recorded packet revision, never a hidden stricter checker
-contract.
+Makers prove every criterion with task-shaped command evidence and inspect their
+own diff. The advisor inspects that evidence and chooses any still-needed
+authoritative rerun by risk, oracle strength, and uncertainty; it need not become
+a second full-time verifier. Checkers get the full contract/threat context plus
+explicit assigned review claims, independently probing the critical or contested
+parts rather than replaying every maker command. Explicitly required independent
+checks must actually run.
+
+Carry evidence forward only with known tested revision/surface, command/outcome,
+producer, and limitations. Bind dirty-worktree evidence to the actual tested
+content, not just HEAD. Inspect authenticity and coverage; reject stale,
+contradicted, or unverifiable evidence. Rerun what a code, test, dependency, or
+environment change invalidates. Delivery assigns the repository's actual merge
+or CI gates to an owner and runs them once for the delivered revision and
+environment, without unrelated repository-wide sweeps. Ordinary text and paths
+suffice; there is no additional evidence form. New evidence that changes success
+criteria requires an explicit recorded packet revision, never a hidden stricter
+checker contract.
 
 The planner rejects malformed structure, cycles, invalid concurrency, and
 unsafe parallel-builder checkout conflicts. Checker or browser nodes without
@@ -129,22 +139,51 @@ wins over the defaults.
 
 | Tier | Covers | Route | Checker FAIL bar |
 | --- | --- | --- | --- |
-| Low | docs, skills, prompts, specs, mechanical config, tests-only, one-file repair with a strong oracle | one maker, deterministic criteria, no checker | violated criterion only |
-| Standard | product runtime code with coupling or a weak oracle | one maker with fresh review; checker only on a Checker economy trigger | violated criterion or unrepaired High finding |
-| High | schema, migration, auth, RLS or security, privacy, money, idempotency, destructive or external effects, concurrency, gate code | one maker with fresh review, one checker, browser verifier when visible | violated criterion or unrepaired Medium-or-higher finding |
+| Low | docs, skills, prompts, specs, mechanical config, tests-only, one-file repair with a strong oracle | one maker, deterministic criteria; no added review by default | violated criterion only |
+| Standard | product runtime code with coupling or a weak oracle | one maker; fresh review only for material uncertainty or a Checker economy trigger | violated criterion or unrepaired High finding |
+| High | schema, migration, auth, RLS or security, privacy, money, idempotency, destructive or external effects, concurrency, gate code | one maker and a designated independent checker; no automatic extra maker-owned reviewer; browser verification when visible | violated criterion or unrepaired Medium-or-higher finding |
 
 Finding severity is graded separately: High violates a risk invariant,
 criterion, or security, data, money, auth, or destructive boundary; Medium is a
 bounded correctness defect in the changed surface; Low is everything else.
+
+## 🔍 Review proportionality
+
+Fresh context is useful when it resolves a named uncertainty, not as a ritual
+between maker proof and independent checking. A maker-owned helper remains maker
+evidence and cannot replace High's designated independent checker. Extra review
+needs a distinct purpose not covered by the planned check. Choose model and
+effort from actual review need and the guide, not a fixed offset from the maker.
+
+Review depth follows meaningful failure modes, oracle strength, coupling, and
+trust boundaries. Deepen on a concrete gap or contradictory evidence. Stop when
+assigned claims and material risks are resolved with current evidence and no
+material contradiction remains. More possible tests or a large assertion count
+is not an objective; neither elapsed time nor no findings alone proves safety.
+
+Examples, not fixed routes:
+
+- A coupled Standard repair with strong relevant tests and no unresolved material
+  uncertainty may finish with maker proof and own-diff inspection, without a helper.
+- A High authorization repair uses maker proof plus a designated independent
+  checker for the boundary. Do not add a maker-side reviewer for the same purpose.
+- A weak acceptance oracle may warrant substantial independent probes; if the
+  packet explicitly requires generated reference or mutation checks, run them.
+- An integrated foreman result reuses current component evidence and verifies
+  the integration delta plus required final checks, not every child's work again.
+- A repair reuses unaffected valid evidence and reruns affected criteria with a
+  targeted diff/blast-radius read. New independent review addresses invalidated
+  independent reasoning or remaining material risk, not every edit. Preserve
+  bounded inline repairs and do not launch a checker-of-checker for closed fixes.
 
 ## 🎭 Roles and intelligence
 
 Configured roles are `scout`, `planner`, `reducer`, `builder`, `foreman`,
 `checker`, and `browser-verifier`; a meta-owned Pi launch flag grants depth-1
 visible subagents — to the foreman for bounded delegation and to the builder
-for exactly one fresh-review subagent — and every granted subagent inherits the
-full no-further-delegation prohibition. The generic transport profile merely
-forwards that flag.
+for at most one optional read-only review helper — and every granted subagent
+inherits the full no-further-delegation prohibition. The generic transport
+profile merely forwards that flag.
 Every role has agency over methods, evidence, and ordinary local choices within
 its mandate. Packets include the broader goal, why the contribution matters,
 upstream evidence, downstream consumers, and locked versus suggested decisions.

@@ -19,11 +19,20 @@ choose useful work, not to expand your scope or another role's write authority.
    material stop condition before implementation. Maker roles own cohesive
    diagnosis, implementation, task-shaped tests, and ordinary browser exercise;
    do not split them without a concrete critical-path or evidence benefit.
-   `ACCEPTANCE CRITERIA` are
-   immutable falsifiable claims within that packet: verify every criterion
-   yourself with direct evidence before reporting done. An unverified criterion
-   is a failure you report, never an assumption you pass along. The frozen set
-   is a floor: propose additional or sharper criteria under `Proposed criteria`
+   `ACCEPTANCE CRITERIA` are immutable falsifiable claims within that packet.
+   Verify every assigned criterion with defensible evidence before reporting
+   done. Makers run the named checks and exercise the accepted behavior; a
+   checker independently investigates its assigned review claims, inspects
+   existing evidence, and adds critical or contested probes rather than blindly
+   replaying the maker. Full contract context does not expand the assigned work.
+   Explicitly required independent checks must actually run. Attribute reused
+   evidence to its producer, tested revision/surface, command/outcome, and
+   limitations; inspect it and rerun what a relevant change invalidates. Do not
+   relabel inherited evidence as your own execution, or maker evidence as
+   independent proof.
+   An unverified criterion is a failure you report, never an assumption you
+   pass along. The frozen set is a floor: propose additional or sharper criteria
+   under `Proposed criteria`
    in `result.md` and keep working. Suggested implementation steps are not
    frozen: makers use their own judgment to adapt them inside the accepted
    scope and record material deviations. Stop and report when new evidence
@@ -45,7 +54,8 @@ choose useful work, not to expand your scope or another role's write authority.
    Claims, Evidence, Files, Decisions, and Remaining Risk. Claims map
    one-to-one to the acceptance criteria, each with its verification evidence.
    Maker roles add `Proposed criteria`, `Adjacent findings`, and `Fresh review`
-   when they have content; checkers add `Repaired inline`.
+   when they have content; checkers add `Repaired inline`. Evidence attribution
+   can use ordinary text and paths; no additional report schema is required.
    These six headings are the expected template, but only a missing or blank
    result artifact stalls settlement. Missing, empty, or differently formatted
    sections are advisory notes for the parent, not settlement failures.

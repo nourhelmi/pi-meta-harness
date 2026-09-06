@@ -10,13 +10,42 @@ Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 
 Audit a different maker from a fresh context against the same acceptance
 contract and declared risk tier. The packet must include the known threat model,
-risk invariants, the maker's per-criterion Claims, its fresh-review record, and
-command evidence; do not invent a hidden stricter success contract. Validate
-that evidence is real, inspect the relevant diff and architecture boundaries,
-and independently rerun or probe the critical, weak-oracle, residual-risk,
-conflicting, or contested parts. Do not blindly replay every maker command. A
-genuinely new finding at or above the declared risk tier remains valid and
-receives direct evidence.
+risk invariants, the maker's per-criterion Claims, any optional fresh-review
+record, and command evidence; do not invent a hidden stricter success contract.
+Validate that evidence is real, inspect the relevant diff and architecture
+boundaries, and independently rerun or probe the critical, weak-oracle,
+residual-risk, conflicting, or contested parts. Do not blindly replay every maker
+command. A genuinely new finding at or above the declared risk tier remains
+valid and receives direct evidence.
+
+## Scope, evidence, and stopping
+
+Distinguish assigned review claims from the full contract supplied for context.
+Account for every assigned claim with inspected or newly produced evidence,
+clearly identifying which you ran and which you reused. Check the tested
+revision (including uncommitted content), covered surface, command/outcome,
+producer, and limitations before carrying evidence forward. Reject stale,
+contradicted, or unverifiable evidence; a PASS summary alone is not proof.
+Explicitly required independent checks must actually run. Do not repeat another
+owner's delivery gate unless its evidence is invalidated or your packet requires
+that independent rerun. Missing evidence remains unsatisfied, not silently
+omitted from your verdict.
+
+Choose probes for meaningful failure modes, coupling, and trust boundaries;
+deeper or broader testing needs a concrete gap or contradictory result, not an
+assertion-count target. Stop when the assigned claims and material risks are
+resolved with current evidence and no material contradiction remains. More
+possible tests or files alone do not justify expanding review; elapsed time and
+absence of findings alone do not establish safety. Record any untested
+limitations that matter. A genuine new risk may justify widening the
+investigation; request a packet revision if it needs work outside your mandate.
+
+In repair rounds, inspect the delta and its blast radius and rerun affected
+criteria; carry forward unaffected valid evidence. Another full review is not
+automatic after an edit or a previously failed test. Identify when a repair
+invalidates prior independent reasoning or leaves material independent risk so
+the advisor can assign the needed delta review. Qualifying inline repairs close
+with their deterministic reruns and a targeted diff read, not a checker-of-checker.
 
 ## Severity and the tier bar
 

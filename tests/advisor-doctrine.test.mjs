@@ -89,10 +89,10 @@ test("verification ownership is proportional and checker economy has explicit ri
   const verification = section(source, "## Verification ownership", "## Checker economy");
   const checker = section(source, "## Checker economy", "## Status updates");
 
-  assert.match(verification, /maker proves every acceptance criterion[\s\S]*exact commands and[\s\S]*task-shaped evidence/);
-  assert.match(verification, /advisor[\s\S]*smallest independent authoritative rerun/);
-  assert.match(verification, /need not replay every expensive criterion/);
-  assert.match(verification, /checker audits the same acceptance contract and declared risk[\s\S]*independently probes/);
+  assert.match(verification, /maker proves every acceptance criterion[\s\S]*exact commands and task-shaped evidence/);
+  assert.match(verification, /advisor[\s\S]*any still-needed authoritative\s+rerun by risk, oracle strength, and uncertainty/);
+  assert.match(verification, /need not replay every\s+expensive criterion/);
+  assert.match(verification, /checker audits the same acceptance contract and declared risk tier[\s\S]*Independently probe/);
   assert.match(verification, /actual required merge or CI gates once/);
   assert.match(checker, /No phase, merged deliverable, or PR universally requires a checker/);
   assert.match(checker, /schema or migration,[\s\S]*auth, security, privacy, money, destructive or external effects/);
@@ -120,12 +120,12 @@ test("worker roles share maker ownership, risk context, conditional delegation, 
   assert.match(contract, /Keep the final response short/);
   assert.doesNotMatch(contract, /at most 12 lines/);
   assert.match(builder, /diagnose it, implement it,[\s\S]*task-shaped deterministic tests[\s\S]*ordinary browser exercise/);
-  assert.match(builder, /exact command evidence/);
+  assert.match(builder, /exact command\s+evidence/);
   assert.match(foreman, /only when delegation[\s\S]*shorten the critical path, resolve material uncertainty, or add useful[\s\S]*evidence/);
   assert.match(foreman, /depth-1 visible subagents/);
   assert.match(checker, /same acceptance[\s\S]*contract and declared risk tier/);
-  assert.match(checker, /Do not blindly replay every maker command/);
-  assert.match(checker, /new finding at or[\s\S]*above the declared risk tier remains valid/);
+  assert.match(checker, /Do not blindly replay every maker\s+command/);
+  assert.match(checker, /new finding at or above the declared risk tier remains\s+valid/);
   assert.match(browser, /maker owns ordinary browser exercise/);
   assert.match(browser, /baseline behavior is ambiguous[\s\S]*independent persona, safety,[\s\S]*or release witness/);
   assert.match(browser, /task-shaped readiness checks/);
@@ -137,7 +137,7 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   const runtime = await text("docs/advisor-runtime.md");
 
   assert.match(source, /Direct implementation is\s+a first-class\s+route at every risk tier/);
-  assert.match(source, /fresh review on Standard\/High and independent\s+checking on High/);
+  assert.match(source, /maker self-verification at every tier[\s\S]*fresh review on Standard, and independent checking on High/);
   assert.doesNotMatch(source, /Implement High in workers only|High packets always go to a visible worker|Never implement in this session|advisor still never edits implementation/);
   assert.match(source, /Deliberate criteria revision[\s\S]*new packet revision/);
   assert.match(source, /Every helper agent is visible[\s\S]*All delegated LLM work uses `bg_agent`/);
@@ -147,7 +147,7 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   assert.match(source, /## Freeform workers/);
   assert.match(source, /Use a graph only when work has real independent ownership or dependency/);
   assert.match(source, /Foreman delegation is depth-1 only/);
-  assert.match(source, /High-risk boundaries normally receive independent[\s\S]*review/);
+  assert.match(source, /High-risk boundaries receive independent review before\s+completion/);
   assert.match(source, /Deterministic evidence is authoritative for the[\s\S]*claim it actually proves/);
   assert.match(runtime, /presumption\s+against ceremony, not a target worker\s+count/);
   assert.match(runtime, /Stop adding launches when another[\s\S]*would mostly replay existing evidence/);
@@ -267,7 +267,7 @@ test("frozen adaptive prospective case contracts remain byte-identical", async (
   }
 });
 
-test("risk tiers fix the review route and checker bar while makers explore freely and deliver narrowly", async () => {
+test("risk tiers set review obligations and checker bars while makers explore freely and deliver narrowly", async () => {
   const [source, builder, foreman, checker, contract, runtime, roles] = await Promise.all([
     text("skills/advisor/SKILL.md"),
     text("skills/advisor-worker/roles/builder/SKILL.md"),
@@ -289,8 +289,8 @@ test("risk tiers fix the review route and checker bar while makers explore freel
   assert.match(source, /Phrase each criterion as a\s+failure probe/);
 
   const economy = section(source, "## Checker economy", "## Status updates");
-  assert.match(economy, /Low packet never earns a checker/);
-  assert.match(economy, /one\s+reasoning level below their launch/);
+  assert.match(economy, /Low tier alone never earns a checker; explicit review requests\s+still apply/);
+  assert.match(economy, /maker-owned fresh-context reviewer is not automatic on Standard or High/);
   assert.match(economy, /in\s+every round including declared repair rounds/);
   assert.match(economy, /A repaired\s+finding never flips a verdict/);
 
@@ -299,8 +299,8 @@ test("risk tiers fix the review route and checker bar while makers explore freel
   assert.match(builder, /`Adjacent findings`/);
   assert.match(builder, /`Proposed criteria`/);
   assert.match(builder, /## Fresh review before handoff/);
-  assert.match(builder, /one reasoning level below your own launch/);
-  assert.match(builder, /Low packets skip it/);
+  assert.match(builder, /model and\s+effort by the review need and live guide/);
+  assert.match(builder, /fresh-context helper is optional, not an\s+automatic Standard\/High step/);
   assert.match(foreman, /explore-freely, deliver-narrowly/);
   assert.match(foreman, /`Fresh review`/);
 
@@ -312,7 +312,7 @@ test("risk tiers fix the review route and checker bar while makers explore freel
   assert.match(contract, /`Proposed criteria`/);
   assert.match(contract, /every evidence path the packet links/);
   assert.match(runtime, /## 🎚️ Risk tiers/);
-  assert.match(runtime, /to the builder\s+for exactly one fresh-review subagent/);
+  assert.match(runtime, /to the builder\s+for at most one optional read-only review helper/);
   assert.match(runtime, /Settlement stalls only when that artifact is missing or blank/);
   assert(JSON.parse(roles).profiles.builder.cliArgs.includes("--advisor-worker-allow-subagents"));
 });

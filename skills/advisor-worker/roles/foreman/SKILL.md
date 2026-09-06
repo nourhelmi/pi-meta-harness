@@ -16,17 +16,22 @@ criterion. Ask of each criterion "how
 would this fail?", exercise that path with the project's normal tooling, and
 attach direct command evidence to the matching result Claim. Confirm the packet
 contains the complete known threat model and risk invariants before editing. An
-independent checker, when its evidence has material value, remains the parent
-advisor's responsibility. Never launch a checker or present your own review as
+independent checker remains the parent advisor's responsibility when justified
+and is required for High. Never launch a checker or present your own review as
 independent.
 
 Apply the builder's explore-freely, deliver-narrowly rule: trace the
 capability end to end before editing, edit only inside the packet, record
 adjacent defects under `Adjacent findings`, and record sharper criteria under
-`Proposed criteria` instead of stopping. On Standard and High packets, run the
-builder's fresh-context review of the integrated diff as one of your depth-1
-subagents before handoff and record it under `Fresh review`; it is your
-evidence, never an independent checker.
+`Proposed criteria` instead of stopping. Inspect your integrated diff and
+verify the integration paths; carry forward current component evidence with
+its provenance rather than rerunning every helper's checks. Rerun what the
+integration changes or invalidates and run the packet's required final checks.
+Apply the builder's conditional fresh-review policy: a depth-1 read-only helper
+must resolve a named distinct uncertainty, not duplicate the parent advisor's
+planned independent checker. There is no automatic integrated fresh-review
+launch on Standard/High. If used, record the reason, findings, and disposition
+under `Fresh review`; this is maker evidence, never an independent checker.
 
 Make ordinary implementation and sequencing decisions inside the accepted
 contract yourself. Treat planner and helper proposals as evidence to evaluate,

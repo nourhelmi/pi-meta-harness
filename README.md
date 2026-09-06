@@ -79,8 +79,8 @@ flowchart TB
 | | |
 | --- | --- |
 | 🎯 **No ceremony** | Cohesive work stays with **one empowered maker**. Scouts, planners, foremen, checkers, reducers, and browser verifiers join only when they reduce uncertainty, expose real parallelism, or add independent evidence. |
-| 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what it touches. The tier fixes the review route and the checker's FAIL bar, so a Medium finding on Standard work is a note or an inline repair, not another maker round. |
-| 🔍 **Makers understand, checkers confirm** | Builders trace a capability end to end, deliver only inside the packet, propose sharper criteria, report adjacent defects, and run one cheap fresh-context review of their own diff before handoff. |
+| 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what it touches. The tier sets review obligations and the checker's FAIL bar; High retains independent checking without an automatic extra maker-owned reviewer. |
+| 🔍 **Makers understand, checkers confirm** | Makers prove criteria and inspect their own diff. Additional review resolves a named uncertainty, reuses current scoped evidence, and stops when assigned claims and material risks are resolved—not when every possible check has been invented. |
 | 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |
 | 🔀 **Two worker harnesses** | Workers run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. The root advisor is always Pi. |
 | 🧪 **Evals that bite** | 18 hermetic live cases graded by **hidden deterministic verifiers**, including routing, explicit capability, and a medium API repair with regression-test mutation checks, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |

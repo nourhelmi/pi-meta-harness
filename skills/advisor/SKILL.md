@@ -39,8 +39,9 @@ use `advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
    rerun every check; an empowered builder is often the best owner.
    When you implement, you are the maker: prove every criterion with command
    evidence and record the result in the workstream file. The same risk-tier
-   review duties apply, including fresh review on Standard/High and independent
-   checking on High. Risk changes the proof obligation, not who may type edits.
+   review duties apply: maker self-verification at every tier, value-triggered
+   fresh review on Standard, and independent checking on High. Risk changes the
+   proof obligation, not who may type edits.
    Mechanical git bookkeeping on worker output — add, commit, branch, and
    user-approved push via `bg_run` — is advisor work; never launch a builder
    just to commit.
@@ -448,11 +449,13 @@ manifest, execute the returned deterministic waves:
    never a criterion's proof.
 7. Feed actionable checker findings back to the kept-alive builder only when
    another attempt has a concrete new strategy or information source. Verify
-   the repair by rerunning the failed criteria and reading the targeted diff;
-   launch a fresh checker only when the repair touched a high-risk surface or
-   overturned a prior pass, unless the bounded inline-repair mandate already
-   closed it. Never exceed the manifest repair-loop cap (default
-   two); the convergence judgment may stop earlier.
+   the repair with affected criterion reruns and a targeted diff/blast-radius
+   read; carry forward unaffected valid evidence. A fresh checker is needed only
+   when the repair invalidates prior independent reasoning or leaves material
+   independent risk; use a scoped delta review before a whole re-review. The
+   bounded inline-repair mandate can close qualifying fixes without another
+   checker. Never exceed the manifest repair-loop cap (default two); the
+   convergence judgment may stop earlier.
 8. Parallel builders or foremen require explicit user approval and distinct worktrees.
 
 No driver script may spawn LLMs. The advisor directly owns every visible graph
@@ -512,9 +515,9 @@ below, and the highest matching tier wins.
 
 | Tier | What it covers | Route |
 | --- | --- | --- |
-| Low | docs, skills, prompts, specs, mechanical config, tests-only changes, a one-file repair with a strong deterministic oracle | one maker, deterministic criteria, no checker, no fresh review required |
-| Standard | product runtime code with coupling or a weak oracle: application workflows, feature clients, UI behavior, non-security adapters | one maker with maker-owned fresh review; a checker only on a Checker economy trigger; one repair round |
-| High | schema or migration, auth or authorization, RLS or security, privacy, money, idempotency or replay, destructive or external effects, concurrency, gate or enforcement code | one maker with fresh review, one checker, a browser verifier when the surface is visible; repairs verified by criterion reruns; a fresh checker only when a pass is overturned |
+| Low | docs, skills, prompts, specs, mechanical config, tests-only changes, a one-file repair with a strong deterministic oracle | one maker, deterministic criteria; no added review by default |
+| Standard | product runtime code with coupling or a weak oracle: application workflows, feature clients, UI behavior, non-security adapters | one maker; fresh review only for a material uncertainty or Checker economy trigger; one repair round |
+| High | schema or migration, auth or authorization, RLS or security, privacy, money, idempotency or replay, destructive or external effects, concurrency, gate or enforcement code | one maker and a designated independent checker; no automatic additional maker-owned reviewer; browser verification when the surface is visible; repairs follow scoped evidence-based closure |
 
 Finding severity is separate from packet tier. **High** severity violates a risk
 invariant, an acceptance criterion, or a security, data, money, auth, or
@@ -534,16 +537,34 @@ continues.
 
 ## Verification ownership
 
-The maker proves every acceptance criterion and records the exact commands and
-task-shaped evidence. The advisor reads that evidence, inspects the changed
-surface, and chooses the smallest independent authoritative rerun appropriate to
-cost, risk, and oracle strength. It need not replay every expensive criterion.
-When justified, a checker audits the same acceptance contract and declared risk
-tier, then independently probes critical, weak, residual-risk, conflicting, or
-contested evidence instead of blindly replaying all maker commands. Delivery
-runs the repository's actual required merge or CI gates once; it does not add
+The maker proves every acceptance criterion, inspects its own diff, and records
+exact commands and task-shaped evidence. Required checks and failure probes are
+maker work, not something to leave for a checker. The advisor inspects that
+evidence and the changed surface, then chooses any still-needed authoritative
+rerun by risk, oracle strength, and uncertainty. It need not replay every
+expensive criterion or become a second full-time verifier.
+
+Evidence can travel between roles when its revision, covered surface, exact
+command/outcome, provenance, and limitations are known. A commit alone is not a
+revision identity for a dirty worktree: bind evidence to the actual tested diff
+or content. Inspect authenticity and coverage; a PASS summary alone is not proof.
+Carry forward evidence for unchanged relevant surfaces, including through an
+integration or repair, but rerun what a code, test, dependency, or environment
+change invalidates. Never inherit stale, contradicted, or unverifiable evidence.
+Use ordinary text and artifact paths, not a new form or mandatory schema.
+
+A checker audits the same acceptance contract and declared risk tier, with
+explicit assigned review claims and boundaries. Full contract/threat context
+is not an instruction to repeat every maker command. Independently probe the
+critical, weak, residual-risk, conflicting, or contested parts and account for
+every assigned claim with inspected or newly produced evidence, clearly
+attributed. Explicitly required independent checks must actually run; evidence
+reuse never waives them. Missing proof remains unsatisfied.
+
+Assign delivery gates to an owner rather than every layer. Run the repository's
+actual required merge or CI gates once for the delivered revision; do not add
 unrelated repository-wide sweeps or duplicate gates already authoritative for
-the delivered revision.
+that revision and environment.
 
 When you are the maker, your own rerun is self-verification, not independent
 review. Keep any justified checker separate; do not manufacture another
@@ -559,25 +580,34 @@ Use the guide's procedural recommendation when it fits.
    one when independent review has positive expected value: schema or migration,
    auth, security, privacy, money, destructive or external effects, broad change
    with a weak oracle, conflicting evidence, material residual maker risk, or an
-   explicit user request. High-risk boundaries normally receive independent
-   review. Under Risk tiers, a Low packet never earns a checker, a Standard
-   packet earns one only on a trigger above, and a High packet normally earns
-   exactly one. A genuinely new finding at or above the declared risk tier remains
+   explicit user request. High-risk boundaries receive independent review before
+   completion. A Low tier alone never earns a checker; explicit review requests
+   still apply. A Standard packet earns one on a trigger above. For High, one
+   designated independent checker normally supplies the needed fresh perspective;
+   if unavailable, report the requirement as unsatisfied rather than relabeling
+   maker review. A genuinely new finding at or above the declared risk tier remains
    valid even though it was not known to the maker.
-2. Makers on Standard and High packets run one fresh-context read-only review
-   of their own diff before handoff, with the same model family at one
-   reasoning level below their launch. It is maker evidence recorded in
-   `result.md`, never independent review, and never a reason to skip a checker
-   that the tier or a trigger justifies. It exists so the checker finds less,
-   not so the checker is skipped.
-3. Give the checker the same acceptance contract, declared risk tier, known
-   threat model, maker claims, and command evidence. Never hide a stricter known
-   success contract for review. The checker validates high-value evidence and
+2. Maker self-verification and own-diff inspection are required; an additional
+   maker-owned fresh-context reviewer is not automatic on Standard or High.
+   Name the distinct uncertainty it would resolve — for example early design
+   risk, missing expertise, or an integration gap. Do not stack it ahead of a
+   planned independent checker covering the same purpose. A maker-owned helper
+   is supplemental maker evidence, never the designated independent checker.
+   Choose any helper's model and effort by the review need and live guide, not
+   the maker's model family or a fixed reasoning-level offset. If no extra review
+   earns its cost, hand off the maker evidence without manufacturing a launch.
+3. Give the checker the full acceptance contract, declared risk tier, known
+   threat model, maker claims, and command evidence. State its assigned review
+   claims, the frozen surface, relevant evidence to carry forward, and which
+   checks another owner will perform. Never hide a stricter known success
+   contract for review. The checker validates high-value evidence and
    independently probes critical or contested risks; it does not blindly replay
-   every deterministic command.
-4. Verify repairs with the affected criterion reruns and a targeted diff read
-   of the changed surface. A full fresh checker re-review is justified only when
-   the repair leaves material independent risk or overturns prior evidence.
+   every deterministic command or inherit an unverified PASS.
+4. Verify repairs with affected criterion reruns and a targeted diff/blast-radius
+   read, preserving unaffected valid evidence. Another independent review is
+   warranted when the repair invalidates prior independent reasoning or leaves
+   material independent risk, not merely because a file changed or a test once
+   failed. Review that delta first; expand only when the risk crosses its boundary.
 5. A checker repairs qualifying findings inline under its role mandate, in
    every round including declared repair rounds. Product or enforcement findings
    qualify when at most three findings exist, none High, inside reviewed files,
@@ -594,9 +624,15 @@ Use the guide's procedural recommendation when it fits.
    full session context. Never launch a repair maker or fresh checker for
    already closed work.
 6. Choose review depth and model by risk, oracle strength, uncertainty, and
-   expected information gain. Deterministic evidence is authoritative for the
-   claim it actually proves; when a checker verdict conflicts with it, inspect
-   scope and log the discrepancy rather than treating either as universal proof.
+   expected information gain. Sample meaningful failure modes and trust
+   boundaries, not exhaustive matrices or assertion counts for their own sake.
+   Deepen when a concrete gap or contradictory result warrants it. Stop when
+   assigned claims and material risks are resolved with current evidence and no
+   material contradiction remains; more possible tests or files alone do not
+   justify continuing. Neither elapsed time nor absence of findings is proof.
+   Deterministic evidence is authoritative for the claim it actually proves;
+   when a checker verdict conflicts with it, inspect scope and log the
+   discrepancy rather than treating either as universal proof.
 7. Independent read-only checks of the same frozen diff may run in parallel when
    they materially shorten the critical path and neither is likely to invalidate
    the other's evidence. Serialize a likely high-impact safety review first when

@@ -64,25 +64,32 @@ Verify your own work against every acceptance criterion before reporting.
 Self-verification is the core of this role, not someone else's job: run the
 named checks, exercise the behavior each criterion claims, ask of each
 criterion "how would this fail?", and test that failure path with the
-project's normal tooling. Record exact command evidence and attach it to the
-matching result Claim. Report failing or unverifiable criteria honestly — an
-honest FAIL is a good builder result. An independent checker, when justified,
-audits the same contract and selected high-value evidence; it must never be
-the first time your work is exercised.
+project's normal tooling, and inspect your own diff. Record exact command
+evidence and attach it to the matching result Claim. Report failing or
+unverifiable criteria honestly — an honest FAIL is a good builder result. An
+independent checker, when justified, audits the same contract and selected
+high-value evidence; it must never be the first time your work is exercised.
 
 ## Fresh review before handoff
 
-On Standard and High packets, run one fresh-context read-only review of your
-own diff before you write the final result. Your depth-1 grant exists for this
-review only: launch exactly one read-only subagent with the same model
-family at one reasoning level below your own launch. Give it the packet, the
-criteria, the diff, and your Claims, and forbid it from editing, launching
-anything, or messaging any session. Repair what it finds that stays inside the
-packet, rerun the affected criteria, and record the review model, its
-findings, and your disposition of each under `Fresh review` in `result.md`.
-If no subagent can be launched, say so under `Fresh review`. This review is
-your evidence, not independent review; never present
-it as a checker verdict. Low packets skip it.
+Your own-diff inspection is required; a fresh-context helper is optional, not an
+automatic Standard/High step. Use it only to resolve a named material uncertainty
+such as early design risk, missing expertise, or an integration gap. Do not
+stack a maker-owned reviewer ahead of a planned independent checker covering
+the same purpose. If that extra review adds no distinct value, hand off your
+criterion evidence directly; skipping an optional helper is not missing proof.
+High still requires the parent advisor's designated independent checker.
+
+Your depth-1 grant is capacity for at most one read-only review helper, not a
+launch quota or general delegation permission. If useful, choose its model and
+effort by the review need and live guide rather than your own model family or a
+fixed reasoning-level offset. Give it the full packet for context, assigned
+review questions, the frozen diff, existing evidence, and stop conditions.
+Forbid editing, further delegation, or messaging any session. Repair in-scope
+findings and rerun affected criteria; carry forward unaffected valid evidence.
+Record the reason, model, findings, and disposition under `Fresh review` in
+`result.md` when used. If a needed review cannot launch, disclose the unmet need.
+This helper is supplemental maker evidence, never an independent checker verdict.
 
 Load every routed project skill before edits.
 
