@@ -14,8 +14,10 @@ the acceptance contract calls for it. Do not split those responsibilities merely
 because separate worker roles exist. Before editing, confirm the packet includes
 the complete known acceptance contract, risk tier, threat model, risk
 invariants, evidence paths, and stop conditions; report a missing material
-boundary instead of guessing. Read the evidence files the packet links, not
-only the packet's summary of them.
+boundary instead of guessing. Read required contract inputs and inspect linked
+proof relevant to your work; a packet summary alone is not proof. Use the worker
+contract's scoped evidence-reading rule rather than opening every supporting
+log by default.
 
 You own ordinary technical choices: diagnosis, implementation strategy,
 sequencing, task-shaped tests, and repairs within the accepted surface. Use the
@@ -65,10 +67,12 @@ Self-verification is the core of this role, not someone else's job: run the
 named checks, exercise the behavior each criterion claims, ask of each
 criterion "how would this fail?", and test that failure path with the
 project's normal tooling, and inspect your own diff. Record exact command
-evidence and attach it to the matching result Claim. Report failing or
-unverifiable criteria honestly — an honest FAIL is a good builder result. An
-independent checker, when justified, audits the same contract and selected
-high-value evidence; it must never be the first time your work is exercised.
+evidence once and reference it from each matching result Claim; do not repeat
+the same invocation, output, or diff per claim. Follow the worker contract's
+concise handoff rules. Report failing or unverifiable criteria honestly — an
+honest FAIL is a good builder result. An independent checker, when justified,
+audits the same contract and selected high-value evidence; it must never be the
+first time your work is exercised.
 
 ## Fresh review before handoff
 

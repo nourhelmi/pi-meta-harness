@@ -310,7 +310,8 @@ test("risk tiers set review obligations and checker bars while makers explore fr
   assert.match(checker, /including declared repair rounds/);
 
   assert.match(contract, /`Proposed criteria`/);
-  assert.match(contract, /every evidence path the packet links/);
+  assert.match(contract, /inspect the linked proof needed for\s+your assigned work/);
+  assert.match(contract, /Required evidence and material contract\/threat context\s+must still be read/);
   assert.match(runtime, /## 🎚️ Risk tiers/);
   assert.match(runtime, /to the builder\s+for at most one optional read-only review helper/);
   assert.match(runtime, /Settlement stalls only when that artifact is missing or blank/);

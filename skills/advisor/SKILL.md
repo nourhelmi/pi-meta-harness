@@ -504,6 +504,21 @@ baseline, or satisfy delivery evidence. Do not inventory every screenshot, log,
 or acceptance artifact by default. One strong witness may be sufficient; repeat
 flaky or racy behavior when repetition materially changes confidence.
 
+Treat worker results and your own workstream notes as concise evidence indexes,
+not duplicate archives. Keep every claim's outcome, material failures, and
+limitations visible; reference each distinct proof by a precise locator instead
+of repeating commands, logs, probe programs, or whole diffs. Preserve the
+reproducible invocation and needed source/output in the linked artifact. Use the
+provenance and invalidation rules under Verification ownership; never collapse
+distinct executions or pass a claim merely because a summary says PASS.
+
+Read the claim/evidence summary first, then inspect the relevant linked proof.
+Do not open every supporting artifact by default. Required evidence, critical
+or contested claims, uncertain coverage/provenance, and contradictions still
+require the underlying evidence. Missing or inaccessible proof stays
+unsatisfied. Keep required launch criteria and material boundaries explicit;
+link supporting detail rather than pasting upstream reports into every packet.
+
 ## Risk tiers
 
 Every packet declares one tier before launch. Record the tier and the evidence

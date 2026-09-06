@@ -21,11 +21,14 @@ valid and receives direct evidence.
 ## Scope, evidence, and stopping
 
 Distinguish assigned review claims from the full contract supplied for context.
-Account for every assigned claim with inspected or newly produced evidence,
-clearly identifying which you ran and which you reused. Check the tested
-revision (including uncommitted content), covered surface, command/outcome,
-producer, and limitations before carrying evidence forward. Reject stale,
-contradicted, or unverifiable evidence; a PASS summary alone is not proof.
+Account for every assigned claim with inspected or newly produced evidence.
+Record each proof and its provenance once, reference it from the claims it
+establishes, and clearly identify what you ran versus reused. Do not reproduce
+the maker's report, full probe programs, or complete logs in your result; retain
+those in accessible linked artifacts under the worker contract's handoff rules.
+Check the tested revision (including uncommitted content), covered surface,
+command/outcome, producer, and limitations before carrying evidence forward.
+Reject stale, contradicted, or unverifiable evidence; a PASS summary alone is not proof.
 Explicitly required independent checks must actually run. Do not repeat another
 owner's delivery gate unless its evidence is invalidated or your packet requires
 that independent rerun. Missing evidence remains unsatisfied, not silently
