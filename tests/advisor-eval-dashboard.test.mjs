@@ -36,6 +36,9 @@ test("prospective dashboard serves its workbench and local run inventory", async
       state.cases.map((prospectiveCase) => prospectiveCase.id).sort(),
       [
         "absolute-request-minimal-fix",
+        "advisor-direct-capability",
+        "advisor-direct-repair",
+        "advisor-plan-adaptation",
         "builder-self-verification",
         "cohesive-medium-maker",
         "criteria-revision",

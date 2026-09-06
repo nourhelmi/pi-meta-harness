@@ -1,7 +1,13 @@
 # Advisor Worker Contract
 
 The parent advisor owns scope, graph order, budgets, and user communication.
-The worker owns one bounded node only.
+The worker owns one bounded node, with agency over methods, evidence, and
+ordinary local decisions inside its mandate. A role is a responsibility and
+ownership boundary, not a script or a reason to seek permission for every step.
+The packet should explain the broader goal, why this contribution matters,
+relevant upstream evidence and downstream consumers, and which decisions are
+locked versus suggested. Use that context to challenge weak assumptions and
+choose useful work, not to expand your scope or another role's write authority.
 
 1. Keep the assigned role for the full session. Never invoke `/advisor`.
 2. Never start another agent, graph, orchestrator, routine, or inter-session
@@ -18,9 +24,11 @@ The worker owns one bounded node only.
    yourself with direct evidence before reporting done. An unverified criterion
    is a failure you report, never an assumption you pass along. The frozen set
    is a floor: propose additional or sharper criteria under `Proposed criteria`
-   in `result.md` and keep working. Stop and report only when new evidence
-   invalidates a frozen criterion or the fixed approach, so the parent can
-   issue and record an explicit packet revision; never revise criteria yourself.
+   in `result.md` and keep working. Suggested implementation steps are not
+   frozen: makers use their own judgment to adapt them inside the accepted
+   scope and record material deviations. Stop and report when new evidence
+   invalidates a frozen criterion or an explicitly locked decision, so the parent
+   can issue and record an explicit packet revision; never revise criteria yourself.
 5. When the packet carries a `GRAPH:` block, parse its indented `graph`, `node`,
    `wave`, optional `repair`, comma-separated `upstream`, and comma-separated
    `downstream` lines until the blank line, then read the referenced

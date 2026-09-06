@@ -83,7 +83,7 @@ flowchart TB
 | 🔍 **Makers understand, checkers confirm** | Builders trace a capability end to end, deliver only inside the packet, propose sharper criteria, report adjacent defects, and run one cheap fresh-context review of their own diff before handoff. |
 | 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |
 | 🔀 **Two worker harnesses** | Workers run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. The root advisor is always Pi. |
-| 🧪 **Evals that bite** | 14 hermetic live cases graded by **hidden deterministic verifiers**, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
+| 🧪 **Evals that bite** | 17 hermetic live cases graded by **hidden deterministic verifiers**, including separate routing and explicit capability exercises, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
 | 📌 **Controlled updates** | Compatible npm ranges, full 40-hex Git commits, tree and SHA-256 verification, scoped backups, and a live doctor. |
 | 🔒 **Public-safe by design** | Every tracked file is treated as public. A closed-allowlist privacy boundary keeps transcripts, identities, and credentials out of eval artifacts. |
 
@@ -133,8 +133,10 @@ It never copies credentials and never reloads Pi.
 You work in Ghostty; Herdr owns the tabs. `/advisor` claims one isolated
 workstream and picks the **smallest useful topology** for the task — the
 diagram above is the whole story. `pi-detach` keeps every worker visible in a
-named pane inside the advisor's tab. The root advisor may implement Low and
-Standard packets itself; High packets always go to a visible worker.
+named pane inside the advisor's tab. The root advisor owns planning and judgment
+and may implement at any risk tier with the same maker proof and review duties.
+Choose direct, delegated, or hybrid work by value—not rigid role labels or an
+advisor-first preference.
 
 Start an advisor in a fresh Pi tab inside Herdr:
 
@@ -156,8 +158,8 @@ question with an explicit entrypoint:
 In native mode the same role names and role skills stay in force. Cursor/Grok
 identities have no native route, so the advisor picks a task-fit
 OpenAI/Anthropic alternative from the active guide or reports the mismatch.
-Native workers write to a reserved result path; a missing or malformed result
-keeps the pane visible instead of being reported as success.
+Native workers write to a reserved result path; only a missing or blank artifact
+stalls settlement. Formatting differences are advisory, not automatic failures.
 
 Deep dives: [`docs/advisor-runtime.md`](docs/advisor-runtime.md) ·
 [`docs/architecture.md`](docs/architecture.md)
@@ -200,7 +202,7 @@ config:
 ---
 flowchart LR
   Change["setup change\n(skills · roles · profiles · policy)"] --> Det["npm test\ndeterministic repo checks"]
-  Change --> Pro["prospective suite\n14 hermetic live cases"]
+  Change --> Pro["prospective suite\n17 hermetic live cases"]
   Rec["recorded trajectories\n(privacy-normalized)"] --> Harbor["Harbor + RewardKit\nAPI-judged calibration"]
   Pro --> Verify["hidden deterministic verifiers\ndecide the reward"]
   Verify --> Bench["localhost workbench\nruns · baselines · comparisons"]

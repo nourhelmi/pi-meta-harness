@@ -1,6 +1,8 @@
 # 🧭 Isolated advisor runtime
 
-The advisor coordinates parallel Pi sessions through per-repository state under
+The advisor is a technical lead and orchestrator with agency to plan, implement,
+verify, and delegate as useful—not an obligation to do everything itself. It
+coordinates helper sessions through per-repository state under
 `~/.advisor/<repo-key>/`, resolved from the git common directory so all
 worktrees of one repository share one root and no repository carries personal
 runtime files. `advisor_session_init` reports the resolved root;
@@ -25,14 +27,14 @@ native agent process.
 1. Launch every separate advisor with `advisor_launch`; it creates a new Herdr tab with `--no-focus`, never a pane split. A manually opened advisor may still invoke `/advisor` in its own fresh tab.
 2. `advisor_session_init` creates or claims one isolated workstream and persists one worker mode: `pi` or `native`. The root advisor remains Pi in both modes.
 3. Each live advisor must use a different workstream.
-4. An advisor writes only its own session record, its owned workstream record, new immutable events, and unique run output.
+4. Within advisor state, an advisor writes only its own session record, its owned workstream record, new immutable events, and unique run output. Product edits follow the assigned checkout boundary, not this state-only restriction.
 5. Treat legacy in-repo `.advisor/` directories as read-only history.
 6. Transfer ownership with an immutable handoff event.
 7. Use Intercom for short conclusions and paths, not transcripts or raw logs.
 8. Launch delegated LLM work only through `bg_agent` — usually a configured semantic role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi.
 9. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. Give makers every known threat-model and risk invariant before implementation. Makers own cohesive diagnosis, implementation, task-shaped tests, and ordinary browser exercise; checkers, when justified, audit the same contract and high-value evidence with scoped verdicts. Every packet declares a risk tier (Low, Standard, High) that fixes the review route and the checker FAIL bar, links evidence by path rather than paraphrase, and phrases criteria as failure probes. Makers explore freely and deliver narrowly: they may propose criteria and report adjacent defects, and the advisor accepts proposals through a recorded packet revision.
 10. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work, but create a graph only for real independent ownership or dependency boundaries.
-11. Parallel builders require explicit approval and separate worktrees.
+11. One writer owns a checkout at a time, including the advisor and a foreman alongside their helpers. Settle or stop a writing worker before reclaiming its surface. Parallel makers require explicit approval and separate worktrees; independent review uses a frozen revision.
 12. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
 13. Keep a builder alive only for a planned bounded repair. Makers run one fresh-context review of their own diff before handoff on Standard and High packets; that is maker evidence, not independent review. Every checker starts fresh, judges against the packet tier's FAIL bar, and repairs small qualifying findings inline in any round, including repair rounds. Auto-fixable mechanical findings (formatter output, lint autofix, generated-file drift, result formatting) are repaired inline by whoever finds them and never bind a verdict; a formatter or lint pass is never an acceptance criterion on its own.
 14. Keep global advisor routines paused because open Pi processes share routine state.
@@ -50,9 +52,18 @@ field.
 ## 🪜 Adaptive topology
 
 For small and cohesive-medium work with one decision set, presume **one
-empowered maker** rather than automatically splitting scouting, planning,
-building, tests, or browser exercise. This is a
-presumption against ceremony, not a target worker count.
+empowered maker** — the advisor itself, a builder, or a foreman — rather than
+automatically splitting scouting, planning, building, tests, or browser exercise.
+Choose direct, delegated, or hybrid execution by context, decision load,
+specialization, evidence value, and total delivery cost. This is a presumption
+against ceremony, not a target worker count or an advisor-first bias. Direct
+implementation is available at every risk tier with the same maker proof and
+review duties; self-verification is never independent review.
+
+The advisor plans by default. Planner output is an advisory recommendation, not
+a binding script: inspect its assumptions and adopt, revise, or reject the plan.
+Preserve accepted criteria and safety boundaries; record a packet revision when
+those change, not for every ordinary implementation decision.
 
 ```mermaid
 ---
@@ -61,7 +72,7 @@ config:
 ---
 flowchart TD
   Task["task packet"] --> Q{"small or cohesive-medium\nwith one decision set?"}
-  Q -->|yes| Maker["one empowered maker\n(diagnose · implement · verify)"]
+  Q -->|yes| Maker["advisor / builder / foreman\n(diagnose · implement · verify)"]
   Q -->|no| Gate{"would another launch\nmaterially…"}
   Gate -->|"resolve uncertainty"| Scout["+ scout"]
   Gate -->|"parallelize real work"| Graph["+ foreman / validated graph"]
@@ -84,8 +95,9 @@ flowchart TD
 Optimize marginal evidence value and critical-path latency: add a foreman,
 graph, checker, browser verifier, or freeform worker whenever it materially
 resolves uncertainty, parallelizes real work, or adds useful independent
-confidence. Foremen require useful depth-1 delegation; graphs require genuine
-ownership or dependency boundaries; dedicated checkers and browser verifiers
+confidence. Foremen are hands-on makers with useful depth-1 delegation capacity,
+not mandatory dispatchers; they may finish directly when helpers add no value.
+Graphs require genuine ownership or dependency boundaries; dedicated checkers and browser verifiers
 require a risk or information-value rationale.
 Stop adding launches when another would mostly replay existing evidence.
 
@@ -133,6 +145,17 @@ visible subagents — to the foreman for bounded delegation and to the builder
 for exactly one fresh-review subagent — and every granted subagent inherits the
 full no-further-delegation prohibition. The generic transport profile merely
 forwards that flag.
+Every role has agency over methods, evidence, and ordinary local choices within
+its mandate. Packets include the broader goal, why the contribution matters,
+upstream evidence, downstream consumers, and locked versus suggested decisions.
+Builders own in-scope diagnosis, technical choices, tests, and repairs without
+routine permission round-trips; scouts, reducers, and browser verifiers retain
+product read-only boundaries. Checker inline repairs remain enabled within their
+role bounds, with exclusive write ownership. Classify by behavioral effect:
+acceptance oracles and security gates are enforcement work even in `tests/` or
+`evals/`, not harmless test-only changes. Mechanical fixes preserve behavior and
+the acceptance standard; a generated diff is not automatically mechanical.
+
 [`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json) is fixed
 semantic role configuration: the instructed role skill and portable skill path,
 anchor requirement, and instructional cycle cap. It contains no model or

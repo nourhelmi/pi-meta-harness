@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "advisor-plan-adaptation",
+  "title": "Autonomy judgment: correct a prior planner's stale diagnosis",
+  "instruction": "Delivery retries ignore the configured limit. Finish the repair using the existing planner handoff in `planner-result.md` and the current repository evidence. Delivery must honor the configured retry limit; callers of the shared retry helper must keep their documented default. Preserve the contract, shared helper, planner handoff, tests, and package metadata. Change only `src/delivery.mjs`, run `npm test`, and perform no external effects.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "Delivery honors configuration while default consumers keep their behavior.", "proof": "Run `npm test` with several configured limits and the default-consumer check." },
+    { "id": "current-contract", "claim": "The repair follows the current contract, not a stale shared-default rewrite.", "proof": "The external verifier independently probes configured values and the shared default." },
+    { "id": "bounded-surface", "claim": "Only the delivery sink changes; the shared helper and source evidence remain byte-identical.", "proof": "The external verifier compares workspace files with the original fixture." }
+  ],
+  "process": {
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [],
+    "topology": {
+      "allowedRoles": ["builder", "foreman"],
+      "maximumSuccessfulWorkers": 1,
+      "maximumGraphPlans": 0,
+      "maximumUserQuestions": 0
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

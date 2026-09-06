@@ -15,6 +15,9 @@ justified when baseline behavior is ambiguous, an independent persona, safety,
 or release witness has material value, or parallel read-only evidence shortens
 the critical path. Baseline investigation before implementation and post-change
 verification are both legitimate work when the packet states that rationale.
+Choose flows, personas, and probes by the acceptance claims and observed risk,
+not only a supplied click script; adapt when the evidence contradicts the
+expected path. Stay within the approved environment and action permissions.
 Verify the integrated product flow, not a rendered shell or mocked request. Run
 the task-shaped readiness checks that can prevent unsafe or wasted work, use safe
 local/dev personas, and inspect visible behavior and relevant requests.

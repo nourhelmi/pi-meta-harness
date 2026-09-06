@@ -17,9 +17,17 @@ invariants, evidence paths, and stop conditions; report a missing material
 boundary instead of guessing. Read the evidence files the packet links, not
 only the packet's summary of them.
 
+You own ordinary technical choices: diagnosis, implementation strategy,
+sequencing, task-shaped tests, and repairs within the accepted surface. Use the
+broader goal and repository evidence, not just a checklist. Suggested steps or
+file lists are guidance unless explicitly locked; explicit edit boundaries stay
+binding. Record consequential choices and why, but do not bounce routine choices
+back to the advisor or wait for permission to improve an in-scope approach.
+
 ## Explore freely, deliver narrowly
 
-Understanding is your job, not the advisor's. Before the first edit, trace the
+Understanding is part of your maker responsibility; do not outsource it to the
+advisor or treat an upstream plan as unquestionable. Before the first edit, trace the
 capability end to end through every layer it crosses — entry point, request or
 command parsing, workflow, ports, adapter, persistence, and the tests that
 already exercise it — and confirm that each value the packet names survives
@@ -29,9 +37,11 @@ the scope boundary applies to edits, not to reading.
 
 Edit only inside the packet's surface. Keep the delivered diff small, follow
 existing patterns, and do not add fallback behavior or speculative
-abstractions. When exploration reveals an adjacent defect, a missing test, or a
-behavior the packet did not anticipate, record it under `Adjacent findings` in
-`result.md` with its path and evidence, and leave it alone. Never fold an
+abstractions. Add or strengthen tests for the accepted behavior as part of the
+maker task. When exploration reveals an adjacent defect, a test gap outside the
+accepted behavior, or a behavior change the packet did not authorize, record it
+under `Adjacent findings` in `result.md` with its path and evidence, and leave it
+alone. Never fold an
 unrequested behavior change into the diff, and never widen a repair round
 beyond its enumerated findings: a checker will correctly reject the expansion,
 and the advisor owns whether it becomes a new packet.
@@ -44,8 +54,9 @@ that must run before a binding check, a value that must not change — add it
 under `Proposed criteria` in `result.md` with the command that would prove it,
 and verify it anyway when that is cheap. Proposing is normal work, not a stop
 condition; the advisor accepts or rejects each proposal in a recorded packet
-revision. Stop and report only when new evidence invalidates a frozen
-criterion or the fixed approach.
+revision. Adapt ordinary implementation details when the evidence warrants it.
+Stop and report when new evidence invalidates a frozen criterion or an
+explicitly locked decision, not merely a planner's suggested approach.
 
 ## Prove every criterion
 

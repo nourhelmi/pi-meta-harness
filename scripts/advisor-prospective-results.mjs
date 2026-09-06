@@ -15,6 +15,11 @@ export const CANDIDATE_INPUTS = [
   "skills",
   "scripts/meta-harness.mjs",
   "scripts/intelligence-profile.mjs",
+  "scripts/skill-path-policy.mjs",
+  "scripts/advisor-core",
+  "scripts/advisor-trace.mjs",
+  "scripts/claude-advisor-trace.mjs",
+  "scripts/codex-advisor-trace.mjs",
   "package.json",
   "package-lock.json",
 ];
@@ -108,8 +113,8 @@ export async function candidateFingerprint(root = PROJECT_ROOT, { piDetachRevisi
 export async function prospectiveSuiteFingerprint(root = PROJECT_ROOT) {
   return inputsFingerprint(
     root,
-    [...CANDIDATE_INPUTS, ...PROSPECTIVE_EVALUATOR_INPUTS],
-    "sha256-prospective-suite-tree-v1",
+    PROSPECTIVE_EVALUATOR_INPUTS,
+    "sha256-prospective-evaluator-tree-v2",
   );
 }
 
@@ -398,6 +403,16 @@ export function compareProspectiveArtifacts(left, right) {
   }
   if (left.manifest.case?.id !== right.manifest.case?.id) {
     throw new Error(`Cannot compare different cases: ${left.manifest.case?.id} and ${right.manifest.case?.id}`);
+  }
+  const leftEvaluator = left.manifest.evaluation?.fingerprint;
+  const rightEvaluator = right.manifest.evaluation?.fingerprint;
+  if ([leftEvaluator, rightEvaluator].some((fingerprint) =>
+    typeof fingerprint?.algorithm !== "string" || !fingerprint.algorithm.trim()
+    || typeof fingerprint?.value !== "string" || !fingerprint.value.trim())) {
+    throw new Error("Cannot compare runs with missing evaluator fingerprints; re-run or explicitly regrade both against one evaluator.");
+  }
+  if (leftEvaluator.algorithm !== rightEvaluator.algorithm || leftEvaluator.value !== rightEvaluator.value) {
+    throw new Error("Cannot compare different evaluator fingerprints; re-run or explicitly regrade both against one evaluator. Existing scores are not comparable.");
   }
   const leftChecks = checksById(left.result);
   const rightChecks = checksById(right.result);

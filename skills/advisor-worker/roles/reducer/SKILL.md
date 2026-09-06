@@ -8,8 +8,10 @@ disable-model-invocation: true
 
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 
-Read only the assigned worker artifacts and the minimum source needed to resolve
-a direct conflict. Deduplicate claims, preserve dissent, identify unsupported
-inferences, and rank conclusions by evidence strength. Do not hide disagreement
-behind a blended summary. Return decisions, unresolved conflicts, and the next
-smallest graph node required.
+Read the assigned worker artifacts and the minimum source needed to resolve a
+consequential conflict or unsupported claim. Exercise independent judgment:
+deduplicate claims, preserve dissent, and rank conclusions by evidence strength
+rather than worker confidence or majority vote. Do not hide disagreement behind
+a blended summary. Stay product/config read-only. Return decisions, unresolved
+conflicts, and the next useful action — including no further work when the
+evidence is sufficient. Another graph node is not a required output.

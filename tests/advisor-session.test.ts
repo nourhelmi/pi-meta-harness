@@ -147,15 +147,15 @@ test("advisor doctrine routes locked execution without weakening decision bounda
   assert.match(source, /check `bg_list`\s+once/);
   assert.match(source, /Coalesce a\s+routine settlement/);
   assert.match(source, /## Foreman delegation/);
-  assert.match(source, /advisor stays at the boundaries[\s\S]+Checker economy/);
+  assert.match(source, /advisor stays at\s+the boundaries[\s\S]+Checker economy/);
   assert.match(source, /foremen\s+are Pi-hosted[\s\S]+visible depth-1 delegation/);
   assert.match(source, /profile runs through Pi[\s\S]+provider-native CLI/);
   assert.match(source, /Deliberate criteria revision[\s\S]+new\s+packet revision/);
   assert.match(source, /criteria serve the\s+advisor's judgment, not the reverse/);
   assert.match(source, /## Worker transport recovery/);
   assert.match(source, /at most one fresh changed\s+retry/);
-  assert.match(source, /bounded source reads itself[\s\S]+continue to the\s+maker/);
-  assert.match(source, /explicit acceptance requirement[\s\S]+unsatisfied/);
+  assert.match(source, /perform bounded discovery or implementation[\s\S]+same maker and review duties/);
+  assert.match(source, /explicit acceptance\s+requirement[\s\S]+unsatisfied/);
 });
 
 test("advisor mode entrypoints select their worker harness before loading shared doctrine", async () => {

@@ -55,26 +55,33 @@ Repair small findings yourself instead of only reporting them, in every round
 including declared repair rounds. A single Medium ordering, ordering-of-checks,
 or boundary defect inside a file you reviewed is exactly what this mandate is
 for: fix it, rerun, and report it rather than returning a FAIL that costs
-another maker round. Two classes:
+another maker round. Choose your own high-value probes and qualifying repairs;
+do not ask for permission at each ordinary review decision. Work only while you
+own the reviewed write surface; an explicit read-only or frozen-revision packet
+limits you to findings. Never weaken acceptance to make a rerun green. Two classes:
 
-**Product findings** — anything that changes shipped behavior, an API
-contract, or schema semantics — qualify for inline repair only when ALL hold:
+**Product or enforcement findings** — anything that changes shipped behavior,
+an API contract, schema semantics, acceptance oracles, security gates, or other
+correctness/safety enforcement — qualify for inline repair only when ALL hold.
+Classify by behavioral effect, not filename: an oracle in `tests/` or `evals/`
+is not automatically a harmless test-only change.
 
-- at most three findings in total and no product finding is High severity;
+- at most three findings in total and no product or enforcement finding is High;
 - every fix stays inside files you already reviewed;
 - the affected deterministic criteria rerun green after your fix.
 
-If any product finding exceeds these bounds, repair no product finding and
-report them all.
+If any product or enforcement finding exceeds these bounds, repair none of that
+class and report them all.
 
-**Test-only, metadata, comment, and mechanical findings** qualify regardless
-of severity and regardless of the state of product findings: repair them
-inline whenever the fix stays in non-product files you already reviewed and
-the affected criteria rerun green. An oversized product finding never blocks
-the inline repair of test-only findings. A formatter-only or lint-only diff,
-generated-file drift, or result-artifact formatting is always mechanical:
-run the fixer, rerun the affected criteria, record it under **Repaired
-inline**, and never return it as a FAIL.
+**Test-only, metadata, comment, and mechanical findings** that do not change
+product or enforcement behavior qualify regardless of severity and regardless of
+the state of product findings: repair them inline whenever the fix stays in
+non-product files you already reviewed and the affected criteria rerun green.
+An oversized product finding never blocks a qualifying test-only repair.
+Formatter-only, lint-only, generated-file, or result-formatting fixes are
+mechanical only when behavior and the acceptance standard are unchanged. Run
+the fixer, rerun the affected criteria, record a qualifying mechanical repair
+under **Repaired inline**, and never return the repaired finding as a FAIL.
 
 Commit qualifying fixes with a conventional message, rerun the affected
 criteria, and add a **Repaired inline** section to `result.md`: each finding,

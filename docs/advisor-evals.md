@@ -166,7 +166,7 @@ flowchart TB
   B --> C["3 · stage isolated temp\nPi agent directory"]
   C --> D["4 · stage minimal temp Codex home\n(scoped trust · no hooks · 0600 creds ·\nbounded codex doctor preflight)"]
   D --> E["5 · launch root Pi advisor\nin visible unfocused Herdr tab"]
-  E --> F["6 · advisor delegates through\nits normal configured workers"]
+  E --> F["6 · advisor executes directly\nor delegates useful work"]
   F --> G["7 · bounded lifecycle signal, then\nindependent workspace grading"]
   G --> H["8 · normalize root trajectory\n+ record process checks"]
   H --> I["9 · close tab, delete both\ncredential-bearing temp dirs"]
@@ -202,14 +202,26 @@ explanatory rather than quality rewards.
 
 ### Live cases
 
-Fourteen cases. The original nine are **capability** cases — their visible
-packets deliberately prescribe the role behavior under test. The next three are
-**routing** cases — their visible packets are role-neutral, and the external
-evaluator scores whether the advisor selected the smallest justified topology.
-The final two are **sizing** cases — their visible packets are phrased the way a
-user actually writes a bug report (a symptom, "intermittently", and an absolute
-"never anywhere" invariant) while the hidden verifier rewards the smallest change
-that fixes the observed sink and rejects a rewrite of shared behavior.
+Seventeen cases. The original nine are **capability** cases — their visible
+packets deliberately prescribe the role behavior under test. Five historical
+**routing/sizing** cases leave worker-role selection out of the visible packet,
+but their frozen hidden contracts still require a delegated builder. They test
+routing *among workers*, not whether delegation was needed in the first place.
+Keep those cases and historical baselines intact; do not interpret a failed
+builder requirement after a correct direct repair as a correctness failure.
+
+Two **autonomy routing** cases accept direct execution or one cohesive builder
+or foreman. Their packets do not mandate an actor; the hidden contract rejects
+unnecessary specialist stages, graphs, and questions for these fully specified
+local repairs, not useful delegation itself. One includes an existing stale
+planner handoff whose proposed shared-default rewrite must be rejected in favor
+of current repository evidence. This tests adapting an inherited plan, not a live
+planner conversation.
+
+A separate **direct-execution capability** case explicitly asks the root advisor
+to implement without helpers. Its zero-worker requirement is visible and local
+to that exercise, not a universal routing objective. Capability and routing
+scores answer different questions; do not blend them into an advisor-first target.
 
 | Case | Start | Behavior under test | Required delegation |
 | --- | --- | --- | --- |
@@ -227,13 +239,16 @@ that fixes the observed sink and rejects a rewrite of shared behavior.
 | `risk-triggered-checker` | 🔴 failing | A security-sensitive authorization repair receives fresh independent review after the maker settles. | route-selected builder, then checker |
 | `absolute-request-minimal-fix` | 🔴 failing | An absolutely-phrased report about raw markup has one bypassing surface; the fix stays in that surface, the shared renderer and its raw-text fallback stay byte-identical, and no question goes to the absent user. | route-selected builder only |
 | `two-defects-ship-small-first` | 🔴 failing | Two real small defects (a bypassing surface and a loader that rejects the persisted admin record) ship together, while the tempting shared-renderer redesign is recorded in `findings.json` instead of built. | route-selected builder only |
+| `advisor-direct-repair` | 🔴 failing | A fully specified local retry repair stays cohesive and bounded with the advisor or one delegated maker. | none required; builder or foreman allowed |
+| `advisor-plan-adaptation` | 🔴 failing | Current configuration and default-consumer probes override a stale planner recommendation; only the delivery sink changes. | none required; builder or foreman allowed |
+| `advisor-direct-capability` | 🔴 failing | An explicitly requested root-only repair demonstrates direct implementation and self-verification capability. | none allowed; explicit capability request |
 
 Repository tests prove the three passing or safely blocked cases start and remain read-only passes,
 and prove each mutation case fails before and passes after its exact expected
 repair — validating fixtures and verifiers without consuming subscription
 quota. Live runs evaluate the real advisor behavior.
 
-Every case declares its maximum **useful** worker width. Thirteen cases correctly
+The fourteen historical cases declare maximum **useful** worker width. Thirteen
 have width `1` because their stages share a write surface or have real
 dependencies; only `parallel-evidence-merge` exposes width `2`. The result and
 dashboard report same-turn launch width, observable worker-interval overlap,
@@ -241,7 +256,16 @@ successful settlement coverage, and utilization against that declared width.
 These measurements are diagnostic and never change reward: raw worker count or
 gratuitous fan-out cannot earn a pass. The outer suite still runs cases
 sequentially to avoid cross-case subscription contention; parallelism is
-measured inside the one case where it is actually available.
+measured inside the one case where it is actually available. The three autonomy
+cases have no worker-width expectation; absence of helpers is not reported as
+underutilization.
+
+The runner no longer injects a blanket ban on root implementation or an implicit
+maker-delegation requirement. Capability cases retain their explicit role
+requirements, including independent security review and safely blocked foremen.
+The existing foreman cases score integrated outcomes and parent-observed
+settlement, not which child typed each edit. Inspect worker artifacts when
+studying hands-on foreman behavior; that distinction is not yet a scored oracle.
 
 ### Run a suite or repeat trials
 
@@ -276,6 +300,23 @@ versions when the working tree changes during a long suite. The summary
 aggregates clean runs and passed checks for each outcome dimension plus
 useful-width utilization states. Use repeated trials for important releases
 because one stochastic run cannot establish reliability.
+For an autonomy comparison, use the same case/grader snapshot before and after
+the doctrine change, with the same explicit profile, model, and reasoning:
+
+```bash
+npm run eval:advisor:prospective:suite -- \
+  advisor-direct-repair advisor-plan-adaptation \
+  foreman-cross-repo foreman-blocked-decision \
+  --name autonomy-candidate --trials 1 \
+  --profile codex-max --model openai-codex/gpt-6-astra --thinking max
+```
+
+Report functional, orchestration, and measurement outcomes separately. A failed
+Codex Doctor or missing root trajectory is an invalid measurement, not evidence
+of poor advisor judgment. Keep `codex` and `npm` resolving to the same install
+prefix; if the runner needs another Node version, invoke its absolute executable
+rather than changing PATH underneath Codex Doctor. Do not compare a new score
+against old recorded Harbor rewards as though they measure the same behavior.
 
 The suite command is a data-collection runner: inspect `suite.json`, the CLI
 summary, or the dashboard, because the process can complete successfully while
@@ -308,9 +349,23 @@ SHA-256 fingerprint covers the managed setup (`config/`, `extensions/`,
 `skills/`, key runner scripts, and package metadata), so dirty working-tree
 versions remain distinguishable. The separate evaluator fingerprint also covers
 the prospective cases and grading code, so a behavioral setup change cannot be
-silently compared across different eval contracts.
+silently compared across different eval contracts. Since evaluator fingerprint
+v2, skills/config changes affect only candidate identity; earlier v1 fingerprints
+also included the candidate and cannot establish evaluator equality across a
+doctrine change. Real-snapshot installation tests cover the installer's imported
+helpers and the materialized advisor-core/host bindings.
+Comparisons require matching, nonempty evaluator algorithm and digest. Missing
+identity or a v1/v2 mismatch fails closed through both CLI and dashboard; equal
+checks alone cannot establish comparability. If grading changes, rerun both
+candidates or explicitly regrade preserved workspaces/traces into **new** artifacts
+with source-run, original-result, and evaluator provenance. Never relabel an old
+result with a new fingerprint or overwrite it to create apparent comparability.
+The autonomy scope oracle inventories the actual tree after all public probes,
+including ignored paths, directories, file modes, and symlinks; `.git` bookkeeping
+alone is excluded. Git ignore rules and commits cannot hide scope expansion.
 
-Re-run only the deterministic verifier for an existing run:
+Re-run only the deterministic verifier for an existing run under its original
+evaluator; this command is not a cross-evaluator migration mechanism:
 
 ```bash
 npm run eval:advisor:prospective:verify -- \

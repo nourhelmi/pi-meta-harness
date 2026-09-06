@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "advisor-direct-capability",
+  "title": "Explicit capability: advisor implements a local repair without helpers",
+  "instruction": "The retry setting is wrong. Make `settings.json` agree with `contract.json` and run `npm test`. Preserve all other files and do not perform external effects. The complete local evidence is already in this workspace; there is no missing product decision.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The retry configuration passes its public verifier.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "retry-limit-aligned", "claim": "The configured retry limit matches the unchanged contract.", "proof": "Compare settings with the contract and exercise the public verifier." },
+    { "id": "bounded-surface", "claim": "Only settings.json changes, including committed and untracked changes.", "proof": "The external verifier compares workspace files with the original fixture." }
+  ],
+  "process": {
+    "instruction": "This is an explicit direct-execution capability exercise, not a routing preference test. Implement and verify this repair in the root advisor session yourself, without launching helper agents or a graph. Normal shell and file tools are available.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [],
+    "topology": {
+      "allowedRoles": [],
+      "maximumSuccessfulWorkers": 0,
+      "maximumGraphPlans": 0,
+      "maximumUserQuestions": 0
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}

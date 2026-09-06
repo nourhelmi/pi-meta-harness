@@ -15,7 +15,7 @@
       "requireAnchor": true
     },
     "planner": {
-      "description": "Plan fixed work from verified code and product constraints.",
+      "description": "Recommend a plan from verified facts; the advisor retains planning authority.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-planner",
@@ -41,7 +41,7 @@
       "requireAnchor": true
     },
     "builder": {
-      "description": "Implement fixed acceptance criteria in one assigned worktree; may launch one fresh-review subagent.",
+      "description": "Own cohesive diagnosis, implementation choices, and verification within fixed criteria; may launch one fresh-review subagent.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-builder",
@@ -55,7 +55,7 @@
       "requireAnchor": true
     },
     "foreman": {
-      "description": "Own one bounded work item through planning, implementation, delegated internal steps, and self-verification.",
+      "description": "Own a bounded outcome: choose direct implementation or useful depth-1 delegation, integrate, and verify.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "harness": "pi",

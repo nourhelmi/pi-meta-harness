@@ -1,0 +1,6 @@
+{
+  "name": "prospective-advisor-plan-adaptation",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node verify-public.mjs" }
+}

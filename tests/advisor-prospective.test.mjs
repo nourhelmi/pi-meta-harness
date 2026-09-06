@@ -13,7 +13,9 @@ import {
   startHerdrAgentWithRetry,
   waitForPiPromptRecord,
   verifyProspectiveWorkspace,
+  verifyPreparedRun,
 } from "../scripts/advisor-prospective.mjs";
+import { prospectiveSuiteFingerprint } from "../scripts/advisor-prospective-results.mjs";
 
 function git(cwd, ...args) {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });
@@ -49,12 +51,47 @@ test("prospective case fails before repair and passes after the bounded repair",
   }
 });
 
+test("reverification rejects evaluator drift before mutation and preserves lifecycle evidence", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "advisor-reverify-identity-"));
+  try {
+    const loaded = await loadProspectiveCase("advisor-direct-repair");
+    const fingerprint = await prospectiveSuiteFingerprint();
+    const manifest = { schemaVersion: 1, runId: "reverify-test", case: { id: loaded.definition.id }, candidate: {} };
+    const prior = JSON.stringify({ checks: [{ id: "lifecycle", passed: false, evidence: "original timeout" }] });
+    await writeFile(join(temp, "result.json"), prior);
+    for (const recorded of [undefined, { algorithm: fingerprint.algorithm, value: "different" }, { algorithm: "old", value: fingerprint.value }]) {
+      manifest.evaluation = { fingerprint: recorded };
+      await writeFile(join(temp, "manifest.json"), JSON.stringify(manifest));
+      await assert.rejects(verifyPreparedRun(temp), /Cannot reverify with a missing or different evaluator fingerprint/);
+      assert.equal(await readFile(join(temp, "result.json"), "utf8"), prior);
+    }
+    manifest.evaluation = { fingerprint };
+    await writeFile(join(temp, "manifest.json"), JSON.stringify(manifest));
+    await cp(loaded.workspaceSource, join(temp, "workspace"), { recursive: true });
+    await writeFile(join(temp, "workspace", "settings.json"), '{"retryLimit":3}\n');
+    await writeFile(join(temp, "completion.json"), '{"schemaVersion":1,"status":"completed"}\n');
+    await writeFile(join(temp, "trace.json"), '{"events":[]}\n');
+    const preserved = await verifyPreparedRun(temp);
+    assert.equal(preserved.reward, 0);
+    assert.equal(preserved.checks.find((check) => check.id === "lifecycle").evidence, "original timeout");
+    await writeFile(join(temp, "result.json"), JSON.stringify({ checks: [{ id: "lifecycle", passed: true, evidence: "original completion" }] }));
+    assert.equal((await verifyPreparedRun(temp)).reward, 1);
+    await rm(join(temp, "result.json"));
+    const missing = await verifyPreparedRun(temp);
+    assert.equal(missing.reward, 0);
+    assert.equal(missing.checks.find((check) => check.id === "lifecycle").passed, false);
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
 test("prospective prompt freezes criteria and treats completion as a non-authoritative signal", async () => {
   const loaded = await loadProspectiveCase("builder-self-verification");
   const prompt = buildAdvisorPrompt(loaded.definition, "/private/run/completion.json", "run-123456789abc");
   for (const criterion of loaded.definition.acceptance) assert(prompt.includes(criterion.id));
   assert.match(prompt, /external verifier is authoritative/i);
-  assert.match(prompt, /root advisor must not implement/i);
+  assert.doesNotMatch(prompt, /root advisor must not implement/i);
+  assert.match(prompt, /Delegate the locked implementation packet/);
   assert.match(prompt, /staged Pi agent directory for required advisor-doctrine and intelligence-guide reads/i);
   assert.match(prompt, /workerHarness "native"/);
 });
@@ -115,7 +152,7 @@ test("prospective preparation stages setup resources without leaking credentials
     assert.equal(prepared.manifest.case.parallelism.maxUsefulWidth, 1);
     assert.deepEqual(prepared.manifest.case.parallelism.roles, ["builder", "foreman"]);
     assert.match(prepared.manifest.candidate.fingerprint.value, /^[0-9a-f]{64}$/);
-    assert.equal(prepared.manifest.evaluation.fingerprint.algorithm, "sha256-prospective-suite-tree-v1");
+    assert.equal(prepared.manifest.evaluation.fingerprint.algorithm, "sha256-prospective-evaluator-tree-v2");
     assert.match(prepared.manifest.evaluation.fingerprint.value, /^[0-9a-f]{64}$/);
     const stagedSettings = JSON.parse(await readFile(join(prepared.agentDir, "settings.json"), "utf8"));
     assert(stagedSettings.packages.includes(localPiDetach));

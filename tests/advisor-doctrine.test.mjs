@@ -39,7 +39,8 @@ test("advisor topology defaults cohesive work to an empowered maker without maki
   const adaptive = section(source, "## Adaptive topology and the single-maker fast path", "## Foreman delegation");
 
   assert.match(adaptive, /small and cohesive-[\s\S]*medium implementation[\s\S]*default to one empowered maker/);
-  assert.match(adaptive, /owns diagnosis, implementation, task-shaped deterministic tests, and[\s\S]*ordinary browser exercise/);
+  assert.match(adaptive, /owns diagnosis, implementation,\s+task-shaped deterministic tests, and[\s\S]*ordinary browser exercise/);
+  assert.match(adaptive, /you, a builder, or a foreman/);
   assert.match(adaptive, /presumption against ceremony, not a one-agent target/);
   assert.match(adaptive, /marginal evidence value and critical-path latency/);
   assert.match(adaptive, /materially resolve uncertainty, shorten genuinely parallel work, or add useful[\s\S]*independent confidence/);
@@ -135,9 +136,9 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   const source = await text("skills/advisor/SKILL.md");
   const runtime = await text("docs/advisor-runtime.md");
 
-  assert.match(source, /Implement High in workers only/);
-  assert.match(source, /High packets always go to a visible worker/);
-  assert.doesNotMatch(source, /Never implement in this session/);
+  assert.match(source, /Direct implementation is\s+a first-class\s+route at every risk tier/);
+  assert.match(source, /fresh review on Standard\/High and independent\s+checking on High/);
+  assert.doesNotMatch(source, /Implement High in workers only|High packets always go to a visible worker|Never implement in this session|advisor still never edits implementation/);
   assert.match(source, /Deliberate criteria revision[\s\S]*new packet revision/);
   assert.match(source, /Every helper agent is visible[\s\S]*All delegated LLM work uses `bg_agent`/);
   assert.match(source, /request to use Codex or Claude Code directly means a[\s\S]+configured semantic `role`/);
@@ -148,9 +149,66 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   assert.match(source, /Foreman delegation is depth-1 only/);
   assert.match(source, /High-risk boundaries normally receive independent[\s\S]*review/);
   assert.match(source, /Deterministic evidence is authoritative for the[\s\S]*claim it actually proves/);
-  assert.match(runtime, /presumption against ceremony, not a target worker[\s\S]*count/);
+  assert.match(runtime, /presumption\s+against ceremony, not a target worker\s+count/);
   assert.match(runtime, /Stop adding launches when another[\s\S]*would mostly replay existing evidence/);
 });
+
+test("role agency includes context and local decisions without erasing write or repair boundaries", async () => {
+  const [advisor, contract, builder, scout, reducer, browser, checker] = await Promise.all([
+    text("skills/advisor/SKILL.md"),
+    text("skills/advisor-worker/references/WORKER_CONTRACT.md"),
+    text("skills/advisor-worker/roles/builder/SKILL.md"),
+    text("skills/advisor-worker/roles/scout/SKILL.md"),
+    text("skills/advisor-worker/roles/reducer/SKILL.md"),
+    text("skills/advisor-worker/roles/browser-verifier/SKILL.md"),
+    text("skills/advisor-worker/roles/checker/SKILL.md"),
+  ]);
+  assert.match(advisor, /broader goal, why its contribution[\s\S]*authority to act/);
+  assert.match(contract, /agency over methods, evidence, and\s+ordinary local decisions/);
+  assert.match(contract, /downstream consumers, and which decisions are\s+locked versus suggested/);
+  assert.match(builder, /You own ordinary technical choices/);
+  assert.match(builder, /do not bounce routine choices\s+back to the advisor/);
+  assert.match(builder, /explicit edit boundaries stay\s+binding/);
+  assert.match(builder, /Add or strengthen tests for the accepted behavior/);
+  assert.match(scout, /suggested search route is not a script/);
+  assert.match(scout, /Do not edit product code or configuration/);
+  assert.match(reducer, /including no further work/);
+  assert.match(reducer, /Stay product\/config read-only/);
+  assert.match(browser, /not only a supplied click script/);
+  assert.match(browser, /Do not edit\s+product code/);
+  assert.match(checker, /acceptance oracles, security gates/);
+  assert.match(checker, /Classify by behavioral effect, not filename/);
+  assert.match(checker, /at most three findings in total and no product or enforcement finding is High/);
+  assert.match(checker, /own the reviewed write surface/);
+  assert.match(checker, /Never weaken acceptance/);
+  assert.match(advisor, /Preserve this authority by default/);
+});
+test("advisor and foreman own execution and planning while proposals remain nonbinding", async () => {
+  const [advisor, foreman, planner, builder, contract] = await Promise.all([
+    text("skills/advisor/SKILL.md"),
+    text("skills/advisor-worker/roles/foreman/SKILL.md"),
+    text("skills/advisor-worker/roles/planner/SKILL.md"),
+    text("skills/advisor-worker/roles/builder/SKILL.md"),
+    text("skills/advisor-worker/references/WORKER_CONTRACT.md"),
+  ]);
+  assert.match(advisor, /technical lead and orchestrator/);
+  assert.match(advisor, /not an obligation or a preference\s+over delegation/);
+  assert.match(advisor, /Plan the work yourself by default/);
+  assert.match(advisor, /adopt, revise, or reject its recommendations, including proposed roles and\s+sequence/);
+  assert.match(advisor, /accepted scope, criteria, or explicitly locked decisions change/);
+  assert.match(advisor, /Reclaim ownership explicitly after settlement/);
+  assert.match(advisor, /your own rerun is self-verification, not independent\s+review/);
+  assert.match(advisor, /requirement, report that requirement as unsatisfied even when the\s+functional repair proceeds/);
+  assert.match(foreman, /choose direct implementation or useful delegation/);
+  assert.match(foreman, /not a launch quota; direct execution is available, not the preferred route/);
+  assert.match(foreman, /never edit alongside a writing helper/);
+  assert.match(planner, /advisor owns the plan and may adopt, revise, or reject/);
+  assert.match(planner, /Do not edit product code/);
+  assert.doesNotMatch(builder, /Understanding is your job, not the advisor's/);
+  assert.match(contract, /Suggested implementation steps are not\s+frozen/);
+  assert.match(contract, /never revise criteria yourself/);
+});
+
 test("blocked settlement doctrine documents Pi prompt and worker result signals", async () => {
   const source = await text("skills/advisor/SKILL.md");
   const runtime = await text("docs/advisor-runtime.md");
@@ -267,14 +325,15 @@ test("mechanical findings are repaired inline and never bind a verdict or become
   ]);
 
   const hygiene = section(source, "## Verdict hygiene", "## Delegation decision tree");
-  assert.match(hygiene, /Auto-fixable mechanical\s+findings[\s\S]*formatter output, lint autofix, generated-file drift, result\s+artifact formatting[\s\S]*never bind a verdict or stall a run/);
-  assert.match(hygiene, /formatter-only or lint-only FAIL is a\s+note/);
+  assert.match(hygiene, /Auto-fixable mechanical\s+findings — behavior-preserving[\s\S]*never bind a verdict or stall a run/);
+  assert.match(hygiene, /formatter-only or lint-only\s+FAIL is a note/);
+  assert.match(hygiene, /oracle, gate, or runtime behavior is not\s+mechanical/);
   assert.match(source, /A packet never carries a formatter or lint pass as an acceptance\s+criterion/);
   assert.match(source, /runs the fixer before rerunning\s+it/);
 
   const mandate = section(checker, "## Inline repair mandate", "## ");
-  assert.match(mandate, /formatter-only or lint-only diff[\s\S]*always mechanical/);
-  assert.match(mandate, /never return it as a FAIL/);
+  assert.match(mandate, /mechanical only when behavior and the acceptance standard are unchanged/);
+  assert.match(mandate, /never return the repaired finding as a FAIL/);
 
   assert.match(runtime, /mechanical findings \(formatter output, lint autofix, generated-file drift, result formatting\) are repaired inline by whoever finds them and never bind a verdict/);
   assert.match(runtime, /formatter or lint pass is never an acceptance criterion on its own/);

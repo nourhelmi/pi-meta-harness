@@ -7,6 +7,7 @@ import test from "node:test";
 import { createSuiteSetupSnapshot, summarizeSuiteResults } from "../scripts/advisor-prospective-manage.mjs";
 import {
   candidateFingerprint,
+  prospectiveSuiteFingerprint,
   compareProspectiveArtifacts,
   comparisonMarkdown,
   parallelismDiagnostics,
@@ -34,6 +35,7 @@ function artifact(id, passed, { events = 4, launches = 1, wallElapsedMs = 100 } 
       runId: id,
       case: { id: "case-a", title: "Case A" },
       candidate: { label: id, fingerprint: { algorithm: "test", value: id } },
+      evaluation: { fingerprint: { algorithm: "sha256-prospective-evaluator-tree-v2", value: "e".repeat(64) } },
     },
     result: {
       status: passed ? "passed" : "failed",
@@ -87,7 +89,7 @@ test("suite setup snapshot freezes setup, cases, and a committed pi-detach check
 
     const snapshot = await createSuiteSetupSnapshot({ suiteDir, sourceRoot: source, piDetachSource: piDetach });
     assert.equal(snapshot.identity.candidateFingerprint.algorithm, "sha256-candidate-tree-plus-pi-detach-v1");
-    assert.equal(snapshot.identity.evaluationFingerprint.algorithm, "sha256-prospective-suite-tree-v1");
+    assert.equal(snapshot.identity.evaluationFingerprint.algorithm, "sha256-prospective-evaluator-tree-v2");
     assert.match(snapshot.identity.piDetach.revision, /^[0-9a-f]{40}$/);
     assert.equal(await readFile(join(snapshot.root, "config", "settings.overlay.json"), "utf8"), '{"packages":[]}\n');
     assert.equal(await readFile(join(snapshot.piDetach.path, "package.json"), "utf8"), '{"name":"pi-detach"}\n');
@@ -96,6 +98,41 @@ test("suite setup snapshot freezes setup, cases, and a committed pi-detach check
     assert.equal(await readFile(join(snapshot.root, "config", "settings.overlay.json"), "utf8"), '{"packages":[]}\n');
   } finally {
     await rm(temp, { recursive: true, force: true });
+  }
+});
+
+test("real suite snapshot installs all current runtime and host-binding dependencies", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "prospective-real-snapshot-"));
+  try {
+    const snapshot = await createSuiteSetupSnapshot({ suiteDir: join(temp, "suite"), piDetachSource: undefined });
+    const target = join(temp, "agent");
+    const installed = spawnSync(process.execPath, [join(snapshot.root, "scripts/meta-harness.mjs"), "install", "--target", target], { encoding: "utf8" });
+    assert.equal(installed.status, 0, installed.stderr);
+    for (const path of ["scripts/advisor-core/advisor-state.mjs", "advisor-hosts/scripts/codex-advisor-trace.mjs", "advisor-hosts/scripts/claude-advisor-trace.mjs"]) {
+      assert((await readFile(join(target, path), "utf8")).length > 0, path);
+    }
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+
+test("evaluator identity is independent of doctrine but changes with case and grader inputs", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prospective-evaluator-fingerprint-"));
+  try {
+    await mkdir(join(root, "skills"));
+    await mkdir(join(root, "evals/prospective"), { recursive: true });
+    await mkdir(join(root, "scripts"));
+    await writeFile(join(root, "skills/advisor.md"), "before");
+    const before = await prospectiveSuiteFingerprint(root);
+    await writeFile(join(root, "skills/advisor.md"), "after");
+    assert.deepEqual(await prospectiveSuiteFingerprint(root), before);
+    await writeFile(join(root, "evals/prospective/case.json"), "new case");
+    const casesChanged = await prospectiveSuiteFingerprint(root);
+    assert.notEqual(casesChanged.value, before.value);
+    await writeFile(join(root, "scripts/advisor-prospective.mjs"), "new grader");
+    assert.notEqual((await prospectiveSuiteFingerprint(root)).value, casesChanged.value);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 
@@ -151,6 +188,39 @@ test("comparison explains incomplete artifacts directly", () => {
     () => compareProspectiveArtifacts(artifact("before", true), incomplete),
     /still incomplete: still-running/,
   );
+});
+
+test("comparison rejects missing, blank, changed, or differently versioned evaluator identity", () => {
+  const valid = artifact("before", true);
+  for (const fingerprint of [undefined, {}, { algorithm: "", value: "" },
+    { algorithm: "sha256-prospective-evaluator-tree-v2", value: "different" },
+    { algorithm: "sha256-prospective-suite-tree-v1", value: "e".repeat(64) }]) {
+    const other = artifact("after", true);
+    other.manifest.evaluation = { fingerprint };
+    assert.throws(() => compareProspectiveArtifacts(valid, other), /evaluator fingerprints/);
+    assert.throws(() => compareProspectiveArtifacts(other, valid), /evaluator fingerprints/);
+  }
+  assert.equal(compareProspectiveArtifacts(valid, artifact("after", true)).comparability.status, "same");
+});
+
+test("comparison CLI fails visibly on evaluator mismatch without rewriting artifacts", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prospective-compare-evaluator-"));
+  try {
+    for (const id of ["before", "after"]) {
+      const value = artifact(id, true);
+      value.manifest.evaluation.fingerprint.value = id;
+      await writeJson(join(root, id, "manifest.json"), value.manifest);
+      await writeJson(join(root, id, "result.json"), value.result);
+    }
+    const resultPath = join(root, "before", "result.json");
+    const prior = await readFile(resultPath, "utf8");
+    const command = spawnSync(process.execPath, ["scripts/advisor-prospective-manage.mjs", "compare", join(root, "before"), join(root, "after")], { encoding: "utf8" });
+    assert.equal(command.status, 1);
+    assert.match(command.stderr, /different evaluator fingerprints/);
+    assert.equal(await readFile(resultPath, "utf8"), prior);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("parallelism diagnostics measure available useful width without rewarding fan-out", () => {

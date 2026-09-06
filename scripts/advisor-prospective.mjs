@@ -162,9 +162,9 @@ export async function findLatestSessionPath(agentDir) {
   return candidates[0]?.path;
 }
 
-function validateRoleList(value, label) {
-  if (!Array.isArray(value) || !value.length || value.some((role) => !WORKER_ROLES.has(role))) {
-    throw new Error(`${label} must be a non-empty array of known worker roles`);
+function validateRoleList(value, label, { allowEmpty = false } = {}) {
+  if (!Array.isArray(value) || (!allowEmpty && !value.length) || value.some((role) => !WORKER_ROLES.has(role))) {
+    throw new Error(`${label} must be ${allowEmpty ? "an" : "a non-empty"} array of known worker roles`);
   }
   if (new Set(value).size !== value.length) throw new Error(`${label} must not contain duplicate roles`);
 }
@@ -173,7 +173,7 @@ function validateTopologyPolicy(topology) {
   if (!topology || typeof topology !== "object" || Array.isArray(topology)) {
     throw new Error("Prospective topology policy must be an object");
   }
-  if (topology.allowedRoles !== undefined) validateRoleList(topology.allowedRoles, "Prospective topology allowedRoles");
+  if (topology.allowedRoles !== undefined) validateRoleList(topology.allowedRoles, "Prospective topology allowedRoles", { allowEmpty: true });
   for (const [field, label] of [
     ["maximumSuccessfulWorkers", "maximumSuccessfulWorkers"],
     ["maximumGraphPlans", "maximumGraphPlans"],
@@ -409,7 +409,7 @@ export function buildAdvisorPrompt(caseDefinition, completionPath, runId) {
     .map((criterion, index) => `${index + 1}. **${criterion.id}** — ${criterion.claim}\n   Proof: ${criterion.proof}`)
     .join("\n");
   const processInstruction = caseDefinition.process?.instruction
-    ?? "Delegate implementation through the normal visible advisor worker path, independently rerun the named deterministic checks after settlement, and judge completion from those checks rather than worker prose.";
+    ?? "Use normal advisor judgment to choose direct execution or useful delegation. Verify the named checks and judge completion from evidence rather than agent prose.";
   return `/skill:advisor-native
 
 Call advisor_session_init with workstream "eval-${runId.slice(-12)}" and workerHarness "native" before any other tool.
@@ -424,7 +424,7 @@ ${caseDefinition.instruction.trim()}
 
 ${criteria}
 
-The root advisor must not implement product changes. ${processInstruction}
+${processInstruction}
 
 After the work is terminal, write exactly one lifecycle artifact to:
 
@@ -694,7 +694,7 @@ export function processChecks(normalized, completion, caseDefinition) {
   ) ?? [];
   const process = caseDefinition.process ?? {};
   const expectedStatus = process.expectedCompletionStatus ?? "completed";
-  const requirements = process.requiredDelegation ?? [{ id: "builder-delegation", roles: ["builder", "foreman"], minimum: 1 }];
+  const requirements = process.requiredDelegation ?? [];
   return [
     {
       id: "completion-signal",
@@ -740,6 +740,11 @@ export function processChecks(normalized, completion, caseDefinition) {
 
 export async function verifyPreparedRun(runDir) {
   const manifest = await readJsonFile(join(runDir, "manifest.json"), "prospective run manifest");
+  const recordedEvaluator = manifest.evaluation?.fingerprint;
+  const currentEvaluator = await prospectiveSuiteFingerprint();
+  if (recordedEvaluator?.algorithm !== currentEvaluator.algorithm || recordedEvaluator?.value !== currentEvaluator.value) {
+    throw new Error("Cannot reverify with a missing or different evaluator fingerprint; use the original evaluator or explicitly regrade into new provenance-bearing artifacts. Existing results were not changed.");
+  }
   const loaded = await loadProspectiveCase(manifest.case.id);
   const deterministic = await verifyProspectiveWorkspace(loaded, join(runDir, "workspace"));
   let completion;
@@ -766,8 +771,8 @@ export async function verifyPreparedRun(runDir) {
     ...processChecks(normalized, completion, loaded.definition),
     priorLifecycle ?? {
       id: "lifecycle",
-      passed: true,
-      evidence: "deterministic re-verifier reconstructed the bounded run artifacts",
+      passed: false,
+      evidence: "original lifecycle evidence is unavailable; deterministic re-verification cannot reconstruct it",
     },
   ];
   const passed = checks.every((check) => check.passed);

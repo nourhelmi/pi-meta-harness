@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "advisor-direct-repair",
+  "title": "Autonomy routing: choose an owner for a fully specified local repair",
+  "instruction": "The retry setting is wrong. Make `settings.json` agree with `contract.json` and run `npm test`. Preserve all other files and do not perform external effects. The complete local evidence is already in this workspace; there is no missing product decision.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The retry configuration passes its public verifier.", "proof": "Run `npm test` and require exit 0." },
+    { "id": "retry-limit-aligned", "claim": "The configured retry limit matches the unchanged contract.", "proof": "Compare settings with the contract and exercise the public verifier." },
+    { "id": "bounded-surface", "claim": "Only settings.json changes, including committed and untracked changes.", "proof": "The external verifier compares workspace files with the original fixture." }
+  ],
+  "process": {
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [],
+    "topology": {
+      "allowedRoles": ["builder", "foreman"],
+      "maximumSuccessfulWorkers": 1,
+      "maximumGraphPlans": 0,
+      "maximumUserQuestions": 0
+    }
+  },
+  "verifier": "tests/verify.mjs"
+}
