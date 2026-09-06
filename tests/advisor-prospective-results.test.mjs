@@ -111,6 +111,8 @@ test("real suite snapshot installs all current runtime and host-binding dependen
     for (const path of ["scripts/advisor-core/advisor-state.mjs", "advisor-hosts/scripts/codex-advisor-trace.mjs", "advisor-hosts/scripts/claude-advisor-trace.mjs"]) {
       assert((await readFile(join(target, path), "utf8")).length > 0, path);
     }
+    const runner = spawnSync(process.execPath, [join(snapshot.root, "scripts/advisor-prospective-manage.mjs"), "help"], { encoding: "utf8" });
+    assert.equal(runner.status, 0, runner.stderr);
   } finally {
     await rm(temp, { recursive: true, force: true });
   }
@@ -130,7 +132,10 @@ test("evaluator identity is independent of doctrine but changes with case and gr
     const casesChanged = await prospectiveSuiteFingerprint(root);
     assert.notEqual(casesChanged.value, before.value);
     await writeFile(join(root, "scripts/advisor-prospective.mjs"), "new grader");
-    assert.notEqual((await prospectiveSuiteFingerprint(root)).value, casesChanged.value);
+    const graderChanged = await prospectiveSuiteFingerprint(root);
+    assert.notEqual(graderChanged.value, casesChanged.value);
+    await writeFile(join(root, "scripts/advisor-prospective-metrics.mjs"), "new measurement");
+    assert.notEqual((await prospectiveSuiteFingerprint(root)).value, graderChanged.value);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

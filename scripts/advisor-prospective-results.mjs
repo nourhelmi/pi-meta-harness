@@ -31,6 +31,7 @@ export const PROSPECTIVE_EVALUATOR_INPUTS = [
   "scripts/advisor-prospective.mjs",
   "scripts/advisor-prospective-manage.mjs",
   "scripts/advisor-prospective-results.mjs",
+  "scripts/advisor-prospective-metrics.mjs",
 ];
 const SAFE_BASELINE_FILES = ["manifest.json", "prompt.md", "completion.json", "result.json", "trace.json", "trajectory.json"];
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;

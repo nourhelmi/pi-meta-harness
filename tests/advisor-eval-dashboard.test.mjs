@@ -45,6 +45,7 @@ test("prospective dashboard serves its workbench and local run inventory", async
         "false-fail-review",
         "foreman-blocked-decision",
         "foreman-cross-repo",
+        "medium-ticket-search",
         "parallel-evidence-merge",
         "risk-triggered-checker",
         "routing-ambiguity",

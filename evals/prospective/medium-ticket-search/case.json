@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "medium-ticket-search",
+  "title": "Realistic medium task: repair a paginated support-ticket search API",
+  "instruction": "Support staff report missing search results, incorrect page counts, and unstable ticket ordering. Repair the existing GET /tickets endpoint according to README.md. Follow the query through parsing, repository filtering, and response pagination; preserve the HTTP and validation contracts and add meaningful regression coverage in test/search-regression.test.mjs. Change only src/query.mjs, src/repository.mjs, src/search.mjs, and test/search-regression.test.mjs. Preserve the data, HTTP adapter, README, package metadata, and existing tests. Run npm test and verify the integrated behavior. Use your normal judgment about direct, delegated, or hybrid execution; there is no required role chain. No external services, dependency installation, commits, or deployment are needed.",
+  "acceptance": [
+    { "id": "public-check-passes", "claim": "The existing HTTP tests and added regression coverage pass.", "proof": "Run npm test with the immutable HTTP adapter and public tests." },
+    { "id": "search-contract", "claim": "Search composes normalized text, status, and all requested tags before stable sorting and pagination, with correct totals and no source mutation.", "proof": "Independent generated-data probes compare module and HTTP responses with a reference contract, including repeated requests and equal timestamps." },
+    { "id": "validation-preserved", "claim": "Default, invalid-query, method, and missing-route responses preserve the documented API contract.", "proof": "Independent HTTP probes assert defaults and 400/404/405 behavior." },
+    { "id": "regression-coverage", "claim": "The added regression tests exercise both the reported missing-results/pagination defect and source-order mutation.", "proof": "The new test file passes the repaired app and fails two independently injected faulty implementations, without relying on the existing public tests." },
+    { "id": "bounded-surface", "claim": "Only the three implementation modules and designated regression-test file change; evidence and the HTTP boundary remain intact.", "proof": "An external actual-filesystem inventory compares bytes, file kinds, modes, and paths with the original fixture after all probes." }
+  ],
+  "process": {
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": []
+  },
+  "verifier": "tests/verify.mjs"
+}

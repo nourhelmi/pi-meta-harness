@@ -3,6 +3,13 @@ import { createHash } from "node:crypto";
 import { lstat, readFile, readdir, readlink } from "node:fs/promises";
 import { join } from "node:path";
 
+// A child node --test must run independently of the harness's own test runner.
+export function verifierEnvironment() {
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  return env;
+}
+
 export async function readText(workspace, path) {
   try {
     return await readFile(join(workspace, path), "utf8");
@@ -47,7 +54,7 @@ async function inventory(root, prefix = "", entries = new Map()) {
 // Compare with the external fixture AFTER running tests so test-created files
 // count too. Committing or ignoring an expansion cannot hide it from this oracle.
 export async function workspaceChecks(workspace, fixture, editable) {
-  const publicCheck = spawnSync("npm", ["test", "--silent"], { cwd: workspace, encoding: "utf8", timeout: 30_000 });
+  const publicCheck = spawnSync("npm", ["test", "--silent"], { cwd: workspace, env: verifierEnvironment(), encoding: "utf8", timeout: 30_000 });
   let changed = [];
   let bounded = false;
   try {

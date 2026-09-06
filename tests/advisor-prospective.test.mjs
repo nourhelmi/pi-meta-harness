@@ -16,6 +16,7 @@ import {
   verifyPreparedRun,
 } from "../scripts/advisor-prospective.mjs";
 import { prospectiveSuiteFingerprint } from "../scripts/advisor-prospective-results.mjs";
+import { finishPerformance } from "../scripts/advisor-prospective-metrics.mjs";
 
 function git(cwd, ...args) {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });
@@ -57,7 +58,8 @@ test("reverification rejects evaluator drift before mutation and preserves lifec
     const loaded = await loadProspectiveCase("advisor-direct-repair");
     const fingerprint = await prospectiveSuiteFingerprint();
     const manifest = { schemaVersion: 1, runId: "reverify-test", case: { id: loaded.definition.id }, candidate: {} };
-    const prior = JSON.stringify({ checks: [{ id: "lifecycle", passed: false, evidence: "original timeout" }] });
+    const performance = finishPerformance({ startedAt: 0, finishedAt: 900_000, startedTick: 50, finishedTick: 900_050 });
+    const prior = JSON.stringify({ performance, checks: [{ id: "lifecycle", passed: false, evidence: "original timeout" }] });
     await writeFile(join(temp, "result.json"), prior);
     for (const recorded of [undefined, { algorithm: fingerprint.algorithm, value: "different" }, { algorithm: "old", value: fingerprint.value }]) {
       manifest.evaluation = { fingerprint: recorded };
@@ -74,12 +76,14 @@ test("reverification rejects evaluator drift before mutation and preserves lifec
     const preserved = await verifyPreparedRun(temp);
     assert.equal(preserved.reward, 0);
     assert.equal(preserved.checks.find((check) => check.id === "lifecycle").evidence, "original timeout");
+    assert.deepEqual(preserved.performance, performance);
     await writeFile(join(temp, "result.json"), JSON.stringify({ checks: [{ id: "lifecycle", passed: true, evidence: "original completion" }] }));
     assert.equal((await verifyPreparedRun(temp)).reward, 1);
     await rm(join(temp, "result.json"));
     const missing = await verifyPreparedRun(temp);
     assert.equal(missing.reward, 0);
     assert.equal(missing.checks.find((check) => check.id === "lifecycle").passed, false);
+    assert.equal(missing.performance, undefined);
   } finally {
     await rm(temp, { recursive: true, force: true });
   }

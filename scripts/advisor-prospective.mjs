@@ -20,6 +20,8 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { normalizeSession, parseJsonl } from "./advisor-eval-lib.mjs";
 import { createAtifTrajectory } from "./advisor-harbor-lib.mjs";
+import { performance } from "node:perf_hooks";
+import { finishPerformance, summarizeRootUsage } from "./advisor-prospective-metrics.mjs";
 import {
   candidateFingerprint,
   parallelismDiagnostics,
@@ -596,11 +598,12 @@ function herdrAgentInfo(target) {
 async function persistTrajectory(runState, sessionPath) {
   if (!sessionPath || !(await exists(sessionPath))) return undefined;
   const raw = await readFile(sessionPath, "utf8");
-  const normalized = normalizeSession(parseJsonl(raw));
+  const entries = parseJsonl(raw);
+  const normalized = normalizeSession(entries);
   await writeFile(join(runState.runDir, "trace.json"), `${JSON.stringify(normalized, null, 2)}\n`);
   const trajectory = createAtifTrajectory(normalized);
   await writeFile(join(runState.runDir, "trajectory.json"), `${JSON.stringify(trajectory, null, 2)}\n`);
-  return normalized;
+  return { normalized, rootUsage: summarizeRootUsage(entries) };
 }
 
 function topologyChecks(normalized, topology) {
@@ -760,9 +763,11 @@ export async function verifyPreparedRun(runDir) {
     normalized = undefined;
   }
   let priorLifecycle;
+  let priorPerformance;
   try {
     const prior = JSON.parse(await readFile(join(runDir, "result.json"), "utf8"));
     priorLifecycle = prior.checks?.find((check) => check.id === "lifecycle");
+    priorPerformance = prior.performance;
   } catch {
     priorLifecycle = undefined;
   }
@@ -786,6 +791,8 @@ export async function verifyPreparedRun(runDir) {
     checks,
     dimensions: summarizeResultDimensions({ checks }),
     parallelism: parallelismDiagnostics(normalized, loaded.definition.process?.parallelism),
+    // Regrading has no authority to reconstruct the original run's time or usage.
+    performance: priorPerformance,
   };
   await writeFile(join(runDir, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
   return result;
@@ -836,6 +843,8 @@ export async function startHerdrAgentWithRetry(
 }
 
 export async function runProspectiveCase(options) {
+  const startedAt = Date.now();
+  const startedTick = performance.now();
   const runState = await prepareProspectiveRun(options);
   const deadline = Date.now() + runState.timeoutMs;
   let tab;
@@ -843,6 +852,7 @@ export async function runProspectiveCase(options) {
   let lifecycleError;
   let completion;
   let normalized;
+  let rootUsage;
   try {
     run("codex", ["doctor", "--summary", "--no-color", "--ascii"], {
       cwd: runState.workspace,
@@ -894,7 +904,7 @@ export async function runProspectiveCase(options) {
     sessionPath ??= await findLatestSessionPath(runState.agentDir);
     if (sessionPath) {
       try {
-        normalized = await persistTrajectory(runState, sessionPath);
+        ({ normalized, rootUsage } = await persistTrajectory(runState, sessionPath) ?? {});
       } catch (error) {
         lifecycleError ??= `Could not normalize root session: ${error instanceof Error ? error.message : String(error)}`;
       }
@@ -933,6 +943,9 @@ export async function runProspectiveCase(options) {
     checks,
     dimensions: summarizeResultDimensions({ checks }),
     parallelism: parallelismDiagnostics(normalized, runState.definition.process?.parallelism),
+    performance: finishPerformance({
+      startedAt, startedTick, finishedAt: Date.now(), finishedTick: performance.now(), rootUsage,
+    }),
   };
   await writeFile(join(runState.runDir, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
   return { runDir: runState.runDir, result };

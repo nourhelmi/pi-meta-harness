@@ -202,7 +202,7 @@ explanatory rather than quality rewards.
 
 ### Live cases
 
-Seventeen cases. The original nine are **capability** cases — their visible
+Eighteen cases. The original nine are **capability** cases — their visible
 packets deliberately prescribe the role behavior under test. Five historical
 **routing/sizing** cases leave worker-role selection out of the visible packet,
 but their frozen hidden contracts still require a delegated builder. They test
@@ -242,6 +242,13 @@ scores answer different questions; do not blend them into an advisor-first targe
 | `advisor-direct-repair` | 🔴 failing | A fully specified local retry repair stays cohesive and bounded with the advisor or one delegated maker. | none required; builder or foreman allowed |
 | `advisor-plan-adaptation` | 🔴 failing | Current configuration and default-consumer probes override a stale planner recommendation; only the delivery sink changes. | none required; builder or foreman allowed |
 | `advisor-direct-capability` | 🔴 failing | An explicitly requested root-only repair demonstrates direct implementation and self-verification capability. | none allowed; explicit capability request |
+| `medium-ticket-search` | 🔴 failing | Repair a real loopback HTTP search API across parser, repository, and pagination; independent generated-data probes cover filtering, stable ordering, input preservation, validation, and added regression tests that reject two faulty variants. | none required; direct, delegated, or hybrid |
+
+The medium case is application-shaped rather than a marker/config edit. It has
+multiple interacting bugs, immutable API boundaries, and varied caller datasets.
+It is still a bounded in-memory service, not a production-scale database,
+deployment, or load test. Its visible contract requests meaningful regression
+coverage; hidden checks test behavior rather than requiring a particular patch.
 
 Repository tests prove the three passing or safely blocked cases start and remain read-only passes,
 and prove each mutation case fails before and passes after its exact expected
@@ -256,9 +263,9 @@ successful settlement coverage, and utilization against that declared width.
 These measurements are diagnostic and never change reward: raw worker count or
 gratuitous fan-out cannot earn a pass. The outer suite still runs cases
 sequentially to avoid cross-case subscription contention; parallelism is
-measured inside the one case where it is actually available. The three autonomy
-cases have no worker-width expectation; absence of helpers is not reported as
-underutilization.
+measured inside the one historical case where it is actually available. The
+three autonomy cases and the medium application case have no worker-width
+expectation; absence of helpers is not reported as underutilization.
 
 The runner no longer injects a blanket ban on root implementation or an implicit
 maker-delegation requirement. Capability cases retain their explicit role
@@ -298,10 +305,14 @@ the snapshot drifts. A suite summary and its setup identity are stored under
 `evals/local/prospective-runs/suites/`. This avoids silently mixing setup
 versions when the working tree changes during a long suite. The summary
 aggregates clean runs and passed checks for each outcome dimension plus
-useful-width utilization states. Use repeated trials for important releases
-because one stochastic run cannot establish reliability.
-For an autonomy comparison, use the same case/grader snapshot before and after
-the doctrine change, with the same explicit profile, model, and reasoning:
+useful-width utilization states and measured whole-attempt durations. Use repeated
+trials for important releases because one stochastic run cannot establish reliability.
+For causal attribution to doctrine alone, use the same case/grader snapshot
+before and after, with the same explicit profile, model, and reasoning. For
+whole-setup evaluation, model/profile changes are allowed: record the actual
+configuration and attribute improvements to the combined system, not to doctrine
+alone. Verified correct outcomes come first; time and resources are secondary.
+For example:
 
 ```bash
 npm run eval:advisor:prospective:suite -- \
@@ -327,6 +338,37 @@ pin, set `ADVISOR_EVAL_PI_DETACH_SOURCE=/absolute/path/to/pi-detach`. The
 staged Pi settings use a tracked-file snapshot of that local package, and its
 commit is folded into the setup fingerprint and manifest. Dirty dependency
 checkouts are rejected so comparisons remain identifiable.
+
+### Timing and resource coverage
+
+New live results store `performance.wallElapsedMs` from a monotonic clock started
+before preparation and stopped after cleanup and deterministic verification. It
+includes startup, handoffs, silent waits, timeout waits, and verification overhead;
+it is end-to-end attempt latency, not pure model compute. Completed failed runs
+retain their full durations. Suite summaries include failures and timeouts in
+total/median/max latency and leave missing legacy timings unknown, never zero.
+An exception before a result can be persisted aborts the suite; unrun cases and
+aborted preparation are not counted as verified outcomes.
+
+`performance.rootUsage` retains only numeric token counters from top-level root
+assistant messages before the temporary raw session is removed. Missing or
+malformed usage is unavailable/partial. Helpers, tool-internal LLM calls, and
+compaction usage are excluded; `allAgentTokens` and `billedCost` remain unknown.
+Root usage is not a whole-system efficiency or subscription-cost measurement.
+No content, raw identities, or cost payloads are copied by this aggregation.
+
+The older `diagnostics.elapsed` fields in traces, comparisons, and the workbench
+remain **root-event-span proxies**. They can miss silent timeout tails. Do not
+substitute them for whole-attempt latency or compare the two as identical metrics.
+Deterministic `verify` preserves original performance, just like lifecycle evidence;
+a quick regrade must never make a slow original attempt look fast. Measurement
+code is included in the frozen evaluator identity.
+
+Report per-case outcomes and durations before aggregating unlike tasks. A safe,
+expected approval-blocked outcome is a successful contract outcome, but is not a
+delivered implementation. Separate those from completed repairs and from runner
+failures. One full-suite trial is a coverage check, not a reliability estimate or
+proof of a general speedup.
 
 ### Storage and setup identity
 
