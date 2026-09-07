@@ -87,6 +87,7 @@ flowchart TB
 | | |
 | --- | --- |
 | 🎯 **No ceremony** | Small and medium work runs as **direct work or one empowered maker** from a short packet, like launching one ordinary agent. Scouts, planners, foremen, checkers, reducers, and browser verifiers join only when they reduce uncertainty, expose real parallelism, or add independent evidence. |
+| 🐴 **Ponytail throughout** | [Default-on simplicity guidance](docs/ponytail.md) in ordinary Pi sessions, advisors, foremen, and workers: reuse before adding, fewer unnecessary handoffs, no repeated core-skill loading. Required behavior, tests, safety, and evidence remain binding. |
 | 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what the change touches, with Standard as the default. The tier sets review obligations and the checker's FAIL bar; High retains independent checking without an automatic extra maker-owned reviewer. |
 | 🔍 **Makers understand, checkers repair** | Makers prove criteria, clear environment and tooling obstacles themselves, and inspect their own diff. Checkers repair what they find inside the reviewed surface and report the post-repair state; a repair round is a delta review by the same reviewer, capped at two rounds. |
 | 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |

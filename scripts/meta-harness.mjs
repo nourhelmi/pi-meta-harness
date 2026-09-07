@@ -72,6 +72,7 @@ const PORTABLE_COPY_ENTRIES = [
     .map((file) => [`scripts/advisor-runtime/${file}`, `scripts/advisor-runtime/${file}`]),
   ["extensions/herdr-blocked-bridge.ts", "extensions/herdr-blocked-bridge.ts"],
   ["extensions/claude-schema-compat.ts", "extensions/claude-schema-compat.ts"],
+  ["extensions/ponytail.ts", "extensions/ponytail.ts"],
   ["extensions/unified-edit.ts", "extensions/unified-edit.ts"],
   ["extensions/unified-edit-fallback/upstream.ts", "extensions/unified-edit-fallback/upstream.ts"],
   ["skills/advisor", "skills/advisor"],
@@ -178,8 +179,8 @@ Usage:
   node scripts/meta-harness.mjs restore --backup <dir> [--target <dir> | --live] [--allow-active]
   node scripts/meta-harness.mjs install-herdr-config [--target <dir> | --live] [--allow-active]
   node scripts/meta-harness.mjs restore-herdr --backup <dir> [--target <dir> | --live] [--allow-active]
-  node scripts/meta-harness.mjs skills-plan
-  node scripts/meta-harness.mjs install-skills --live [--allow-active]
+  node scripts/meta-harness.mjs skills-plan [--source <owner/repo>]
+  node scripts/meta-harness.mjs install-skills --live [--source <owner/repo>] [--allow-active]
   node scripts/meta-harness.mjs install-herdr-integration --live [--allow-active]
   node scripts/meta-harness.mjs verify-git-pins
 
@@ -199,9 +200,16 @@ function parseArgs(argv) {
     else if (value === "--host") options.host = rest[++index];
     else if (value === "--scope") options.scope = rest[++index];
     else if (value === "--cwd") options.cwd = rest[++index];
+    else if (value === "--source") {
+      options.source = rest[++index];
+      if (!options.source || options.source.startsWith("--")) throw new Error("--source requires an owner/repo");
+    }
     else throw new Error(`Unknown argument: ${value}`);
   }
   if (options.live && options.target) throw new Error("Choose either --live or --target");
+  if (options.source && !["skills-plan", "install-skills"].includes(command)) {
+    throw new Error("--source is only supported by skills-plan and install-skills");
+  }
   return options;
 }
 
@@ -1036,7 +1044,7 @@ async function restoreHerdr(options) {
   return restoreScoped(options, herdrTargetFor(options), HERDR_BACKUP_ROOT, "Herdr", destinations);
 }
 
-async function skillGroups() {
+async function skillGroups(source) {
   const manifest = await readJson(join(ROOT, "config", "skill-sources.json"), { groups: [] });
   if (manifest.schemaVersion !== 2 || !Array.isArray(manifest.groups)) {
     throw new Error("Skill source manifest schema or groups are invalid");
@@ -1058,6 +1066,11 @@ async function skillGroups() {
   if (new Set(allSkills).size !== allSkills.length) {
     throw new Error("Skill source manifest selects the same skill more than once");
   }
+  if (source) {
+    const selected = manifest.groups.filter((group) => group.source === source);
+    if (selected.length !== 1) throw new Error(`Unknown or ambiguous skill source: ${source}`);
+    return selected;
+  }
   return manifest.groups;
 }
 
@@ -1066,40 +1079,47 @@ async function retiredSkills() {
   return validatedSkillNames(removals, "Skill removal manifest");
 }
 
-async function installedSkillErrors() {
+function skillLockErrors(lock, groups) {
+  if (lock.schemaVersion !== 4 || lock.installer !== "skills@^1.5.23" || !isObject(lock.skills)) {
+    return ["Third-party skill lock is invalid or stale"];
+  }
   const errors = [];
-  const groups = await skillGroups();
+  for (const group of groups) {
+    for (const skill of group.skills) {
+      const entry = lock.skills[skill];
+      if (!isObject(entry) || entry.sourceUrl !== group.sourceUrl || entry.commit !== group.commit ||
+          entry.tree !== group.tree || !/^[0-9a-f]{64}$/.test(entry.sha256 ?? "")) {
+        errors.push(`Skill lock does not match its pinned source: ${skill}`);
+      }
+    }
+  }
+  return errors;
+}
+
+async function installedSkillErrors(
+  source,
+  agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent"),
+  canonicalSkillsRoot = join(homedir(), ".agents", "skills"),
+) {
+  const errors = [];
+  const groups = await skillGroups(source);
   const selected = new Set(groups.flatMap((group) => group.skills));
-  const retired = await retiredSkills();
+  const retired = source ? [] : await retiredSkills();
   for (const skill of retired) {
     if (selected.has(skill)) errors.push(`Skill is both selected and retired: ${skill}`);
-    const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
     const piInstalled = skillDestination(join(agentDir, "skills"), skill);
-    const globalInstalled = skillDestination(join(homedir(), ".agents", "skills"), skill);
+    const globalInstalled = skillDestination(canonicalSkillsRoot, skill);
     if (await exists(piInstalled) || await exists(globalInstalled)) {
       errors.push(`Retired skill is still installed: ${skill}`);
     }
   }
   const lock = await readJson(join(ROOT, "config", "third-party-skills.lock.json"), {});
-  if (lock.schemaVersion !== 4 || lock.installer !== "skills@^1.5.23" || !isObject(lock.skills)) {
-    return ["Third-party skill lock is invalid or stale"];
-  }
+  const lockErrors = skillLockErrors(lock, groups);
+  if (lockErrors.length) return [...errors, ...lockErrors];
   for (const group of groups) {
     for (const skill of group.skills) {
-      const entry = lock.skills[skill];
-      if (
-        !isObject(entry) ||
-        entry.sourceUrl !== group.sourceUrl ||
-        entry.commit !== group.commit ||
-        entry.tree !== group.tree ||
-        !/^[0-9a-f]{64}$/.test(entry.sha256 ?? "")
-      ) {
-        errors.push(`Skill lock does not match its pinned source: ${skill}`);
-        continue;
-      }
-      const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
       const piInstalled = skillDestination(join(agentDir, "skills"), skill);
-      const globalInstalled = skillDestination(join(homedir(), ".agents", "skills"), skill);
+      const globalInstalled = skillDestination(canonicalSkillsRoot, skill);
       const piPresent = await exists(piInstalled);
       const globalPresent = await exists(globalInstalled);
       if (piPresent && globalPresent && await realpath(piInstalled) !== await realpath(globalInstalled)) {
@@ -1107,7 +1127,7 @@ async function installedSkillErrors() {
       }
       const installed = piPresent ? piInstalled : globalPresent ? globalInstalled : undefined;
       if (!installed) errors.push(`Pinned skill is not installed: ${skill}`);
-      else if (await digest(installed, GENERATED_SKILL_FILES.get(skill)) !== entry.sha256) {
+      else if (await digest(installed, GENERATED_SKILL_FILES.get(skill)) !== lock.skills[skill].sha256) {
         errors.push(`Pinned skill content drift: ${skill}`);
       }
     }
@@ -1115,14 +1135,14 @@ async function installedSkillErrors() {
   return errors;
 }
 
-async function promoteSkillsToCanonical(agentDir, skills) {
+async function promoteSkillsToCanonical(stagedAgentDir, agentDir, skills) {
   const canonicalRoot = join(homedir(), ".agents", "skills");
   await mkdir(canonicalRoot, { recursive: true });
   for (const skill of skills) {
-    const piInstalled = skillDestination(join(agentDir, "skills"), skill);
-    if (!(await exists(piInstalled))) throw new Error(`Pi skill installation is missing: ${skill}`);
-    await copyReplacing(piInstalled, skillDestination(canonicalRoot, skill));
-    await rm(piInstalled, { recursive: true, force: true });
+    const staged = skillDestination(join(stagedAgentDir, "skills"), skill);
+    if (!(await exists(staged))) throw new Error(`Staged Pi skill installation is missing: ${skill}`);
+    await copyReplacing(staged, skillDestination(canonicalRoot, skill));
+    await rm(skillDestination(join(agentDir, "skills"), skill), { recursive: true, force: true });
   }
 }
 
@@ -1210,45 +1230,18 @@ async function verifyGitPins() {
   console.log(`Verified ${pins.length} exact Git package pin(s).`);
 }
 
-async function skillsPlan() {
-  for (const group of await skillGroups()) {
+async function skillsPlan(options) {
+  for (const group of await skillGroups(options.source)) {
     const command = skillInstallCommand(group, "<verified-checkout>");
     console.log(`PIN ${group.sourceUrl}@${group.commit} tree=${group.tree} :: ${command.join(" ")}`);
   }
 }
 
-async function installSkills(options) {
-  if (!options.live) throw new Error("Third-party global skill installation requires --live");
-  assertLiveSafety(options);
-  const groups = await skillGroups();
-  const skills = groups.flatMap((group) => group.skills);
-  const retired = await retiredSkills();
-  const selected = new Set(skills);
-  const overlap = retired.find((skill) => selected.has(skill));
-  if (overlap) throw new Error(`Skill is both selected and retired: ${overlap}`);
-  const managedSkills = [...skills, ...retired];
-  const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
-  const piSkillsRoot = join(agentDir, "skills");
-  const canonicalSkillsRoot = join(homedir(), ".agents", "skills");
-  for (const skill of managedSkills) {
-    skillDestination(piSkillsRoot, skill);
-    skillDestination(canonicalSkillsRoot, skill);
-  }
-  const piBackup = await createScopedBackup(
-    agentDir,
-    managedSkills.map((skill) => join("skills", skill)),
-    SKILL_BACKUP_ROOT,
-  );
-  const canonicalRoot = join(homedir(), ".agents");
-  const canonicalBackup = await createScopedBackup(
-    canonicalRoot,
-    [...managedSkills.map((skill) => join("skills", skill)), ".skill-lock.json"],
-    SKILL_BACKUP_ROOT,
-  );
-  console.log(`Pi skill backup: ${piBackup}`);
-  console.log(`Canonical skill backup: ${canonicalBackup}`);
+async function stageSkillGroups(groups, temporary) {
+  const stagingHome = join(temporary, "home");
+  const stagedAgentDir = join(stagingHome, ".pi", "agent");
+  await mkdir(stagingHome, { recursive: true });
   for (const group of groups) {
-    const temporary = await mkdtemp(join(tmpdir(), "pi-meta-harness-skills-"));
     const checkout = join(temporary, "source");
     try {
       await mkdir(checkout, { recursive: true });
@@ -1262,21 +1255,85 @@ async function installSkills(options) {
         throw new Error(`Pinned skill source verification failed: ${group.source}`);
       }
       const [command, ...args] = skillInstallCommand(group, checkout);
-      console.log(`Installing ${group.source}@${group.commit}`);
-      runChecked(command, args, { stdio: "inherit", encoding: undefined });
-      await promoteSkillsToCanonical(agentDir, group.skills);
+      console.log(`Staging ${group.source}@${group.commit}`);
+      runChecked(command, args, {
+        stdio: "inherit", encoding: undefined,
+        env: {
+          ...process.env,
+          HOME: stagingHome,
+          XDG_CONFIG_HOME: join(stagingHome, ".config"),
+          PI_CODING_AGENT_DIR: stagedAgentDir,
+          npm_config_cache: process.env.npm_config_cache ?? join(homedir(), ".npm"),
+        },
+      });
     } finally {
-      await rm(temporary, { recursive: true, force: true });
+      await rm(checkout, { recursive: true, force: true });
     }
   }
-  for (const skill of retired) {
-    await rm(skillDestination(piSkillsRoot, skill), { recursive: true, force: true });
-    await rm(skillDestination(canonicalSkillsRoot, skill), { recursive: true, force: true });
+  return { stagedAgentDir, canonicalSkillsRoot: join(stagingHome, ".agents", "skills") };
+}
+
+async function restoreSkillBackups(options, backups, originalError) {
+  const failures = [];
+  for (const { target, backup, destinations } of backups) {
+    try {
+      await restoreScoped({ ...options, backup }, target, SKILL_BACKUP_ROOT, "Skills", destinations);
+    } catch (error) {
+      failures.push(`${target}: ${error.message}`);
+    }
   }
-  await releaseManagedSkillsFromGenericLock(managedSkills);
-  const verificationErrors = await installedSkillErrors();
-  if (verificationErrors.length) throw new Error(verificationErrors.join("\n"));
-  console.log("Third-party skills installed from verified commits and hashes. Pi was not reloaded.");
+  if (failures.length) {
+    throw new Error(`Skill installation failed: ${originalError.message}. Rollback incomplete: ${failures.join("; ")}. Backups: ${backups.map(({ backup }) => backup).join(", ")}`);
+  }
+}
+
+async function installSkills(options) {
+  if (!options.live) throw new Error("Third-party global skill installation requires --live");
+  assertLiveSafety(options);
+  const groups = await skillGroups(options.source);
+  const skills = groups.flatMap((group) => group.skills);
+  const removals = await retiredSkills();
+  const selected = new Set(skills);
+  const overlap = removals.find((skill) => selected.has(skill));
+  if (overlap) throw new Error(`Skill is both selected and retired: ${overlap}`);
+  const lock = await readJson(join(ROOT, "config", "third-party-skills.lock.json"), {});
+  const lockErrors = skillLockErrors(lock, groups);
+  if (lockErrors.length) throw new Error(lockErrors.join("\n"));
+  // A scoped addition must not retire unrelated skills or rewrite their lock entries.
+  const retired = options.source ? [] : removals;
+  const destinations = [...skills, ...retired].map((skill) => join("skills", skill));
+  const agentDir = resolve(process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent"));
+  const canonicalRoot = join(homedir(), ".agents");
+  const temporary = await mkdtemp(join(tmpdir(), "pi-meta-harness-skills-"));
+  try {
+    // The external CLI and its generic lock writes stay in a temporary home.
+    // Verify every selected installed byte before publishing any discoverable skill.
+    const staged = await stageSkillGroups(groups, temporary);
+    const stagedErrors = await installedSkillErrors(options.source, staged.stagedAgentDir, staged.canonicalSkillsRoot);
+    if (stagedErrors.length) throw new Error(stagedErrors.join("\n"));
+    const backups = [];
+    for (const [target, paths] of [[agentDir, destinations], [canonicalRoot, [...destinations, ".skill-lock.json"]]]) {
+      const backup = await createScopedBackup(target, paths, SKILL_BACKUP_ROOT);
+      backups.push({ target, backup, destinations: paths });
+      console.log(`Skill backup: ${backup}`);
+    }
+    try {
+      await promoteSkillsToCanonical(staged.stagedAgentDir, agentDir, skills);
+      for (const skill of retired) {
+        await rm(skillDestination(join(agentDir, "skills"), skill), { recursive: true, force: true });
+        await rm(skillDestination(join(canonicalRoot, "skills"), skill), { recursive: true, force: true });
+      }
+      const verificationErrors = await installedSkillErrors(options.source);
+      if (verificationErrors.length) throw new Error(verificationErrors.join("\n"));
+      await releaseManagedSkillsFromGenericLock([...skills, ...retired]);
+    } catch (error) {
+      await restoreSkillBackups(options, backups, error);
+      throw error;
+    }
+    console.log("Third-party skills installed from verified commits and hashes. Pi was not reloaded.");
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 }
 
 function installHerdrIntegration(options) {
@@ -1298,7 +1355,7 @@ async function main() {
     else if (options.command === "install-herdr-config") await installHerdrConfig(options);
     else if (options.command === "restore-herdr") await restoreHerdr(options);
     else if (options.command === "verify-git-pins") await verifyGitPins();
-    else if (options.command === "skills-plan") await skillsPlan();
+    else if (options.command === "skills-plan") await skillsPlan(options);
     else if (options.command === "install-skills") await installSkills(options);
     else if (options.command === "install-herdr-integration") installHerdrIntegration(options);
     else usage();
