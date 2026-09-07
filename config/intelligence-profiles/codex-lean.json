@@ -1,34 +1,25 @@
 {
   "name": "codex-lean",
   "models": {
-    "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model. The advisor session runs at medium. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, implementation, or planner nodes. Planner in this profile is Astra. When Anthropic capacity is reached, the advisor session switches to Astra at high. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
-      "defaultThinking": "high"
-    },
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: Planner by default at high, and the hard-implementation workhorse: long or difficult backend, data, service, mixed-stack, and genuinely hard debugging, escalating to xhigh only when genuinely needed. Also the advisor-session fallback when Fable is at Anthropic capacity. Review and reduction are Sol xhigh; scouting, browser verification, short-leash chores, and locked execution packets are Sol high; medium well-known work may be Sonnet. Load frontend-design for UX work.",
-      "defaultThinking": "high"
-    },
-    "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: Cheap enough to spend in this profile: medium well-known implementation that still needs material judgment, scouting when Sol is a poor fit, reduction, and review that is not adversarial-tier. Bounded Anthropic 5-hour bursts. Load frontend-design for UX work. Generally avoid assigning planning, genuinely hard or unfamiliar implementation (that is Astra high), adversarial schema/auth/security/money/final whole-diff review (that is Sol xhigh), or locked execution packets (those are Sol high). Grok is not a fallback here — switch to grok-cycle instead.",
-      "defaultThinking": "high"
+      "character": "Advisory: The advisor's own session model at xhigh. Planner and foreman nodes use high. Decision-bearing builders use medium, including backend, data, service, mixed-stack, debugging, and all UX implementation with frontend-design loaded. Fully locked execution packets use Astra low when the approach, surface, material decisions, and deterministic anchors are fixed; that executor owns ordinary local code choices, resolves environment and tooling obstacles locally and records them under Deviations, but stops and escalates on material ambiguity. Checker and reducer nodes use Astra low for fresh-context review and bounded synthesis. This profile recommends Codex models only.",
+      "defaultThinking": "xhigh"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Generally avoid decision-bearing implementation at high. Recommended reasoning is high for procedural work and xhigh for review and reduction.",
-      "defaultThinking": "high"
+      "character": "Advisory: The bounded scouting model at medium reasoning. Use it for source-linked investigation that reduces uncertainty before planning or implementation. Builders, review, reduction, and browser verification use the profile's Astra or Luna recommendations instead.",
+      "defaultThinking": "medium"
+    },
+    "openai-codex/gpt-5.6-luna": {
+      "character": "Advisory: The browser-verification model at max reasoning for integrated browser exercise and bounded evidence capture. Other semantic roles use Astra or Sol in this profile.",
+      "defaultThinking": "max"
     }
   },
   "recommendations": {
     "scout": [
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
-        "fit": "Preferred for bounded investigation in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
+        "thinking": "medium",
+        "fit": "Preferred for bounded source-linked investigation in this profile."
       }
     ],
     "planner": [
@@ -40,31 +31,21 @@
     ],
     "reducer": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "xhigh",
-        "fit": "Preferred for synthesis and conflict reduction in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Alternate for reduction when scope, risk, or capacity warrants."
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "low",
+        "fit": "Preferred for review-family synthesis and conflict reduction in this profile."
       }
     ],
     "builder": [
       {
         "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
-        "fit": "Preferred implementation choice in this profile."
+        "thinking": "medium",
+        "fit": "Preferred for decision-bearing implementation, including all UX work with frontend-design loaded."
       },
       {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
-      },
-      {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
-        "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "low",
+        "fit": "Preferred token-efficient executor for a fully locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
     "foreman": [
@@ -76,26 +57,16 @@
     ],
     "checker": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "xhigh",
-        "fit": "Preferred fresh-context review choice in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "low",
+        "fit": "Preferred fresh-context checker and reviewer in this profile."
       }
     ],
     "browser-verifier": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
         "fit": "Preferred for browser verification in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Alternate for ambiguous visual or behavioral verification."
       }
     ]
   }

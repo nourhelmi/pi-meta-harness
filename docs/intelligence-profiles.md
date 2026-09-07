@@ -104,7 +104,7 @@ The shipped locked-packet executors are:
 | Profile | Cheap executor |
 | --- | --- |
 | `codex-max` | Sol high |
-| `codex-lean` | Sol high |
+| `codex-lean` | Astra low |
 | `balanced` | Sol high |
 | `anthropic-heavy` | Sol high while Codex capacity remains |
 | `grok-cycle` | Sonnet medium |
@@ -203,21 +203,25 @@ work; lower total task cost is a hypothesis, not a measured guarantee.
 Changing the guide does not change an already-running advisor's reasoning
 level or a worker's launch identity.
 
-### `codex-lean` — spend the Codex remainder carefully
+### `codex-lean` — Codex-only, effort-lean
 
 | Role | Ordered recommendations |
 | --- | --- |
+| advisor | Astra xhigh (session guidance) |
 | planner | Astra high |
-| builder | Astra high, Sonnet high, Sol high (locked packet) |
-| checker | Sol xhigh, Sonnet high |
-| reducer | Sol xhigh, Sonnet high |
-| scout | Sol high, Sonnet high |
-| browser-verifier | Sol high, Sonnet high |
+| builder | Astra medium, Astra low (fully locked packet) |
+| foreman | Astra high |
+| checker | Astra low |
+| reducer | Astra low |
+| scout | Sol medium |
+| browser-verifier | Luna max |
 
-Astra high plans and handles hard builds, while Sol xhigh handles adversarial
-review and hefty reduction. Sonnet handles medium well-known work and ordinary
-review; Sol high handles locked execution packets and procedural work. Fable is
-advisor-session guidance rather than a worker recommendation in this profile.
+Astra xhigh is the advisor-session guidance; planner and foreman nodes use
+Astra high. Decision-bearing builders use Astra medium, while fully locked
+execution packets use Astra low for better token efficiency. Checker and
+reducer nodes use Astra low, Sol medium handles bounded scouting, and Luna max
+handles browser verification. Every mapped model is an OpenAI Codex model;
+the guide remains advisory rather than a runtime allowlist.
 
 ### `anthropic-heavy` — spend the 5-hour window deliberately
 

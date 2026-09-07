@@ -1029,8 +1029,22 @@ test("reinstall keeps a switched intelligence profile", async () => {
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-lean");
   assert.equal(guide.recommendations.planner[0].model, "openai-codex/gpt-6-astra");
-  assert.equal(guide.recommendations.builder[1].model, "claude-bridge/claude-sonnet-5");
-  assert(!Object.keys(guide.models).some((id) => id.startsWith("cursor/")));
+  assert.deepEqual(
+    guide.recommendations.scout.map(({ model, thinking }) => [model, thinking]),
+    [["openai-codex/gpt-5.6-sol", "medium"]],
+  );
+  assert.deepEqual(
+    guide.recommendations.builder.map(({ model, thinking }) => [model, thinking]),
+    [
+      ["openai-codex/gpt-6-astra", "medium"],
+      ["openai-codex/gpt-6-astra", "low"],
+    ],
+  );
+  assert.deepEqual(
+    guide.recommendations["browser-verifier"].map(({ model, thinking }) => [model, thinking]),
+    [["openai-codex/gpt-5.6-luna", "max"]],
+  );
+  assert(Object.keys(guide.models).every((id) => id.startsWith("openai-codex/")));
   const doctor = run("doctor", "--target", target);
   assert.equal(doctor.status, 0, `${doctor.stdout}\n${doctor.stderr}`);
   await rm(target, { recursive: true, force: true });
