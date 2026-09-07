@@ -202,7 +202,7 @@ explanatory rather than quality rewards.
 
 ### Live cases
 
-Eighteen cases. The original nine are **capability** cases — their visible
+Twenty-one cases. The original nine are **capability** cases — their visible
 packets deliberately prescribe the role behavior under test. Five historical
 **routing/sizing** cases leave worker-role selection out of the visible packet,
 but their frozen hidden contracts still require a delegated builder. They test
