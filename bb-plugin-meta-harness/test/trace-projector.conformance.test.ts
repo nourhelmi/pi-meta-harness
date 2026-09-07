@@ -275,6 +275,12 @@ describe("current protocol conformance and adversarial ordering", async () => {
       ),
     })),
   );
+  const deviationPath = resolve(import.meta.dirname, "fixtures/deviation-follow-up.jsonl");
+  fixtures.push({
+    name: "deviation-follow-up",
+    path: deviationPath,
+    events: parseTrace(await readFile(deviationPath, "utf8")),
+  });
   const { syntheticLifecycleEvents } = await import("./fixtures.js");
   const { traceProjectionSchema, traceDetailResponseSchema } =
     await import("../src/contracts.js");
@@ -515,8 +521,56 @@ describe("current protocol conformance and adversarial ordering", async () => {
         run: done[0]!.run,
         data: { reason },
       });
-      compare(normalize(done), "E_RESUME");
+      if (reason === "follow-up") {
+        expect(compare(normalize(done))).toEqual({ ok: true, problems: [] });
+      } else {
+        compare(normalize(done), "E_RESUME");
+      }
     }
+  });
+
+  it("preserves bounded deviations across done and failed follow-up attempts", () => {
+    const events = fixture("deviation-follow-up");
+    expect(compare(events)).toEqual({ ok: true, problems: [] });
+    const projection = projectTrace(events);
+    expect(projection.nodes[0]).toMatchObject({
+      attempts: 2,
+      deviations: [
+        { count: 1, items: ["Used an equivalent local fixture."] },
+        { count: 1, items: ["Reused unchanged verification evidence."] },
+      ],
+    });
+    expect(traceProjectionSchema.parse(projection)).toEqual(projection);
+    const failed = structuredClone(events);
+    const settled = failed.find((event) => event.type === "node.settled")!;
+    if (settled.type === "node.settled") settled.data.status = "failed";
+    const wake = failed.find((event) => event.type === "parent.awakened")!;
+    if (wake.type === "parent.awakened") wake.data.childStatus = "failed";
+    expect(compare(failed)).toEqual({ ok: true, problems: [] });
+  });
+
+  it("rejects oversized deviations and per-attempt ordering violations like the reference", () => {
+    for (const items of [[], [""], ["x".repeat(201)], Array<string>(9).fill("x")]) {
+      const events = fixture("deviation-follow-up");
+      const deviation = events.find((event) => event.type === "node.deviation")!;
+      if (deviation.type === "node.deviation") deviation.data.items = items;
+      compare(events, "E_SCHEMA");
+    }
+    for (const index of [3, 5, 8]) {
+      const events = fixture("deviation-follow-up");
+      const deviation = events.splice(4, 1)[0]!;
+      events.splice(index, 0, deviation);
+      compare(normalize(events), "E_RESULT_ORDER");
+    }
+    const duplicate = fixture("deviation-follow-up");
+    duplicate.splice(5, 0, structuredClone(duplicate[4]!));
+    compare(normalize(duplicate), "E_RESULT_ORDER");
+    const atLimit = fixture("deviation-follow-up");
+    const deviation = atLimit.find((event) => event.type === "node.deviation")!;
+    if (deviation.type === "node.deviation") {
+      deviation.data = { count: 8, items: Array<string>(8).fill("x".repeat(200)) };
+    }
+    expect(compare(atLimit)).toEqual({ ok: true, problems: [] });
   });
 
   it("resets validation gates on resume while retaining projected history", () => {

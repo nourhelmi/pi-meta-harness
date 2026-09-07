@@ -181,6 +181,13 @@ export const traceProjectionSchema = z
           progress: z.array(
             z.object({ at: z.string(), note: z.string() }).strict(),
           ),
+          deviations: z.array(
+            z.object({
+              at: z.string(),
+              count: z.number().int().positive(),
+              items: z.array(z.string().min(1).max(200)).min(1).max(8),
+            }).strict(),
+          ),
           blockedRequest: blockedRequestSchema.nullable(),
           resultPath: z.string().nullable(),
           resultValid: z.boolean().nullable(),

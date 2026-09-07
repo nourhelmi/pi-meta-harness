@@ -90,6 +90,11 @@ type NodeResultWrittenEvent = EventEnvelope<
   { path: string; sha256?: string }
 > & { node: string; parent: string };
 
+type NodeDeviationEvent = EventEnvelope<
+  "node.deviation",
+  { count: number; items: string[] }
+> & { node: string; parent: string };
+
 type NodeResultValidatedEvent = EventEnvelope<
   "node.result.validated",
   { path: string; valid: boolean; problems: string[]; status?: string }
@@ -157,6 +162,7 @@ export type CanonicalEvent =
   | NodeProgressEvent
   | NodeBlockedEvent
   | NodeResultWrittenEvent
+  | NodeDeviationEvent
   | NodeResultValidatedEvent
   | NodeSettledEvent
   | ParentAwakenedEvent;
@@ -176,8 +182,10 @@ interface JsonSchema {
   additionalProperties?: boolean | JsonSchema;
   items?: JsonSchema;
   minItems?: number;
+  maxItems?: number;
   minimum?: number;
   minLength?: number;
+  maxLength?: number;
   pattern?: string;
   format?: string;
   [key: string]: unknown;
@@ -343,6 +351,9 @@ export function checkSchema(
     if (schema.minItems !== undefined && value.length < schema.minItems) {
       problems.push(`${path}: expected at least ${schema.minItems} item(s)`);
     }
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+      problems.push(`${path}: expected at most ${schema.maxItems} item(s)`);
+    }
     if (schema.items !== undefined) {
       value.forEach((item, index) =>
         checkSchema(schema.items!, item, `${path}[${index}]`, root, problems),
@@ -361,6 +372,9 @@ export function checkSchema(
       problems.push(
         `${path}: expected at least ${schema.minLength} character(s)`,
       );
+    }
+    if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+      problems.push(`${path}: expected at most ${schema.maxLength} character(s)`);
     }
     if (
       schema.pattern !== undefined &&
@@ -385,6 +399,7 @@ interface NodeValidationState {
   blockedSeq: number | undefined;
   written: string | undefined;
   validated: { path: string; valid: boolean } | undefined;
+  deviationSeq: number | undefined;
   settled: { status: SettledStatus; seq: number } | undefined;
   settlements: { status: SettledStatus; seq: number }[];
   wakeCount: number;
@@ -571,6 +586,7 @@ export function validateTrace(
         blockedSeq: undefined,
         written: undefined,
         validated: undefined,
+        deviationSeq: undefined,
         settled: undefined,
         settlements: [],
         wakeCount: 0,
@@ -693,11 +709,14 @@ export function validateTrace(
         event.data.reason === "restart" &&
         state.settlements.length === 0 &&
         !state.settled;
-      if (!resumesSettlement && !restartsUnsettled) {
+      const followsTerminal =
+        event.data.reason === "follow-up" &&
+        ["done", "failed"].includes(state.settled?.status ?? "");
+      if (!resumesSettlement && !restartsUnsettled && !followsTerminal) {
         report(
           RULE_CODES.RESUME,
           seq,
-          "node.resumed requires a blocked or stalled settlement, or restart before any settlement",
+          "node.resumed requires blocked/stalled settlement, terminal follow-up, or restart before any settlement",
         );
         continue;
       }
@@ -713,6 +732,7 @@ export function validateTrace(
       state.blockedSeq = undefined;
       state.written = undefined;
       state.validated = undefined;
+      state.deviationSeq = undefined;
       state.settled = undefined;
       state.cancelSeq = undefined;
       continue;
@@ -750,6 +770,12 @@ export function validateTrace(
         break;
       case "node.result.written":
         state.written = event.data.path;
+        break;
+      case "node.deviation":
+        if (!state.written || state.validated || state.deviationSeq) {
+          report(RULE_CODES.RESULT_ORDER, seq, "node.deviation requires result.written, precedes result.validated, and appears at most once per attempt");
+        }
+        state.deviationSeq = seq;
         break;
       case "node.result.validated":
         if (state.written !== event.data.path) {
@@ -896,6 +922,7 @@ export function projectTrace(
         replies: [],
         cancelRequested: false,
         progress: [],
+        deviations: [],
         blockedRequest: null,
         resultPath: event.data.resultPath ?? null,
         resultValid: null,
@@ -933,6 +960,9 @@ export function projectTrace(
       case "node.result.written":
         node.state = "result-written";
         node.resultPath = event.data.path;
+        break;
+      case "node.deviation":
+        node.deviations.push({ at: event.at, count: event.data.count, items: [...event.data.items] });
         break;
       case "node.result.validated":
         node.state = event.data.valid ? "result-validated" : "result-invalid";
