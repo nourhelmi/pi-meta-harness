@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { inspectInstallation } from './install.mjs';
 import { fields } from './contract.mjs';
 import { demand, safeFile, disjointControlPath, RuntimeError } from './security.mjs';
-import { permissionConfig, configArgs, READ_PROFILE, managedProviderHomes, assertPermissionConfig, providerEnvironment } from './native-boundary.mjs';
+import { permissionConfig, configArgs, managedProviderHomes, assertPermissionConfig, providerEnvironment } from './native-boundary.mjs';
 import { codexIsolatedConfig, codexVersion, CodexWire } from './adapters/codex.mjs';
 import { NATIVE_LIMITS, ROOT_DOCTRINE, environment } from './adapters/common.mjs';
 import { CLAUDE_CLI_VERSION } from './adapters/claude.mjs';
@@ -28,7 +28,8 @@ export function entryPlan(host, project, bootstrapPath) {
   if (host === 'codex') {
     codexIsolatedConfig(home, cwd, { ownedEntryProject: true });
     const nativeConfig = { ...permissionConfig(cwd, boundary.controls, config.allowedRoots), projects: { [cwd]: { trust_level: 'trusted' } }, approval_policy: 'never', mcp_servers: { advisor_runtime: { ...mcp, environment_id: 'local', enabled: true, required: true, startup_timeout_sec: 8, tool_timeout_sec: 15 } } };
-    return { host, command: 'codex', cwd, env: boundary.env, config: nativeConfig, args: [...configArgs(nativeConfig), '-P', READ_PROFILE, '--ask-for-approval', 'never', '--cd', cwd, ROOT_DOCTRINE] };
+    // The interactive CLI selects the attested default_permissions config; -P is sandbox-only.
+    return { host, command: 'codex', cwd, env: boundary.env, config: nativeConfig, args: [...configArgs(nativeConfig), '--ask-for-approval', 'never', '--cd', cwd, ROOT_DOCTRINE] };
   }
   const settings = { hooks: { PreToolUse: [{ matcher: '.*', hooks: [{ type: 'command', command: process.execPath, args: [fileURLToPath(new URL('./native-hook.mjs', import.meta.url)), cwd, JSON.stringify(config.allowedRoots)], timeout: 10 }] }] } };
   return { host, command: 'claude', cwd, env: boundary.env, args: ['--setting-sources', '', '--settings', JSON.stringify(settings), '--strict-mcp-config', '--mcp-config', JSON.stringify({ mcpServers: { advisor_runtime: { type: 'stdio', ...mcp } } }), '--tools', 'Read,Glob,Grep,AskUserQuestion', ...config.allowedRoots.flatMap(path => ['--add-dir', path]), '--permission-mode', 'default', '--append-system-prompt', ROOT_DOCTRINE] };

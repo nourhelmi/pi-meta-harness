@@ -443,3 +443,45 @@ test('MCP framing rejects protocol drift, excess requests and oversized wire byt
   await assert.rejects(serveMcp({}, Readable.from(lines), sink()), /REQUEST_LIMIT/);
   await assert.rejects(serveMcp({}, Readable.from(['x'.repeat(70000)]), sink()), /ENVELOPE_TOO_LARGE/);
 });
+
+test('MCP request metadata is accepted but never becomes runtime authority or durable content', async t => {
+  const h = setup(t); const service = await startService(h.runtime);
+  try {
+    const token = h.runtime.registerPrincipal({ id: 'metadata-model', kind: 'advisor', scopes: [h.grants[0]], operations: ['workstream.open'] });
+    const mcp = createMcpHandler({ socketPath: service.socketPath, token });
+    const init = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'fixture', version: '1' } } };
+    assert.equal((await mcp(init)).result.serverInfo.name, 'advisor-runtime');
+    const sentinel = 'MCP_METADATA_NOT_RUNTIME_CONTENT';
+    const meta = { progressToken: 'progress-1', extension: sentinel, token: h.token, scope: scope('checker'), op: 'root.create' };
+    const list = { jsonrpc: '2.0', id: 2, method: 'tools/list', params: { _meta: meta } };
+    assert.deepEqual((await mcp(list)).result?.tools.map(tool => tool.name), ['advisor_workstream_open']);
+    assert.equal((await mcp({ ...init, params: { ...init.params, _meta: { progressToken: 17 } } })).result.serverInfo.name, 'advisor-runtime');
+    const { op: _op, ...args } = read('workstream.open');
+    const call = { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'advisor_workstream_open', arguments: args, _meta: meta } };
+    assert.equal((await mcp(call)).result.isError, false);
+    for (const progressToken of ['token', 0, 2.5]) assert.equal((await mcp({ ...list, params: { _meta: { progressToken } } })).result.tools.length, 1);
+    for (const _meta of [null, [], true, 'invalid', { progressToken: null }, { progressToken: {} }, { progressToken: true }, { progressToken: Infinity }]) {
+      assert.equal((await mcp({ ...list, params: { _meta } })).error.message, 'INVALID_MCP_METADATA');
+    }
+    assert.equal((await mcp({ ...list, foreign: true })).error.message, 'EXTRA_FIELD');
+    assert.equal((await mcp({ ...list, params: { ...list.params, foreign: true } })).error.message, 'EXTRA_FIELD');
+    assert.equal((await mcp({ ...call, params: { ...call.params, arguments: { ...args, op: 'root.create' } } })).error.message, 'EXTRA_FIELD');
+    const extraArgument = await mcp({ ...call, params: { ...call.params, arguments: { ...args, _meta: meta } } });
+    assert.equal(JSON.parse(extraArgument.result.content[0].text).error, 'EXTRA_FIELD');
+    const deniedScope = await mcp({ ...call, params: { ...call.params, arguments: { ...args, scope: scope('checker') } } });
+    assert.equal(JSON.parse(deniedScope.result.content[0].text).error, 'SCOPE_FORBIDDEN');
+    const deniedOperation = await mcp({ ...call, params: { ...call.params, name: 'advisor_progress' } });
+    assert.equal(JSON.parse(deniedOperation.result.content[0].text).error, 'OPERATION_FORBIDDEN');
+    const unsafe = createMcpHandler({ socketPath: service.socketPath, token: h.token }); await unsafe(init);
+    assert.equal(JSON.parse((await unsafe(call)).result.content[0].text).error, 'MODEL_OPERATOR_FORBIDDEN');
+    h.runtime.revokePrincipal('metadata-model');
+    assert.equal((await mcp(list)).error.message, 'UNAUTHORIZED');
+    assert.equal(JSON.parse((await mcp(call)).result.content[0].text).error, 'UNAUTHORIZED');
+    h.runtime.exportTrace('run');
+    assert.ok(!JSON.stringify(h.state()).includes(sentinel));
+    for (const path of ['traces/run.jsonl', 'runtime.sqlite', 'runtime.sqlite-wal']) {
+      try { assert.ok(!readFileSync(join(h.root, path)).includes(Buffer.from(sentinel)), `metadata leaked into ${path}`); }
+      catch (error) { if (error.code !== 'ENOENT' || path !== 'runtime.sqlite-wal') throw error; }
+    }
+  } finally { await service.close(); }
+});

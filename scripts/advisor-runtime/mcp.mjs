@@ -9,6 +9,15 @@ export const runtimeTools = OPERATIONS.map(op => ({
     properties: { v: { const: 1 }, scope: { type: 'object', additionalProperties: false, required: ['workstream', 'run', 'node', 'ownerEpoch'], properties: { workstream: { type: 'string' }, run: { type: 'string' }, node: { type: 'string' }, ownerEpoch: { type: 'integer', minimum: 1 } } }, payload: { type: 'object' }, ...(MUTATIONS.includes(op) ? { commandId: { type: 'string' }, expectedRevision: { type: 'integer', minimum: 0 } } : {}) } },
 }));
 
+// MCP request metadata is transport-only: validate its shape, never forward it.
+function requestFields(params, required) {
+  fields(params, required, ['_meta']);
+  if (!Object.hasOwn(params, '_meta')) return;
+  const meta = params._meta;
+  demand(meta && typeof meta === 'object' && !Array.isArray(meta), 'INVALID_MCP_METADATA');
+  if (Object.hasOwn(meta, 'progressToken')) demand(typeof meta.progressToken === 'string' || (typeof meta.progressToken === 'number' && Number.isFinite(meta.progressToken)), 'INVALID_MCP_METADATA');
+}
+
 /** JSON-RPC/MCP operational transport only; credentials remain in its private host. */
 export function createMcpHandler(credential) {
   let initialized = false;
@@ -20,20 +29,20 @@ export function createMcpHandler(credential) {
       demand(requestId !== null, 'REQUEST_ID_REQUIRED');
       let result;
       if (input.method === 'initialize') {
-        fields(input.params, ['protocolVersion', 'capabilities', 'clientInfo']);
+        requestFields(input.params, ['protocolVersion', 'capabilities', 'clientInfo']);
         demand(['2024-11-05', '2025-03-26', '2025-06-18'].includes(input.params.protocolVersion), 'UNSUPPORTED_PROTOCOL');
         initialized = true;
         result = { protocolVersion: input.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'advisor-runtime', version: '1.0.0' } };
       } else {
         demand(initialized, 'NOT_INITIALIZED');
         if (input.method === 'tools/list') {
-          fields(input.params ?? {}, []);
+          requestFields(input.params ?? {}, []);
           const grants = await callSocket(credential, { v: 1, op: 'capabilities' }, 'model');
           demand(grants.ok, grants.error ?? 'UNAUTHORIZED');
           result = { tools: runtimeTools.filter(tool => grants.value.operations.some(op => toolName(op) === tool.name)) };
         }
         else if (input.method === 'tools/call') {
-          fields(input.params, ['name', 'arguments']);
+          requestFields(input.params, ['name', 'arguments']);
           const op = OPERATIONS.find(op => toolName(op) === input.params.name); demand(op, 'UNKNOWN_TOOL');
           demand(!Object.hasOwn(input.params.arguments, 'op'), 'EXTRA_FIELD');
           const response = await callSocket(credential, { ...input.params.arguments, op }, 'model');
