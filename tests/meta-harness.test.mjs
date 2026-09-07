@@ -85,6 +85,10 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   // Every extension the installed advisor-session and advisor-worker import must ship with them.
   for (const relative of [
     "extensions/advisor-pi-host.ts",
+    "extensions/advisor-runtime.ts",
+    "scripts/advisor-runtime/security.mjs",
+    "scripts/advisor-runtime/service.mjs",
+    "scripts/advisor-runtime/contract.mjs",
     "extensions/advisor-core/advisor-state.ts",
     "extensions/advisor-core/result-artifact.ts",
     "extensions/advisor-core/trace-store.ts",
@@ -98,7 +102,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   // The installed extensions must actually load from the installed tree, not only exist.
   // Package imports resolve through the repository's node_modules, as the live Pi provides its own.
   await symlink(join(ROOT, "node_modules"), join(target, "node_modules"));
-  for (const extension of ["advisor-session.ts", "advisor-worker.ts", "advisor-pi-host.ts"]) {
+  for (const extension of ["advisor-session.ts", "advisor-worker.ts", "advisor-pi-host.ts", "advisor-runtime.ts"]) {
     const loaded = spawnSync(
       process.execPath,
       ["--import", "tsx", "-e", `import(${JSON.stringify(join(target, "extensions", extension))}).then(() => process.stdout.write("loaded"))`],
@@ -107,6 +111,12 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
     assert.equal(loaded.status, 0, `${extension}: ${loaded.stderr}`);
     assert.equal(loaded.stdout, "loaded", extension);
   }
+  const nativeBinding = spawnSync(process.execPath, ["--input-type=module", "-e",
+    `await import(${JSON.stringify(join(target, "advisor-hosts/scripts/advisor-core/host-binding.mjs"))}); process.stdout.write("loaded")`],
+    { encoding: "utf8", cwd: target });
+  assert.equal(nativeBinding.status, 0, nativeBinding.stderr);
+  assert.equal(nativeBinding.stdout, "loaded");
+  await assert.rejects(readFile(join(target, "scripts/advisor-runtime/runtime.mjs")));
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@^0.1.4"));
   assert(packageSources.includes("npm:pi-better-edit@^1.4.3"));
   assert(packageSources.includes("npm:pi-claude-agent-sdk@^0.8.6"));

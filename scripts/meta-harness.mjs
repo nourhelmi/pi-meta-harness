@@ -61,10 +61,15 @@ const PORTABLE_COPY_ENTRIES = [
   ["extensions/advisor-session.ts", "extensions/advisor-session.ts"],
   ["extensions/advisor-worker.ts", "extensions/advisor-worker.ts"],
   ["extensions/advisor-pi-host.ts", "extensions/advisor-pi-host.ts"],
+  ["extensions/advisor-runtime.ts", "extensions/advisor-runtime.ts"],
   ["extensions/advisor-core", "extensions/advisor-core"],
   // extensions/advisor-core/advisor-state.ts imports ../../scripts/advisor-core/advisor-state.mjs,
   // so the plain-Node helpers must also sit at scripts/advisor-core in the installed tree.
   ["scripts/advisor-core", "scripts/advisor-core"],
+  // Optional Pi transport and both legacy writers share these Node22-safe modules.
+  // Do not materialize the Node24 SQLite owner or native provider adapters in Pi.
+  ...["security.mjs", "security.d.mts", "service.mjs", "service.d.mts", "contract.mjs"]
+    .map((file) => [`scripts/advisor-runtime/${file}`, `scripts/advisor-runtime/${file}`]),
   ["extensions/herdr-blocked-bridge.ts", "extensions/herdr-blocked-bridge.ts"],
   ["extensions/claude-schema-compat.ts", "extensions/claude-schema-compat.ts"],
   ["extensions/unified-edit.ts", "extensions/unified-edit.ts"],
@@ -92,6 +97,7 @@ const HOST_BINDING_COPY_ENTRIES = [
   ["scripts/claude-advisor-trace.mjs", "advisor-hosts/scripts/claude-advisor-trace.mjs"],
   ["scripts/codex-advisor-trace.mjs", "advisor-hosts/scripts/codex-advisor-trace.mjs"],
   ["scripts/advisor-core", "advisor-hosts/scripts/advisor-core"],
+  ["scripts/advisor-runtime/security.mjs", "advisor-hosts/scripts/advisor-runtime/security.mjs"],
   [
     "config/advisor-core/canonical-events.schema.json",
     "advisor-hosts/config/advisor-core/canonical-events.schema.json",

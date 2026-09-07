@@ -1,0 +1,59 @@
+.advisor-console {
+  --advisor-paper: var(--background, #f5f8fb);
+  --advisor-ink: var(--foreground, #263746);
+  --advisor-line: var(--border, #c8d4de);
+  --advisor-blue: #386f99;
+  --advisor-amber: #ac6815;
+  --advisor-error: #a13948;
+  color: var(--advisor-ink); background: var(--advisor-paper);
+  font: 14px/1.55 system-ui, -apple-system, sans-serif;
+  padding: clamp(12px, 3vw, 32px); min-width: 0; overflow-wrap: anywhere;
+}
+.advisor-console *, .advisor-console *::before, .advisor-console *::after { box-sizing: border-box; min-width: 0; }
+.advisor-console h1 { font: 650 clamp(25px, 4vw, 36px)/1.15 ui-rounded, system-ui, sans-serif; margin: 0; }
+.advisor-console h2 { font-size: 18px; margin: 0 0 12px; }
+.advisor-console h3 { font-size: 15px; margin: 0 0 6px; }
+.advisor-console code, .advisor-console pre, .advisor-console small { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
+.advisor-console pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+.advisor-header, .advisor-console article > header, .advisor-artifact header { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: start; }
+.advisor-header > div:last-child { display: grid; gap: 10px; }
+.advisor-header { padding-bottom: 24px; border-bottom: 1px solid var(--advisor-line); }
+.advisor-header p { margin: 0 0 6px; }
+.advisor-console button, .advisor-console input, .advisor-console textarea, .advisor-console select { font: inherit; color: inherit; background: var(--advisor-paper); border: 1px solid var(--advisor-line); border-radius: 6px; padding: 9px 12px; min-height: 44px; max-width: 100%; }
+.advisor-console button { cursor: pointer; font-weight: 600; }
+.advisor-console button:hover:not(:disabled) { border-color: var(--advisor-blue); }
+.advisor-console button:disabled { opacity: .55; cursor: not-allowed; }
+.advisor-console :focus-visible { outline: 3px solid var(--advisor-blue); outline-offset: 3px; }
+.advisor-console textarea { width: 100%; min-height: 100px; resize: vertical; }
+.advisor-console label { display: grid; gap: 5px; }
+.advisor-console input[type=checkbox], .advisor-console input[type=radio] { width: 20px; min-height: 24px; }
+.advisor-console fieldset { border: 1px solid var(--advisor-line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; margin: 12px 0; }
+.advisor-console legend { font-weight: 650; padding: 0 5px; }
+.advisor-scope > fieldset { grid-template-columns: minmax(180px, 1fr) minmax(100px, 160px) auto; align-items: end; }
+.advisor-scope p, .advisor-note { font-size: 12px; }
+.advisor-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 350px); gap: 28px; align-items: start; }
+.advisor-transcript > header { border-bottom: 1px solid var(--advisor-line); padding-bottom: 16px; }
+.advisor-rail { display: grid; gap: 22px; border-left: 1px solid var(--advisor-line); padding-left: 24px; }
+.advisor-attention { border-top: 4px solid var(--advisor-amber); padding-top: 16px; }
+.advisor-request { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid var(--advisor-line); }
+.advisor-messages { list-style: none; padding: 0; margin: 16px 0; }
+.advisor-messages li { padding: 16px 0; border-bottom: 1px solid var(--advisor-line); }
+.advisor-messages li[data-kind='user.message'] { border-left: 3px solid var(--advisor-blue); padding-left: 14px; }
+.advisor-messages header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.advisor-messages p { white-space: pre-wrap; margin-bottom: 0; }
+.advisor-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.advisor-node { margin: 16px 0; padding-bottom: 18px; border-bottom: 1px solid var(--advisor-line); }
+.advisor-delivery { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin: 10px 0; }
+.advisor-error, .advisor-pending { border: 1px solid var(--advisor-error); border-left-width: 4px; padding: 14px; margin: 16px 0; }
+.advisor-pending { border-color: var(--advisor-amber); }
+.advisor-receipt { min-height: 24px; }
+.advisor-console summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-weight: 600; }
+.advisor-backdrop { position: fixed; inset: 0; background: #26374699; display: grid; place-items: center; padding: 16px; z-index: 100; }
+.advisor-artifact { width: min(900px, 100%); max-height: 85dvh; overflow: auto; padding: 20px; background: var(--advisor-paper); border: 1px solid var(--advisor-line); border-radius: 10px; }
+@media (max-width: 760px) {
+  .advisor-layout { grid-template-columns: minmax(0, 1fr); }
+  .advisor-scope > fieldset { grid-template-columns: minmax(0, 1fr); }
+  .advisor-rail { border-left: 0; padding-left: 0; }
+  .advisor-delivery { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { .advisor-console * { scroll-behavior: auto; animation: none; transition: none; } }

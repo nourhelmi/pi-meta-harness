@@ -2,6 +2,7 @@ import { appendFile, mkdir, open, readFile, rename, unlink, writeFile } from "no
 import { dirname, join } from "node:path";
 
 import { resultStatusBody, validateResultArtifact } from "./result-artifact.mjs";
+import { withLegacyRunOwnership } from "../advisor-runtime/security.mjs";
 
 export async function readJson(path) {
   try {
@@ -65,7 +66,7 @@ export function nextWakeGeneration(events, parent) {
 
 export async function appendTrace(root, runId, host, createDrafts) {
   const path = join(root, "traces", `${runId}.jsonl`);
-  return withLock(`${path}.lock`, async () => {
+  return withLock(`${path}.lock`, () => withLegacyRunOwnership(root, runId, async () => {
     const events = await readTrace(path);
     const drafts = await createDrafts(events);
     if (drafts.length === 0) return events;
@@ -83,7 +84,7 @@ export async function appendTrace(root, runId, host, createDrafts) {
     await mkdir(dirname(path), { recursive: true });
     await appendFile(path, `${appended.map((event) => JSON.stringify(event)).join("\n")}\n`, "utf8");
     return [...events, ...appended];
-  });
+  }));
 }
 
 export async function reserveResult(path) {

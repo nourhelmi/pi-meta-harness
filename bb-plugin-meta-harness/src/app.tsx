@@ -15,6 +15,7 @@ import type {
 } from "./contracts.js";
 import { hasValidConfiguration } from "./configuration.js";
 import "./app.css";
+import { ConversationPanel } from "./conversation.js";
 
 type ListState =
   | { status: "loading" }
@@ -653,5 +654,8 @@ export default definePluginApp((app) => {
     icon: "Waypoints",
     path: "trace",
     component: TracePanel,
+  });
+  app.slots.navPanel({
+    id: "advisor", title: "Advisor", icon: "MessagesSquare", path: "advisor", component: ConversationPanel,
   });
 });

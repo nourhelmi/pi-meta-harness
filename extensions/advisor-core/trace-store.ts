@@ -1,5 +1,6 @@
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { withLegacyRunOwnership } from "../../scripts/advisor-runtime/security.mjs";
 
 export interface CanonicalEvent {
 	v: 1;
@@ -66,7 +67,7 @@ export class AdvisorTraceStore {
 		createDrafts: (events: CanonicalEvent[]) => Promise<CanonicalEventDraft[]> | CanonicalEventDraft[],
 	): Promise<void> {
 		const prior = this.#pending.get(runId) ?? Promise.resolve();
-		const current = prior.then(async () => {
+		const current = prior.then(() => withLegacyRunOwnership(this.stateRoot, runId, async () => {
 			const path = this.path(runId);
 			const events = await readTrace(path);
 			const drafts = await createDrafts(events);
@@ -83,7 +84,7 @@ export class AdvisorTraceStore {
 			}));
 			await mkdir(dirname(path), { recursive: true });
 			await appendFile(path, `${appended.map((event) => JSON.stringify(event)).join("\n")}\n`, "utf8");
-		});
+		}));
 		this.#pending.set(runId, current);
 		void current.then(() => {
 			if (this.#pending.get(runId) === current) this.#pending.delete(runId);

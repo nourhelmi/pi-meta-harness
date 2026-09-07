@@ -2,6 +2,7 @@ import { isAbsolute } from "node:path";
 import { defineRpcContract } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostIdProblem, stateRootContentProblem } from "./configuration.js";
+import { runtimeHostMethod } from "./runtime-rpc.js";
 
 export const TRACE_FILE_NAME_PATTERN =
   /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.jsonl$/u;
@@ -271,6 +272,7 @@ const configuredStateRootSchema = z
   .strict();
 
 export const traceHostContract = defineRpcContract({
+  runtime: runtimeHostMethod,
   listTraces: {
     input: configuredStateRootSchema,
     output: traceListResponseSchema,

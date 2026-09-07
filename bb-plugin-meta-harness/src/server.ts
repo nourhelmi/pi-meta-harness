@@ -1,4 +1,5 @@
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import { runtimeRpcContract } from "./runtime-rpc.js";
 import {
   hostIdSettingSchema,
   stateRootSettingSchema,
@@ -16,6 +17,12 @@ const configurationError: TraceReadError = {
 };
 
 export const traceSettings = {
+  runtimeDescriptor: {
+    type: "string",
+    label: "Runtime operator descriptor path",
+    description: "Canonical absolute path to the private operator descriptor on the selected host. Never paste its contents. Restart/reconnect after changing authority.",
+    experimental_schema: stateRootSettingSchema,
+  },
   hostId: {
     type: "string",
     label: "Advisor host",
@@ -46,6 +53,21 @@ export default async function metaHarnessPlugin(
     if (!hostId.success || !stateRoot.success) return null;
     return { hostId: hostId.data, stateRoot: stateRoot.data };
   }
+
+  bb.rpc.register(runtimeRpcContract, {
+    async runtime(command) {
+      const values = await settings.get();
+      const hostId = hostIdSettingSchema.safeParse(values.hostId);
+      const descriptor = stateRootSettingSchema.safeParse(values.runtimeDescriptor);
+      if (!hostId.success || !descriptor.success) return { ok: false as const, error: "RUNTIME_CONFIGURATION" };
+      try {
+        return await host.call("runtime", { descriptorPath: descriptor.data, command }, { hostId: hostId.data });
+      } catch {
+        // A rejected host promise may follow a committed command. Never expose raw errors.
+        return { ok: false as const, error: "TRANSPORT_UNCERTAIN" };
+      }
+    },
+  });
 
   if ((await configuredValues()) === null) {
     bb.status.needsConfiguration(CONFIGURE_MESSAGE);

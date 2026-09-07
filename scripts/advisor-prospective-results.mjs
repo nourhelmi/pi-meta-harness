@@ -17,6 +17,8 @@ export const CANDIDATE_INPUTS = [
   "scripts/intelligence-profile.mjs",
   "scripts/skill-path-policy.mjs",
   "scripts/advisor-core",
+  // Snapshot the shared client/ownership dependencies required by the staged installer.
+  "scripts/advisor-runtime",
   "scripts/advisor-trace.mjs",
   "scripts/claude-advisor-trace.mjs",
   "scripts/codex-advisor-trace.mjs",

@@ -57,7 +57,8 @@ function summary(trace: TraceDetail): TraceSummary {
 
 async function loadPanel() {
   const app = await loadPluginApp(() => import("../src/app.js"));
-  expect(app.navPanels).toHaveLength(1);
+  expect(app.navPanels).toHaveLength(2);
+  expect(app.navPanels[1]).toMatchObject({ id: "advisor", path: "advisor", title: "Advisor" });
   expect(app.navPanels[0]).toMatchObject({
     id: "trace",
     path: "trace",

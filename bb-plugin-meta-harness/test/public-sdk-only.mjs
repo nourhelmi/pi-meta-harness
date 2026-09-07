@@ -8,6 +8,7 @@ const scan = experimental_scanPublicSdkOnly(packageRoot, {
   allow: [
     /^@get-bb\/plugin-sdk\/testing$/u,
     /^react$/u,
+    /^react-dom\/client$/u,
     /^@testing-library\/react$/u,
     /^vitest\/config$/u,
   ],

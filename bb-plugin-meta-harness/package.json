@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Read-only BB projection of canonical Advisor Core traces.",
+  "description": "Public BB conversation/fleet client and canonical Advisor trace viewer.",
   "engines": {
     "node": ">=22.19.0",
     "bbPluginSdk": ">=0.4.47"
   },
   "bb": {
-    "name": "Advisor traces",
-    "description": "Inspect canonical Advisor Core execution traces without owning them.",
+    "name": "Advisor",
+    "description": "Converse with the shared durable runtime and inspect canonical traces.",
     "branding": {
       "icon": "Waypoints"
     },
@@ -24,6 +24,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
+    "test:browser": "vite --host 127.0.0.1 --port 4179 --strictPort",
     "test:conformance": "vitest run --config vitest.config.ts test/trace-projector.conformance.test.ts",
     "test:public-sdk": "node test/public-sdk-only.mjs"
   },
