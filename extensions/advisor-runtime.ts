@@ -44,7 +44,7 @@ function boundedResponse(value: unknown): Record<string, unknown> {
  */
 export default function advisorRuntimeExtension(pi: ExtensionAPI): void {
 	const descriptorPath = process.env[ADVISOR_RUNTIME_DESCRIPTOR_ENV]?.trim();
-	if (!descriptorPath) return;
+	if (!descriptorPath || process.env.PI_DETACH_RUNTIME_BRIDGE) return;
 
 	pi.registerTool({
 		name: "advisor_runtime",

@@ -36,10 +36,11 @@ export async function startService(runtime, { keepAlive = true } = {}) {
           fields(request.command, ['v', 'op']); demand(request.command.v === 1, 'UNSUPPORTED_VERSION');
           socket.end(encode({ ok: true, value: runtime.describe(request.token, request.audience) })); return;
         }
-        const resultPromise = runtime.request(request.token, request.command, request.audience);
+        const resultPromise = request.command?.op === "pi.detach" ? runtime.piDetachRequest(request.token, request.command, request.audience) : runtime.request(request.token, request.command, request.audience);
         // Execute has synchronously committed before dispatch. Do not await native effects.
         void runtime.dispatch().catch(() => {});
         const result = await resultPromise;
+        void runtime.dispatch().catch(() => {});
         socket.end(encode(result));
       } catch (error) { socket.end(encode(failure(error))); }
     });
