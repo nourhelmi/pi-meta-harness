@@ -1,6 +1,21 @@
 # Portable native advisor — implementation contract and bounded live runbook
 
-**Implementation is bounded, not live-certified.** Native read boundaries use pinned supported Codex profiles and Claude all-tool hooks, with deterministic/no-model evidence. Parent independent readiness adjudication and explicit isolated login remain prerequisites for the live steps. This package owns new runtime runs only, does not attach to arbitrary chats or certify Codex App, and has no mandatory Pi/Herdr/BB dependency.
+**Experimental, opt-in managed integration — not a migration requirement.** The
+standalone `advisor-native` binary is separate from the existing Pi-root
+`/advisor-native` skill, which keeps Pi and Herdr as the normal advisor setup.
+
+**Known live failure:** with Codex CLI 0.153.4, the current launcher disables
+`code_mode_host`; the tested model turn could not load the advisor skill or use
+the runtime tools. A real root → maker → result → synthesis workflow is **not
+proven**. Prefer the existing Pi/Herdr setup; stock-host MCP-plus-skills
+simplification and live native proof are deferred. The procedures below document
+the experimental implementation, not a working production recommendation.
+
+Native read boundaries have bounded deterministic/no-model evidence using pinned
+Codex profiles and Claude all-tool hooks. Independent implementation review passed,
+but it does not certify model usability. This package owns new runtime runs only,
+does not attach to arbitrary chats or certify Codex App, and has no mandatory
+Pi/Herdr/BB dependency.
 
 ## Supported surface and exact evidence
 

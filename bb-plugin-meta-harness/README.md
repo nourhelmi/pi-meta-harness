@@ -2,6 +2,12 @@
 
 Public BB conversation/fleet client for the **same** standalone durable advisor runtime, plus the existing canonical trace viewer. No BB thread/provider bootstrap, second root, scheduler, SQLite writer, or model credentials in the plugin.
 
+**Optional client, not a replacement for Pi/Herdr.** Real BB client/trace flows were
+exercised without model execution. The managed [native integration](../docs/advisor-native.md)
+remains experimental: its current Codex code-mode-host setting prevented skill/tool
+access, and end-to-end native delegation is not proven. Client connectivity does
+not certify a working native fleet.
+
 ## Configure
 
 The native service must already be running on the selected enrolled BB host. Follow the installed `@nourhelmi/advisor-native` documentation to bootstrap exact scopes and an operator descriptor. Node **24+** runs that separate service; the plugin's public host transport itself needs only the BB-supported Node version. Native state must be outside the writable workspace.

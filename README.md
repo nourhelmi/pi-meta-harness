@@ -5,6 +5,14 @@ default, more workers only when they earn their seat. One command installs the
 whole setup from compatible npm ranges and verified Git commits, and a local
 eval workbench grades every change you make to it.
 
+**Pi and Herdr remain the normal setup.** The additive [portable runtime](docs/advisor-durable-runtime.md)
+and [BB client](bb-plugin-meta-harness/README.md) are optional. The separate managed
+[`advisor-native` integration](docs/advisor-native.md) is **experimental**: an actual
+Codex model turn could not load its skill or tools because the launcher disabled
+the code-mode host; end-to-end native delegation is not proven. This does not
+change the existing Pi-root `/advisor-native` workflow. Stock-host MCP-plus-skills
+simplification and live native proof are deferred, not release claims.
+
 ```mermaid
 ---
 config:

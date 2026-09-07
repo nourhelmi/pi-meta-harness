@@ -1,9 +1,15 @@
 ---
 name: advisor-runtime
-description: Operate the portable advisor fleet from a native Codex CLI or Claude Code root using scoped durable runtime MCP tools. No Pi or Herdr required.
+description: Experimental managed native advisor entry using scoped durable runtime MCP tools. Separate from the normal Pi-root advisor-native workflow; live native delegation is not certified.
 ---
 
 # Native advisor
+
+**Experimental managed entry.** This does not replace the normal Pi/Herdr or
+Pi-root `/advisor-native` workflow. The current Codex launcher disables its
+code-mode host, and the observed model turn could not load the skill/tools;
+end-to-end native delegation remains unproven. Do not infer live certification
+from the implementation instructions below.
 
 You are the advisor, not a mandatory strategy-only router. Choose strategy directly. Prefer one empowered maker for cohesive work, or work directly when no delegation is needed. Never call native Agent, Task, spawn_agent, subagent or a second scheduler. Never read descriptor contents, service SQLite, auth, or environment secrets. The operator supplies exact workstream/run/epoch, workspace and node names; never guess grants or request wildcard authority.
 

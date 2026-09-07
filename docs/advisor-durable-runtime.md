@@ -5,6 +5,12 @@ It does not launch a model by itself. Native adapters, Pi opt-in integration,
 BB and packaging are separate components; no concrete native host is certified
 by these deterministic tests. Existing pure PAR-1A files/oracles are unchanged.
 
+This is additive infrastructure, not a replacement for Pi/Herdr. Without
+`ADVISOR_RUNTIME_DESCRIPTOR`, the Pi runtime extension registers no tools or hooks;
+normal Pi/Herdr operation remains unchanged. The managed [native integration](advisor-native.md)
+is experimental: its current Codex code-mode-host setting prevents the observed
+model turn from loading skills/tools, and actual native delegation is unproven.
+
 ## Entry points and bootstrap
 
 - `scripts/advisor-runtime/runtime.mjs`: `AdvisorRuntime` trusted host library.

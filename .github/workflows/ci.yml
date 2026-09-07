@@ -9,6 +9,54 @@ permissions:
 
 jobs:
   verify:
+    runs-on: macos-15
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Python for native configuration probes
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned Codex for no-model native boundary tests
+        run: |
+          npm install --global --ignore-scripts @openai/codex@0.153.4
+          codex --version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test harness and native boundaries
+        run: npm run check
+
+      - name: Check types
+        run: npm run typecheck
+
+      - name: Verify BB client
+        run: |
+          npm --prefix bb-plugin-meta-harness ci --ignore-scripts
+          npm --prefix bb-plugin-meta-harness test
+          npm --prefix bb-plugin-meta-harness run typecheck
+          npm --prefix bb-plugin-meta-harness run test:public-sdk
+
+      - name: Check bootstrap syntax
+        run: bash -n scripts/bootstrap.sh
+
+      - name: Verify sandbox install
+        run: |
+          node scripts/meta-harness.mjs install --target "$RUNNER_TEMP/pi-agent"
+          node scripts/meta-harness.mjs doctor --target "$RUNNER_TEMP/pi-agent"
+
+  setup-compatibility:
     runs-on: ubuntu-latest
     steps:
       - name: Check out full history
@@ -30,8 +78,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Test harness
-        run: npm test
+      - name: Test normal setup compatibility
+        run: node --test tests/meta-harness.test.mjs
 
       - name: Check bootstrap syntax
         run: bash -n scripts/bootstrap.sh
