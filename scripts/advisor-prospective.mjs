@@ -21,7 +21,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { normalizeSession, parseJsonl } from "./advisor-eval-lib.mjs";
 import { createAtifTrajectory } from "./advisor-harbor-lib.mjs";
 import { performance } from "node:perf_hooks";
-import { finishPerformance, summarizeRootUsage } from "./advisor-prospective-metrics.mjs";
+import { finishPerformance, summarizeProcess, summarizeRootUsage } from "./advisor-prospective-metrics.mjs";
 import {
   candidateFingerprint,
   parallelismDiagnostics,
@@ -603,7 +603,7 @@ async function persistTrajectory(runState, sessionPath) {
   await writeFile(join(runState.runDir, "trace.json"), `${JSON.stringify(normalized, null, 2)}\n`);
   const trajectory = createAtifTrajectory(normalized);
   await writeFile(join(runState.runDir, "trajectory.json"), `${JSON.stringify(trajectory, null, 2)}\n`);
-  return { normalized, rootUsage: summarizeRootUsage(entries) };
+  return { normalized, rootUsage: summarizeRootUsage(entries), rootEntries: entries };
 }
 
 function topologyChecks(normalized, topology) {
@@ -764,10 +764,12 @@ export async function verifyPreparedRun(runDir) {
   }
   let priorLifecycle;
   let priorPerformance;
+  let priorProcess;
   try {
     const prior = JSON.parse(await readFile(join(runDir, "result.json"), "utf8"));
     priorLifecycle = prior.checks?.find((check) => check.id === "lifecycle");
     priorPerformance = prior.performance;
+    priorProcess = prior.process;
   } catch {
     priorLifecycle = undefined;
   }
@@ -793,6 +795,7 @@ export async function verifyPreparedRun(runDir) {
     parallelism: parallelismDiagnostics(normalized, loaded.definition.process?.parallelism),
     // Regrading has no authority to reconstruct the original run's time or usage.
     performance: priorPerformance,
+    process: priorProcess,
   };
   await writeFile(join(runDir, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
   return result;
@@ -853,6 +856,7 @@ export async function runProspectiveCase(options) {
   let completion;
   let normalized;
   let rootUsage;
+  let rootEntries;
   try {
     run("codex", ["doctor", "--summary", "--no-color", "--ascii"], {
       cwd: runState.workspace,
@@ -904,7 +908,7 @@ export async function runProspectiveCase(options) {
     sessionPath ??= await findLatestSessionPath(runState.agentDir);
     if (sessionPath) {
       try {
-        ({ normalized, rootUsage } = await persistTrajectory(runState, sessionPath) ?? {});
+        ({ normalized, rootUsage, rootEntries } = await persistTrajectory(runState, sessionPath) ?? {});
       } catch (error) {
         lifecycleError ??= `Could not normalize root session: ${error instanceof Error ? error.message : String(error)}`;
       }
@@ -943,6 +947,10 @@ export async function runProspectiveCase(options) {
     checks,
     dimensions: summarizeResultDimensions({ checks }),
     parallelism: parallelismDiagnostics(normalized, runState.definition.process?.parallelism),
+    process: summarizeProcess({
+      entries: rootEntries, trace: normalized,
+      passedWorkspaceChecks: summarizeResultDimensions({ checks }).workspace.passed,
+    }),
     performance: finishPerformance({
       startedAt, startedTick, finishedAt: Date.now(), finishedTick: performance.now(), rootUsage,
     }),

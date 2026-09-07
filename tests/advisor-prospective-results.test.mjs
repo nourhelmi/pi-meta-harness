@@ -41,6 +41,7 @@ function artifact(id, passed, { events = 4, launches = 1, wallElapsedMs = 100 } 
       status: passed ? "passed" : "failed",
       reward: passed ? 1 : 0,
       checks: [{ id: "criterion", passed, evidence: passed ? "pass" : "fail" }],
+      process: { launches },
     },
     diagnostics: {
       events,
@@ -151,6 +152,50 @@ test("comparison reports criterion regression and process deltas", () => {
   assert.equal(comparison.process.events.delta, 3);
   assert.equal(comparison.process.launches.delta, 2);
   assert.match(comparisonMarkdown(comparison), /REGRESSED/);
+});
+
+test("comparison includes before/after process deltas without rewarding them or zero-filling legacy results", () => {
+  const before = artifact("before", true);
+  const after = artifact("after", true);
+  const fields = ["launches", "blockedSettlements", "repairRounds", "compactions"];
+  before.result.process = Object.fromEntries(fields.map((field) => [field, 3]));
+  after.result.process = { ...Object.fromEntries(fields.map((field) => [field, 1])), postCompactionFloorTokens: [90_000] };
+  const comparison = compareProspectiveArtifacts(before, after);
+  for (const field of fields) {
+    assert.deepEqual(comparison.process[field], { before: 3, after: 1, delta: -2 });
+    assert.match(comparisonMarkdown(comparison), new RegExp(`${field}: 3 → 1 \\(-2\\)`));
+  }
+  assert.equal(comparison.verdict, "unchanged");
+  assert.equal(comparison.before.reward, 1);
+  assert.equal(comparison.after.reward, 1);
+  delete before.result.process;
+  const legacy = compareProspectiveArtifacts(before, after);
+  for (const field of fields) assert.deepEqual(legacy.process[field], { before: null, after: 1, delta: null });
+  assert.deepEqual(legacy.process.postCompactionFloorTokens, { before: null, after: [90_000] });
+  assert.match(comparisonMarkdown(legacy), /launches: — → 1 \(—\)/);
+  delete after.result.process;
+  for (const field of fields) assert.deepEqual(compareProspectiveArtifacts(before, after).process[field], { before: null, after: null, delta: null });
+});
+
+test("compare CLI loads a legacy result and prints process deltas in JSON and Markdown", async () => {
+  const root = await mkdtemp(join(tmpdir(), "prospective-compare-process-"));
+  try {
+    for (const id of ["before", "after"]) {
+      const value = artifact(id, true);
+      value.result.process = id === "before" ? undefined : { launches: 2, blockedSettlements: 1, repairRounds: 1, compactions: 1 };
+      await writeJson(join(root, id, "manifest.json"), value.manifest);
+      await writeJson(join(root, id, "result.json"), value.result);
+    }
+    const args = ["scripts/advisor-prospective-manage.mjs", "compare", join(root, "before"), join(root, "after")];
+    const json = spawnSync(process.execPath, [...args, "--json"], { encoding: "utf8" });
+    assert.equal(json.status, 0, json.stderr);
+    assert.deepEqual(JSON.parse(json.stdout).process.launches, { before: null, after: 2, delta: null });
+    const markdown = spawnSync(process.execPath, [...args, "--format", "markdown"], { encoding: "utf8" });
+    assert.equal(markdown.status, 0, markdown.stderr);
+    assert.match(markdown.stdout, /blockedSettlements: — → 1 \(—\)/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("comparison reports mixed direction when shared checks move both ways", () => {

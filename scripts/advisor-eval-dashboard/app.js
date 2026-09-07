@@ -1,4 +1,14 @@
 const $ = (selector) => document.querySelector(selector);
+const processFields = [
+  ["launches", "Worker launches"], ["resumes", "Worker resumes"],
+  ["blockedSettlements", "Blocked settlements"], ["failedSettlements", "Failed settlements"],
+  ["successfulSettlements", "Successful settlements"], ["repairRounds", "Repair rounds"],
+  ["launchesPerPassedCriterion", "Launches / passed workspace check"], ["serialGapMinutes", "Serial gap minutes"],
+  ["compactions", "Root compactions"], ["firstTurnInputTokens", "First-turn input tokens"],
+  ["postCompactionFloorTokens", "Post-compaction floor tokens"], ["doctrineReads", "Doctrine reads"],
+  ["guideReads", "Guide reads"], ["roleSkillReads", "Role skill reads"], ["memoryToolCalls", "Memory tool calls"],
+];
+const processValue = (value) => Array.isArray(value) ? `[${value.map((item) => item ?? "—").join(", ")}]` : value ?? "—";
 
 const elements = {
   page: $("#page"),
@@ -149,6 +159,8 @@ function selectEvidence(key) {
     ["Functional outcome", dimensionSummary(artifact.result, "workspace")],
     ["Orchestration", dimensionSummary(artifact.result, "orchestration")],
     ["Measurement/control", dimensionSummary(artifact.result, "measurement")],
+    ["Process metrics", "Diagnostic only · missing sources are unknown"],
+    ...processFields.map(([field, label]) => [label, processValue(artifact.result?.process?.[field])]),
     ["Events", diagnostics.events],
     ["Wall time", duration(diagnostics.elapsed?.wallElapsedMs)],
     ["Active time", duration(diagnostics.elapsed?.activeElapsedMs)],
@@ -217,7 +229,8 @@ function renderRuler(comparison) {
     ["Measurement/control", dimension("measurement", "before"), dimension("measurement", "after")],
     ["Check contract", "before", comparison.comparability?.status ?? "same"],
     ["Events", comparison.process.events.before, comparison.process.events.after],
-    ["Worker launches", comparison.process.launches.before, comparison.process.launches.after],
+    ...processFields.map(([field, label]) => [label,
+      processValue(comparison.process[field]?.before), processValue(comparison.process[field]?.after)]),
     ["Useful width", comparison.process.parallelism?.before ? `${comparison.process.parallelism.before.observedUsefulWidth}/${comparison.process.parallelism.before.expectedMaxUsefulWidth}` : "—", comparison.process.parallelism?.after ? `${comparison.process.parallelism.after.observedUsefulWidth}/${comparison.process.parallelism.after.expectedMaxUsefulWidth}` : "—"],
     ["Wall time", duration(comparison.process.wallElapsedMs.before), duration(comparison.process.wallElapsedMs.after)],
     ["Active time", duration(comparison.process.activeElapsedMs.before), duration(comparison.process.activeElapsedMs.after)],
