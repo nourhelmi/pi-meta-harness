@@ -109,8 +109,12 @@ state file.
 
 - The doctrine core and the active guide are in your system prompt; never read
   them with a tool. Read a reference only when its situation arises.
-- Never read role skills or the worker contract; workers load their own. Read
-  a repository skill only when you edit repository code yourself.
+- Workers load their own role skill and worker contract. Do not preload those
+  or repository skills merely to launch a worker. Read the relevant skill or
+  contract section when a concrete planning, review, investigation,
+  implementation, or recovery decision needs it; you need not be editing code.
+  Required task and safety instructions still apply. Reuse material already
+  in context and keep additional reads bounded.
 - Read the workstream hot section, which is returned to you at session start
   and after every compaction; read the log by offset only when a decision
   needs it. Read a worker result only when a claim needs inspection; the

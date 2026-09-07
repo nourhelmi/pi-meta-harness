@@ -150,7 +150,11 @@ test("risk tiers are declared per change with a Standard default and consequence
 
   assert.match(tiers, /Tier the \*\*change\*\*, not the workstream/);
   assert.match(tiers, /Standard is\s+the default when no High surface is named/);
-  assert.match(tiers, /Formatting, test-only, docs, and\s+metadata repairs are Low by rule/);
+  assert.match(tiers, /Classify by behavioral effect, not filename or patch size/);
+  assert.match(tiers, /can be Low only when runtime\s+behavior, acceptance oracles, and enforcement semantics remain unchanged/);
+  assert.match(tiers, /cannot downgrade a High-risk effect/);
+  assert.match(tiers, /take the tier of the boundary they control; the highest applicable tier wins/);
+  assert.doesNotMatch(tiers, /repairs are Low by rule/);
   assert.match(tiers, /\| Low \|[\s\S]*\| Standard \|[\s\S]*\| High \|/);
   assert.match(tiers, /unknown coupling\s+selects the higher tier/i);
   assert.match(tiers, /`## Risk tiers` section in its\s+`AGENTS.md`/);
@@ -237,21 +241,25 @@ test("checkers are repair-first and review converges with the same reviewer", as
   assert.match(review, /\*\*Checkers are repair-first\.\*\*/);
   assert.match(review, /at any severity, unless the fix needs a product\s+decision, changes schema or migration semantics, or has an external effect/);
   assert.match(review, /verdict describes the post-repair state/);
-  assert.match(review, /A repaired finding never flips a verdict/);
+  assert.match(review, /A repaired finding alone does not cause FAIL/);
   assert.match(review, /Resume the same checker for a delta review/);
-  assert.match(review, /Two serial review rounds per slice is\s+the cap, and the cap is terminal/);
-  assert.match(review, /A cap never resolves into another planner/);
+  assert.match(review, /Two serial review rounds per slice is the default budget/);
+  assert.match(review, /not evidence of completion/);
+  assert.match(review, /Deliver only when all acceptance criteria,\s+required checks, and safety obligations are satisfied/);
+  assert.match(review, /report the work as incomplete/);
+  assert.match(review, /never silently reset a cap by renaming the slice or launching another\s+planner/);
   assert.doesNotMatch(review, /one checker per phase|final whole-diff review/i);
 
   assert.match(checker, /and repair what you find/);
-  assert.match(checker, /Independence is a property of your verdict, not of your keystrokes/);
+  assert.match(checker, /Your own patch is maker work/);
+  assert.match(checker, /reruns are self-verification, not independent review of that patch/);
   assert.match(checker, /## Repair-first mandate/);
   assert.match(checker, /at any severity, inside the surface you reviewed/);
   assert.match(checker, /Three things you do not repair/);
   assert.match(checker, /classify\s+by behavioral effect, not filename/);
   assert.match(checker, /Never weaken\s+acceptance to make a rerun green/);
   assert.match(checker, /The verdict describes the state after your repairs/);
-  assert.match(checker, /A repaired finding never flips the verdict/);
+  assert.match(checker, /A repaired finding alone does not cause FAIL/);
   assert.match(checker, /PASS-with-repairs are normal, common outcomes/);
   assert.match(checker, /in every round including declared repair\s+rounds/);
   assert.match(checker, /\| Standard \| a violated criterion, or an unrepaired High finding \|/);
@@ -261,10 +269,12 @@ test("checkers are repair-first and review converges with the same reviewer", as
   assert.match(JSON.parse(roles).profiles.checker.description, /repairs every finding it can/);
   assert.match(graphs, /A checker repairs what it can inside the reviewed surface/);
   assert.match(graphs, /resume the same checker\s+for the delta review/);
-  assert.match(graphs, /never in another planner/);
+  assert.match(graphs, /Never exceed the manifest repair-loop cap/);
+  assert.match(graphs, /only with all criteria, required checks, and safety obligations satisfied/);
+  assert.match(graphs, /Otherwise report incomplete work/);
 });
 
-test("the advisor reads neither the doctrine nor role skills with tools and keeps a workstream hot section", async () => {
+test("the advisor avoids redundant skill reads but loads decision-relevant instructions and keeps a hot section", async () => {
   const [core, transport, native, pi, switcher] = await Promise.all([
     text("skills/advisor/doctrine.md"),
     text("skills/advisor/references/transport-and-settlement.md"),
@@ -274,7 +284,11 @@ test("the advisor reads neither the doctrine nor role skills with tools and keep
   ]);
 
   assert.match(core, /This core is\s+in your system prompt for the whole session/);
-  assert.match(section(core, "## Worker transport", "## Evidence"), /you never read role\s+skills, the worker contract, or repository skills on a worker's behalf/);
+  const transportPolicy = section(core, "## Worker transport", "## Evidence");
+  assert.match(transportPolicy, /Do not preload role\s+skills, the worker contract, or repository skills merely to launch a worker/);
+  assert.match(transportPolicy, /Read the relevant skill or contract section when a concrete planning,\s+review, investigation, implementation, or recovery decision needs it/);
+  assert.match(transportPolicy, /need not be editing code/);
+  assert.match(transportPolicy, /Required task and safety instructions still apply/);
   const state = section(core, "## Isolated state", "## Session start");
   assert.match(state, /\*\*hot section\*\* is everything above the `## Log` heading/);
   assert.match(state, /returned to you at session start and after every compaction/);
@@ -313,7 +327,8 @@ test("verification ownership is proportional and review depth stops on resolved 
   assert.match(verification, /actual required merge or CI gates once/);
   assert.match(verification, /Do not mandate\s+unrelated repository-wide sweeps/);
   assert.match(depth, /assigned claims and material risks are resolved with current evidence and no\s+material contradiction remains/);
-  assert.match(depth, /never launch a checker-of-checker\s+for closed work/);
+  assert.match(depth, /never launch an\s+automatic checker-of-checker for closed work/);
+  assert.match(depth, /not independent review of that patch/);
 });
 
 test("worker roles share maker ownership, risk context, conditional delegation, and task-shaped readiness", async () => {

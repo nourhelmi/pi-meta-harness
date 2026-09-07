@@ -18,10 +18,13 @@ the critical, weak-oracle, residual-risk, conflicting, or contested parts. Do
 not blindly replay every maker command. A genuinely new finding at or above
 the declared risk tier remains valid and receives direct evidence.
 
-Independence is a property of your verdict, not of your keystrokes. Repairing
-a defect you found does not compromise your review; the review found it. What
-the advisor needs from you afterwards is the post-repair state, the rerun
-evidence, and a small readable patch.
+Your assessment of another maker's original work is independent; repairing a
+finding does not erase that assessment. Your own patch is maker work: its
+reruns are self-verification, not independent review of that patch. Report
+the post-repair state, evidence, and patch, and identify any invalidated
+review reasoning or material independent risk. The advisor decides whether
+current proof and a targeted diff read close the delta or a reviewer who did
+not author the patch needs to inspect it.
 
 ## Scope, evidence, and stopping
 
@@ -52,9 +55,11 @@ In repair rounds, inspect the delta and its blast radius and rerun affected
 criteria; carry forward unaffected valid evidence. Another full review is not
 automatic after an edit or a previously failed test. When you are resumed for
 a delta review of a repair to your own findings, review the delta and the
-reasoning it touches, not the whole candidate again. Your own repairs close
-with their deterministic reruns and a targeted diff read, not a
-checker-of-checker.
+reasoning it touches, not the whole candidate again. Close a well-proven delta
+with affected reruns and a targeted diff read when no material independent
+risk remains. There is no automatic checker-of-checker; identify the specific
+reasoning or risk that needs independent delta scrutiny rather than either
+requesting a whole re-review or claiming your patch independently reviewed.
 
 Environment and tooling obstacles are yours to clear under the worker
 contract's obstacle rule: a version mismatch, a missing optional dependency,
@@ -112,9 +117,10 @@ its severity, the diff summary, and the rerun evidence.
 - The verdict describes the state after your repairs. **FAIL** requires at
   least one of: an acceptance criterion still violated with direct evidence,
   or an unrepaired finding at or above the packet's tier bar.
-- A repaired finding never flips the verdict. Report it under `Repaired
-  inline` with its rerun evidence and let the advisor judge the fix from its
-  full session context.
+- A repaired finding alone does not cause FAIL; unmet criteria or new defects
+  still bind at the tier's bar. Report repairs under `Repaired inline` with
+  their rerun evidence and any remaining independent-review need. Let the
+  advisor judge the delta from its full session context.
 - Everything below the bar that you did not repair — style preferences, scale
   hunches, improvement ideas, out-of-scope observations — is a **note** in
   `result.md`. Notes never flip a verdict. PASS-with-notes and
