@@ -357,11 +357,50 @@ compaction usage are excluded; `allAgentTokens` and `billedCost` remain unknown.
 Root usage is not a whole-system efficiency or subscription-cost measurement.
 No content, raw identities, or cost payloads are copied by this aggregation.
 
+`result.process` is **diagnostic only and never earns or changes reward**. It
+stores numeric counts only, never prompts, read paths, worker identities, or
+session content:
+
+- `launches` counts new `bg_agent` calls (without a nonempty `name`); `resumes`
+  counts calls with `name`. Failed launch attempts still cost a call.
+- `blockedSettlements`, `failedSettlements`, and `successfulSettlements` count
+  normalized `worker_status` events, not launch results or distinct workers.
+- `repairRounds` counts calls with an indented `repair` line inside a `GRAPH:`
+  block, or resumes of builders, foremen, and checkers (one count per call).
+  It is a heuristic, not a count of verified defects or distinct graph waves.
+- `launchesPerPassedCriterion` divides new launches by passed **workspace**
+  checks only; it is null when none pass or either source is missing.
+- `serialGapMinutes` sums idle gaps from the last worker settlement to the next
+  launch/resume, excluding initial and trailing idle time and intervals while
+  another worker runs. Terminal launch results also close synchronous attempts;
+  duplicate notices do not double-count gaps. Missing timestamps or unlinked
+  settlements make this unknown; workers without a terminal event remain active.
+- `compactions` counts root compaction entries. `firstTurnInputTokens` uses only
+  the first assistant's input tokens. `postCompactionFloorTokens` records
+  input + cacheRead on the first assistant after each compaction, with a null
+  slot if that message or valid usage is unavailable. Retained tails and helper
+  messages are not counted again.
+- `doctrineReads`, `guideReads`, and `roleSkillReads` count `read`/`read_skill`
+  calls matching `skills/advisor/`, `advisor-intelligence.json`, and
+  `skills/advisor-worker/`. `memoryToolCalls` counts root `mem_*` calls.
+
+Absent sources are null, not zero. Explicitly empty sources have zero counts
+(and an empty floor array). Trace-only inputs can supply launch/resume counts,
+settlements and gaps, but cannot reconstruct repair prompts, read categories,
+or token/compaction fields. Legacy result blocks are not backfilled from traces.
+Suite `process` summaries report per-field totals, medians and measured-run
+coverage, including failed runs and excluding unknowns. Floor totals/medians
+pool the available post-compaction samples across runs; `measuredSamples` makes
+that weighting explicit. Ratio totals are sums of per-run ratios, not a pooled
+launches/checks rate. Comparisons and the dashboard show these metrics without
+changing the outcome verdict; floor arrays are shown before/after, not subtracted.
+
 The older `diagnostics.elapsed` fields in traces, comparisons, and the workbench
 remain **root-event-span proxies**. They can miss silent timeout tails. Do not
 substitute them for whole-attempt latency or compare the two as identical metrics.
-Deterministic `verify` preserves original performance, just like lifecycle evidence;
-a quick regrade must never make a slow original attempt look fast. Measurement
+Deterministic `verify` preserves original `performance` and `process` exactly,
+just like lifecycle evidence; a quick regrade must never make a slow original
+attempt look fast or rewrite its original launches/checks ratio. Measurement
 code is included in the frozen evaluator identity.
 
 Report per-case outcomes and durations before aggregating unlike tasks. A safe,

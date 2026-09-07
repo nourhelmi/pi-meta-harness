@@ -5,7 +5,7 @@ import { cp, lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { harnessRevision, localPiDetachRevision, runProspectiveCase } from "./advisor-prospective.mjs";
-import { summarizePerformance } from "./advisor-prospective-metrics.mjs";
+import { summarizePerformance, summarizeProcessMetrics } from "./advisor-prospective-metrics.mjs";
 import {
   CANDIDATE_INPUTS,
   PROJECT_ROOT,
@@ -230,6 +230,7 @@ export function summarizeSuiteResults(results) {
   return {
     dimensions,
     performance: summarizePerformance(results),
+    process: summarizeProcessMetrics(results),
     parallelism: {
       availableRuns: parallel.length,
       utilizedRuns: parallel.filter((value) => value.status === "utilized").length,

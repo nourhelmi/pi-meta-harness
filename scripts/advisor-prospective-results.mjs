@@ -3,6 +3,7 @@ import { cp, lstat, mkdir, readFile, readdir, readlink, rm, writeFile } from "no
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyzeTrace } from "./advisor-eval-lib.mjs";
+import { PROCESS_SCALAR_FIELDS } from "./advisor-prospective-metrics.mjs";
 
 export const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const PROSPECTIVE_RUNS_ROOT = join(PROJECT_ROOT, "evals", "local", "prospective-runs");
@@ -486,7 +487,15 @@ export function compareProspectiveArtifacts(left, right) {
     ),
     process: {
       events: { before: left.diagnostics?.events, after: right.diagnostics?.events, delta: numericDelta(left.diagnostics?.events, right.diagnostics?.events) },
-      launches: { before: left.diagnostics?.launches, after: right.diagnostics?.launches, delta: numericDelta(left.diagnostics?.launches, right.diagnostics?.launches) },
+      ...Object.fromEntries(PROCESS_SCALAR_FIELDS.map((field) => {
+        const before = left.result.process?.[field] ?? null;
+        const after = right.result.process?.[field] ?? null;
+        return [field, { before, after, delta: numericDelta(before, after) ?? null }];
+      })),
+      postCompactionFloorTokens: {
+        before: left.result.process?.postCompactionFloorTokens ?? null,
+        after: right.result.process?.postCompactionFloorTokens ?? null,
+      },
       wallElapsedMs: { before: leftElapsed.wallElapsedMs, after: rightElapsed.wallElapsedMs, delta: numericDelta(leftElapsed.wallElapsedMs, rightElapsed.wallElapsedMs) },
       activeElapsedMs: { before: leftElapsed.activeElapsedMs, after: rightElapsed.activeElapsedMs, delta: numericDelta(leftElapsed.activeElapsedMs, rightElapsed.activeElapsedMs) },
       blockedOnUserMs: { before: leftElapsed.blockedOnUserMs ?? 0, after: rightElapsed.blockedOnUserMs ?? 0, delta: numericDelta(leftElapsed.blockedOnUserMs ?? 0, rightElapsed.blockedOnUserMs ?? 0) },
@@ -524,7 +533,11 @@ export function comparisonMarkdown(comparison) {
     "## Process diagnostics",
     "",
     `- Events: ${comparison.process.events.before ?? "—"} → ${comparison.process.events.after ?? "—"} (${comparison.process.events.delta ?? "—"})`,
-    `- Worker launches: ${comparison.process.launches.before ?? "—"} → ${comparison.process.launches.after ?? "—"} (${comparison.process.launches.delta ?? "—"})`,
+    ...PROCESS_SCALAR_FIELDS.map((field) => {
+      const metric = comparison.process[field];
+      return `- ${field}: ${metric.before ?? "—"} → ${metric.after ?? "—"} (${metric.delta ?? "—"})`;
+    }),
+    `- postCompactionFloorTokens: ${comparison.process.postCompactionFloorTokens.before?.map((value) => value ?? "—").join(", ") ?? "—"} → ${comparison.process.postCompactionFloorTokens.after?.map((value) => value ?? "—").join(", ") ?? "—"}`,
     `- Useful width: ${comparison.process.parallelism.before?.observedUsefulWidth ?? "—"}/${comparison.process.parallelism.before?.expectedMaxUsefulWidth ?? "—"} → ${comparison.process.parallelism.after?.observedUsefulWidth ?? "—"}/${comparison.process.parallelism.after?.expectedMaxUsefulWidth ?? "—"}`,
     `- Wall time: ${comparison.process.wallElapsedMs.before ?? "—"} ms → ${comparison.process.wallElapsedMs.after ?? "—"} ms (${comparison.process.wallElapsedMs.delta ?? "—"} ms)`,
     `- Blocked on user: ${comparison.process.blockedOnUserMs?.before ?? 0} ms → ${comparison.process.blockedOnUserMs?.after ?? 0} ms (${comparison.process.blockedOnUserMs?.delta ?? "—"} ms)`,
