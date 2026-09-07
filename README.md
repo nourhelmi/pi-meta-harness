@@ -91,7 +91,7 @@ flowchart TB
 | 🔍 **Makers understand, checkers repair** | Makers prove criteria, clear environment and tooling obstacles themselves, and inspect their own diff. Checkers repair what they find inside the reviewed surface and report the post-repair state; a repair round is a delta review by the same reviewer, capped at two rounds. |
 | 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |
 | 🔀 **Two worker harnesses** | Workers run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. The root advisor is always Pi. |
-| 🧪 **Evals that bite** | 18 hermetic live cases graded by **hidden deterministic verifiers**, including routing, explicit capability, and a medium API repair with regression-test mutation checks, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
+| 🧪 **Evals that bite** | 21 hermetic live cases graded by **hidden deterministic verifiers**, including routing, explicit capability, and a medium API repair with regression-test mutation checks, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
 | 📌 **Controlled updates** | Compatible npm ranges, full 40-hex Git commits, tree and SHA-256 verification, scoped backups, and a live doctor. |
 | 🔒 **Public-safe by design** | Every tracked file is treated as public. A closed-allowlist privacy boundary keeps transcripts, identities, and credentials out of eval artifacts. |
 
@@ -210,7 +210,7 @@ config:
 ---
 flowchart LR
   Change["setup change\n(skills · roles · profiles · policy)"] --> Det["npm test\ndeterministic repo checks"]
-  Change --> Pro["prospective suite\n18 hermetic live cases"]
+  Change --> Pro["prospective suite\n21 hermetic live cases"]
   Rec["recorded trajectories\n(privacy-normalized)"] --> Harbor["Harbor + RewardKit\nAPI-judged calibration"]
   Pro --> Verify["hidden deterministic verifiers\ndecide the reward"]
   Verify --> Bench["localhost workbench\nruns · baselines · comparisons"]
