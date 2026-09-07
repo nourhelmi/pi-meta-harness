@@ -122,6 +122,33 @@ export function resultStatusLine(markdown: string): string | undefined {
 	return statusInfo(markdown)?.status;
 }
 
+/** Bounded first-line summaries of bullets and paragraphs in the Deviations section. */
+export function resultDeviations(markdown: string): string[] {
+	const lines = markdown.split(/\r?\n/);
+	const start = lines.findIndex((line) => /^deviations$/i.test(markdownHeading(line)?.text ?? ""));
+	if (start < 0) return [];
+	const level = markdownHeading(lines[start])!.level;
+	const items: string[] = [];
+	let paragraphStart = true;
+	for (const line of lines.slice(start + 1)) {
+		const heading = markdownHeading(line);
+		if (heading && heading.level <= level) break;
+		if (heading || !line.trim()) {
+			paragraphStart = true;
+			continue;
+		}
+		const text = line.trim();
+		const bullet = /^(?:[-+*]|\d+[.)])(?:\s+|$)/.exec(text);
+		if (bullet || paragraphStart) {
+			const item = text.slice(bullet?.[0].length ?? 0).trim().slice(0, 200).trimEnd();
+			if (item) items.push(item);
+			if (items.length === 8) break;
+		}
+		paragraphStart = false;
+	}
+	return items;
+}
+
 export function resultStatusBody(markdown: string): string | undefined {
 	const info = statusInfo(markdown);
 	if (!info || !/^blocked\b/i.test(info.status)) return undefined;

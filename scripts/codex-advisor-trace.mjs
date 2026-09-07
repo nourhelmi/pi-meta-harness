@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { unlink } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { advisorStateRoot } from "./advisor-core/advisor-state.mjs";
+import { resultDeviations } from "./advisor-core/result-artifact.mjs";
 import {
   appendTrace,
   blockedKind,
@@ -272,6 +273,16 @@ async function subagentStop(payload, root, paths) {
           parent: ROOT_NODE,
           data: { path: mapping.resultPath },
         });
+        // Optional metadata must not change settlement if the artifact disappears after inspection.
+        const items = await readFile(mapping.resultPath, "utf8").then(resultDeviations, () => []);
+        if (items.length && !events.some((event) => event.type === "node.deviation" && event.node === mapping.nodeId)) {
+          drafts.push({
+            type: "node.deviation",
+            node: mapping.nodeId,
+            parent: ROOT_NODE,
+            data: { count: items.length, items },
+          });
+        }
         drafts.push({
           type: "node.result.validated",
           node: mapping.nodeId,

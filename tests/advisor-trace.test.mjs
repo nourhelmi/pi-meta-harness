@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { execFile, spawn } from "node:child_process";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -23,6 +23,7 @@ import { parseGraphBlock } from "../scripts/advisor-core/host-binding.mjs";
 const run = promisify(execFile);
 const CLI = fileURLToPath(new URL("../scripts/advisor-trace.mjs", import.meta.url));
 const DONE = join(FIXTURES_DIR, "one-worker-done.jsonl");
+const DEVIATION = join(FIXTURES_DIR, "one-worker-deviation.jsonl");
 const BLOCKED = join(FIXTURES_DIR, "one-worker-blocked.jsonl");
 const GRAPH = join(FIXTURES_DIR, "graph-two-waves.jsonl");
 const REPLY = join(FIXTURES_DIR, "blocked-reply-resume.jsonl");
@@ -36,17 +37,115 @@ const expectCode = (result, code) => {
   assert.ok(codes(result).includes(code), `expected ${code}, got ${JSON.stringify(result.problems)}`);
 };
 
-test("all five fixtures validate with zero problems and together cover every protocol 1.1 event type", async () => {
+test("all six fixtures validate with zero problems and together cover every protocol 1.1 event type", async () => {
   const schema = await loadSchema();
   const seen = new Set();
-  for (const path of [DONE, BLOCKED, GRAPH, REPLY, CANCEL]) {
+  for (const path of [DONE, BLOCKED, GRAPH, REPLY, CANCEL, DEVIATION]) {
     const events = await fixture(path);
     const result = validateTrace(events, schema);
     assert.deepEqual(result, { ok: true, problems: [] }, `${path}: ${JSON.stringify(result.problems)}`);
     for (const event of events) seen.add(event.type);
   }
   assert.deepEqual([...seen].sort(), [...eventTypes(schema)].sort());
-  assert.equal(eventTypes(schema).length, 14);
+  assert.equal(eventTypes(schema).length, 15);
+});
+
+test("deviation CLI projection preserves count and items without changing settlement", async () => {
+  const validation = await run(process.execPath, [CLI, "validate", DEVIATION]);
+  assert.match(validation.stdout, /^ok: 8 event\(s\)/);
+  const output = await run(process.execPath, [CLI, "project", DEVIATION]);
+  const [node] = JSON.parse(output.stdout).projection.nodes;
+  assert.deepEqual(node.deviations, [{
+    at: "2026-09-04T20:04:00.000Z",
+    count: 2,
+    items: ["Selected the installed Node version and reran the tests.", "Used a local fixture after the remote tool was unavailable."],
+  }]);
+  assert.equal(node.settledStatus, "done");
+  assert.equal(node.resultValid, true);
+  assert.deepEqual(projectTrace(await fixture(DONE)).nodes[0].deviations, []);
+});
+
+test("deviations enforce payload bounds and once-per-attempt result ordering", async () => {
+  const schema = await loadSchema();
+  const events = await fixture(DEVIATION);
+  const check = (trace) => validateTrace(trace.map((event, index) => ({ ...event, seq: index + 1, at: events[0].at })), schema);
+  for (const data of [
+    { count: 0, items: ["resolved"] }, { count: 1.5, items: ["resolved"] },
+    { count: 1, items: [] }, { count: 1, items: [""] }, { count: 1, items: [42] },
+    { count: 9, items: Array(9).fill("resolved") }, { count: 1, items: ["x".repeat(201)] },
+  ]) {
+    const bad = clone(events);
+    bad[4].data = data;
+    expectCode(check(bad), RULE_CODES.SCHEMA);
+  }
+  const early = clone(events);
+  [early[3], early[4]] = [early[4], early[3]];
+  expectCode(check(early), RULE_CODES.RESULT_ORDER);
+  const late = clone(events);
+  [late[4], late[5]] = [late[5], late[4]];
+  expectCode(check(late), RULE_CODES.RESULT_ORDER);
+  const duplicate = clone(events);
+  duplicate.splice(5, 0, clone(events[4]));
+  expectCode(check(duplicate), RULE_CODES.RESULT_ORDER);
+  const resumed = await fixture(REPLY);
+  for (let index = resumed.length - 1; index >= 0; index -= 1) {
+    if (resumed[index].type === "node.result.written") {
+      resumed.splice(index + 1, 0, { ...resumed[index], type: "node.deviation", data: events[4].data });
+    }
+  }
+  const blocked = resumed.find((event) => event.type === "node.blocked");
+  resumed.find((event) => event.type === "node.reply.sent").data.replyTo = resumed.indexOf(blocked) + 1;
+  assert.deepEqual(check(resumed), { ok: true, problems: [] });
+  assert.equal(projectTrace(resumed).nodes[0].deviations.length, 2);
+});
+
+test("native settlement hooks emit optional deviations once, without changing status or validation", async () => {
+  const schema = await loadSchema();
+  for (const host of ["claude", "codex"]) {
+    const validations = [];
+    for (const section of ["", "\n## Deviations\n- Selected local Node.\n  Continued locally.\n"]) {
+      const root = await mkdtemp(join(tmpdir(), `advisor-deviation-${host}-`));
+      const script = fileURLToPath(new URL(`../scripts/${host}-advisor-trace.mjs`, import.meta.url));
+      const base = { session_id: "deviation-session", cwd: process.cwd(), agent_id: "deviation-maker", agent_type: "advisor-maker" };
+      const hook = (payload) => new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, [script], { env: { ...process.env, ADVISOR_STATE_DIR: root }, stdio: ["pipe", "pipe", "pipe"] });
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk) => { stdout += chunk; });
+        child.stderr.on("data", (chunk) => { stderr += chunk; });
+        child.on("error", reject);
+        child.on("close", (code) => code === 0 ? resolve(stdout) : reject(new Error(stderr)));
+        child.stdin.end(JSON.stringify({ ...base, ...payload }));
+      });
+      try {
+        await hook({ hook_event_name: "PreToolUse", tool_use_id: "deviation-call", tool_name: host === "claude" ? "Agent" : "spawn_agent", tool_input: {
+          prompt: "RISK TIER: Standard. Verify deviations.", message: "RISK TIER: Standard. Verify deviations.",
+          description: "Deviation fixture", subagent_type: "advisor-maker", agent_type: "advisor-maker",
+        } });
+        const start = JSON.parse(await hook({ hook_event_name: "SubagentStart" }));
+        const resultPath = start.hookSpecificOutput.additionalContext.match(/exactly: (.+)/)[1];
+        await writeFile(resultPath, "# Status\nPASS\n" + section);
+        await hook({ hook_event_name: "SubagentStop" });
+        await hook({ hook_event_name: "SubagentStop" });
+        const [traceName] = await readdir(join(root, "traces"));
+        const events = await fixture(join(root, "traces", traceName));
+        assert.deepEqual(validateTrace(events, schema), { ok: true, problems: [] });
+        const deviations = events.filter((event) => event.type === "node.deviation");
+        assert.equal(deviations.length, section ? 1 : 0);
+        if (section) {
+          assert.deepEqual(deviations[0].data, { count: 1, items: ["Selected local Node."] });
+          const types = events.map((event) => event.type);
+          assert.ok(types.indexOf("node.result.written") < types.indexOf("node.deviation"));
+          assert.ok(types.indexOf("node.deviation") < types.indexOf("node.result.validated"));
+        }
+        assert.equal(projectTrace(events).nodes[0].settledStatus, "done");
+        validations.push({ ...events.find((event) => event.type === "node.result.validated").data, path: "normalized" });
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+    assert.deepEqual(validations[0], validations[1]);
+  }
 });
 
 test("the CLI exits 0 on a valid fixture and 1 with named problems on a broken trace", async () => {

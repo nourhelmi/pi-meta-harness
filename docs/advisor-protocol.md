@@ -73,7 +73,7 @@ Every event carries the same nine fields:
 | `node` | node the event is about; `null` only for run-level events; the parent node for `parent.awakened` |
 | `parent` | logical parent of `node` (the advisor root or a foreman); `null` for the root and run-level events |
 | `host` | emitting host: `pi`, `claude-code`, or `codex` |
-| `type` | one of the fourteen types below |
+| `type` | one of the fifteen types below |
 | `data` | type-specific payload |
 
 ### Event types
@@ -91,6 +91,7 @@ Every event carries the same nine fields:
 | `node.cancel.requested` | the host accepted a cancellation request | `reason` |
 | `node.resumed` | a blocked, stalled, or restartable node begins another attempt | `reason` |
 | `node.result.written` | the durable `result.md` exists | `path` |
+| `node.deviation` | settlement inspection finds resolved obstacles in the result's `Deviations` section | `count` (integer ≥ 1), `items` (1–8 strings, each ≤ 200 characters) |
 | `node.result.validated` | the host checked the result headings and Status line | `path`, `valid`, `problems` |
 | `node.settled` | the worker reached a terminal state | `status`, `reason` |
 | `parent.awakened` | the logical parent was delivered the settlement | `child`, `childStatus`, `wakeGeneration` |
@@ -99,6 +100,17 @@ Settlement statuses are `done`, `blocked`, `failed`, `stalled`, and
 `cancelled`. Host-native identifiers (pi-detach run id, Herdr pane, agent name,
 native task id) travel in `node.launched.data.launchRef` and are opaque to
 surfaces.
+
+`node.deviation` is optional metadata, never a blocked request. Hosts extract
+trimmed first lines of each bullet or paragraph under the first `Deviations`
+heading (any heading level, case-insensitive), stopping at the next heading of
+the same or higher level. Bullet markers are removed; continuations and nested
+headings are not items. Only the first eight nonempty summaries are retained,
+each truncated to 200 characters; `count` is the number of retained items.
+An absent or empty section emits no event. Deviations never change settlement
+status or result validation problems. The advisor reviews them after settlement.
+The reference projection keeps a node's `deviations` list across attempts, with
+the timestamp, count and items of each event.
 
 ### Ordering rules
 
@@ -112,6 +124,9 @@ The schema fixes shapes. These rules fix order, and
    launched, unsettled node.
 3. `node.result.validated` follows `node.result.written` for the same path. A
    valid result carries its `status`; an invalid one lists `problems`.
+   Optional `node.deviation` follows `node.result.written` and precedes
+   `node.result.validated`, at most once per attempt. `node.resumed` begins a
+   new attempt that may emit `node.deviation` again.
 4. A `done` or `blocked` settlement requires a prior `node.result.validated`
    with `valid: true`. `failed`, `stalled`, and `cancelled` do not. A
    `blocked` settlement requires a prior `node.blocked` carrying the request.

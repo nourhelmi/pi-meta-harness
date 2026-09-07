@@ -105,7 +105,7 @@ function resolveRef(root, ref) {
  * Check `value` against `schema`, appending human-readable problems.
  * Supports the keywords this repository's schema uses: $ref, const, enum, type,
  * oneOf, allOf, if/then/else, required, properties, additionalProperties,
- * items, minItems, minimum, minLength, pattern, and format: date-time.
+ * items, minItems, maxItems, minimum, minLength, maxLength, pattern, and format: date-time.
  */
 export function checkSchema(schema, value, path = "$", root = schema, problems = []) {
   if (schema.$ref) return checkSchema(resolveRef(root, schema.$ref), value, path, root, problems);
@@ -154,6 +154,9 @@ export function checkSchema(schema, value, path = "$", root = schema, problems =
     if (schema.minItems !== undefined && value.length < schema.minItems) {
       problems.push(`${path}: expected at least ${schema.minItems} item(s)`);
     }
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+      problems.push(`${path}: expected at most ${schema.maxItems} item(s)`);
+    }
     if (schema.items) value.forEach((item, index) => checkSchema(schema.items, item, `${path}[${index}]`, root, problems));
   }
   if (typeof value === "number" && schema.minimum !== undefined && value < schema.minimum) {
@@ -162,6 +165,9 @@ export function checkSchema(schema, value, path = "$", root = schema, problems =
   if (typeof value === "string") {
     if (schema.minLength !== undefined && value.length < schema.minLength) {
       problems.push(`${path}: expected at least ${schema.minLength} character(s)`);
+    }
+    if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+      problems.push(`${path}: expected at most ${schema.maxLength} character(s)`);
     }
     if (schema.pattern && !new RegExp(schema.pattern).test(value)) problems.push(`${path}: does not match ${schema.pattern}`);
     if (schema.format === "date-time" && (!ISO_DATE_TIME.test(value) || Number.isNaN(Date.parse(value)))) {
@@ -280,6 +286,7 @@ export function validateTrace(events, schema) {
         blockedSeq: undefined,
         written: undefined,
         validated: undefined,
+        deviationSeq: undefined,
         settled: undefined,
         settlements: [],
         wakeCount: 0,
@@ -354,6 +361,7 @@ export function validateTrace(events, schema) {
       state.blockedSeq = undefined;
       state.written = undefined;
       state.validated = undefined;
+      state.deviationSeq = undefined;
       state.settled = undefined;
       state.cancelSeq = undefined;
       continue;
@@ -380,6 +388,12 @@ export function validateTrace(events, schema) {
         break;
       case "node.result.written":
         state.written = event.data.path;
+        break;
+      case "node.deviation":
+        if (!state.written || state.validated || state.deviationSeq) {
+          report(RULE_CODES.RESULT_ORDER, seq, "node.deviation requires result.written, precedes result.validated, and appears at most once per attempt");
+        }
+        state.deviationSeq = seq;
         break;
       case "node.result.validated":
         if (state.written !== event.data.path) {
@@ -492,6 +506,7 @@ export function projectTrace(events) {
         replies: [],
         cancelRequested: false,
         progress: [],
+        deviations: [],
         blockedRequest: null,
         resultPath: event.data.resultPath ?? null,
         resultValid: null,
@@ -525,6 +540,9 @@ export function projectTrace(events) {
       case "node.result.written":
         node.state = "result-written";
         node.resultPath = event.data.path;
+        break;
+      case "node.deviation":
+        node.deviations.push({ at: event.at, count: event.data.count, items: [...event.data.items] });
         break;
       case "node.result.validated":
         node.state = event.data.valid ? "result-validated" : "result-invalid";

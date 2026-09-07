@@ -33,6 +33,7 @@
         "node.cancel.requested",
         "node.resumed",
         "node.result.written",
+        "node.deviation",
         "node.result.validated",
         "node.settled",
         "parent.awakened"
@@ -84,6 +85,10 @@
     {
       "if": { "properties": { "type": { "const": "node.result.written" } } },
       "then": { "properties": { "node": { "$ref": "#/$defs/id" }, "parent": { "$ref": "#/$defs/id" }, "data": { "$ref": "#/$defs/node.result.written" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "node.deviation" } } },
+      "then": { "properties": { "node": { "$ref": "#/$defs/id" }, "parent": { "$ref": "#/$defs/id" }, "data": { "$ref": "#/$defs/node.deviation" } } }
     },
     {
       "if": { "properties": { "type": { "const": "node.result.validated" } } },
@@ -232,6 +237,15 @@
       "properties": {
         "path": { "type": "string", "minLength": 1 },
         "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "node.deviation": {
+      "type": "object",
+      "required": ["count", "items"],
+      "additionalProperties": false,
+      "properties": {
+        "count": { "type": "integer", "minimum": 1, "description": "Number of bounded summaries in items." },
+        "items": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
       }
     },
     "node.result.validated": {
