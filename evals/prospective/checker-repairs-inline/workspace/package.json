@@ -1,0 +1,6 @@
+{
+  "name": "prospective-checker-repairs-inline",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node verify-public.mjs" }
+}

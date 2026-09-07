@@ -1,0 +1,4 @@
+{
+  "retryLimit": 2,
+  "lintEngine": "native"
+}

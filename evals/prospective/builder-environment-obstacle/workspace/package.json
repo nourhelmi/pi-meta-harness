@@ -1,0 +1,6 @@
+{
+  "name": "prospective-builder-environment-obstacle",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node verify-public.mjs && node lint.mjs" }
+}

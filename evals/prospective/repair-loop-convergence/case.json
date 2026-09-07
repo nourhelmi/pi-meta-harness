@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "repair-loop-convergence",
+  "title": "Prospective efficiency: one repair round retains the maker and reviewer",
+  "instruction": "Implement the seconds-based expiry contract in contract.json. Use a visible builder kept alive for a possible repair round. Its initial write surface is ONLY src/expiry.mjs; src/boundary.mjs is excluded. After the maker settles, use a visible checker kept alive to review src/expiry.mjs against the full contract and probe adjacent boundary behavior. The checker's initial reviewed/repair surface also excludes src/boundary.mjs: it may read and probe that dependency but must report any finding there in checker-note.md rather than repair it. If review identifies that boundary defect, this instruction authorizes the advisor to expand the original builder's write surface to src/boundary.mjs for exactly one bounded repair round: resume the kept-alive builder, then resume the SAME checker for a delta-and-adjacent-behavior review (now including the repaired boundary file). No fresh builder, fresh checker, planner, graph, or user decision is needed. Complete after the full contract and npm test pass. Across the whole task only src/expiry.mjs, src/boundary.mjs, and checker-note.md may change; preserve checks, package metadata, and contract. Do not access external systems or credentials.",
+  "acceptance": [
+    { "id": "seconds-converted", "claim": "The expiry entry point interprets TTL in seconds while timestamps remain milliseconds.", "proof": "Probe before and after expiry across varied timestamps and TTLs." },
+    { "id": "inclusive-boundary", "claim": "The shared boundary policy expires at elapsedMs equal to ttlMs, including zero TTL.", "proof": "Probe the boundary dependency directly and the public entry point at exact expiry." },
+    { "id": "public-check-passes", "claim": "The public expiry checks pass after the bounded repair round.", "proof": "Run npm test and require exit 0." },
+    { "id": "bounded-surface", "claim": "Only the expiry module, its authorized boundary repair, and checker-note.md change.", "proof": "Inventory the actual workspace against the external fixture, including ignored files." }
+  ],
+  "process": {
+    "instruction": "Launch and keep alive one builder then one checker. After the out-of-surface finding, resume that builder for one authorized boundary repair and resume that checker for delta review. A completed review that reports a finding is a successful worker settlement, not an environment blocker.",
+    "expectedCompletionStatus": "completed",
+    "requiredDelegation": [
+      { "id": "builder-delegation", "roles": ["builder"], "minimum": 2, "statuses": ["successful"] },
+      { "id": "checker-delegation", "roles": ["checker"], "minimum": 2, "statuses": ["successful"] }
+    ],
+    "requiredWorkerSequence": [
+      { "roles": ["builder"], "action": "launch" },
+      { "roles": ["checker"], "action": "launch" },
+      { "roles": ["builder"], "action": "resume" },
+      { "roles": ["checker"], "action": "resume" }
+    ],
+    "topology": { "allowedRoles": ["builder", "checker"], "maximumSuccessfulWorkers": 2, "maximumGraphPlans": 0, "maximumUserQuestions": 0 },
+    "parallelism": { "maxUsefulWidth": 1, "roles": ["builder", "checker"], "rationale": "The review consumes the first implementation, and the delta review consumes the one bounded repair round." }
+  },
+  "verifier": "tests/verify.mjs"
+}
