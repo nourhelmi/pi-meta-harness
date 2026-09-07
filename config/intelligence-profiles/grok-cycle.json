@@ -6,7 +6,7 @@
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: Luna replacement and preferred cheap executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Sonnet owns ordinary local code choices but stops and escalates rather than deciding product, architecture, schema, migration, auth, fallback, destructive behavior, or external effects. Default reasoning is medium. Generally avoid adversarial-tier checking, final whole-diff review, reduction, planning, or decision-bearing substantial implementation. Grok is the hefty-cycle model.",
+      "character": "Advisory: Luna replacement and preferred cheap executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Sonnet owns ordinary local code choices, resolves environment and tooling obstacles locally and records them under Deviations, and stops and escalates rather than deciding product, architecture, schema, migration, auth, product-fallback, destructive, or external-effect behavior. Default reasoning is medium. Generally avoid adversarial-tier checking, final whole-diff review, reduction, planning, or decision-bearing substantial implementation. Grok is the hefty-cycle model.",
       "defaultThinking": "medium"
     },
     "cursor/grok-4.6": {

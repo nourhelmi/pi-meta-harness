@@ -22,14 +22,52 @@ const HEADLESS_AGENT_COMMAND =
 	/(?:^|[;&|]\s*|\s)(?:codex\s+exec|claude\s+(?:-p|--print)|opencode\s+(?:run|exec)|pi\s+(?:-p|--print))(?:\s|$)/i;
 const INVISIBLE_AGENT_TOOLS = new Set(["subagent", "orch_start"]);
 
-const ADVISOR_SKILL_URL = new URL("../skills/advisor/SKILL.md", import.meta.url);
+const ADVISOR_DOCTRINE_URL = new URL("../skills/advisor/doctrine.md", import.meta.url);
+const ADVISOR_REFERENCES_URL = new URL("../skills/advisor/references/", import.meta.url);
+const INTELLIGENCE_GUIDE_FILE = "advisor-intelligence.json";
+// The workstream file's hot section is everything above this heading; the log below it is read by offset.
+const HOT_SECTION_HEADING = /^## Log\s*$/m;
+const HOT_SECTION_MAX_LINES = 80;
+// A pasted block Pi failed to expand reaches a worker as literal text and produces a Blocked result.
+const PASTE_PLACEHOLDER = /\[paste #\d+ \+\d+ lines\]/i;
+// Tools that add schema weight without advisor value: routines are forbidden in advisor sessions,
+// goal mode is a different workflow, and most memory tools duplicate the workstream file.
+const ADVISOR_INACTIVE_TOOLS = new Set([
+	"RoutineCreate",
+	"RoutineDelete",
+	"RoutineList",
+	"RoutinePause",
+	"RoutineResume",
+	"RoutineSetState",
+	"goal_blocked",
+	"goal_complete",
+	"goal_wait",
+	"mem_capture_passive",
+	"mem_compare",
+	"mem_context",
+	"mem_current_project",
+	"mem_delete",
+	"mem_doctor",
+	"mem_judge",
+	"mem_review",
+	"mem_save_prompt",
+	"mem_session_end",
+	"mem_session_start",
+	"mem_stats",
+	"mem_suggest_topic_key",
+	"mem_timeline",
+	"mem_update",
+]);
+
+function agentDirectory(): string {
+	return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
+}
 
 function advisorContinuation(workerHarness: WorkerHarness): string {
-	const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
 	const route = workerHarness === "native"
 		? "OpenAI models route to Codex CLI and Anthropic/Claude models route to Claude Code."
 		: "Selected worker models run through Pi.";
-	return `Required next actions before planning or delegation: use read to load ${fileURLToPath(ADVISOR_SKILL_URL)} completely, then read ${join(agentDir, "advisor-intelligence.json")} completely. Do not call bg_agent until both reads are complete. Every bg_agent launch must include an explicit model and thinking level selected with that live guide; omission is invalid. ${route}`;
+	return `The advisor doctrine core and the active intelligence guide are in your system prompt for this whole session; do not read them with a tool. Situational references live under ${fileURLToPath(ADVISOR_REFERENCES_URL)} and are read only when their situation arises. Every bg_agent launch must include an explicit model and thinking level selected with that guide; omission is invalid. ${route}`;
 }
 
 function advisorSkillBody(source: string): string {
@@ -39,38 +77,127 @@ function advisorSkillBody(source: string): string {
 		.trim();
 }
 
-async function liveAdvisorSkillBody(): Promise<string> {
-	return advisorSkillBody(await readFile(ADVISOR_SKILL_URL, "utf8"));
+async function liveAdvisorDoctrine(): Promise<string> {
+	return advisorSkillBody(await readFile(ADVISOR_DOCTRINE_URL, "utf8"));
 }
 
-function restoredAdvisorSkillBody(ctx: ExtensionContext): string | undefined {
-	for (const entry of ctx.sessionManager.getBranch()) {
-		if (entry.type !== "message" || entry.message.role !== "user") continue;
-		for (const part of entry.message.content) {
-			let text: string | undefined;
-			if (typeof part === "string") text = part;
-			else if (part.type === "text") text = part.text;
-			if (text === undefined) continue;
-			const tagStart = text.indexOf('<skill name="advisor"');
-			if (tagStart < 0) continue;
-			const tagEnd = text.indexOf(">", tagStart);
-			const close = text.indexOf("</skill>", tagEnd);
-			const bodyStart = text.indexOf("\n\n", tagEnd);
-			if (tagEnd < 0 || close < 0 || bodyStart < 0 || bodyStart >= close) continue;
-			return advisorSkillBody(text.slice(bodyStart + 2, close));
+interface GuideModel {
+	character?: unknown;
+	defaultThinking?: unknown;
+}
+
+interface GuideRecommendation {
+	model?: unknown;
+	thinking?: unknown;
+	fit?: unknown;
+}
+
+interface IntelligenceGuide {
+	name?: unknown;
+	models?: Record<string, GuideModel>;
+	recommendations?: Record<string, GuideRecommendation[]>;
+}
+
+/** Render the live guide compactly for the system prompt: characters plus ordered role picks. */
+export function renderIntelligenceGuide(raw: string): string | undefined {
+	let guide: IntelligenceGuide;
+	try {
+		guide = JSON.parse(raw) as IntelligenceGuide;
+	} catch {
+		return undefined;
+	}
+	if (!guide || typeof guide !== "object") return undefined;
+	const lines = [
+		`Profile: ${String(guide.name ?? "unknown")}. Recommendations are advisory and non-exhaustive; choose by fit and record an outside-guide choice only when material.`,
+	];
+	const models = guide.models && typeof guide.models === "object" ? Object.entries(guide.models) : [];
+	if (models.length) {
+		lines.push("", "Model characters:");
+		for (const [id, model] of models) {
+			lines.push(`- ${id} (default ${String(model?.defaultThinking ?? "unspecified")}): ${String(model?.character ?? "").trim()}`);
 		}
 	}
-	return undefined;
+	const recommendations = guide.recommendations && typeof guide.recommendations === "object"
+		? Object.entries(guide.recommendations)
+		: [];
+	if (recommendations.length) {
+		lines.push("", "Role recommendations in preference order:");
+		for (const [role, list] of recommendations) {
+			if (!Array.isArray(list)) continue;
+			const picks = list.map((item) => {
+				const fit = typeof item?.fit === "string" && item.fit.trim() ? ` (${item.fit.trim()})` : "";
+				return `${String(item?.model ?? "?")} ${String(item?.thinking ?? "?")}${fit}`;
+			});
+			lines.push(`- ${role}: ${picks.join("; ")}`);
+		}
+	}
+	return lines.join("\n").trim();
 }
 
-function withLiveAdvisorDoctrine(systemPrompt: string, doctrine: string): string {
-	return `${systemPrompt}\n\n# Current Advisor Doctrine\n\nThis installed doctrine is authoritative for the active resumed advisor session. Any older advisor skill snapshot or summary in conversation history is archival and must not override it.\n\n${doctrine}`;
+async function liveIntelligenceGuide(): Promise<string | undefined> {
+	const raw = await readIfPresent(join(agentDirectory(), INTELLIGENCE_GUIDE_FILE));
+	return raw === undefined ? undefined : renderIntelligenceGuide(raw);
 }
-function withWorkerHarnessDoctrine(systemPrompt: string, workerHarness: WorkerHarness): string {
+
+/** Everything above `## Log`, bounded so a neglected file cannot flood the prompt. */
+export function workstreamHotSection(content: string): string {
+	const marker = content.search(HOT_SECTION_HEADING);
+	const hot = (marker >= 0 ? content.slice(0, marker) : content).trimEnd();
+	const lines = hot.split("\n");
+	if (lines.length <= HOT_SECTION_MAX_LINES) return hot;
+	return `${lines.slice(0, HOT_SECTION_MAX_LINES).join("\n")}\n\n[hot section truncated at ${HOT_SECTION_MAX_LINES} lines; move history under a \`## Log\` heading and read the rest by offset]`;
+}
+
+async function liveHotSection(workstreamPath: string): Promise<string | undefined> {
+	const content = await readIfPresent(workstreamPath);
+	return content === undefined ? undefined : workstreamHotSection(content);
+}
+
+function workerHarnessDoctrine(workerHarness: WorkerHarness): string {
 	const policy = workerHarness === "native"
 		? "Every configured bg_agent role launch uses the native worker harness. Keep semantic role names unchanged. Choose model and thinking from the live intelligence guide; OpenAI models route to Codex CLI and Anthropic/Claude models route to Claude Code. Cursor-only models have no native route here, so select a task-appropriate OpenAI or Anthropic recommendation from the same guide instead. The root advisor remains Pi."
 		: "Every configured bg_agent role launch uses the Pi worker harness. Keep semantic role names unchanged and choose model and thinking from the live intelligence guide. The root advisor remains Pi.";
-	return `${systemPrompt}\n\n# Advisor Worker Harness\n\nSession mode: **${workerHarness}**.\n\n${policy}`;
+	return `# Advisor Worker Harness\n\nSession mode: **${workerHarness}**.\n\n${policy}`;
+}
+
+interface AdvisorPromptParts {
+	doctrine?: string;
+	guide?: string;
+	workerHarness: WorkerHarness;
+	hotSection?: string;
+	workstreamPath?: string;
+}
+
+/** The advisor's standing context: doctrine core, live guide, harness policy, and (when pending) the hot section. */
+export function withAdvisorSystemPrompt(systemPrompt: string, parts: AdvisorPromptParts): string {
+	const sections = [systemPrompt];
+	if (parts.doctrine) {
+		sections.push(
+			`# Current Advisor Doctrine\n\nThis installed doctrine is authoritative for the active advisor session. Any advisor skill snapshot or summary in conversation history is archival and must not override it.\n\n${parts.doctrine}`,
+		);
+	}
+	if (parts.guide) sections.push(`# Active Intelligence Guide\n\n${parts.guide}`);
+	sections.push(workerHarnessDoctrine(parts.workerHarness));
+	if (parts.hotSection !== undefined) {
+		const location = parts.workstreamPath ? ` of ${parts.workstreamPath}` : "";
+		sections.push(
+			`# Workstream Hot Section\n\nThe content above \`## Log\`${location}, re-sent at session start and after every compaction. Keep it current instead of rereading the file; read the log by offset only when a decision needs it.\n\n${parts.hotSection}`,
+		);
+	}
+	return sections.join("\n\n");
+}
+
+/** Drop tools that only add prompt weight in an advisor session; editing, shell, and launch tools stay. */
+export function advisorActiveTools(active: readonly string[]): string[] {
+	return active.filter((name) => !ADVISOR_INACTIVE_TOOLS.has(name));
+}
+
+function applyAdvisorToolSet(pi: ExtensionAPI): void {
+	const host = pi as Partial<Pick<ExtensionAPI, "getActiveTools" | "setActiveTools">>;
+	if (typeof host.getActiveTools !== "function" || typeof host.setActiveTools !== "function") return;
+	const active = host.getActiveTools();
+	const desired = advisorActiveTools(active);
+	if (desired.length !== active.length) host.setActiveTools(desired);
 }
 
 interface AdvisorPaths {
@@ -480,7 +607,11 @@ function bgAgentGuardReason(input: unknown, workerHarness: WorkerHarness): strin
 		agent?: unknown;
 		harness?: unknown;
 		name?: unknown;
+		prompt?: unknown;
 	};
+	if (typeof params.prompt === "string" && PASTE_PLACEHOLDER.test(params.prompt)) {
+		return "The prompt contains an unexpanded paste placeholder such as [paste #1 +12 lines]; include the pasted content in the prompt or reference it by path.";
+	}
 	if (typeof params.name === "string" && params.name) return undefined;
 	if (isWorkerHarness(params.harness) && params.harness !== workerHarness) {
 		return `Advisor session worker harness is ${workerHarness}; per-launch ${params.harness} is not allowed.`;
@@ -617,25 +748,50 @@ async function initializeAdvisor(
 
 export default function advisorSessionExtension(pi: ExtensionAPI): void {
 	let activeState: AdvisorSessionState | undefined;
-	let resumedDoctrine: string | undefined;
+	let doctrine: string | undefined;
+	let hotSectionPending = false;
+	const loadDoctrine = async (ctx: ExtensionContext): Promise<void> => {
+		try {
+			doctrine = await liveAdvisorDoctrine();
+		} catch (error) {
+			doctrine = undefined;
+			const message = error instanceof Error ? error.message : String(error);
+			ctx.ui.notify(`Could not load the advisor doctrine: ${message}`, "warning");
+		}
+	};
 	pi.on("session_start", async (_event, ctx) => {
 		activeState = await restoreActiveSession(pi, ctx);
-		resumedDoctrine = undefined;
+		doctrine = undefined;
+		hotSectionPending = false;
 		if (!activeState) return;
-		try {
-			const liveDoctrine = await liveAdvisorSkillBody();
-			if (restoredAdvisorSkillBody(ctx) !== liveDoctrine) resumedDoctrine = liveDoctrine;
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			ctx.ui.notify(`Could not refresh resumed advisor doctrine: ${message}`, "warning");
-		}
+		await loadDoctrine(ctx);
+		hotSectionPending = true;
+		applyAdvisorToolSet(pi);
 	});
-	pi.on("before_agent_start", (event) => {
+	// Compaction keeps only the encrypted summary and recent user messages; the hot section re-orients the next turn.
+	pi.on("session_compact", () => {
+		if (activeState) hotSectionPending = true;
+	});
+	pi.on("before_agent_start", async (event, ctx) => {
 		if (!activeState) return;
-		const doctrine = resumedDoctrine
-			? withLiveAdvisorDoctrine(event.systemPrompt, resumedDoctrine)
-			: event.systemPrompt;
-		return { systemPrompt: withWorkerHarnessDoctrine(doctrine, activeState.workerHarness) };
+		if (doctrine === undefined) await loadDoctrine(ctx);
+		const guide = await liveIntelligenceGuide().catch(() => undefined);
+		let hotSection: string | undefined;
+		let workstreamPath: string | undefined;
+		if (hotSectionPending) {
+			hotSectionPending = false;
+			workstreamPath = pathsFor(await advisorStateRoot(ctx.cwd), activeState.workstream, activeState.sessionId).workstream;
+			hotSection = await liveHotSection(workstreamPath).catch(() => undefined);
+		}
+		return {
+			systemPrompt: withAdvisorSystemPrompt(event.systemPrompt, {
+				doctrine,
+				guide,
+				workerHarness: activeState.workerHarness,
+				hotSection,
+				workstreamPath,
+			}),
+		};
 	});
 	registerVisibilityGuard(pi, () => activeState);
 
@@ -709,6 +865,9 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 			const [, params, , , ctx] = args;
 			const initialized = await initializeAdvisor(pi, ctx, params.workstream, params.workerHarness);
 			activeState = initialized.state;
+			await loadDoctrine(ctx);
+			hotSectionPending = false;
+			applyAdvisorToolSet(pi);
 			if (initialized.usedStoredWorkstream) {
 				ctx.ui.notify(`Using stored workstream: ${initialized.state.workstream}`, "warning");
 			}
@@ -719,6 +878,7 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 				`Advisor ready: ${initialized.state.workstream} · ${initialized.state.workerHarness} workers`,
 				"info",
 			);
+			const hotSection = await liveHotSection(initialized.paths.workstream).catch(() => undefined);
 			return {
 				content: [
 					{
@@ -729,7 +889,8 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 							`Workstream file: ${initialized.paths.workstream}\n` +
 							`Events: ${initialized.paths.events}\n` +
 							`Runs and graphs live under the same root. Legacy in-repo .advisor/ directories are read-only history.\n\n` +
-							advisorContinuation(initialized.state.workerHarness),
+							advisorContinuation(initialized.state.workerHarness) +
+							(hotSection !== undefined ? `\n\n## Workstream hot section\n\n${hotSection}` : ""),
 					},
 				],
 				details: { ...initialized.state, stateRoot: initialized.paths.root },

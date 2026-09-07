@@ -34,7 +34,8 @@ If the installed switcher is missing, run it from the harness checkout:
 node /Users/nour/Dev/pi-meta-harness/scripts/intelligence-profile.mjs <name>
 ```
 
-Then re-read `advisor-intelligence.json` before the next launch. Use its ordered
+The advisor's system prompt renders `advisor-intelligence.json` on every turn,
+so a switch takes effect on the next turn without a read. Use its ordered
 `recommendations` and model `character` notes as preferred guidance. The list is
 not exhaustive or enforceable: choose outside it when task fit, availability,
 or capacity warrants, and include a concise rationale in the task packet or
@@ -64,10 +65,16 @@ inconsistent pair rather than guessing which side is authoritative.
 | Name | When | Workhorse | Adversarial review | Procedural |
 | --- | --- | --- | --- | --- |
 | `codex-max` | Codex weekly is healthy | Astra high; Sol high for locked packets | Sol xhigh | Sol high |
-| `codex-lean` | Codex remainder is usable | Sol / Sonnet / Luna by hardness | Sol medium | Luna, Sonnet |
+| `codex-lean` | Codex remainder is usable | Astra medium; Astra low for locked packets | Astra low | Sol medium scouting; Luna max browser verification |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
 | `balanced` | Codex builds hard, Anthropic checks, no Grok | Sonnet default; Sol high/medium hard; Opus greenfield UX | Sonnet, Opus if extreme-risk | Luna, Sonnet |
 | `grok-cycle` | No Codex; Grok owns maker + hefty review | Grok | Grok | Sonnet |
+
+In `codex-lean`, the advisor uses Astra xhigh, the planner and foreman use
+Astra high, decision-bearing builders use Astra medium, and fully locked
+execution packets use Astra low. Checking and reduction use Astra low, scouting
+uses Sol medium, and browser verification uses Luna max. The named guide contains
+only OpenAI Codex models.
 
 In `codex-max`, the advisor and planner use Astra max, the foreman uses Astra
 xhigh, and every Astra builder uses high, including substantial and all UX

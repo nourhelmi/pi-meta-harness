@@ -41,7 +41,7 @@
       "requireAnchor": true
     },
     "builder": {
-      "description": "Own cohesive diagnosis, implementation choices, and verification within fixed criteria; may launch one fresh-review subagent.",
+      "description": "Own cohesive diagnosis, implementation choices, obstacle resolution, and verification within fixed criteria; may launch one fresh-review subagent.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-builder",
@@ -70,7 +70,7 @@
       "requireAnchor": true
     },
     "checker": {
-      "description": "Fresh-context review of completed work with a bounded inline-repair mandate for small findings.",
+      "description": "Fresh-context review of completed work that repairs every finding it can inside the reviewed surface and reports the post-repair state.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-checker",

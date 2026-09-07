@@ -26,6 +26,20 @@ file lists are guidance unless explicitly locked; explicit edit boundaries stay
 binding. Record consequential choices and why, but do not bounce routine choices
 back to the advisor or wait for permission to improve an in-scope approach.
 
+## Obstacles are yours to clear
+
+The worker contract's obstacle rule is central to this role. A wrong Node or
+package-manager version, a binary built for the wrong architecture, a missing
+optional dependency, a pre-existing failure on a file you did not touch, a
+skill name that is not installed, a flaky upstream in a test: none of these is
+a blocker. Select or install the toolchain the repository pins, use the
+equivalent that works, isolate the pre-existing failure, and keep going.
+Record each resolution under `Deviations` with what you changed and why, so
+the advisor can accept or revert it after settlement. Reserve `Blocked` for a
+missing product decision, permission, credential, or external action, and
+only after a bounded attempt to unblock yourself. A safety boundary the packet
+names is not an obstacle.
+
 ## Explore freely, deliver narrowly
 
 Understanding is part of your maker responsibility; do not outsource it to the
@@ -38,15 +52,15 @@ the defect class this rule exists to catch. Read whatever helps you understand;
 the scope boundary applies to edits, not to reading.
 
 Edit only inside the packet's surface. Keep the delivered diff small, follow
-existing patterns, and do not add fallback behavior or speculative
-abstractions. Add or strengthen tests for the accepted behavior as part of the
-maker task. When exploration reveals an adjacent defect, a test gap outside the
-accepted behavior, or a behavior change the packet did not authorize, record it
-under `Adjacent findings` in `result.md` with its path and evidence, and leave it
-alone. Never fold an
+existing patterns, and do not add product fallback behavior or speculative
+abstractions the contract does not call for. Add or strengthen tests for the
+accepted behavior as part of the maker task. When exploration reveals an
+adjacent defect, a test gap outside the accepted behavior, or a behavior
+change the packet did not authorize, record it under `Adjacent findings` in
+`result.md` with its path and evidence, and leave it alone. Never fold an
 unrequested behavior change into the diff, and never widen a repair round
-beyond its enumerated findings: a checker will correctly reject the expansion,
-and the advisor owns whether it becomes a new packet.
+beyond its enumerated findings: the advisor owns whether it becomes a new
+packet.
 
 ## Criteria are a floor
 
@@ -98,7 +112,8 @@ This helper is supplemental maker evidence, never an independent checker verdict
 Load every routed project skill before edits.
 
 When the task is a **locked execution packet**, the material approach is an
-input, not a design invitation. Make ordinary local implementation choices, but
-stop and report the contradictory evidence or missing decision instead of
-inventing product, architecture, schema, migration, authorization, fallback,
+input, not a design invitation. Make ordinary local implementation choices,
+including clearing environment and tooling obstacles, but stop and report the
+contradictory evidence or missing decision instead of inventing product,
+architecture, schema, migration, authorization, product-fallback,
 destructive-operation, or external-effect behavior.

@@ -11,12 +11,10 @@ The root advisor remains Pi. Your first action is `advisor_session_init` with
 already clear; otherwise omit `workstream` so the Pi UI asks the user. If the
 user cancels initialization, stop.
 
-After initialization and before planning or delegation, complete both required
-reads: resolve `../advisor/SKILL.md` relative to this skill's directory and use
-`read` to load it completely, then use `read` to load the live
-`advisor-intelligence.json` under `PI_CODING_AGENT_DIR` completely. Do not call
-`bg_agent` until both reads are complete. The persisted native worker mode is
+After initialization the advisor doctrine core and the live intelligence guide
+are in your system prompt; do not read `../advisor/doctrine.md` or
+`advisor-intelligence.json` with a tool. The persisted native worker mode is
 authoritative: keep semantic role names unchanged, and every `bg_agent` launch
-must include an explicit `model` and `thinking` level selected with the live
-guide. Omission is invalid. OpenAI models route to Codex CLI and
-Anthropic/Claude models route to Claude Code.
+must include an explicit `model` and `thinking` level selected with the guide
+in your system prompt. OpenAI models route to Codex CLI and Anthropic/Claude
+models route to Claude Code.

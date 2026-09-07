@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+const read = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+const REFERENCES = ["graphs", "model-routing", "evidence", "transport-and-settlement"];
 const paths = {
-  advisor: "skills/advisor/SKILL.md",
   contract: "skills/advisor-worker/references/WORKER_CONTRACT.md",
   builder: "skills/advisor-worker/roles/builder/SKILL.md",
   foreman: "skills/advisor-worker/roles/foreman/SKILL.md",
@@ -11,9 +12,12 @@ const paths = {
   runtime: "docs/advisor-runtime.md",
   readme: "README.md",
 };
-const policy = Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([name, path]) => [
-  name, (await readFile(new URL(`../${path}`, import.meta.url), "utf8")).replace(/\s+/g, " "),
-])));
+const collapse = (source) => source.replace(/\s+/g, " ");
+const policy = Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([name, path]) => [name, collapse(await read(path))])));
+// The advisor's policy is the injected core plus its references.
+policy.advisor = collapse(
+  [await read("skills/advisor/doctrine.md"), ...(await Promise.all(REFERENCES.map((name) => read(`skills/advisor/references/${name}.md`))))].join("\n\n"),
+);
 
 // These are instruction-contract regressions, not a claim about live model behavior.
 test("review admission keeps maker proof and High independence without automatic stacked reviewers", () => {
@@ -27,7 +31,7 @@ test("review admission keeps maker proof and High independence without automatic
   assert.match(policy.builder, /Do not stack a maker-owned reviewer ahead of a planned independent checker covering the same purpose/);
   assert.match(policy.foreman, /named distinct uncertainty, not duplicate the parent advisor's planned independent checker/);
   assert.match(policy.advisor, /High-risk boundaries receive independent review before completion/);
-  assert.match(policy.advisor, /if unavailable, report the requirement as unsatisfied rather than relabeling maker review/);
+  assert.match(policy.advisor, /if a checker is unavailable, report the requirement as unsatisfied rather than relabeling maker review/);
   assert.match(policy.builder, /High still requires the parent advisor's designated independent checker/);
   assert.match(policy.foreman, /independent checker remains the parent advisor's responsibility when justified and is required for High/);
   assert.match(policy.advisor, /Low tier alone never earns a checker; explicit review requests still apply/);
@@ -82,21 +86,26 @@ test("review stops on resolved claims and material risks, not test counts or a t
   assert.match(policy.runtime, /packet explicitly requires generated reference or mutation checks, run them/);
 });
 
-test("delta closure preserves independent risk escalation and the existing inline repair safety envelope", () => {
+test("repair-first checkers close their own findings and delta review reuses the same reviewer", () => {
   assert.match(policy.advisor, /carry forward unaffected valid evidence/);
   assert.match(policy.advisor, /repair invalidates prior independent reasoning or leaves material independent risk/);
   assert.match(policy.advisor, /Review that delta first; expand only when the risk crosses its boundary/);
   assert.match(policy.advisor, /not merely because a file changed or a test once failed/);
+  assert.match(policy.advisor, /Checkers are repair-first/);
+  assert.match(policy.advisor, /Resume the same checker for a delta review of a repair/);
+  assert.match(policy.advisor, /Two serial review rounds per slice is the cap, and the cap is terminal/);
   assert.match(policy.checker, /delta and its blast radius and rerun affected criteria/);
   assert.match(policy.checker, /not a checker-of-checker/);
   assert.match(policy.checker, /own the reviewed write surface/);
   assert.match(policy.checker, /explicit read-only or frozen-revision packet limits you to findings/);
-  assert.match(policy.checker, /at most three findings in total and no product or enforcement finding is High/);
-  assert.match(policy.checker, /every fix stays inside files you already reviewed/);
-  assert.match(policy.checker, /affected deterministic criteria rerun green/);
-  assert.match(policy.checker, /If any product or enforcement finding exceeds these bounds, repair none of that class/);
-  assert.match(policy.checker, /Classify by behavioral effect, not filename/);
+  assert.match(policy.checker, /Repair every finding you can, in every round including declared repair rounds, at any severity, inside the surface you reviewed/);
+  assert.match(policy.checker, /Three things you do not repair/);
+  assert.match(policy.checker, /classify by behavioral effect, not filename/);
   assert.match(policy.checker, /Never weaken acceptance to make a rerun green/);
   assert.match(policy.checker, /High \| a violated criterion, or an unrepaired Medium-or-higher finding/);
   assert.match(policy.checker, /A repaired finding never flips the verdict/);
+  for (const [name, source] of Object.entries(policy)) {
+    assert.doesNotMatch(source, /at most three findings in total|repair none of that class/, name);
+  }
+  assert.match(policy.readme, /checkers repair/i);
 });

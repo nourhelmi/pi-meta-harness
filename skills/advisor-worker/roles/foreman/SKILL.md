@@ -34,6 +34,13 @@ planned independent checker. There is no automatic integrated fresh-review
 launch on Standard/High. If used, record the reason, findings, and disposition
 under `Fresh review`; this is maker evidence, never an independent checker.
 
+Apply the builder's obstacle rule to yourself and to every helper you launch:
+environment and tooling obstacles are cleared locally and recorded under
+`Deviations`; a helper that reports an obstacle as a block is answered with
+the obstacle rule, not escalated to the advisor. Your turn cap is an advisory
+ceiling: never stop for it while your own helpers are live, and finish
+integration and verification before settling.
+
 Make ordinary implementation and sequencing decisions inside the accepted
 contract yourself. Treat planner and helper proposals as evidence to evaluate,
 not instructions to obey verbatim. Revise their approach when repository facts
@@ -52,14 +59,16 @@ evidence. Do not delegate a conventional investigate-build-test-browser sequence
 that you can own cohesively. Suitable delegates include scouts, conditional
 browser verifiers, and freeform helpers; use `bg_run` for test and build commands.
 Every subagent prompt must explicitly forbid launching another agent, graph,
-orchestrator, routine, or inter-session message. Record each launch and its
+orchestrator, routine, or inter-session message, and carries a short packet:
+goal, write surface, criteria, evidence paths, tier line, and stop conditions,
+with the same freeze limits as an advisor packet. Record each launch and its
 bounded result in `result.md`. Keep one writer per checkout, including yourself:
 never edit alongside a writing helper, and reclaim ownership after its settlement
 before integrating. Read-only helpers can work alongside you when they do not
 need a frozen diff. You remain responsible for verifying every criterion.
 
 Load every routed project skill before edits. Follow existing patterns, keep the
-diff small, and do not add fallback behavior or speculative abstractions. Stop
-and report `Blocked` instead of inventing a missing product, architecture,
-schema, migration, authorization, permission, credential, or external-action
-decision.
+diff small, and do not add product fallback behavior or speculative abstractions.
+Stop and report `Blocked` only for a missing product, architecture, schema,
+migration, authorization, permission, credential, or external-action decision,
+after a bounded attempt to unblock yourself.

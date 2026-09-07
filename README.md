@@ -86,9 +86,9 @@ flowchart TB
 
 | | |
 | --- | --- |
-| 🎯 **No ceremony** | Cohesive work stays with **one empowered maker**. Scouts, planners, foremen, checkers, reducers, and browser verifiers join only when they reduce uncertainty, expose real parallelism, or add independent evidence. |
-| 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what it touches. The tier sets review obligations and the checker's FAIL bar; High retains independent checking without an automatic extra maker-owned reviewer. |
-| 🔍 **Makers understand, checkers confirm** | Makers prove criteria and inspect their own diff. Additional review resolves a named uncertainty, reuses current scoped evidence, and stops when assigned claims and material risks are resolved—not when every possible check has been invented. |
+| 🎯 **No ceremony** | Small and medium work runs as **direct work or one empowered maker** from a short packet, like launching one ordinary agent. Scouts, planners, foremen, checkers, reducers, and browser verifiers join only when they reduce uncertainty, expose real parallelism, or add independent evidence. |
+| 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what the change touches, with Standard as the default. The tier sets review obligations and the checker's FAIL bar; High retains independent checking without an automatic extra maker-owned reviewer. |
+| 🔍 **Makers understand, checkers repair** | Makers prove criteria, clear environment and tooling obstacles themselves, and inspect their own diff. Checkers repair what they find inside the reviewed surface and report the post-repair state; a repair round is a delta review by the same reviewer, capped at two rounds. |
 | 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |
 | 🔀 **Two worker harnesses** | Workers run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. The root advisor is always Pi. |
 | 🧪 **Evals that bite** | 18 hermetic live cases graded by **hidden deterministic verifiers**, including routing, explicit capability, and a medium API repair with regression-test mutation checks, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
@@ -186,7 +186,7 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs" grok-cycle
 | Profile | Use it when |
 | --- | --- |
 | `codex-max` *(default)* | Codex weekly capacity is healthy. |
-| `codex-lean` | Codex capacity is low but still available for the hardest work. |
+| `codex-lean` | Codex-only routing with lower reasoning effort assigned by role. |
 | `anthropic-heavy` | You intentionally want Anthropic to carry implementation and review. |
 | `balanced` | Codex handles hard builds while Anthropic carries ordinary builds and checks. |
 | `grok-cycle` | Codex is unavailable and Grok should own the substantial maker/review cycle. |

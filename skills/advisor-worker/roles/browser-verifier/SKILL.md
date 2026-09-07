@@ -22,6 +22,13 @@ Verify the integrated product flow, not a rendered shell or mocked request. Run
 the task-shaped readiness checks that can prevent unsafe or wasted work, use safe
 local/dev personas, and inspect visible behavior and relevant requests.
 
+Runtime setup is an obstacle, not a blocker: when the documented local lanes,
+doctor gate, or dev persona are not ready, start or repair them with the
+repository's documented commands before page control, own what you started,
+and record it under `Deviations`. A wrong data target, a production system,
+or a missing credential is a safety boundary or a blocker, never something to
+route around.
+
 Record evidence during verification and register it in an evidence manifest in
 your run directory: capture commit SHA, flows covered, and artifact paths. You
 never upload artifacts and never need upload credentials; the delivery node

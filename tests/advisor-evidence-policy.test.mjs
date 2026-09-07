@@ -2,17 +2,21 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+const read = async (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+const REFERENCES = ["graphs", "model-routing", "evidence", "transport-and-settlement"];
 const paths = {
-  advisor: "skills/advisor/SKILL.md",
   contract: "skills/advisor-worker/references/WORKER_CONTRACT.md",
   builder: "skills/advisor-worker/roles/builder/SKILL.md",
   foreman: "skills/advisor-worker/roles/foreman/SKILL.md",
   checker: "skills/advisor-worker/roles/checker/SKILL.md",
   runtime: "docs/advisor-runtime.md",
 };
-const policy = Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([name, path]) => [
-  name, (await readFile(new URL(`../${path}`, import.meta.url), "utf8")).replace(/\s+/g, " "),
-])));
+const collapse = (source) => source.replace(/\s+/g, " ");
+const policy = Object.fromEntries(await Promise.all(Object.entries(paths).map(async ([name, path]) => [name, collapse(await read(path))])));
+// The advisor's policy is the injected core plus its references.
+policy.advisor = collapse(
+  [await read("skills/advisor/doctrine.md"), ...(await Promise.all(REFERENCES.map((name) => read(`skills/advisor/references/${name}.md`))))].join("\n\n"),
+);
 
 // Instruction-contract regressions only: these do not measure live compliance or latency.
 test("prove-once handoffs retain per-claim outcomes, actual coverage, and distinct executions", () => {
@@ -48,6 +52,7 @@ test("selective evidence reading removes blanket log consumption without skippin
   assert.match(advisor, /Required evidence, critical or contested claims, uncertain coverage\/provenance, and contradictions still require the underlying evidence/);
   assert.match(advisor, /Missing or inaccessible proof stays unsatisfied/);
   assert.match(advisor, /Keep required launch criteria and material boundaries explicit/);
+  assert.match(advisor, /Read a worker result only when a claim needs inspection/);
   for (const [name, source] of Object.entries(policy)) {
     assert.doesNotMatch(source, /read every evidence path the packet links|read all linked (?:evidence files|logs)/i, name);
   }

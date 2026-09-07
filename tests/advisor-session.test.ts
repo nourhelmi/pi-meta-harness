@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import advisorSessionExtension from "../extensions/advisor-session.ts";
+import advisorSessionExtension, {
+  advisorActiveTools,
+  renderIntelligenceGuide,
+  workstreamHotSection,
+} from "../extensions/advisor-session.ts";
 
 interface ExecResult {
   code: number;
@@ -89,6 +93,10 @@ interface BeforeAgentStartEvent {
   systemPrompt: string;
 }
 
+interface SessionCompactEvent {
+  reason: "manual" | "threshold" | "overflow";
+}
+
 interface ToolCallEvent {
   toolName: string;
   input: unknown;
@@ -97,8 +105,9 @@ interface ToolCallEvent {
 function installedAdvisorResumeRuntime(branch: unknown[]) {
   let sessionStart: ((event: SessionStartEvent, ctx: ExtensionContext) => Promise<void>) | undefined;
   let beforeAgentStart:
-    | ((event: BeforeAgentStartEvent, ctx: ExtensionContext) => { systemPrompt: string } | undefined)
+    | ((event: BeforeAgentStartEvent, ctx: ExtensionContext) => Promise<{ systemPrompt: string } | undefined>)
     | undefined;
+  let sessionCompact: ((event: SessionCompactEvent, ctx: ExtensionContext) => void) | undefined;
   let toolCall: ((event: ToolCallEvent) => { block: boolean; reason: string } | undefined) | undefined;
   let sessionName: string | undefined;
   const pi = {
@@ -115,7 +124,10 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
         beforeAgentStart = handler as (
           event: BeforeAgentStartEvent,
           ctx: ExtensionContext,
-        ) => { systemPrompt: string } | undefined;
+        ) => Promise<{ systemPrompt: string } | undefined>;
+      }
+      if (name === "session_compact") {
+        sessionCompact = handler as (event: SessionCompactEvent, ctx: ExtensionContext) => void;
       }
       if (name === "tool_call") {
         toolCall = handler as (event: ToolCallEvent) => { block: boolean; reason: string } | undefined;
@@ -127,6 +139,7 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
   assert.ok(sessionStart, "session_start handler is registered");
   assert.ok(beforeAgentStart, "before_agent_start handler is registered");
   assert.ok(toolCall, "tool_call handler is registered");
+  assert.ok(sessionCompact, "session_compact handler is registered");
   const ctx = {
     cwd: process.cwd(),
     sessionManager: {
@@ -135,41 +148,53 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
     },
     ui: { notify: () => undefined },
   } as unknown as ExtensionContext;
-  return { beforeAgentStart, ctx, sessionStart, toolCall };
+  return { beforeAgentStart, ctx, sessionCompact, sessionStart, toolCall };
+}
+
+const REFERENCE_NAMES = ["graphs", "model-routing", "evidence", "transport-and-settlement"];
+async function advisorDoctrine(): Promise<string> {
+  const core = await readFile(new URL("../skills/advisor/doctrine.md", import.meta.url), "utf8");
+  const references = await Promise.all(
+    REFERENCE_NAMES.map((name) => readFile(new URL(`../skills/advisor/references/${name}.md`, import.meta.url), "utf8")),
+  );
+  return [core, ...references].join("\n\n");
 }
 
 test("advisor doctrine routes locked execution without weakening decision boundaries", async () => {
-  const source = await readFile(new URL("../skills/advisor/SKILL.md", import.meta.url), "utf8");
+  const source = await advisorDoctrine();
   assert.match(source, /decision load and risk/);
   assert.match(source, /locked execution packet/);
-  assert.match(source, /stop and report evidence rather than invent or change a material product/);
+  assert.match(source, /stop and report evidence rather\s+than invent or change a material product/);
   assert.match(source, /deterministic readiness checks/);
   assert.match(source, /check `bg_list`\s+once/);
   assert.match(source, /Coalesce a\s+routine settlement/);
   assert.match(source, /## Foreman delegation/);
-  assert.match(source, /advisor stays at\s+the boundaries[\s\S]+Checker economy/);
-  assert.match(source, /foremen\s+are Pi-hosted[\s\S]+visible depth-1 delegation/);
-  assert.match(source, /profile runs through Pi[\s\S]+provider-native CLI/);
-  assert.match(source, /Deliberate criteria revision[\s\S]+new\s+packet revision/);
-  assert.match(source, /criteria serve the\s+advisor's judgment, not the reverse/);
+  assert.match(source, /advisor stays at the boundaries[\s\S]+Review/);
+  assert.match(source, /foremen are Pi-hosted[\s\S]+visible depth-1 delegation/);
+  assert.match(source, /profile runs\s+through Pi[\s\S]+provider-native CLI/);
+  assert.match(source, /Deliberate criteria\s+revision[\s\S]+new packet\s+revision/);
+  assert.match(source, /criteria serve the advisor's\s+judgment, not the reverse/);
   assert.match(source, /## Worker transport recovery/);
-  assert.match(source, /at most one fresh changed\s+retry/);
-  assert.match(source, /perform bounded discovery or implementation[\s\S]+same maker and review duties/);
-  assert.match(source, /explicit acceptance\s+requirement[\s\S]+unsatisfied/);
+  assert.match(source, /at\s+most one fresh changed\s+retry/);
+  assert.match(source, /perform bounded\s+discovery or implementation[\s\S]+same maker and review duties/);
+  assert.match(source, /explicit acceptance requirement, report that requirement as unsatisfied\s+even when the functional repair proceeds/);
 });
 
-test("advisor mode entrypoints select their worker harness before loading shared doctrine", async () => {
+test("advisor mode entrypoints select their worker harness and defer to the injected doctrine", async () => {
   const native = await readFile(new URL("../skills/advisor-native/SKILL.md", import.meta.url), "utf8");
   const pi = await readFile(new URL("../skills/advisor-pi/SKILL.md", import.meta.url), "utf8");
+  const entry = await readFile(new URL("../skills/advisor/SKILL.md", import.meta.url), "utf8");
 
   assert.match(native, /advisor_session_init[\s\S]+workerHarness[^\n]+native/i);
-  assert.match(native, /resolve `\.\.\/advisor\/SKILL\.md` relative[\s\S]+load it completely/);
-  assert.match(native, /advisor-intelligence\.json[\s\S]+Do not call\s+`bg_agent` until both reads are complete/);
+  assert.match(native, /do not read `\.\.\/advisor\/doctrine\.md` or\s+`advisor-intelligence\.json` with a tool/);
   assert.match(native, /every `bg_agent` launch[\s\S]+explicit `model` and `thinking`/);
   assert.match(pi, /advisor_session_init[\s\S]+workerHarness[^\n]+pi/i);
-  assert.match(pi, /resolve `\.\.\/advisor\/SKILL\.md` relative[\s\S]+load it completely/);
-  assert.match(pi, /advisor-intelligence\.json[\s\S]+Do not call\s+`bg_agent` until both reads are complete/);
+  assert.match(pi, /do not read `\.\.\/advisor\/doctrine\.md` or\s+`advisor-intelligence\.json` with a tool/);
   assert.match(pi, /every `bg_agent` launch[\s\S]+explicit `model` and `thinking`/);
+  assert.match(entry, /Do not read the doctrine or the guide with a tool/);
+  for (const skill of [native, pi, entry]) {
+    assert.doesNotMatch(skill, /load it completely|Do not call\s+`bg_agent` until/);
+  }
 });
 
 
@@ -202,15 +227,26 @@ Review the current document.`;
   const { beforeAgentStart, ctx, sessionStart, toolCall } = installedAdvisorResumeRuntime(branch);
 
   await sessionStart({ reason: "resume" }, ctx);
-  const result = beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
+  const result = await beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
 
   assert.ok(result);
-  assert.match(result.systemPrompt, /Current Advisor Doctrine/);
-  assert.match(result.systemPrompt, /never ask permission merely because/);
-  assert.match(result.systemPrompt, /Roles do not pin or allowlist\s+a model/);
+  assert.match(result.systemPrompt, /^base prompt\n\n# Current Advisor Doctrine/);
+  assert.match(result.systemPrompt, /\*\*Blocked\*\* means exactly one of four things/);
+  assert.match(result.systemPrompt, /Direct implementation is a first-class route at every risk tier/);
   assert.match(result.systemPrompt, /Session mode: \*\*native\*\*/);
   assert.match(result.systemPrompt, /OpenAI models route to Codex CLI/);
   assert.doesNotMatch(result.systemPrompt, /Model character notes are binding/);
+  assert.deepEqual(
+    toolCall({
+      toolName: "bg_agent",
+      input: { role: "builder", acceptance: ["tests pass"], prompt: "Implement this: [paste #1 +12 lines]" },
+    }),
+    {
+      block: true,
+      reason:
+        "The prompt contains an unexpanded paste placeholder such as [paste #1 +12 lines]; include the pasted content in the prompt or reference it by path.",
+    },
+  );
   assert.deepEqual(
     toolCall({
       toolName: "bg_agent",
@@ -265,26 +301,16 @@ Review the current document.`;
   );
 });
 
-test("resumed advisors do not duplicate the current expanded doctrine", async () => {
-  const source = await readFile(new URL("../skills/advisor/SKILL.md", import.meta.url), "utf8");
-  const currentDoctrine = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+test("advisor sessions inject the doctrine once with the live guide and re-send the hot section after compaction", async () => {
+  const stateDir = await mkdtemp(join(tmpdir(), "advisor-inject-state-"));
+  const agentDir = await mkdtemp(join(tmpdir(), "advisor-inject-agent-"));
+  const previous = {
+    advisorStateDir: process.env.ADVISOR_STATE_DIR,
+    agentDir: process.env.PI_CODING_AGENT_DIR,
+  };
+  process.env.ADVISOR_STATE_DIR = stateDir;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
   const branch = [
-    {
-      type: "message",
-      message: {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `<skill name="advisor" location="/current/skills/advisor/SKILL.md">
-References are relative to /current/skills/advisor.
-
-${currentDoctrine}
-</skill>`,
-          },
-        ],
-      },
-    },
     {
       type: "custom",
       customType: "advisor-session",
@@ -295,35 +321,66 @@ ${currentDoctrine}
       },
     },
   ];
-  const { beforeAgentStart, ctx, sessionStart, toolCall } = installedAdvisorResumeRuntime(branch);
 
-  await sessionStart({ reason: "resume" }, ctx);
+  try {
+    await mkdir(join(stateDir, "workstreams"), { recursive: true });
+    await writeFile(
+      join(stateDir, "workstreams", "document-review.md"),
+      "# Workstream: document-review\n\n- Owner session: `session-12345678`\n\n## Goal\n\nReview the document.\n\n## Next\n\nLaunch the reviewer.\n\n## Log\n\n- D1: an old decision that must not be re-sent\n",
+      "utf8",
+    );
+    await writeFile(
+      join(agentDir, "advisor-intelligence.json"),
+      JSON.stringify({
+        name: "test-guide",
+        models: { "openai-codex/gpt-6-astra": { character: "Advisory: test character.", defaultThinking: "high" } },
+        recommendations: { builder: [{ model: "openai-codex/gpt-6-astra", thinking: "high", fit: "Preferred." }] },
+      }),
+      "utf8",
+    );
+    const { beforeAgentStart, ctx, sessionCompact, sessionStart } = installedAdvisorResumeRuntime(branch);
 
-  const result = beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
-  assert.ok(result);
-  assert.doesNotMatch(result.systemPrompt, /Current Advisor Doctrine/);
-  assert.match(result.systemPrompt, /Session mode: \*\*pi\*\*/);
+    await sessionStart({ reason: "resume" }, ctx);
+    const first = await beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
+    assert.ok(first);
+    assert.equal(first.systemPrompt.match(/# Current Advisor Doctrine/g)?.length, 1);
+    assert.match(first.systemPrompt, /# Active Intelligence Guide\n\nProfile: test-guide/);
+    assert.match(first.systemPrompt, /- builder: openai-codex\/gpt-6-astra high \(Preferred\.\)/);
+    assert.match(first.systemPrompt, /Session mode: \*\*pi\*\*/);
+    assert.match(first.systemPrompt, /# Workstream Hot Section[\s\S]*Review the document\.[\s\S]*Launch the reviewer\./);
+    assert.doesNotMatch(first.systemPrompt, /an old decision that must not be re-sent/);
+
+    const second = await beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
+    assert.ok(second);
+    assert.doesNotMatch(second.systemPrompt, /# Workstream Hot Section/);
+    assert.match(second.systemPrompt, /# Current Advisor Doctrine/);
+
+    sessionCompact({ reason: "threshold" }, ctx);
+    const third = await beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
+    assert.ok(third);
+    assert.match(third.systemPrompt, /# Workstream Hot Section[\s\S]*Review the document\./);
+  } finally {
+    const restore = (name: string, value: string | undefined) => {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    };
+    restore("ADVISOR_STATE_DIR", previous.advisorStateDir);
+    restore("PI_CODING_AGENT_DIR", previous.agentDir);
+    await rm(stateDir, { force: true, recursive: true });
+    await rm(agentDir, { force: true, recursive: true });
+  }
+});
+
+test("advisor prompt helpers bound the hot section, render the guide, and trim the tool set", () => {
+  const longLog = Array.from({ length: 120 }, (_, index) => `- entry ${index}`).join("\n");
+  const bounded = workstreamHotSection(`# Workstream: x\n\n## Goal\n\nShip.\n\n${longLog}`);
+  assert.match(bounded, /hot section truncated at 80 lines/);
+  assert.equal(workstreamHotSection("# Workstream: x\n\n## Goal\n\nShip.\n\n## Log\n\n- history"), "# Workstream: x\n\n## Goal\n\nShip.");
+  assert.equal(renderIntelligenceGuide("not json"), undefined);
+  assert.match(renderIntelligenceGuide(JSON.stringify({ name: "g", recommendations: { scout: [{ model: "m", thinking: "low" }] } })) ?? "", /- scout: m low$/);
   assert.deepEqual(
-    toolCall({
-      toolName: "bg_agent",
-      input: { role: "checker", anchor: "review is evidence-backed", harness: "native" },
-    }),
-    {
-      block: true,
-      reason: "Advisor session worker harness is pi; per-launch native is not allowed.",
-    },
-  );
-  assert.deepEqual(
-    toolCall({
-      toolName: "bg_agent",
-      input: { agent: "claude", anchor: "review is evidence-backed" },
-    }),
-    {
-      block: true,
-      reason:
-        "Advisor session mode is pi. Do not pass bg_agent.agent. Use a configured role or freeform " +
-        "worker; start a native advisor session if provider-native Codex or Claude Code execution is required.",
-    },
+    advisorActiveTools(["read", "mem_context", "RoutineCreate", "bg_agent", "mem_search", "goal_wait", "mem_save", "edit"]),
+    ["read", "bg_agent", "mem_search", "mem_save", "edit"],
   );
 });
 
@@ -422,9 +479,10 @@ test("advisor_session_init asks once and persists native worker mode", async () 
     assert.equal(result.details.workstream, "native-routing");
     assert.equal(result.details.workerHarness, "native");
     assert.equal(result.details.stateRoot, stateDir);
-    assert.match(result.content[0]?.text ?? "", /Required next actions before planning or delegation/);
-    assert.match(result.content[0]?.text ?? "", /advisor\/SKILL\.md/);
-    assert.match(result.content[0]?.text ?? "", /advisor-intelligence\.json/);
+    assert.match(result.content[0]?.text ?? "", /doctrine core and the active intelligence guide are in your system prompt/);
+    assert.match(result.content[0]?.text ?? "", /skills\/advisor\/references/);
+    assert.doesNotMatch(result.content[0]?.text ?? "", /Required next actions|read .* completely/);
+    assert.match(result.content[0]?.text ?? "", /## Workstream hot section[\s\S]*## Scope ledger/);
     assert.match(result.content[0]?.text ?? "", /Every bg_agent launch must include an explicit model and thinking level/);
     assert.match(result.content[0]?.text ?? "", /OpenAI models route to Codex CLI/);
     assert.equal(process.env.PI_DETACH_WORKER_HARNESS, "native");

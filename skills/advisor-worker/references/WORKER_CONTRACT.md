@@ -13,7 +13,10 @@ choose useful work, not to expand your scope or another role's write authority.
 2. Never start another agent, graph, orchestrator, routine, or inter-session
    message unless the role skill explicitly grants bounded depth-1 subagent
    launches. Every granted subagent inherits the full prohibition.
-3. Load every skill named under `REQUIRED SKILLS` before task work.
+3. Load every skill named under `REQUIRED SKILLS` before task work. If a named
+   skill is not installed, record that under `Deviations` and continue with
+   the role skill and the repository's own instructions; a missing skill name
+   is never a blocker.
 4. Treat `TASK` as the scope boundary. The packet must give the maker every
    known acceptance condition, threat-model boundary, risk invariant, and
    material stop condition before implementation. Maker roles own cohesive
@@ -49,8 +52,20 @@ choose useful work, not to expand your scope or another role's write authority.
    declared repair round as scoped to its enumerated findings.
 6. Filesystem tools remain available. Follow the role skill's write boundaries;
    tool availability is not permission to edit product code or configuration.
-7. Stop as `Blocked` instead of inventing a missing product decision, permission,
-   credential, or fallback.
+7. Distinguish obstacles from blockers. `Blocked` means exactly one of four
+   things: a missing product decision, a permission, a credential, or an
+   external action only the user can perform. Everything else that stands
+   between you and your criteria is an obstacle: a wrong tool or runtime
+   version, a binary for the wrong architecture, a missing optional
+   dependency, a pre-existing failure on an unchanged file, a misnamed skill,
+   a flaky upstream, a placeholder file the launcher created. Resolve an
+   obstacle with the least invasive local means, keep working, and record
+   what you changed and why under `Deviations` in `result.md`. Stop as
+   `Blocked` only for the four kinds, and only after a bounded attempt to
+   unblock yourself. A safety boundary the packet names, such as a forbidden
+   data target or a production system, is not an obstacle; stopping there is
+   correct. Never invent a missing product decision or product fallback
+   behavior to get past a stop.
 8. `result.md` is a concise handoff, not a transcript archive. Store bulk logs,
    probe source, full diffs, and repeated command output once in the run directory
    or reference an existing durable artifact; do not paste them into the result
@@ -71,12 +86,14 @@ choose useful work, not to expand your scope or another role's write authority.
    one-to-one to the acceptance criteria, each with its outcome and a precise
    evidence reference. Use a short label or artifact locator as convenient; no
    particular citation syntax or report-length quota is required.
-   Maker roles add `Proposed criteria`, `Adjacent findings`, and `Fresh review`
-   when they have content; checkers add `Repaired inline`. Evidence attribution
-   can use ordinary text and paths; no additional report schema is required.
-   These six headings are the expected template, but only a missing or blank
-   result artifact stalls settlement. Missing, empty, or differently formatted
-   sections are advisory notes for the parent, not settlement failures.
+   Add `Deviations` whenever you resolved an obstacle or departed from a
+   suggested step. Maker roles add `Proposed criteria`, `Adjacent findings`,
+   and `Fresh review` when they have content; checkers add `Repaired inline`.
+   Evidence attribution can use ordinary text and paths; no additional report
+   schema is required. These six headings are the expected template, but only
+   a missing or blank result artifact stalls settlement. Missing, empty, or
+   differently formatted sections are advisory notes for the parent, not
+   settlement failures.
    The first line under Status is a signal the parent reads mechanically: end
    a turn with `IN PROGRESS` only while your own background work or subagents
    are still running; end your final turn with a terminal status such as
@@ -94,4 +111,6 @@ choose useful work, not to expand your scope or another role's write authority.
     gates; do not turn pre-flight into a universal checklist.
 13. If a prompt names a result path outside your assigned run directory, write
     to your assigned run directory and note the substitution in `result.md`.
-    A result-path mismatch is never a blocker and never lowers a verdict.
+    A result-path mismatch is never a blocker and never lowers a verdict. A
+    native launch reserves your result path as an empty file before you
+    start; that placeholder is expected, not a contradiction.

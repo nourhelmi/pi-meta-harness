@@ -351,6 +351,6 @@ test("the protocol doc names every event type and the trace location, and the do
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   assert.match(readme, /\[`advisor-protocol\.md`\]\(docs\/advisor-protocol\.md\)/);
 
-  const skill = await readFile(new URL("../skills/advisor/SKILL.md", import.meta.url), "utf8");
+  const skill = await readFile(new URL("../skills/advisor/doctrine.md", import.meta.url), "utf8");
   assert.match(skill, /`<root>\/traces\/<runId>\.jsonl`/);
 });
