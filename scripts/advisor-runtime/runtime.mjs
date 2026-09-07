@@ -70,6 +70,7 @@ export class AdvisorRuntime {
         CREATE TABLE IF NOT EXISTS exports (run TEXT PRIMARY KEY, seq INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS control_paths (path TEXT PRIMARY KEY);
         CREATE TABLE IF NOT EXISTS control_directories (path TEXT PRIMARY KEY);
+        CREATE TABLE IF NOT EXISTS scope_grants (principal TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(principal,data));
         CREATE TABLE IF NOT EXISTS pi_bindings (id TEXT PRIMARY KEY, principal TEXT NOT NULL, digest TEXT NOT NULL, data TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS bootstrap (singleton INTEGER PRIMARY KEY CHECK(singleton=1), digest TEXT NOT NULL);`);
       for (const row of this.#all('SELECT path FROM control_paths')) this.#controlPaths.add(disjointControlPath(row.path, this.#allowedRoots));
@@ -183,7 +184,7 @@ export class AdvisorRuntime {
     const principal = decode(row.data); demand(audience !== 'model' || principal.kind !== 'operator', 'MODEL_OPERATOR_FORBIDDEN');
     return { operations: principal.operations, scopes: principal.scopes };
   }
-  /** Bounded host-configured Pi slot pool. No wildcard grants or client-selected enrollment. */
+  /** Bounded host-configured Pi scopes. No wildcard grants or client-selected enrollment. */
   async piDetachRequest(token, input, audience) {
     try {
       const c = clone(input);
@@ -205,6 +206,12 @@ export class AdvisorRuntime {
       const principal = config.principalId;
       const p = c.payload;
       const call = (scope, op, payload, commandId, expectedRevision) => this.execute(token, { v: 1, op, scope, payload, ...(commandId ? { commandId, expectedRevision } : {}) }, audience);
+      if (c.action === 'connect') {
+        fields(p, ['identity', 'cwd']);
+        demand(config.managedIdentity && canonicalJson(p.identity) === canonicalJson(config.managedIdentity) && realpathSync(p.cwd) === config.cwd, 'PI_DETACH_BINDING_MISMATCH');
+        this.#fence();
+        return { ok: true, value: { ready: true } };
+      }
       const bindings = () => this.#all('SELECT data FROM pi_bindings WHERE principal=?', principal).map(row => decode(row.data));
       const owned = runId => {
         id(runId);
@@ -214,14 +221,27 @@ export class AdvisorRuntime {
         demand(run.nodes.worker, 'BRIDGE_RECOVERY_REQUIRED');
         return { binding, run, node: run.nodes.worker };
       };
+      if (c.action === 'shutdown') { fields(p, []); this.#fence(); return { ok: true, value: { closed: true } }; }
+      if (c.action === 'supervision') {
+        fields(p, []); this.#fence();
+        const rows = bindings().filter(row => row.action === 'launch');
+        return { ok: true, value: { settled: rows.every(row => { const node = this.#load(row.runId)?.nodes.worker; return node?.snapshot.state === 'terminal' && node.runtimeState !== 'recovery-required' && !this.#pending(this.#load(row.runId), 'worker'); }) } };
+      }
       if (c.action === 'list') {
         fields(p, []);
-        return { ok: true, value: bindings().filter(row => row.action === 'launch').map(row => ({ runId: row.runId, node: this.#load(row.runId)?.nodes.worker ?? null })) };
+        return { ok: true, value: bindings().filter(row => row.action === 'launch').map(row => {
+          const node = this.#load(row.runId)?.nodes.worker;
+          return { runId: row.runId, node: node ? { status: node.status, runtimeState: node.runtimeState, snapshot: { state: node.snapshot.state, cancel: node.snapshot.cancel }, packet: { cwd: node.packet.cwd, execution: { label: node.packet.execution.label.slice(0, 128) } } } : null };
+        }) };
       }
       if (['get', 'output', 'wait', 'ack'].includes(c.action)) {
         fields(p, ['runId'], c.action === 'ack' ? ['deliveryId'] : c.action === 'wait' ? ['timeoutMs'] : []);
         const { binding, run, node } = owned(p.runId);
         if (c.action === 'get') return { ok: true, value: node };
+        if (c.action === 'output' && node.snapshot.state === 'running' && node.runtimeState !== 'recovery-required') {
+          const output = await config.readLive?.(run.id, node.handle);
+          return { ok: true, value: { text: output ?? 'Worker acquisition pending; no captured output yet.' } };
+        }
         if (c.action === 'output') return call({ ...binding.scope, node: 'worker' }, 'log.read', { path: 'output.log', offset: 0, maxBytes: 32768 });
         if (c.action === 'wait') { integer(p.timeoutMs ?? 1000, 0, 1000); return this.request(token, { v: 1, op: 'wait', scope: binding.scope, payload: { timeoutMs: p.timeoutMs ?? 1000, limit: 16 } }, audience); }
         integer(p.deliveryId, 1);
@@ -240,7 +260,7 @@ export class AdvisorRuntime {
           const node = run.nodes.worker; demand(node, 'BRIDGE_RECOVERY_REQUIRED');
           const status = node.runtimeState === 'recovery-required' ? 'recovery-required' : node.snapshot.cancel ? 'cancel-pending' : node.status;
           const e = node.packet.execution;
-          binding.toolResult = { runId: run.id, agentName: run.id, promoted: node.snapshot.state === 'running', status, agentState: status, durationMs: 0, role: e.role, model: e.model, thinking: e.thinking, maxTurns: e.maxTurns, reusable: node.snapshot.state === 'blocked' };
+          binding.toolResult = { runId: run.id, agentName: run.id, promoted: node.snapshot.state === 'running', status, agentState: status, durationMs: 0, role: e.role, model: e.model, thinking: e.thinking, maxTurns: e.maxTurns, reusable: e.keepAlive };
           this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson(binding), key);
           return { ok: true, value: binding.toolResult };
         });
@@ -249,6 +269,7 @@ export class AdvisorRuntime {
       fields(p, ['toolCallId', 'tool', 'params', 'cwd']); text(p.toolCallId, 512); text(p.cwd, 4096);
       demand(['bg_agent', 'bg_stop'].includes(p.tool), 'BRIDGE_OPERATION');
       const key = `pi-${hash(canonicalJson({ session: c.sessionId, toolCallId: p.toolCallId }))}`;
+      demand(realpathSync(p.cwd) === config.cwd, 'BRIDGE_CWD_FORBIDDEN');
       const digest = hash(canonicalJson(p));
       const previous = this.#one('SELECT * FROM pi_bindings WHERE id=?', key);
       if (previous) {
@@ -265,17 +286,17 @@ export class AdvisorRuntime {
         if (p.tool === 'bg_stop') fields(p.params, ['runId']);
         else fields(p.params, ['name', 'prompt'], ['keepAlive', 'promoteAfterMs']);
         const { binding, node } = owned(p.tool === 'bg_stop' ? p.params.runId : p.params.name);
-        const op = p.tool === 'bg_stop' ? 'node.cancel' : 'node.reply';
+        const op = p.tool === 'bg_stop' ? 'node.cancel' : node.snapshot.state === 'terminal' ? 'node.task' : 'node.reply';
         if (op === 'node.cancel') demand(node.snapshot.state !== 'terminal', 'BRIDGE_ALREADY_SETTLED');
-        if (op === 'node.reply') {
-          demand(node.snapshot.state === 'blocked', 'BRIDGE_RESUME_OR_STEER_UNSUPPORTED');
+        if (op !== 'node.cancel') {
+          demand(node.snapshot.state === 'blocked' || node.snapshot.state === 'terminal' && node.packet.execution.keepAlive && ['done', 'failed'].includes(node.status), 'BRIDGE_RESUME_OR_STEER_UNSUPPORTED');
           demand(!['credential', 'secret'].includes(node.requestDetail?.kind), 'CREDENTIAL_REPLY_FORBIDDEN');
           text(p.params.prompt);
           demand(p.params.keepAlive === undefined || p.params.keepAlive === node.packet.execution.keepAlive, 'BRIDGE_REPLY_INTENT_CHANGE_UNSUPPORTED');
           demand(p.params.promoteAfterMs === undefined || typeof p.params.promoteAfterMs === 'number' && Number.isFinite(p.params.promoteAfterMs), 'BRIDGE_INVALID_INPUT');
         }
         const command = { v: 1, op, scope: { ...binding.scope, node: 'worker' }, commandId: key, expectedRevision: node.revision,
-          payload: op === 'node.cancel' ? { attempt: node.snapshot.attempt, reason: 'bg_stop requested Escape; process exit is unconfirmed' } : { attempt: node.snapshot.attempt, requestId: node.snapshot.request.id, text: p.params.prompt } };
+          payload: op === 'node.cancel' ? { attempt: node.snapshot.attempt, reason: 'bg_stop requested Escape; process exit is unconfirmed' } : op === 'node.task' ? { attempt: node.snapshot.attempt, handleId: node.handle.id, generation: node.executionObservation?.generation, text: p.params.prompt } : { attempt: node.snapshot.attempt, requestId: node.snapshot.request.id, text: p.params.prompt } };
         // Persist the exact CAS/request binding before admission, including failures.
         this.#transaction(() => this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: op, scope: binding.scope, command })));
         const result = this.execute(token, command, audience);
@@ -285,14 +306,19 @@ export class AdvisorRuntime {
       }
       demand(p.params && typeof p.params === 'object', 'BRIDGE_INVALID_INPUT');
       const cwd = this.#cwd(p.params.cwd ? resolve(p.cwd, p.params.cwd) : p.cwd);
-      demand(cwd === config.cwd, 'BRIDGE_CWD_FORBIDDEN');
+      demand(config.dynamic ? config.allowedRoots.includes(cwd) : cwd === config.cwd, 'BRIDGE_CWD_FORBIDDEN');
       const used = new Set(bindings().filter(row => row.action === 'launch').map(row => row.runId));
-      const scope = scopes.find(scope => !used.has(scope.run)); demand(scope, 'BRIDGE_POOL_EXHAUSTED');
+      demand(!config.dynamic || used.size < config.maxLaunches, 'BRIDGE_LAUNCH_LIMIT');
+      const scope = config.dynamic ? { ...scopes[0], run: `pib-${randomUUID()}` } : scopes.find(scope => !used.has(scope.run)); demand(scope, 'BRIDGE_POOL_EXHAUSTED');
       const sourceDirectory = join(this.#nodeDirectory(scope.run, 'worker'), 'source');
-      // Reserve only one exact pool slot before asynchronous role resolution.
+      // Reserve one exact scope before asynchronous role resolution.
       // A crash here is a durable incomplete binding, never a blind launch.
       this.#transaction(() => {
         demand(this.#one('SELECT COUNT(*) AS n FROM pi_bindings').n < 100000, 'BRIDGE_BINDING_LIMIT');
+        if (config.dynamic) {
+          const { ownerEpoch, ...grant } = scope;
+          for (const node of ['root', 'worker']) this.#write('INSERT INTO scope_grants VALUES (?,?)', principal, canonicalJson({ ...grant, node }));
+        }
         this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: 'launch', runId: scope.run, scope }));
       });
       let execution;
@@ -338,6 +364,7 @@ export class AdvisorRuntime {
     const row = this.#one('SELECT * FROM principals WHERE token=?', hash(token));
     demand(row && !row.revoked, 'UNAUTHORIZED');
     const principal = decode(row.data);
+    principal.scopes.push(...this.#all('SELECT data FROM scope_grants WHERE principal=?', principal.id).map(row => decode(row.data)));
     demand(principal.scopes.some(grant => scopeMatches(grant, command.scope)), 'SCOPE_FORBIDDEN');
     demand(principal.operations.includes(command.op), 'OPERATION_FORBIDDEN');
     return principal;
@@ -433,8 +460,23 @@ export class AdvisorRuntime {
   #nodeCommand(run, c, principal) {
     demand(c.op !== 'node.resume', 'RESUME_UNSUPPORTED');
     const node = run.nodes[c.scope.node]; demand(node?.launched, 'NODE_NOT_LAUNCHED');
-    if (c.op === 'node.reply') demand(!['credential', 'secret'].includes(node.requestDetail?.kind), 'CREDENTIAL_REPLY_FORBIDDEN');
+    if (['node.reply', 'node.task'].includes(c.op)) demand(!['credential', 'secret'].includes(node.requestDetail?.kind), 'CREDENTIAL_REPLY_FORBIDDEN');
     demand(node.runtimeState !== 'recovery-required', 'RECOVERY_REQUIRED');
+    if (c.op === 'node.task') {
+      demand(node.packet.adapter === 'pi-detach' && node.packet.execution.keepAlive && node.snapshot.state === 'terminal' && ['done', 'failed'].includes(node.status) && !node.snapshot.cancel && node.processExited === undefined, 'TASK_TARGET_UNAVAILABLE');
+      demand(node.snapshot.attempt === c.payload.attempt, 'ATTEMPT_MISMATCH');
+      demand(node.handle?.id === c.payload.handleId && node.executionObservation?.generation === c.payload.generation, 'BRIDGE_HANDLE_MISMATCH');
+      demand(!this.#pending(run, c.scope.node), 'TASK_PENDING');
+      this.#assertWriterAvailable(node.packet.role, this.#cwd(node.packet.cwd), c.scope);
+      this.#adapter('workers', node.packet.adapter, c.op);
+      demand(node.snapshot.attempt < Number.MAX_SAFE_INTEGER && node.revision < Number.MAX_SAFE_INTEGER, 'COUNTER_EXHAUSTED');
+      node.snapshot.attempt += 1; node.snapshot.revision += 1; node.revision = node.snapshot.revision;
+      node.snapshot.state = 'running'; node.snapshot.request = null; node.snapshot.blockedSequence = null; node.requestDetail = null;
+      node.status = 'running'; node.verified = false; delete node.verification;
+      this.#effect(run, c.scope.node, c.op, c.payload, c.commandId, { executionObservation: node.executionObservation });
+      this.#event(run, c.scope.node, 'node.resumed', { reason: 'follow-up' });
+      return { commandId: c.commandId, outcome: 'accepted', revision: node.revision };
+    }
     const decision = admitCommand({ command: c, principal: { id: principal.id, scopes: principal.scopes }, snapshot: node.snapshot, receipts: new Map() });
     demand(decision.commit, decision.receipt.reason ?? 'ADMISSION_REJECTED');
     const next = clone(decision.commit.nextSnapshot);
@@ -450,16 +492,20 @@ export class AdvisorRuntime {
     }
     return decision.receipt;
   }
-  #launch(run, name, c) {
-    const packet = run.packets[name]; demand(packet && !run.nodes[name], 'NODE_ALREADY_RESERVED_OR_MISSING');
-    const cwd = this.#cwd(packet.cwd);
-    if (['builder', 'foreman'].includes(packet.role)) {
+  #assertWriterAvailable(role, cwd, exclude = null) {
+    if (['builder', 'foreman'].includes(role)) {
       for (const row of this.#all('SELECT data FROM runs')) {
         for (const node of Object.values(decode(row.data).nodes)) {
+          if (node.snapshot.scope.run === exclude?.run && node.snapshot.scope.node === exclude?.node) continue;
           demand(!(['builder', 'foreman'].includes(node.packet.role) && (within(cwd, node.packet.cwd) || within(node.packet.cwd, cwd)) && (node.snapshot.state !== 'terminal' || ((node.handle?.pid || node.handle?.requiresExit) && node.processExited === undefined))), 'WRITER_CONCURRENCY');
         }
       }
     }
+  }
+  #launch(run, name, c) {
+    const packet = run.packets[name]; demand(packet && !run.nodes[name], 'NODE_ALREADY_RESERVED_OR_MISSING');
+    const cwd = this.#cwd(packet.cwd);
+    this.#assertWriterAvailable(packet.role, cwd);
     const adapter = this.#adapter('workers', packet.adapter, 'node.launch');
     privateDirectory(this.#nodeDirectory(run.id, name));
     run.nodes[name] = { revision: 0, packet, launched: false, runtimeState: 'pending', status: 'running', verified: false, handle: null,

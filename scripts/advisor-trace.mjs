@@ -349,8 +349,9 @@ export function validateTrace(events, schema) {
     if (type === "node.resumed") {
       const resumesSettlement = state.settled?.status === "blocked" || state.settled?.status === "stalled";
       const restartsUnsettled = event.data.reason === "restart" && state.settlements.length === 0 && !state.settled;
-      if (!resumesSettlement && !restartsUnsettled) {
-        report(RULE_CODES.RESUME, seq, "node.resumed requires a blocked or stalled settlement, or restart before any settlement");
+      const followsTerminal = event.data.reason === "follow-up" && ["done", "failed"].includes(state.settled?.status);
+      if (!resumesSettlement && !restartsUnsettled && !followsTerminal) {
+        report(RULE_CODES.RESUME, seq, "node.resumed requires blocked/stalled settlement, terminal follow-up, or restart before any settlement");
         continue;
       }
       if (event.data.reason === "reply" && !state.pendingReply) {

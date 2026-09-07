@@ -116,7 +116,8 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
     { encoding: "utf8", cwd: target });
   assert.equal(nativeBinding.status, 0, nativeBinding.stderr);
   assert.equal(nativeBinding.stdout, "loaded");
-  await assert.rejects(readFile(join(target, "scripts/advisor-runtime/runtime.mjs")));
+  assert.match(await readFile(join(target, "scripts/advisor-runtime/runtime.mjs"), "utf8"), /class AdvisorRuntime/);
+  assert.equal(JSON.parse(await readFile(join(target, "pi-detach-runtime.json"), "utf8")).backend, "runtime");
   assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@^0.1.4"));
   assert(packageSources.includes("npm:pi-better-edit@^1.4.3"));
   assert(packageSources.includes("npm:pi-claude-agent-sdk@^0.8.6"));

@@ -1,3 +1,4 @@
+import { managedBridgeEnabled } from "../scripts/advisor-runtime/pi-detach-bootstrap.mjs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -689,7 +690,7 @@ function settlementDrafts(
 }
 
 export default function advisorPiHostExtension(pi: ExtensionAPI): void {
-	if (process.env.PI_DETACH_RUNTIME_BRIDGE || process.env.ADVISOR_RUNTIME_CANONICAL_OWNER === "1") return;
+	if (managedBridgeEnabled() || process.env.PI_DETACH_RUNTIME_BRIDGE || process.env.ADVISOR_RUNTIME_CANONICAL_OWNER === "1") return;
 	const pending = new Map<string, PendingLaunch>();
 	const pendingStops = new Map<string, { binding: Binding; detachRunId: string }>();
 	const earlySettlements = new Map<string, HeldSettlement>();

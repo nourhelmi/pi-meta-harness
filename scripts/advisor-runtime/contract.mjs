@@ -3,7 +3,7 @@ import { canonicalJson, isCommandId } from '../advisor-core/command-contract.mjs
 import { demand, id } from './security.mjs';
 
 export const READS = ['workstream.open', 'progress', 'wait', 'history', 'artifact.read', 'log.read'];
-export const MUTATIONS = ['workstream.create', 'packet.admit', 'graph.admit', 'wave.launch', 'node.launch', 'root.create', 'root.message', 'root.reply', 'root.cancel', 'root.stop', 'root.resume', 'node.reply', 'node.cancel', 'node.resume', 'delivery.ack'];
+export const MUTATIONS = ['workstream.create', 'packet.admit', 'graph.admit', 'wave.launch', 'node.launch', 'root.create', 'root.message', 'root.reply', 'root.cancel', 'root.stop', 'root.resume', 'node.reply', 'node.task', 'node.cancel', 'node.resume', 'delivery.ack'];
 export const OPERATIONS = [...READS, ...MUTATIONS];
 export const WORKER_OPERATIONS = ['progress', 'wait', 'history', 'artifact.read', 'log.read', 'delivery.ack'];
 export const LIMITS = Object.freeze({ envelope: 32768, text: 16384, reply: 1048576, connections: 32, requests: 128, waitMs: 10000, events: 128, artifact: 65536 });
@@ -37,6 +37,7 @@ export function parseEnvelope(input) {
     case 'root.message': fields(p, ['text']); text(p.text); break;
     case 'root.reply': fields(p, ['requestId', 'text']); id(p.requestId); text(p.text); break;
     case 'root.cancel': fields(p, ['reason']); text(p.reason, 1024); break;
+    case 'node.task': fields(p, ['attempt', 'handleId', 'generation', 'text']); integer(p.attempt, 1); text(p.handleId, 1024); integer(p.generation, 1); text(p.text); break;
     case 'node.reply': fields(p, ['attempt', 'requestId', 'text']); integer(p.attempt, 1); id(p.requestId); text(p.text); break;
     case 'node.cancel': fields(p, ['attempt', 'reason']); integer(p.attempt, 1); text(p.reason, 1024); break;
     case 'wait': fields(p, ['timeoutMs', 'limit']); integer(p.timeoutMs, 0, LIMITS.waitMs); integer(p.limit, 1, LIMITS.events); break;
@@ -52,7 +53,7 @@ export function validatePacket(p) {
     demand(p.adapter === 'pi-detach', 'EXECUTION_ADAPTER');
     const e = p.execution;
     fields(e, ['v', 'command', 'prompt', 'role', 'runtime', 'model', 'thinking', 'maxTurns', 'requiredSkills', 'harness', 'keepAlive', 'label', 'resultDiscovery', 'resultPolicy', 'sourceDirectory', 'environment']);
-    fields(e.environment, ['ADVISOR_RUNTIME_DESCRIPTOR', 'PI_DETACH_RUNTIME_BRIDGE', 'ADVISOR_BRIDGE_WORKER_DIR', 'ADVISOR_RUNTIME_CANONICAL_OWNER'], ['PATH', 'PI_CODING_AGENT_DIR', 'PI_DETACH_AGENT_PROFILES', 'CODEX_HOME']);
+    fields(e.environment, ['ADVISOR_RUNTIME_DESCRIPTOR', 'PI_DETACH_RUNTIME_BRIDGE', 'ADVISOR_BRIDGE_WORKER_DIR', 'ADVISOR_RUNTIME_CANONICAL_OWNER'], ['ADVISOR_BRIDGE_CHILD_STATE', 'PATH', 'PI_CODING_AGENT_DIR', 'PI_DETACH_AGENT_PROFILES', 'CODEX_HOME']);
     demand(e.environment.ADVISOR_RUNTIME_DESCRIPTOR === '' && e.environment.PI_DETACH_RUNTIME_BRIDGE === '' && e.environment.ADVISOR_RUNTIME_CANONICAL_OWNER === '1' && e.environment.ADVISOR_BRIDGE_WORKER_DIR === e.sourceDirectory, 'EXECUTION_ENVIRONMENT');
     for (const value of Object.values(e.environment)) demand(typeof value === 'string' && Buffer.byteLength(value) <= 4096, 'EXECUTION_ENVIRONMENT');
     demand(e.v === 1 && e.resultPolicy === 'runtime-capture' && typeof e.keepAlive === 'boolean', 'EXECUTION_VERSION');

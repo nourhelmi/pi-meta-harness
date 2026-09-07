@@ -320,6 +320,8 @@ test("structural rules each reject a specific mutation with their own code", asy
     at: done.at(-1).at,
     data: { reason: "follow-up" },
   });
+  assert.deepEqual(check(resumeDone), { ok: true, problems: [] });
+  resumeDone.at(-1).data.reason = "restart";
   expectCode(check(resumeDone), RULE_CODES.RESUME);
 
   // validated requires written with the same path

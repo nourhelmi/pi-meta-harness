@@ -30,6 +30,7 @@ import {
   readJson as readProfileJson,
   roleConfigErrors,
 } from "./intelligence-profile.mjs";
+import { validateNode } from "./advisor-runtime/pi-detach-bootstrap.mjs";
 import { skillDestination, validatedSkillNames } from "./skill-path-policy.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -66,10 +67,10 @@ const PORTABLE_COPY_ENTRIES = [
   // extensions/advisor-core/advisor-state.ts imports ../../scripts/advisor-core/advisor-state.mjs,
   // so the plain-Node helpers must also sit at scripts/advisor-core in the installed tree.
   ["scripts/advisor-core", "scripts/advisor-core"],
-  // Optional Pi transport and both legacy writers share these Node22-safe modules.
-  // Do not materialize the Node24 SQLite owner or native provider adapters in Pi.
-  ...["security.mjs", "security.d.mts", "service.mjs", "service.d.mts", "contract.mjs"]
-    .map((file) => [`scripts/advisor-runtime/${file}`, `scripts/advisor-runtime/${file}`]),
+  // Ship the complete service without importing its SQLite owner into Pi.
+  ["scripts/advisor-runtime", "scripts/advisor-runtime"],
+  ["scripts/advisor-trace.mjs", "scripts/advisor-trace.mjs"],
+  ["config/advisor-core/canonical-events.schema.json", "config/advisor-core/canonical-events.schema.json"],
   ["extensions/herdr-blocked-bridge.ts", "extensions/herdr-blocked-bridge.ts"],
   ["extensions/claude-schema-compat.ts", "extensions/claude-schema-compat.ts"],
   ["extensions/unified-edit.ts", "extensions/unified-edit.ts"],
@@ -172,7 +173,7 @@ function usage() {
 
 Usage:
   node scripts/meta-harness.mjs plan [--target <dir> | --live]
-  node scripts/meta-harness.mjs install [--target <dir> | --live] [--allow-active]
+  node scripts/meta-harness.mjs install [--target <dir> | --live] [--allow-active] [--runtime-node <absolute-node24.18+>]
   node scripts/meta-harness.mjs install-host-bindings --host <claude-code|codex> --scope <user|project> [--cwd <dir>] [--dry-run]
   node scripts/meta-harness.mjs doctor [--target <dir> | --live]
   node scripts/meta-harness.mjs restore --backup <dir> [--target <dir> | --live] [--allow-active]
@@ -194,6 +195,7 @@ function parseArgs(argv) {
     if (value === "--live") options.live = true;
     else if (value === "--allow-active") options.allowActive = true;
     else if (value === "--dry-run") options.dryRun = true;
+    else if (value === "--runtime-node") options.runtimeNode = rest[++index];
     else if (value === "--target") options.target = rest[++index];
     else if (value === "--backup") options.backup = rest[++index];
     else if (value === "--host") options.host = rest[++index];
@@ -382,6 +384,7 @@ function managedDestinations() {
     ...COPY_ENTRIES.map(([, destination]) => destination),
     ...GENERATED_HOST_BINDING_DESTINATIONS,
     ...MERGE_ENTRIES.map(([, destination]) => destination),
+    "pi-detach-runtime.json",
     "advisor-intelligence.json",
     "intelligence-profiles/ACTIVE",
     STATE_FILE,
@@ -625,6 +628,7 @@ async function install(options) {
   const target = targetFor(options);
   assertLiveSafety(options);
   const selection = await installProfileSelection(target);
+  const selectedRuntimeNode = options.runtimeNode ? validateNode(options.runtimeNode) : undefined;
   await mkdir(target, { recursive: true });
   const backup = await createBackup(target);
 
@@ -632,6 +636,15 @@ async function install(options) {
     await copyReplacing(join(ROOT, source), join(target, destination));
   }
   await materializeHostBindingSnippets(target);
+  const priorBridge = await readJson(join(target, "pi-detach-runtime.json"), {});
+  let runtimeNode = selectedRuntimeNode ?? priorBridge.node ?? null;
+  try { runtimeNode = validateNode(runtimeNode ?? process.execPath); } catch { /* startup reports a typed prerequisite failure */ }
+  await atomicJson(join(target, "pi-detach-runtime.json"), {
+    v: 1, backend: "runtime", node: runtimeNode,
+    host: join(target, "scripts/advisor-runtime/pi-detach-host.mjs"),
+    client: join(target, "scripts/advisor-runtime/pi-detach-bootstrap.mjs"),
+    stateBase: priorBridge.stateBase ?? join(homedir(), ".pi-runtime"),
+  });
   const removedPackageSources = await readJson(join(ROOT, "config", "package-removals.json"), []);
   const removedModels = await readJson(join(ROOT, "config", "model-removals.json"), []);
   for (const [source, destination, mode] of MERGE_ENTRIES) {
@@ -859,6 +872,10 @@ async function doctor(options) {
     if (await digest(expected) !== await digest(actual)) errors.push(`Drift: ${destination}`);
   }
 
+  const bridgeConfig = await readJson(join(target, "pi-detach-runtime.json"), {});
+  if (bridgeConfig.v !== 1 || bridgeConfig.backend !== "runtime" || bridgeConfig.host !== join(target, "scripts/advisor-runtime/pi-detach-host.mjs") || bridgeConfig.client !== join(target, "scripts/advisor-runtime/pi-detach-bootstrap.mjs")) errors.push("Missing or incompatible managed pi-detach runtime configuration");
+  try { validateNode(bridgeConfig.node); console.log("pi-detach backend: managed runtime; Node owner ready (session startup validates workspace/Herdr binding)"); }
+  catch { console.warn("pi-detach backend: configured runtime, Node24.18+ owner unavailable. bg_agent will fail closed; install with --runtime-node <absolute executable>."); }
   const roleConfig = await readJson(join(target, "bg-agent-profiles.json"), {});
   errors.push(...roleConfigErrors(roleConfig));
   try {

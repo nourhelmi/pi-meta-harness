@@ -1,4 +1,7 @@
 import { validateResultArtifact } from '../../advisor-core/result-artifact.mjs';
+import { createHash } from 'node:crypto';
+import { childWorkSettled } from '../pi-detach-bootstrap.mjs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWrite, boundedRead, demand, privateDirectory } from '../security.mjs';
 
@@ -7,7 +10,12 @@ export function createPiDetachAdapter(port) {
   demand(port?.version === 1 && typeof port.prepare === 'function' && typeof port.launch === 'function', 'BRIDGE_PORT_VERSION');
   const sessions = new Map();
   return {
-    capabilities: { 'node.launch': true, 'node.reply': true, 'node.cancel': true },
+    async readLive(run, handle) {
+      const live = sessions.get(`${run}/worker`);
+      demand(!handle || live?.handle.id === handle.id, 'BRIDGE_HANDLE_MISMATCH');
+      return live ? (await live.driver.readLive(400)).slice(-32768) : null;
+    },
+    capabilities: { 'node.launch': true, 'node.reply': true, 'node.task': true, 'node.cancel': true },
     async execute({ effect, handle, context, recordHandle, emit }) {
       const key = `${effect.scope.run}/${effect.scope.node}`;
       if (effect.op === 'node.cancel') {
@@ -26,12 +34,20 @@ export function createPiDetachAdapter(port) {
       // rewrite its artifact must stall, never inherit the prior BLOCKED result.
       atomicWrite(join(intent.sourceDirectory, 'result.md'), '');
       atomicWrite(join(context.artifactDirectory, "output.log"), "");
+      const childState = intent.environment.ADVISOR_BRIDGE_CHILD_STATE;
+      if (childState) {
+        demand(childState === join(context.artifactDirectory, '../../../children', createHash('sha256').update(effect.scope.run).digest('hex').slice(0, 20)), 'BRIDGE_CHILD_SCOPE_MISMATCH');
+        privateDirectory(childState);
+        const grant = join(childState, 'child-grant.json');
+        if (!existsSync(grant)) writeFileSync(grant, JSON.stringify({ v: 1, cwd: context.cwd, stateRoot: childState }), { flag: 'wx', mode: 0o600 });
+      }
       let boundHandle;
       const driver = await port.launch({ id: effect.scope.run, cwd: context.cwd, intent,
-        ...(effect.op === 'node.reply' ? { reply: effect.payload.text } : {}),
+        ...(effect.op !== 'node.launch' ? { reply: effect.payload.text } : {}),
         hooks: {
           ...(handle ? { expectedHandle: handle, expectedGeneration: effect.executionObservation?.generation } : {}),
           assertActive: context.assertActive,
+          ...(childState ? { childrenSettled: () => childWorkSettled(childState) } : {}),
           recordHandle(value) { recordHandle(value); boundHandle = value; },
           recoveryRequired: context.recoveryRequired,
           settled(state, output, generation) {
