@@ -24,7 +24,7 @@ const run = promisify(execFile);
 const metaRoot =
   process.env.ADVISOR_META_ROOT ?? resolve(import.meta.dirname, "../..");
 const referenceCli = resolve(metaRoot, "scripts/advisor-trace.mjs");
-const liveRoot = "/Users/nour/.advisor/pi-meta-harness-0c8d98ab/traces";
+const producerRoot = resolve(import.meta.dirname, "fixtures/native-producers");
 
 async function referenceProject(path: string) {
   const execution = await run(process.execPath, [
@@ -53,14 +53,12 @@ async function referenceProjectFailure(path: string) {
 }
 
 describe("Meta reference projector conformance", () => {
-  const liveFixtures = [
-    "cc-7f4cbf58226aaebc-1.jsonl",
-    "cx-a1b2a3c4c829ebae-1.jsonl",
-  ];
+  // Synthetic host-shaped replays keep CI independent of private live traces.
+  const producerFixtures = ["claude-code-done.jsonl", "codex-done.jsonl"];
 
-  for (const fileName of liveFixtures) {
-    it(`deeply matches the live ${fileName} projection`, async () => {
-      const path = resolve(liveRoot, fileName);
+  for (const fileName of producerFixtures) {
+    it(`deeply matches the committed ${fileName} projection`, async () => {
+      const path = resolve(producerRoot, fileName);
       const text = await readFile(path, "utf8");
       const events = parseTrace(text);
       expect(validateTrace(events)).toEqual({ ok: true, problems: [] });
