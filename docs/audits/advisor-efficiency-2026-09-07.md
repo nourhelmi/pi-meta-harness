@@ -673,10 +673,10 @@ to track; both can be read from the session file without any new tooling.
 ## Part 3 — Consolidated change list
 
 Everything Parts 1 and 2 imply, grouped by the file or component that
-changes. Status as of the same day: items 1 to 22, 28 to 31, and 35 to 36
-are applied on branch `feat/efficient-orchestration`; items 23 to 25 (pi-detach),
-22 and 30 (deviation event), 32 to 34 (eval metrics and cases) were delegated
-to visible builders on their own branches; 26, 27, 37, and 38 remain open.
+changes. Status as of the same day: items 1 to 25 and 28 to 36 are applied on branch
+`feat/efficient-orchestration` (harness) and local `main` of pi-detach; the
+Harbor task (34) is not yet written; 26, 27, 37, and 38 remain open. Item 39
+was found while delivering and is applied in pi-detach.
 
 ### Doctrine: `skills/advisor/SKILL.md`
 
@@ -825,6 +825,16 @@ to visible builders on their own branches; 26, 27, 37, and 38 remain open.
  6. Validate with the same-evaluator before-and-after protocol in
     `docs/advisor-evals.md`, and read first-turn input and post-compaction
     floor from a real session.
+
+### Found while delivering
+
+ 1. Herdr refuses `agent prompt` for any pane reported blocked, and the
+    worker extension reports a pane blocked whenever `result.md` says
+    BLOCKED, so the doctrine's "answer a blocked worker by name" path failed
+    for exactly the common case; earlier advisors typed into the pane by hand
+    and called `bg_agent` again only to re-attach supervision. pi-detach now
+    types the reply into the pane when the reused agent's latest run settled
+    blocked with a BLOCKED result, then supervises the turn as usual.
 
 ### Machine
 
