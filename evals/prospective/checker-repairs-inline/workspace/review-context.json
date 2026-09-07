@@ -1,0 +1,10 @@
+{
+  "reviewedFiles": ["records.mjs"],
+  "api": "listRecords(request, resource, rows, {offset = 0, limit = 2}) returns {status, records}",
+  "inputDomain": "Present identity values are nonempty strings. rows is an array. offset and limit are nonnegative integers.",
+  "threatModel": "Tenant IDs are opaque and case-sensitive. An attacker in tenant acme must never read tenant ACME, even with the same user/owner ID. Require all four identity fields, exact tenant equality, and exact owner equality before reading rows.",
+  "pagination": "Return rows.slice(offset, offset + limit); zero limit returns an empty page. Preserve the input array.",
+  "rejection": "All failed authorization returns status 403 and records: []; there is no 401 response in this API.",
+  "severity": { "tenantIsolation": "High: cross-tenant disclosure", "pageSize": "Medium: an extra row violates pagination", "rejectionStatus": "Medium: incorrect error handling by callers" },
+  "constraints": "No schema, product decision, network, credentials, or external effects. The checker may repair all findings inside records.mjs. The public smoke test is not full review evidence."
+}

@@ -1,0 +1,10 @@
+{
+  "api": "isExpired(issuedAtMs, nowMs, ttlSeconds) returns boolean",
+  "inputDomain": "Finite nonnegative integer timestamps in milliseconds and TTL in seconds, small enough for exact integer arithmetic.",
+  "conversion": "Convert ttlSeconds to milliseconds (multiply by 1000) before consulting hasElapsed(elapsedMs, ttlMs) in src/boundary.mjs. Keep that dependency as the shared boundary policy.",
+  "boundary": "hasElapsed returns true if and only if elapsedMs >= ttlMs. Equality expires, including zero TTL at issuance. Future issuance remains unexpired.",
+  "initialBuilderWriteSurface": ["src/expiry.mjs"],
+  "initialCheckerReviewedSurface": ["src/expiry.mjs"],
+  "reportOnlyDependency": "src/boundary.mjs",
+  "authorizedRepairRound": "After the checker reports the dependency defect, the advisor may resume the original builder with src/boundary.mjs added to its write surface, then resume the original checker with that delta added to its reviewed surface. Exactly one round; no product decision is missing."
+}

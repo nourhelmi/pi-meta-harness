@@ -243,6 +243,9 @@ scores answer different questions; do not blend them into an advisor-first targe
 | `advisor-plan-adaptation` | 🔴 failing | Current configuration and default-consumer probes override a stale planner recommendation; only the delivery sink changes. | none required; builder or foreman allowed |
 | `advisor-direct-capability` | 🔴 failing | An explicitly requested root-only repair demonstrates direct implementation and self-verification capability. | none allowed; explicit capability request |
 | `medium-ticket-search` | 🔴 failing | Repair a real loopback HTTP search API across parser, repository, and pagination; independent generated-data probes cover filtering, stable ordering, input preservation, validation, and added regression tests that reject two faulty variants. | none required; direct, delegated, or hybrid |
+| `builder-environment-obstacle` | 🔴 failing | A maker repairs the config, routes around the absent optional lint engine using the documented portable mode, and records the workaround in `deviations.json` without blocking or asking the user. | one successful builder or foreman |
+| `checker-repairs-inline` | 🟢 public / 🔴 hidden | One checker repairs a High tenant-isolation defect and two Medium pagination/error-code defects inside its reviewed surface; a follow-up builder fails orchestration. | one successful checker only |
+| `repair-loop-convergence` | 🔴 failing | The checker reports an excluded dependency boundary; one authorized repair round resumes the kept-alive builder and then the same checker for delta review. The opt-in `requiredWorkerSequence` checks ordered successful attempts and worker identity, not just role. | one builder and one checker, each resumed once |
 
 The medium case is application-shaped rather than a marker/config edit. It has
 multiple interacting bugs, immutable API boundaries, and varied caller datasets.

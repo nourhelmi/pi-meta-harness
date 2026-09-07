@@ -1,0 +1,6 @@
+{
+  "name": "prospective-repair-loop-convergence",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node verify-public.mjs" }
+}

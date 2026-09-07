@@ -698,6 +698,45 @@ export function processChecks(normalized, completion, caseDefinition) {
   const process = caseDefinition.process ?? {};
   const expectedStatus = process.expectedCompletionStatus ?? "completed";
   const requirements = process.requiredDelegation ?? [];
+  const sequenceChecks = [];
+  // Opt-in capability oracle: exact serial attempts, successful settlements only,
+  // and resumes tied to the same worker identity (never merely the same role).
+  // Existing cases without this field retain their original reward contract.
+  if (process.requiredWorkerSequence !== undefined) {
+    const sequence = process.requiredWorkerSequence;
+    const events = normalized?.events ?? [];
+    const workers = new Map();
+    const attempts = new Set();
+    const validSequence = Array.isArray(sequence) && sequence.length > 0 && sequence.every((step) =>
+      Array.isArray(step?.roles) && step.roles.length > 0 && step.roles.every((role) => WORKER_ROLES.has(role))
+      && ["launch", "resume"].includes(step.action));
+    const matched = validSequence && launches.length === sequence.length && launches.every((launch, index) => {
+      const step = sequence[index];
+      if (!step.roles.includes(launch.role) || launch.action !== step.action
+        || !launch.workerAlias || !launch.attemptAlias || attempts.has(launch.attemptAlias)) return false;
+      const previousWorker = workers.get(launch.role);
+      if (step.action === "resume" ? previousWorker !== launch.workerAlias
+        : previousWorker !== undefined || [...workers.values()].includes(launch.workerAlias)) return false;
+      workers.set(launch.role, launch.workerAlias);
+      attempts.add(launch.attemptAlias);
+      const start = events.indexOf(launch);
+      const end = launches[index + 1] ? events.indexOf(launches[index + 1]) : events.length;
+      return settlements.some((event) => event.attemptAlias === launch.attemptAlias
+        && event.workerAlias === launch.workerAlias && event.role === launch.role
+        && event.status === "successful" && events.indexOf(event) > start && events.indexOf(event) < end);
+    });
+    // A blocked attempt cannot be laundered by a later successful notice. Running
+    // launch results are progress, not settlements; duplicate success notices are OK.
+    const successfulOnly = settlements.every((event) => !SETTLEMENT_STATUSES.has(event.status)
+      || (event.status === "successful" && attempts.has(event.attemptAlias)
+        && launches.some((launch) => launch.attemptAlias === event.attemptAlias
+          && launch.workerAlias === event.workerAlias && launch.role === event.role)));
+    sequenceChecks.push({
+      id: "orchestration-worker-sequence",
+      passed: Boolean(normalized) && Boolean(matched) && successfulOnly,
+      evidence: `${launches.length} attempt(s); expected ${validSequence ? sequence.length : "invalid sequence"}; ordered same-worker actions: ${Boolean(matched)}; successful settlements only: ${successfulOnly}`,
+    });
+  }
   return [
     {
       id: "completion-signal",
@@ -738,6 +777,7 @@ export function processChecks(normalized, completion, caseDefinition) {
       };
     }),
     ...topologyChecks(normalized, process.topology),
+    ...sequenceChecks,
   ];
 }
 
