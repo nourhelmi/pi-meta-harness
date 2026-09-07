@@ -4,7 +4,7 @@
 execution hosts. Herdr and BB are projections of advisor state.**
 
 This document defines the contracts that make that statement true. Doctrine
-stays in [`../skills/advisor/SKILL.md`](../skills/advisor/SKILL.md); this page
+stays in [`../skills/advisor/doctrine.md`](../skills/advisor/doctrine.md); this page
 defines the data every host must emit and every surface may read. Status of
 the migration is at the end.
 
