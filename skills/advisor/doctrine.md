@@ -54,9 +54,10 @@ as obstacles.
    every tier, value-triggered fresh review on Standard, and independent
    checking on High. Git bookkeeping on worker output is advisor work.
 2. **Maker ≠ checker.** The agent that produced work never presents its own
-   review as independent. Independence is a property of the verdict, not of
-   the keystrokes: a checker that repairs what it found has not compromised
-   its review.
+   review as independent. A checker may repair findings without invalidating
+   its independent assessment of the original work. Its own patch is maker
+   work: reruns are self-verification, not independent review of that patch.
+   Close or review that delta according to its risk and remaining uncertainty.
 3. **One workstream owner.** Two advisor sessions never own the same
    workstream; transfer with an explicit handoff event.
 4. **One maker per write surface at a time, including you.** Never edit a
@@ -122,7 +123,7 @@ command and the maker runs the fixer before rerunning it.
 write surface, and explicitly locked product or architecture decisions.
 
 **What a packet may never freeze:** tool or runtime versions the repository
-does not itself pin, directory modes, retry counts, hash manifests outside a
+does not itself pin, directory modes, hash manifests outside a
 release gate, literal command order, "any severity is terminal", "no retry",
 or "no install or alternate runtime". Do not open a packet with "execute
 exactly"; state the goal, the invariants, and the evidence paths. Every
@@ -158,15 +159,18 @@ file-count threshold.
 ## Risk tiers
 
 Tier the **change**, not the workstream. Every packet declares one tier with a
-one-line reason. Tier follows what the change touches; unknown coupling
-selects the higher tier. A repository `## Risk tiers` section in its
-`AGENTS.md` maps path patterns to tiers and wins over the defaults. Standard is
-the default when no High surface is named. Formatting, test-only, docs, and
-metadata repairs are Low by rule, even inside a High workstream.
+one-line reason. Classify by behavioral effect, not filename or patch size;
+unknown coupling selects the higher tier. A repository `## Risk tiers` section in its
+`AGENTS.md` may refine the defaults, but cannot downgrade a High-risk effect.
+Standard is the default when no High surface is named. Purely mechanical
+formatting, test, docs, or metadata repairs can be Low only when runtime
+behavior, acceptance oracles, and enforcement semantics remain unchanged.
+Changes to an acceptance oracle, security gate, or safety-relevant instruction
+take the tier of the boundary they control; the highest applicable tier wins.
 
 | Tier | Covers | Route | Checker FAIL bar |
 | --- | --- | --- | --- |
-| Low | docs, skills, prompts, specs, mechanical config, tests-only, one-file repair with a strong oracle | one maker, deterministic criteria; no added review by default | violated criterion only |
+| Low | docs, skills, prompts, specs, config, or test maintenance with unchanged behavior and acceptance/enforcement semantics; bounded repairs with a strong oracle and no higher-tier effect | one maker, deterministic criteria; no added review by default | violated criterion only |
 | Standard | product runtime code with coupling or a weak oracle | one maker; fresh review only for a material uncertainty or a review trigger | violated criterion or unrepaired High finding |
 | High | schema or migration, auth or authorization, RLS or security, privacy, money, idempotency or replay, destructive or external effects, concurrency, gate or enforcement code | one maker and a designated independent checker; browser verification when the surface is visible | violated criterion or unrepaired Medium-or-higher finding |
 
@@ -228,19 +232,32 @@ the same purpose.
 the reviewed surface, at any severity, unless the fix needs a product
 decision, changes schema or migration semantics, or has an external effect.
 Its verdict describes the post-repair state; each repair is listed with its
-rerun evidence. A repaired finding never flips a verdict. Close checker repairs
-with the rerun evidence plus a targeted diff read of the patch, which you judge
-from your full session context; for a nontrivial patch on High tier, resume
-the original maker for a bounded delta read rather than launching a fresh full
-checker. Give the checker the full contract, tier, threat model, maker claims,
-and command evidence, and name its assigned review claims.
+rerun evidence. A repaired finding alone does not cause FAIL; unmet criteria
+or new defects still bind at the tier's bar. Inspect the rerun evidence and
+patch, carrying forward unaffected valid review evidence. The checker's own
+reruns are self-verification of its patch, not independent proof of it.
+Close a well-proven delta directly when no material independent risk remains;
+otherwise assign a scoped read or probe to someone who did not author that
+patch. The original maker can supply that perspective when its prior
+assumptions are not the contested issue; use a fresh checker when they are.
+There is no automatic checker-of-checker or whole-work re-review. Give the
+checker the full contract, tier, threat model, maker claims, and command
+evidence, and name its assigned review claims.
 
 **Convergence.** A repair round exists only while it can produce new
 information or a changed strategy. Resume the same checker for a delta review
-of a repair; launch a fresh checker only when the repair invalidated the
-reasoning the first review relied on. Two serial review rounds per slice is
-the cap, and the cap is terminal: ship with a disclosed residual, or ask the
-user with a recommended default. A cap never resolves into another planner.
+of a maker's repair; fresh review is justified when prior reasoning is
+invalidated or material independent risk remains.
+
+Two serial review rounds per slice is the default budget. At that budget or
+a binding user, graph, or runtime cap, stop the loop and reassess; a budget is
+not evidence of completion. Deliver only when all acceptance criteria,
+required checks, and safety obligations are satisfied, disclosing only
+non-blocking residuals. Otherwise report the work as incomplete and choose a
+changed approach within remaining authority and limits, or ask the user with
+a recommended next step. Further work needs an explicit, authorized bounded
+plan; never silently reset a cap by renaming the slice or launching another
+planner. User-set limits or requirements need user approval to change.
 After every maker→checker cycle, append one line to the workstream file:
 findings closed, findings new, continue or stop.
 
@@ -277,11 +294,14 @@ or native) is the default for every semantic role: `scout`, `planner`,
 mode, OpenAI models route to Codex CLI and Anthropic/Claude models route to
 Claude Code; a Cursor-only recommendation has no native route, so choose a
 task-fit OpenAI or Anthropic model from the same guide or report the mismatch.
-Workers load their own role skill from the packet path; you never read role
-skills, the worker contract, or repository skills on a worker's behalf. Read a
-repository skill only when you edit repository code yourself. Native workers
-write to a reserved `result.md` that already exists as an empty file when
-they start. Details: `references/transport-and-settlement.md`.
+Workers load their own role skill from the packet path. Do not preload role
+skills, the worker contract, or repository skills merely to launch a worker.
+Read the relevant skill or contract section when a concrete planning,
+review, investigation, implementation, or recovery decision needs it; you
+need not be editing code. Required task and safety instructions still apply.
+Reuse material already in context and keep additional reads bounded. Native
+workers write to a reserved `result.md` that already exists as an empty file
+when they start. Details: `references/transport-and-settlement.md`.
 
 ## Evidence
 

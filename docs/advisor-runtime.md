@@ -26,14 +26,14 @@ native agent process.
 
 1. Launch every separate advisor with `advisor_launch`; it creates a new Herdr tab with `--no-focus`, never a pane split. A manually opened advisor may still invoke `/advisor` in its own fresh tab.
 2. `advisor_session_init` creates or claims one isolated workstream, persists one worker mode (`pi` or `native`), trims the session's active tool set, and returns the workstream hot section. The root advisor remains Pi in both modes.
-3. The advisor session extension injects the doctrine core (`skills/advisor/doctrine.md`) and a compact rendering of the live intelligence guide into the system prompt on every turn, and re-sends the workstream hot section after every compaction. The advisor never reads the doctrine, the guide, role skills, or the worker contract with a tool; situational references under `skills/advisor/references/` are read only when their situation arises.
+3. The advisor session extension injects the doctrine core (`skills/advisor/doctrine.md`) and a compact rendering of the live intelligence guide into the system prompt on every turn, and re-sends the workstream hot section after every compaction. The advisor reuses the injected doctrine and guide; other skill and contract reads follow the decision-driven policy under Roles and intelligence, and situational references under `skills/advisor/references/` are read only when needed.
 4. Each live advisor must use a different workstream.
 5. Within advisor state, an advisor writes only its own session record, its owned workstream record, new immutable events, and unique run output. Product edits follow the assigned checkout boundary, not this state-only restriction.
 6. Treat legacy in-repo `.advisor/` directories as read-only history.
 7. Transfer ownership with an immutable handoff event.
 8. Use Intercom for short conclusions and paths, not transcripts or raw logs.
 9. Launch delegated LLM work only through `bg_agent` — usually a configured semantic role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi. A launch whose prompt still contains an unexpanded paste placeholder is rejected.
-10. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. The quick packet is the default: goal, write surface, criteria phrased as failure probes, evidence linked by path, one risk-tier line, and stop conditions, in ten to twenty lines. A packet may freeze criteria, safety boundaries, the write surface, and locked decisions; it may never freeze tool versions the repository does not pin, directory modes, retry counts, hash manifests outside a release gate, or literal command order, and never declares every severity terminal. Makers explore freely and deliver narrowly: they may propose criteria and report adjacent defects, and the advisor accepts proposals through a recorded packet revision.
+10. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. The quick packet is the default: goal, write surface, criteria phrased as failure probes, evidence linked by path, one risk-tier line, and stop conditions, in ten to twenty lines. A packet may freeze criteria, safety boundaries, the write surface, and locked decisions; it may never freeze tool versions the repository does not pin, directory modes, hash manifests outside a release gate, or literal command order, and never declares every severity terminal. Makers explore freely and deliver narrowly: they may propose criteria and report adjacent defects, and the advisor accepts proposals through a recorded packet revision.
 11. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work, but create a graph only for real independent ownership or dependency boundaries.
 12. One writer owns a checkout at a time, including the advisor and a foreman alongside their helpers. Settle or stop a writing worker before reclaiming its surface. Parallel makers require explicit approval and separate worktrees; independent review uses a frozen revision.
 13. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
@@ -165,16 +165,19 @@ advisor's job.
 
 ## 🎚️ Risk tiers
 
-Every packet carries one tier, decided from what the change touches, not the
-workstream it belongs to, and recorded with a one-line reason before launch.
-Standard is the default when no High surface is named; formatting, test-only,
-docs, and metadata repairs are Low by rule even inside a High workstream.
-Unknown coupling selects the higher tier, and a repository `AGENTS.md` may
-carry a `## Risk tiers` path map that wins over the defaults.
+Every packet carries one tier, decided by behavioral effect, not filename or
+patch size, and recorded with a one-line reason before launch. Standard is
+the default when no High surface is named; unknown coupling selects the
+higher tier. A repository `AGENTS.md` may refine defaults with a `## Risk tiers`
+path map, but cannot downgrade a High-risk effect. Purely mechanical
+formatting, test, docs, or metadata repairs can be Low only when runtime
+behavior, acceptance oracles, and enforcement semantics remain unchanged.
+Changes to an acceptance oracle, security gate, or safety-relevant instruction
+take the tier of the boundary they control; the highest applicable tier wins.
 
 | Tier | Covers | Route | Checker FAIL bar |
 | --- | --- | --- | --- |
-| Low | docs, skills, prompts, specs, mechanical config, tests-only, one-file repair with a strong oracle | one maker, deterministic criteria; no added review by default | violated criterion only |
+| Low | docs, skills, prompts, specs, config, or test maintenance with unchanged behavior and acceptance/enforcement semantics; bounded repairs with a strong oracle and no higher-tier effect | one maker, deterministic criteria; no added review by default | violated criterion only |
 | Standard | product runtime code with coupling or a weak oracle | one maker; fresh review only for material uncertainty or a review trigger | violated criterion or unrepaired High finding |
 | High | schema, migration, auth, RLS or security, privacy, money, idempotency, destructive or external effects, concurrency, gate code | one maker and a designated independent checker; no automatic extra maker-owned reviewer; browser verification when visible | violated criterion or unrepaired Medium-or-higher finding |
 
@@ -193,14 +196,28 @@ effort from actual review need and the guide, not a fixed offset from the maker.
 
 Checkers are repair-first. A checker repairs every finding it can inside the
 reviewed surface, at any severity, unless the fix needs a product decision,
-changes schema or migration semantics, or has an external effect; its verdict
-describes the post-repair state, and a repaired finding never flips a verdict.
-The advisor closes checker repairs with the rerun evidence plus a targeted diff
-read. A repair round resumes the same checker for a delta review; a fresh
-checker is launched only when the repair invalidated the reasoning the first
-review relied on. Two serial review rounds per slice is the cap, and the cap is
-terminal: ship with a disclosed residual, or ask the user with a recommended
-default. A cap never resolves into another planner.
+changes schema or migration semantics, or has an external effect. Its verdict
+describes the post-repair state. A repaired finding alone does not cause FAIL;
+unmet criteria or new defects still bind at the tier's bar. The original
+assessment remains independent, but the checker's own patch has
+self-verification, not independent review of that patch. The advisor inspects
+the rerun evidence and delta, preserves unaffected review evidence, and closes
+it when no material independent risk remains. Otherwise assign a scoped read
+or probe to a reviewer who did not author the patch. The original maker may
+serve when its prior assumptions are not the contested issue; there is no
+automatic checker-of-checker or whole-work re-review.
+
+Resume the same checker for a delta review of a maker's repair; use fresh
+review when prior reasoning is invalidated or material independent risk
+remains. Two serial review rounds per slice is the default budget. At that
+budget or a binding user, graph, or runtime cap, stop the loop and reassess;
+a budget is not evidence of completion. Deliver only when all acceptance
+criteria, required checks, and safety obligations are satisfied, disclosing
+only non-blocking residuals. Otherwise report the work as incomplete and
+choose a changed approach within remaining authority and limits, or ask the
+user with a recommended next step. Further work needs an explicit, authorized
+bounded plan; never silently reset a cap by renaming the slice or launching
+another planner. User-set limits or requirements need user approval to change.
 
 Review depth follows meaningful failure modes, oracle strength, coupling, and
 trust boundaries. Deepen on a concrete gap or contradictory evidence. Stop when
@@ -219,8 +236,15 @@ Examples, not fixed routes:
 - An integrated foreman result reuses current component evidence and verifies
   the integration delta plus required final checks, not every child's work again.
 - A checker that finds one Medium race in a reviewed file fixes it, reruns the
-  affected criteria, and reports PASS with the repair; the advisor reads the
-  patch instead of launching a maker round and a second checker.
+  affected criteria, and reports the post-repair state. The advisor can close
+  the delta from the proof and patch when no material independent risk remains.
+- A checker-authored authorization fix with a weak oracle needs scrutiny from
+  someone who did not author the patch, scoped to the unresolved boundary.
+- Editing an authorization test's acceptance oracle or a security-policy
+  instruction is High when it changes that boundary; a comment-only repair
+  with unchanged enforcement can be Low.
+- Exhausting two rounds with a failed required check leaves the work incomplete,
+  not shippable with a disclaimer; a clean result with only optional notes may ship.
 
 ## 🎭 Roles and intelligence
 
@@ -230,6 +254,14 @@ visible subagents — to the foreman for bounded delegation and to the builder
 for at most one optional read-only review helper — and every granted subagent
 inherits the full no-further-delegation prohibition. The generic transport
 profile merely forwards that flag.
+
+Workers load their own role skill and contract. Do not preload those or
+repository skills merely to launch a worker. Read the relevant skill or
+contract section when a concrete planning, review, investigation,
+implementation, or recovery decision needs it; you need not be editing code.
+Required task and safety instructions still apply. Reuse material already
+in context and keep additional reads bounded.
+
 Every role has agency over methods, evidence, and ordinary local choices within
 its mandate, including resolving environment and tooling obstacles. Packets
 include the broader goal, why the contribution matters, upstream evidence,
@@ -306,9 +338,10 @@ The advisor's standing context is small by construction:
 
 References under `skills/advisor/references/` (graphs, model routing,
 evidence, transport and settlement) are read only when their situation arises.
-Workers load their own role skill from the packet path; the advisor never
-reads role skills, the worker contract, or repository skills on a worker's
-behalf.
+Workers load their own role skill from the packet path. Advisor skill reads
+follow the decision-driven policy under Roles and intelligence: no launch-time
+preload, but inspect the relevant section when a concrete decision needs it,
+even when not editing.
 
 ## 🚦 Start
 

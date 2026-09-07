@@ -46,9 +46,14 @@ waves:
    maker only when another attempt has a concrete new strategy or information
    source. Verify the repair with affected criterion reruns and a targeted
    diff read; carry forward unaffected valid evidence; resume the same checker
-   for the delta review. Never exceed the manifest repair-loop cap (default
-   two); the convergence judgment may stop earlier, and the cap ends in a
-   disclosed residual or a user question, never in another planner.
+   for the delta review of a maker's repair. A checker-authored patch follows
+   the evidence reference's risk-based delta review, not self-certified
+   independence. Never exceed the manifest repair-loop cap (default two).
+   At the cap, stop and reassess under the core's Convergence rule: deliver
+   only with all criteria, required checks, and safety obligations satisfied,
+   and disclose only non-blocking residuals. Otherwise report incomplete work
+   and a bounded next step or user decision. Never silently reset a cap by
+   renaming the slice or launching another planner.
 8. Parallel builders or foremen require explicit user approval and distinct
    worktrees.
 

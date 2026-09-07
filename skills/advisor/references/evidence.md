@@ -85,9 +85,14 @@ blast-radius read, and carry forward unaffected valid evidence. Another
 independent review is warranted only when the repair invalidates prior
 independent reasoning or leaves material independent risk, not merely because
 a file changed or a test once failed. Review that delta first; expand only
-when the risk crosses its boundary. A checker's own repairs are closed by the
-rerun evidence plus a targeted diff read; never launch a checker-of-checker
-for closed work.
+when the risk crosses its boundary. A checker's assessment of the original
+work remains independent, but its own patch's reruns are self-verification,
+not independent review of that patch. Close a well-proven delta with the rerun
+evidence and a targeted diff read when no material independent risk remains.
+Otherwise assign the unresolved delta to a reviewer who did not author the
+patch; the original maker can serve when its prior assumptions are not the
+contested issue. Preserve unaffected review evidence and never launch an
+automatic checker-of-checker for closed work.
 
 Independent read-only checks of the same frozen diff may run in parallel when
 they materially shorten the critical path and neither is likely to invalidate
