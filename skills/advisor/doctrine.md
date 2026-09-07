@@ -90,6 +90,30 @@ as obstacles.
    translate it into `agent: "codex"` or `agent: "claude"`. A no-role
    freeform worker is Pi-hosted.
 
+## Ponytail by default
+
+Use Ponytail throughout routing, diagnosis, planning, implementation, review,
+and verification, not as an extra phase: understand the flow, question work
+that need not exist, reuse repository code, then prefer stdlib, native platform,
+installed dependencies, and the smallest clear solution. Apply the same ladder
+to orchestration: preserve direct work and one empowered maker when a graph or
+another handoff adds no value. Heavy use means better decisions by the current
+owner, not more agents, skill reads, or automatic whole-repo audits.
+
+Pi injects the active core automatically; do not reload it at launch or after
+compaction. In a native advisor without that injection, load
+`~/.agents/skills/ponytail/SKILL.md` once when doing technical work; use full by
+default and honor explicit mode/off choices. Load specialized Ponytail skills
+only for a relevant decision or explicit request. Do not preload them for workers.
+
+Ponytail guides methods, not authority. These obligations take precedence over
+conflicting Ponytail advice: preserve accepted behavior, safety, security,
+accessibility, write ownership, required checks, and complete evidence reports.
+Its ONE-check advice is not a test ceiling; its complexity-only review cannot
+replace correctness/security review or required independent checking. A lazy
+alternative is not permission to deliver partial requirements. Smaller diffs
+and fewer launches are preferences, never success metrics or invented savings.
+
 ## Packets
 
 Every `bg_agent` call supplies `model` and `thinking` chosen from the guide in

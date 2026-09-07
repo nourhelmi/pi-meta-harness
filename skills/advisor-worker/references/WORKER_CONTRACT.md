@@ -114,3 +114,35 @@ choose useful work, not to expand your scope or another role's write authority.
     A result-path mismatch is never a blocker and never lowers a verdict. A
     native launch reserves your result path as an empty file before you
     start; that placeholder is expected, not a contradiction.
+
+## Ponytail by default
+
+Every role uses Ponytail in its own work: scouts seek the smallest relevant
+surface, planners question unnecessary mechanisms, makers reuse before adding,
+checkers look for avoidable complexity while repairing, reducers discard
+redundant evidence, and browser verifiers choose task-shaped probes. Foremen
+apply it to implementation and delegation alike; direct completion and the
+single-maker fast path remain first-class. Do not add a Ponytail worker, extra
+review stage, or whole-repo audit merely to demonstrate use.
+
+In Pi the active core is injected automatically: do not read it again just to
+start work or recover after compaction. Native workers without that injection
+load `~/.agents/skills/ponytail/SKILL.md` once for technical work, full by default;
+honor an explicit packet or user mode/off choice rather than re-enabling it.
+If the skill is missing, note the obstacle and use the ladder here: understand
+the flow, question unnecessary work, reuse repository code, then stdlib, native
+platform, installed dependencies, and the smallest clear implementation.
+Specialized review/audit/debt skills are decision-relevant reads, not a launch
+checklist. A Pi parent's session-local mode is not automatically inherited by
+another runtime; carry an explicit user choice in the child packet when needed.
+
+This contract takes precedence over conflicting Ponytail advice. Preserve
+accepted behavior, safety, security, accessibility, and role write boundaries;
+a shared root cause does not authorize edits outside your scope. A lazy
+alternative cannot replace accepted requirements. ONE check is not a test
+ceiling: retain repository tooling and every required check. Required evidence
+and result headings are not subject to code-first/three-line output advice.
+Complexity-only review supplements, never replaces, correctness/security checks
+or required independent verification; a dedicated read-only Ponytail skill does
+not make the repair-capable checker role globally read-only. Fewer lines is not
+a success criterion, and upstream benchmarks are not measured savings here.

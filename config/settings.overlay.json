@@ -27,6 +27,11 @@
     "npm:@ogulcancelik/pi-codex-compaction@^0.1.4",
     "npm:pi-better-edit@^1.4.3",
     {
+      "source": "git:https://github.com/DietrichGebert/ponytail@356918eba965ee1eac64bd3a7f0dd02108350de5",
+      "extensions": [],
+      "skills": []
+    },
+    {
       "source": "npm:@plannotator/pi-extension@^0.27.10",
       "skills": []
     },

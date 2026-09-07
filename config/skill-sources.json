@@ -209,6 +209,20 @@
       "skills": [
         "prompt-engineering-patterns"
       ]
+    },
+    {
+      "source": "DietrichGebert/ponytail",
+      "sourceUrl": "https://github.com/DietrichGebert/ponytail.git",
+      "commit": "356918eba965ee1eac64bd3a7f0dd02108350de5",
+      "tree": "3bb4226d87085db53fbf6a0013f6b5de07fcf815",
+      "skills": [
+        "ponytail",
+        "ponytail-audit",
+        "ponytail-debt",
+        "ponytail-gain",
+        "ponytail-help",
+        "ponytail-review"
+      ]
     }
   ]
 }

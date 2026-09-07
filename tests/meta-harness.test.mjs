@@ -86,6 +86,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   for (const relative of [
     "extensions/advisor-pi-host.ts",
     "extensions/advisor-runtime.ts",
+    "extensions/ponytail.ts",
     "scripts/advisor-runtime/security.mjs",
     "scripts/advisor-runtime/service.mjs",
     "scripts/advisor-runtime/contract.mjs",
@@ -886,12 +887,12 @@ test("skill plan preserves source attribution and all 57 skills", () => {
   assert.match(result.stdout, /backnotprop\/plannotator/);
   assert.match(result.stdout, /plannotator-annotate/);
   const lines = result.stdout.trim().split("\n");
-  assert.equal(lines.length, 19);
+  assert.equal(lines.length, 20);
   const skillCount = lines.reduce((total, line) => {
     const [, values = ""] = line.split(" --skill ");
     return total + values.split(" --yes")[0].trim().split(/\s+/).filter(Boolean).length;
   }, 0);
-  assert.equal(skillCount, 57);
+  assert.equal(skillCount, 63);
 });
 
 test("skill lock matches every pinned source and selected skill", async () => {
@@ -911,7 +912,7 @@ test("skill lock matches every pinned source and selected skill", async () => {
       assert.match(lock.skills[skill].sha256, /^[0-9a-f]{64}$/);
     }
   }
-  assert.equal(Object.keys(lock.skills).length, 57);
+  assert.equal(Object.keys(lock.skills).length, 63);
   assert(lock.skills.cro);
   assert(lock.skills.genmedia);
   assert.equal(lock.skills["page-cro"], undefined);

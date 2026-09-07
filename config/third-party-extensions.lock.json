@@ -2,6 +2,16 @@
   "schemaVersion": 2,
   "extensions": [
     {
+      "name": "ponytail",
+      "repository": "https://github.com/DietrichGebert/ponytail",
+      "commit": "356918eba965ee1eac64bd3a7f0dd02108350de5",
+      "tree": "3bb4226d87085db53fbf6a0013f6b5de07fcf815",
+      "installSource": "git:https://github.com/DietrichGebert/ponytail@356918eba965ee1eac64bd3a7f0dd02108350de5",
+      "license": "MIT",
+      "package": "@dietrichgebert/ponytail@4.9.0",
+      "purpose": "Default-on simplicity guidance through the unchanged official Pi adapter, loaded by extensions/ponytail.ts for command-expansion compatibility and harness obligation precedence. Six skills are installed canonically, not rediscovered from this package."
+    },
+    {
       "name": "unified-edit",
       "repository": "https://github.com/mitsuhiko/agent-stuff",
       "commit": "13bc8f87970bec8830aab0f1c0487d35aa7c0917",
