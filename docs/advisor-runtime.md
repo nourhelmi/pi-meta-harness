@@ -120,6 +120,23 @@ suffice; there is no additional evidence form. New evidence that changes success
 criteria requires an explicit recorded packet revision, never a hidden stricter
 checker contract.
 
+**Lean evidence handoffs.** Treat results and workstream notes as evidence
+indexes, not transcript archives. Record each distinct proof once with its
+producer, tested revision/surface, exact invocation/outcome, and limitations;
+each claim retains its outcome and a precise reference to the proof covering it.
+Keep bulk logs, probe source, and full diffs in accessible durable artifacts,
+not copied through every report or packet. If separate artifacts are unavailable
+or forbidden, retain the necessary proof inline. Failures, missing proof, and
+material limitations stay visible in the summary. Read relevant linked proof,
+not every supporting log by default; required evidence and critical or contested
+claims still need inspection. Missing or inaccessible proof cannot establish a
+pass. This adds no citation syntax or length quota.
+
+For example, one maker test run can support two claims when it actually tests
+both; each claim cites that same proof. A checker's independent rerun is a
+separate execution with its own provenance and outcome, not a second copy of the
+maker's proof. A failing claim stays explicit even when its detailed log is linked.
+
 The planner rejects malformed structure, cycles, invalid concurrency, and
 unsafe parallel-builder checkout conflicts. Checker or browser nodes without
 builder ancestors and reducers with low fan-in produce non-blocking warnings

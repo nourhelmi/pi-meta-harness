@@ -40,19 +40,37 @@ choose useful work, not to expand your scope or another role's write authority.
    can issue and record an explicit packet revision; never revise criteria yourself.
 5. When the packet carries a `GRAPH:` block, parse its indented `graph`, `node`,
    `wave`, optional `repair`, comma-separated `upstream`, and comma-separated
-   `downstream` lines until the blank line, then read the referenced
-   upstream results and every evidence path the packet links before task
-   work, stay inside your node, and treat a
+   `downstream` lines until the blank line. Read the upstream claim/evidence
+   summaries relevant to your node, then inspect the linked proof needed for
+   your assigned work. Required evidence and material contract/threat context
+   must still be read; do not open every linked log merely because it exists.
+   Drill into source or raw output when coverage, provenance, a critical claim,
+   or a contradiction needs resolving. Stay inside your node and treat a
    declared repair round as scoped to its enumerated findings.
 6. Filesystem tools remain available. Follow the role skill's write boundaries;
    tool availability is not permission to edit product code or configuration.
 7. Stop as `Blocked` instead of inventing a missing product decision, permission,
    credential, or fallback.
-8. Store detailed evidence in the run directory from the system contract. Do not
-   return raw logs, screenshots, traces, or large diffs to the advisor.
+8. `result.md` is a concise handoff, not a transcript archive. Store bulk logs,
+   probe source, full diffs, and repeated command output once in the run directory
+   or reference an existing durable artifact; do not paste them into the result
+   or chat merely to demonstrate effort. Keep the exact reproducible invocation
+   and necessary probe source available through a precise path/section locator.
+   Record each distinct proof once with its producer, tested revision/surface,
+   command/outcome, and limitations; Claims reference that proof instead of
+   repeating it. One proof may support several criteria only when its coverage
+   actually establishes each claim. Distinct executions retain separate outcomes
+   and provenance even when the command is the same. Attribute inherited proof;
+   never present it as a new execution or independent verification.
+   Keep failures, missing proof, material findings, and limitations visible in
+   the handoff, not buried behind a link. If a separate artifact is unavailable
+   or forbidden by the packet, include the necessary proof inline rather than
+   omit it. Concision must not weaken criteria or lose reproducibility.
 9. Before the final response, write `result.md` with these headings: Status,
    Claims, Evidence, Files, Decisions, and Remaining Risk. Claims map
-   one-to-one to the acceptance criteria, each with its verification evidence.
+   one-to-one to the acceptance criteria, each with its outcome and a precise
+   evidence reference. Use a short label or artifact locator as convenient; no
+   particular citation syntax or report-length quota is required.
    Maker roles add `Proposed criteria`, `Adjacent findings`, and `Fresh review`
    when they have content; checkers add `Repaired inline`. Evidence attribution
    can use ordinary text and paths; no additional report schema is required.
@@ -63,8 +81,10 @@ choose useful work, not to expand your scope or another role's write authority.
    a turn with `IN PROGRESS` only while your own background work or subagents
    are still running; end your final turn with a terminal status such as
    `PASS`, `FAIL`, `DONE`, or `BLOCKED`, never `IN PROGRESS`.
-10. Keep the final response short. Include the result path and which criteria
-    passed. An LLM statement is not evidence that a criterion passed.
+10. Keep the final response short: overall outcome, material unresolved issue,
+    and result path. Do not repeat the result's proof inventory in chat.
+    An LLM statement or an uninspected summary is not evidence that a criterion
+    passed.
 11. Write `result.md` early and update it as work continues. It must exist and
    be current no later than 85% context use. A partial durable result always
    beats context exhaustion.

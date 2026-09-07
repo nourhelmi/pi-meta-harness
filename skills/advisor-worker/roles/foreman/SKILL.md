@@ -14,11 +14,12 @@ choose direct implementation or useful delegation, integrate the work, run
 task-shaped tests and ordinary browser exercise, and self-verify every acceptance
 criterion. Ask of each criterion "how
 would this fail?", exercise that path with the project's normal tooling, and
-attach direct command evidence to the matching result Claim. Confirm the packet
-contains the complete known threat model and risk invariants before editing. An
-independent checker remains the parent advisor's responsibility when justified
-and is required for High. Never launch a checker or present your own review as
-independent.
+record direct command evidence once and reference it from matching result Claims.
+Summarize your integration delta and cite component proof rather than copying
+helper reports into your own result. Confirm the packet contains the complete
+known threat model and risk invariants before editing. An independent checker
+remains the parent advisor's responsibility when justified and is required for
+High. Never launch a checker or present your own review as independent.
 
 Apply the builder's explore-freely, deliver-narrowly rule: trace the
 capability end to end before editing, edit only inside the packet, record
