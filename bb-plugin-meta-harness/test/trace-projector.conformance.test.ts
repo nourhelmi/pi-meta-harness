@@ -392,6 +392,7 @@ describe("current protocol conformance and adversarial ordering", async () => {
       ).toEqual(response);
     });
 
+    // Each mutation starts reference CLI processes; keep the full matrix on slower CI.
     it(`matches every single-event deletion, duplication and adjacent swap in ${name}`, () => {
       for (let index = 0; index < events.length; index += 1) {
         const deleted = structuredClone(events);
@@ -409,9 +410,10 @@ describe("current protocol conformance and adversarial ordering", async () => {
           compare(normalize(swapped));
         }
       }
-    });
+    }, 30_000);
   }
 
+  // Like the ordering matrix, this deliberately spawns many reference CLI processes.
   it("fails closed with identical diagnostics for malformed fields on every event type", () => {
     const samples = new Map(
       fixtures.flatMap(({ events }) =>
@@ -439,7 +441,7 @@ describe("current protocol conformance and adversarial ordering", async () => {
         "E_SCHEMA",
       );
     }
-  });
+  }, 30_000);
 
   it("rejects mismatched wave nodes, absent plans, skipped and duplicate waves", () => {
     const graph = fixture("graph-two-waves");
