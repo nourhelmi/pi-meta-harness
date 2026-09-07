@@ -9,6 +9,7 @@ import {
 } from "./advisor-core/advisor-state.ts";
 import {
 	type ResultArtifactValidation,
+	resultDeviations,
 	resultStatusBody,
 	validateResultArtifact,
 } from "./advisor-core/result-artifact.ts";
@@ -140,6 +141,7 @@ interface ArtifactInspection {
 	path?: string;
 	validation: ResultArtifactValidation;
 	statusBody?: string;
+	deviations?: string[];
 }
 
 interface GraphManifest {
@@ -359,6 +361,7 @@ async function inspectArtifact(path: string | undefined): Promise<ArtifactInspec
 		path,
 		validation: validateResultArtifact(markdown),
 		statusBody: resultStatusBody(markdown),
+		deviations: resultDeviations(markdown),
 	};
 }
 
@@ -625,6 +628,16 @@ function settlementDrafts(
 			parent: launch.parent,
 			data: { path: artifact.path },
 		});
+		const items = artifact.deviations ?? [];
+		const priorDeviation = lastNodeEvent(events, launch.node, "node.deviation");
+		if (items.length && (!priorDeviation || (lastResume && lastResume.seq > priorDeviation.seq))) {
+			drafts.push({
+				type: "node.deviation",
+				node: launch.node,
+				parent: launch.parent,
+				data: { count: items.length, items },
+			});
+		}
 		drafts.push({
 			type: "node.result.validated",
 			node: launch.node,

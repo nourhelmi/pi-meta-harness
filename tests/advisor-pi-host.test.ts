@@ -341,6 +341,36 @@ test("promoted done launch emits one valid settled node and one generation-1 wak
 	});
 });
 
+test("settlement emits deviations exactly once between written and validated without changing status or problems", async () => {
+	await withStateRoot(async (root) => {
+		for (const status of ["done", "blocked", "failed", "stalled", "cancelled"]) {
+			const validations: unknown[] = [];
+			for (const section of ["", "\n## Deviations\n\n- Selected local Node.\n  Continuation omitted.\n\n Used a local fixture. \n"]) {
+				const runId = `deviation-${status}-${section ? "present" : "absent"}`;
+				const resultPath = await writeResult(root, runId, resultMarkdown(status === "blocked" ? "BLOCKED" : "PASS") + section);
+				const host = installedHost();
+				await launchPromoted(host, runId, resultPath);
+				const message = settlementMessage(runId, resultPath, status, status === "cancelled" ? { status: "killed" } : {});
+				await host.dispatch("message_end", message);
+				await host.dispatch("message_end", message);
+				const { events, projection } = await validatedTrace(join(root, "traces", `${runId}.jsonl`));
+				const deviations = events.filter((event) => event.type === "node.deviation");
+				assert.equal(deviations.length, section ? 1 : 0);
+				if (section) {
+					assert.deepEqual(deviations[0]?.data, { count: 2, items: ["Selected local Node.", "Used a local fixture."] });
+					const types = events.map((event) => event.type);
+					assert.ok(types.indexOf("node.result.written") < types.indexOf("node.deviation"));
+					assert.ok(types.indexOf("node.deviation") < types.indexOf("node.result.validated"));
+				}
+				assert.equal(projection.nodes[0]?.settledStatus, status);
+				const validation = events.find((event) => event.type === "node.result.validated")?.data as Record<string, unknown>;
+				validations.push({ ...validation, path: "normalized" });
+			}
+			assert.deepEqual(validations[0], validations[1]);
+		}
+	});
+});
+
 test("GRAPH launches share one run, emit gated waves, complete settled waves, and fall back when the manifest is missing", async () => {
 	await withStateRoot(async (root) => {
 		const graph = "pi-two-wave";
@@ -421,13 +451,13 @@ test("name follow-up replies to and resumes the same blocked node before its sec
 		const resultPath = await writeResult(
 			root,
 			runId,
-			resultMarkdown("BLOCKED", { statusBody: "Choose the product storage boundary." }),
+			resultMarkdown("BLOCKED", { statusBody: "Choose the product storage boundary." }) + "\n## Deviations\n- Selected local Node.\n",
 		);
 		const host = installedHost();
 		await launchPromoted(host, runId, resultPath, launchInput({ keepAlive: true }));
 		await host.dispatch("message_end", settlementMessage(runId, resultPath, "blocked"));
 
-		await writeFile(resultPath, resultMarkdown(), "utf8");
+		await writeFile(resultPath, resultMarkdown() + "\n## Deviations\n- Used a local fixture.\n", "utf8");
 		const input = launchInput({ role: undefined, name: `builder-${runId}`, prompt: "Use the per-project state file." });
 		await host.dispatch("tool_call", { type: "tool_call", toolName: "bg_agent", toolCallId: "call-reply", input });
 		await host.dispatch("tool_result", {
@@ -453,6 +483,10 @@ test("name follow-up replies to and resumes the same blocked node before its sec
 		assert.equal(reply?.node, `builder-${runId}`);
 		assert.ok(events.some((event) => event.type === "node.resumed" && event.node === `builder-${runId}`));
 		assert.deepEqual(projection.wakes.map(({ generation }) => generation), [1, 2]);
+		assert.deepEqual(events.filter((event) => event.type === "node.deviation").map((event) => event.data), [
+			{ count: 1, items: ["Selected local Node."] },
+			{ count: 1, items: ["Used a local fixture."] },
+		]);
 		await assert.rejects(access(join(root, "traces", `${resumedRunId}.jsonl`)), { code: "ENOENT" });
 	});
 });
