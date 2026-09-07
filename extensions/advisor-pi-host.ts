@@ -676,6 +676,7 @@ function settlementDrafts(
 }
 
 export default function advisorPiHostExtension(pi: ExtensionAPI): void {
+	if (process.env.PI_DETACH_RUNTIME_BRIDGE || process.env.ADVISOR_RUNTIME_CANONICAL_OWNER === "1") return;
 	const pending = new Map<string, PendingLaunch>();
 	const pendingStops = new Map<string, { binding: Binding; detachRunId: string }>();
 	const earlySettlements = new Map<string, HeldSettlement>();

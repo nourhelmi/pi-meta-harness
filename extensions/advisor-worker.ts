@@ -158,7 +158,7 @@ async function initializeWorker(
 	const profile = config.profiles[role];
 	if (!profile?.skill) throw new Error(`Unknown or incomplete advisor worker role: ${role}`);
 	const sessionId = ctx.sessionManager.getSessionId();
-	const runDir = await advisorRunsDir(ctx.cwd, sessionId);
+	const runDir = process.env.ADVISOR_BRIDGE_WORKER_DIR ?? await advisorRunsDir(ctx.cwd, sessionId);
 	await mkdir(runDir, { recursive: true });
 	const state: WorkerState = {
 		role,
@@ -219,6 +219,8 @@ function registerCycleTracking(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 }
 
 function registerBlockedResultSignals(pi: ExtensionAPI, runtime: WorkerRuntime): void {
+	// Runtime owns artifact BLOCKED requests; actual UI prompts remain separately signalled.
+	if (process.env.ADVISOR_RUNTIME_CANONICAL_OWNER === "1") return;
 	pi.on("agent_end", async () => {
 		const state = runtime.state;
 		if (!state || runtime.resultBlockActive) return;

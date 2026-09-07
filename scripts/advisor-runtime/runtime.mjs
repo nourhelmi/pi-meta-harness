@@ -2,12 +2,12 @@ import { DatabaseSync } from 'node:sqlite';
 import { EventEmitter } from 'node:events';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { closeSync, existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { admitCommand } from '../advisor-core/command-admission.mjs';
 import { canonicalJson } from '../advisor-core/command-contract.mjs';
 import { validateResultArtifact, resultStatusBody } from '../advisor-core/result-artifact.mjs';
 import { validateTrace } from '../advisor-trace.mjs';
-import { OPERATIONS, WORKER_OPERATIONS, LIMITS, fields, integer, parseEnvelope, text } from './contract.mjs';
+import { OPERATIONS, WORKER_OPERATIONS, LIMITS, fields, integer, parseEnvelope, text, validatePacket } from './contract.mjs';
 import { RuntimeError, acquireLock, atomicWrite, boundedRead, demand, disjointControlPath, id, privateDirectory, safeFile, within, withRunOwnership } from './security.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -19,9 +19,10 @@ const rejection = error => ({ ok: false, error: error instanceof RuntimeError ? 
 /** Trusted host API. Never expose registration, ingestion, SQL, or adapters over transport. */
 export class AdvisorRuntime {
   #db; #release; #owner; #root; #allowedRoots; #adapters; #fault; #schema; #closed = false; #dispatching = null;
+  #piBridge;
   #controlPaths = new Set(); #controlDirectories = new Set();
   #notifications = new EventEmitter();
-  constructor({ stateRoot, allowedRoots, controlPaths = [], controlDirectories = [], adapters = { roots: {}, workers: {} }, fault = () => {} }) {
+  constructor({ stateRoot, allowedRoots, controlPaths = [], controlDirectories = [], adapters = { roots: {}, workers: {} }, piBridge = null, fault = () => {} }) {
     demand(Array.isArray(allowedRoots) && allowedRoots.length > 0, 'ALLOWED_ROOTS_REQUIRED');
     this.#allowedRoots = allowedRoots.map(path => realpathSync(path));
     demand(Array.isArray(controlPaths) && controlPaths.length <= 128, 'INVALID_CONTROL_PATHS');
@@ -48,6 +49,7 @@ export class AdvisorRuntime {
     for (const path of controlPaths) { privateDirectory(dirname(path)); safeFile(path); }
     for (const directory of ['traces', 'runs', 'ownership']) privateDirectory(join(this.#root, directory));
     this.#release = acquireLock(join(this.#root, 'service.lock'));
+    this.#piBridge = piBridge;
     this.#owner = randomUUID(); this.#adapters = adapters; this.#fault = fault;
     this.#notifications.setMaxListeners(64);
     try {
@@ -68,6 +70,7 @@ export class AdvisorRuntime {
         CREATE TABLE IF NOT EXISTS exports (run TEXT PRIMARY KEY, seq INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS control_paths (path TEXT PRIMARY KEY);
         CREATE TABLE IF NOT EXISTS control_directories (path TEXT PRIMARY KEY);
+        CREATE TABLE IF NOT EXISTS pi_bindings (id TEXT PRIMARY KEY, principal TEXT NOT NULL, digest TEXT NOT NULL, data TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS bootstrap (singleton INTEGER PRIMARY KEY CHECK(singleton=1), digest TEXT NOT NULL);`);
       for (const row of this.#all('SELECT path FROM control_paths')) this.#controlPaths.add(disjointControlPath(row.path, this.#allowedRoots));
       for (const row of this.#all('SELECT path FROM control_directories')) this.#controlDirectories.add(disjointControlPath(row.path, this.#allowedRoots));
@@ -179,6 +182,143 @@ export class AdvisorRuntime {
     demand(row && !row.revoked, 'UNAUTHORIZED');
     const principal = decode(row.data); demand(audience !== 'model' || principal.kind !== 'operator', 'MODEL_OPERATOR_FORBIDDEN');
     return { operations: principal.operations, scopes: principal.scopes };
+  }
+  /** Bounded host-configured Pi slot pool. No wildcard grants or client-selected enrollment. */
+  async piDetachRequest(token, input, audience) {
+    try {
+      const c = clone(input);
+      fields(c, ['v', 'op', 'sessionId', 'action', 'payload']);
+      demand(c.v === 1 && c.op === 'pi.detach' && audience === 'model', 'BRIDGE_VERSION');
+      text(c.sessionId, 256);
+      const config = this.#piBridge;
+      demand(config?.version === 1 && typeof config.prepare === 'function' && config.portVersion === 1, 'BRIDGE_UNAVAILABLE');
+      this.describe(token, audience);
+      demand(c.sessionId === config.sessionId, 'BRIDGE_SESSION_MISMATCH');
+      const scopes = config.scopes;
+      demand(Array.isArray(scopes) && scopes.length > 0 && scopes.length <= 32, 'BRIDGE_CONFIGURATION');
+      // Every bridge operation rechecks both the exact root and child grants.
+      for (const root of scopes) {
+        const auth = this.#authorize(token, { op: 'progress', scope: root });
+        demand(auth.id === config.principalId, 'PRINCIPAL_MISMATCH');
+        this.#requireTargets(auth, root, ['worker']);
+      }
+      const principal = config.principalId;
+      const p = c.payload;
+      const call = (scope, op, payload, commandId, expectedRevision) => this.execute(token, { v: 1, op, scope, payload, ...(commandId ? { commandId, expectedRevision } : {}) }, audience);
+      const bindings = () => this.#all('SELECT data FROM pi_bindings WHERE principal=?', principal).map(row => decode(row.data));
+      const owned = runId => {
+        id(runId);
+        const binding = bindings().find(row => row.action === 'launch' && row.runId === runId);
+        demand(binding, 'BRIDGE_TARGET_FORBIDDEN');
+        const run = this.#scopeRun({ scope: binding.scope });
+        demand(run.nodes.worker, 'BRIDGE_RECOVERY_REQUIRED');
+        return { binding, run, node: run.nodes.worker };
+      };
+      if (c.action === 'list') {
+        fields(p, []);
+        return { ok: true, value: bindings().filter(row => row.action === 'launch').map(row => ({ runId: row.runId, node: this.#load(row.runId)?.nodes.worker ?? null })) };
+      }
+      if (['get', 'output', 'wait', 'ack'].includes(c.action)) {
+        fields(p, ['runId'], c.action === 'ack' ? ['deliveryId'] : c.action === 'wait' ? ['timeoutMs'] : []);
+        const { binding, run, node } = owned(p.runId);
+        if (c.action === 'get') return { ok: true, value: node };
+        if (c.action === 'output') return call({ ...binding.scope, node: 'worker' }, 'log.read', { path: 'output.log', offset: 0, maxBytes: 32768 });
+        if (c.action === 'wait') { integer(p.timeoutMs ?? 1000, 0, 1000); return this.request(token, { v: 1, op: 'wait', scope: binding.scope, payload: { timeoutMs: p.timeoutMs ?? 1000, limit: 16 } }, audience); }
+        integer(p.deliveryId, 1);
+        if (this.#one('SELECT a.delivery FROM acks a JOIN deliveries d ON d.id=a.delivery WHERE a.principal=? AND a.delivery=? AND d.run=?', principal, p.deliveryId, run.id)) return { ok: true, value: { acknowledged: true } };
+        return call(binding.scope, 'delivery.ack', { deliveryId: p.deliveryId }, `pi-ack-${hash(canonicalJson({ principal, run: run.id, delivery: p.deliveryId }))}`, run.revision);
+      }
+      if (c.action === 'result') {
+        fields(p, ['toolCallId', 'seal']); text(p.toolCallId, 512); demand(typeof p.seal === 'boolean', 'BRIDGE_INVALID_INPUT');
+        const key = `pi-${hash(canonicalJson({ session: c.sessionId, toolCallId: p.toolCallId }))}`;
+        return this.#transaction(() => {
+          const row = this.#one('SELECT * FROM pi_bindings WHERE id=?', key);
+          demand(row?.principal === principal, 'BRIDGE_TARGET_FORBIDDEN');
+          const binding = decode(row.data);
+          const run = this.#scopeRun({ scope: binding.scope });
+          if (binding.toolResult || !p.seal) return { ok: true, value: binding.toolResult ?? null };
+          const node = run.nodes.worker; demand(node, 'BRIDGE_RECOVERY_REQUIRED');
+          const status = node.runtimeState === 'recovery-required' ? 'recovery-required' : node.snapshot.cancel ? 'cancel-pending' : node.status;
+          const e = node.packet.execution;
+          binding.toolResult = { runId: run.id, agentName: run.id, promoted: node.snapshot.state === 'running', status, agentState: status, durationMs: 0, role: e.role, model: e.model, thinking: e.thinking, maxTurns: e.maxTurns, reusable: node.snapshot.state === 'blocked' };
+          this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson(binding), key);
+          return { ok: true, value: binding.toolResult };
+        });
+      }
+      demand(c.action === 'call', 'BRIDGE_OPERATION');
+      fields(p, ['toolCallId', 'tool', 'params', 'cwd']); text(p.toolCallId, 512); text(p.cwd, 4096);
+      demand(['bg_agent', 'bg_stop'].includes(p.tool), 'BRIDGE_OPERATION');
+      const key = `pi-${hash(canonicalJson({ session: c.sessionId, toolCallId: p.toolCallId }))}`;
+      const digest = hash(canonicalJson(p));
+      const previous = this.#one('SELECT * FROM pi_bindings WHERE id=?', key);
+      if (previous) {
+        demand(previous.principal === principal, 'PRINCIPAL_MISMATCH'); demand(previous.digest === digest, 'COMMAND_ID_REUSE');
+        const binding = decode(previous.data);
+        if (binding.action === 'rejected') return clone(binding.response);
+        this.#scopeRun({ scope: binding.scope });
+        if (binding.response) return clone(binding.response);
+        demand(binding.command, 'BRIDGE_RECOVERY_REQUIRED');
+        return this.execute(token, binding.command, audience);
+      }
+      demand(this.#one('SELECT COUNT(*) AS n FROM pi_bindings').n < 100000, 'BRIDGE_BINDING_LIMIT');
+      if (p.tool === 'bg_stop' || p.params?.name !== undefined) {
+        if (p.tool === 'bg_stop') fields(p.params, ['runId']);
+        else fields(p.params, ['name', 'prompt'], ['keepAlive', 'promoteAfterMs']);
+        const { binding, node } = owned(p.tool === 'bg_stop' ? p.params.runId : p.params.name);
+        const op = p.tool === 'bg_stop' ? 'node.cancel' : 'node.reply';
+        if (op === 'node.cancel') demand(node.snapshot.state !== 'terminal', 'BRIDGE_ALREADY_SETTLED');
+        if (op === 'node.reply') {
+          demand(node.snapshot.state === 'blocked', 'BRIDGE_RESUME_OR_STEER_UNSUPPORTED');
+          demand(!['credential', 'secret'].includes(node.requestDetail?.kind), 'CREDENTIAL_REPLY_FORBIDDEN');
+          text(p.params.prompt);
+          demand(p.params.keepAlive === undefined || p.params.keepAlive === node.packet.execution.keepAlive, 'BRIDGE_REPLY_INTENT_CHANGE_UNSUPPORTED');
+          demand(p.params.promoteAfterMs === undefined || typeof p.params.promoteAfterMs === 'number' && Number.isFinite(p.params.promoteAfterMs), 'BRIDGE_INVALID_INPUT');
+        }
+        const command = { v: 1, op, scope: { ...binding.scope, node: 'worker' }, commandId: key, expectedRevision: node.revision,
+          payload: op === 'node.cancel' ? { attempt: node.snapshot.attempt, reason: 'bg_stop requested Escape; process exit is unconfirmed' } : { attempt: node.snapshot.attempt, requestId: node.snapshot.request.id, text: p.params.prompt } };
+        // Persist the exact CAS/request binding before admission, including failures.
+        this.#transaction(() => this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: op, scope: binding.scope, command })));
+        const result = this.execute(token, command, audience);
+        const response = result.ok ? { ok: true, value: { runId: binding.runId, status: op === 'node.cancel' ? 'cancel-pending' : 'admitted', receipt: result.receipt } } : result;
+        this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: op, scope: binding.scope, command, response }), key));
+        return response;
+      }
+      demand(p.params && typeof p.params === 'object', 'BRIDGE_INVALID_INPUT');
+      const cwd = this.#cwd(p.params.cwd ? resolve(p.cwd, p.params.cwd) : p.cwd);
+      demand(cwd === config.cwd, 'BRIDGE_CWD_FORBIDDEN');
+      const used = new Set(bindings().filter(row => row.action === 'launch').map(row => row.runId));
+      const scope = scopes.find(scope => !used.has(scope.run)); demand(scope, 'BRIDGE_POOL_EXHAUSTED');
+      const sourceDirectory = join(this.#nodeDirectory(scope.run, 'worker'), 'source');
+      // Reserve only one exact pool slot before asynchronous role resolution.
+      // A crash here is a durable incomplete binding, never a blind launch.
+      this.#transaction(() => {
+        demand(this.#one('SELECT COUNT(*) AS n FROM pi_bindings').n < 100000, 'BRIDGE_BINDING_LIMIT');
+        this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: 'launch', runId: scope.run, scope }));
+      });
+      let execution;
+      try { execution = await config.prepare(p.params, sourceDirectory); }
+      catch {
+        const response = { ok: false, error: 'BRIDGE_PREPARATION_REJECTED' };
+        this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: 'rejected', scope, response }), key));
+        return response;
+      }
+      const packet = { role: execution.role, task: execution.prompt, acceptance: [...(p.params.acceptance ?? []), ...(p.params.anchor ? [p.params.anchor] : [])], riskTier: 'high', cwd, adapter: 'pi-detach', model: execution.model, thinking: execution.thinking, execution };
+      if (!packet.acceptance.length) packet.acceptance.push('Return the requested bounded result with direct evidence.');
+      try { validatePacket(packet); } catch {
+        const response = { ok: false, error: 'BRIDGE_INTENT_REJECTED' };
+        this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: 'rejected', scope, response }), key));
+        return response;
+      }
+      this.#transaction(() => {
+        this.#write('UPDATE pi_bindings SET data=? WHERE id=? AND principal=? AND digest=?', canonicalJson({ action: 'launch', runId: scope.run, scope, packet }), key, principal, digest);
+      });
+      let result = call(scope, 'workstream.create', { cwd, host: 'pi' }, `${key}-create`, 0);
+      if (result.ok) result = call(scope, 'packet.admit', { node: 'worker', packet }, `${key}-packet`, 1);
+      if (result.ok) result = call(scope, 'node.launch', { node: 'worker' }, `${key}-launch`, 2);
+      const response = result.ok ? { ok: true, value: { runId: scope.run, status: 'admitted', receipt: result.receipt } } : result;
+      this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: 'launch', runId: scope.run, scope, packet, response }), key));
+      return response;
+    } catch (error) { return rejection(error); }
   }
   /** Host-only attestation after inspecting deterministic evidence, never a model tool. */
   verifyNode({ scope, expectedRevision, resultSha256, evidenceSha256 }) {
@@ -301,7 +441,7 @@ export class AdvisorRuntime {
     node.snapshot = next; node.revision = next.revision;
     for (const intent of decision.intents) {
       const adapter = this.#adapter('workers', node.packet.adapter, c.op); void adapter;
-      this.#effect(run, c.scope.node, intent.op, intent.payload, c.commandId, { nextAttempt: intent.nextAttempt ?? null, blockedSequence: intent.blockedSequence ?? null, intentId: intent.id });
+      this.#effect(run, c.scope.node, intent.op, intent.payload, c.commandId, { nextAttempt: intent.nextAttempt ?? null, blockedSequence: intent.blockedSequence ?? null, intentId: intent.id, ...(node.packet.adapter === 'pi-detach' && c.op === 'node.reply' ? { executionObservation: node.executionObservation ?? null } : {}) });
       if (c.op === 'node.reply') {
         this.#event(run, c.scope.node, 'node.reply.sent', { text: c.payload.text, source: principal.kind === 'operator' ? 'user' : 'advisor', replyTo: intent.blockedSequence });
         this.#event(run, c.scope.node, 'node.resumed', { reason: 'reply' });
@@ -334,6 +474,7 @@ export class AdvisorRuntime {
         demand(!run.graph && !run.packets[p.node], 'PACKET_FROZEN');
         demand(Object.keys(run.packets).length < 24, 'GRAPH_TOO_LARGE');
         const packet = { ...p.packet, cwd: this.#cwd(p.packet.cwd) };
+        if (packet.adapter === 'pi-detach') demand(this.#all('SELECT data FROM pi_bindings').some(row => { const binding = decode(row.data); return binding.action === 'launch' && binding.runId === run.id && canonicalJson(binding.packet) === canonicalJson(packet); }), 'BRIDGE_TRUSTED_INTENT_REQUIRED');
         this.#adapter('workers', packet.adapter, 'node.launch');
         run.packets[p.node] = packet; break;
       }
@@ -488,6 +629,10 @@ export class AdvisorRuntime {
         const adapter = this.#adapter(root ? 'roots' : 'workers', root ? target.adapter : target.packet.adapter, effect.op);
         const context = { cwd: this.#cwd(root ? run.cwd : target.packet.cwd), artifactDirectory: this.#nodeDirectory(run.id, row.node), resultPath: join(this.#nodeDirectory(run.id, row.node), 'result.md'), nestedDelegation: false, scope: effect.scope, attempt: effect.attempt,
           controlPaths: [...this.#controlPaths, ...this.#controlDirectories] };
+        context.assertActive = () => {
+          this.#fence(); const current = this.#one("SELECT * FROM effects WHERE id=?", row.id);
+          demand(current && ["claimed", "done"].includes(current.state) && current.owner === this.#owner, "OWNER_FENCE");
+        };
         context.recoveryRequired = () => {
           this.#transaction(() => { const current = this.#one('SELECT * FROM effects WHERE id=?', row.id); if (['claimed', 'done'].includes(current.state)) this.#markRecovery(current, 'adapter-protocol-or-bound'); });
           this.#notifications.emit('change');
@@ -584,7 +729,13 @@ export class AdvisorRuntime {
       this.#event(run, name, 'node.progress', p); this.#delivery(run, name, { kind: 'progress', ...p });
     } else if (event.kind === 'settled' || event.kind === 'blocked') {
       if (event.kind === 'blocked') { fields(p, ['requestId', 'kind', 'text']); id(p.requestId); text(p.text); demand(['question', 'decision', 'permission', 'credential', 'external-action'].includes(p.kind), 'INVALID_REQUEST'); }
-      else { fields(p, ['status', 'reason', 'verified']); demand(['done', 'failed', 'stalled', 'cancelled'].includes(p.status), 'INVALID_STATUS'); text(p.reason, 1024); demand(typeof p.verified === 'boolean', 'INVALID_VERIFICATION'); }
+      else { fields(p, ['status', 'reason', 'verified'], ['observation']); demand(['done', 'failed', 'stalled', 'cancelled'].includes(p.status), 'INVALID_STATUS'); text(p.reason, 1024); demand(typeof p.verified === 'boolean', 'INVALID_VERIFICATION'); }
+      if (p.observation !== undefined) {
+        demand(node.packet.adapter === 'pi-detach', 'OBSERVATION_ADAPTER');
+        fields(p.observation, ['handleId', 'generation']); integer(p.observation.generation, 1);
+        demand(p.observation.handleId === node.handle.id, 'OBSERVATION_HANDLE_MISMATCH');
+        node.executionObservation = p.observation;
+      }
       demand(node.snapshot.state !== 'blocked' || p.status === 'cancelled', 'ALREADY_BLOCKED');
       if (p.status === 'cancelled') demand(node.snapshot.cancel, 'CANCEL_NOT_ACCEPTED');
       let artifact = null;

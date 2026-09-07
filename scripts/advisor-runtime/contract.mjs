@@ -47,7 +47,21 @@ export function parseEnvelope(input) {
   return { command, mutation, digest: createHash('sha256').update(encoded).digest('hex') };
 }
 export function validatePacket(p) {
-  fields(p, ['role', 'task', 'acceptance', 'riskTier', 'cwd', 'adapter', 'model', 'thinking']);
+  fields(p, ['role', 'task', 'acceptance', 'riskTier', 'cwd', 'adapter', 'model', 'thinking'], ['execution']);
+  if (p.execution !== undefined) {
+    demand(p.adapter === 'pi-detach', 'EXECUTION_ADAPTER');
+    const e = p.execution;
+    fields(e, ['v', 'command', 'prompt', 'role', 'runtime', 'model', 'thinking', 'maxTurns', 'requiredSkills', 'harness', 'keepAlive', 'label', 'resultDiscovery', 'resultPolicy', 'sourceDirectory', 'environment']);
+    fields(e.environment, ['ADVISOR_RUNTIME_DESCRIPTOR', 'PI_DETACH_RUNTIME_BRIDGE', 'ADVISOR_BRIDGE_WORKER_DIR', 'ADVISOR_RUNTIME_CANONICAL_OWNER'], ['PATH', 'PI_CODING_AGENT_DIR', 'PI_DETACH_AGENT_PROFILES', 'CODEX_HOME']);
+    demand(e.environment.ADVISOR_RUNTIME_DESCRIPTOR === '' && e.environment.PI_DETACH_RUNTIME_BRIDGE === '' && e.environment.ADVISOR_RUNTIME_CANONICAL_OWNER === '1' && e.environment.ADVISOR_BRIDGE_WORKER_DIR === e.sourceDirectory, 'EXECUTION_ENVIRONMENT');
+    for (const value of Object.values(e.environment)) demand(typeof value === 'string' && Buffer.byteLength(value) <= 4096, 'EXECUTION_ENVIRONMENT');
+    demand(e.v === 1 && e.resultPolicy === 'runtime-capture' && typeof e.keepAlive === 'boolean', 'EXECUTION_VERSION');
+    for (const key of ['command', 'prompt', 'role', 'runtime', 'model', 'thinking', 'harness', 'label', 'sourceDirectory']) text(e[key]);
+    demand(e.maxTurns === null || Number.isSafeInteger(e.maxTurns) && e.maxTurns > 0, 'EXECUTION_TURNS');
+    demand(Array.isArray(e.requiredSkills) && e.requiredSkills.length <= 12, 'EXECUTION_SKILLS'); e.requiredSkills.forEach(skill => text(skill, 128));
+    demand(e.resultDiscovery === null || typeof e.resultDiscovery === 'string', 'EXECUTION_DISCOVERY');
+    demand(e.role === p.role && e.prompt === p.task && e.model === p.model && e.thinking === p.thinking, 'EXECUTION_MISMATCH');
+  }
   ['role', 'adapter'].forEach(key => id(p[key])); ['task', 'cwd', 'model', 'thinking'].forEach(key => text(p[key]));
   demand(['low', 'standard', 'high'].includes(p.riskTier), 'INVALID_RISK');
   demand(Array.isArray(p.acceptance) && p.acceptance.length > 0 && p.acceptance.length <= 12, 'INVALID_ACCEPTANCE');
