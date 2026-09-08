@@ -19,7 +19,7 @@ function requestFields(params, required) {
 }
 
 /** JSON-RPC/MCP operational transport only; credentials remain in its private host. */
-export function createMcpHandler(credential) {
+export function createMcpHandler(credential, facade = null) {
   let initialized = false;
   return async input => {
     const requestId = typeof input?.id === 'string' || Number.isSafeInteger(input?.id) ? input.id : null;
@@ -32,20 +32,27 @@ export function createMcpHandler(credential) {
         requestFields(input.params, ['protocolVersion', 'capabilities', 'clientInfo']);
         demand(['2024-11-05', '2025-03-26', '2025-06-18'].includes(input.params.protocolVersion), 'UNSUPPORTED_PROTOCOL');
         initialized = true;
-        result = { protocolVersion: input.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'advisor-runtime', version: '1.0.0' } };
+        result = { protocolVersion: input.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: facade ? 'meta-harness' : 'advisor-runtime', version: '1.0.0' } };
       } else {
         demand(initialized, 'NOT_INITIALIZED');
         if (input.method === 'tools/list') {
           requestFields(input.params ?? {}, []);
-          const grants = await callSocket(credential, { v: 1, op: 'capabilities' }, 'model');
-          demand(grants.ok, grants.error ?? 'UNAUTHORIZED');
-          result = { tools: runtimeTools.filter(tool => grants.value.operations.some(op => toolName(op) === tool.name)) };
+          if (facade) result = { tools: facade.tools };
+          else {
+            const grants = await callSocket(credential, { v: 1, op: 'capabilities' }, 'model');
+            demand(grants.ok, grants.error ?? 'UNAUTHORIZED');
+            result = { tools: runtimeTools.filter(tool => grants.value.operations.some(op => toolName(op) === tool.name)) };
+          }
         }
         else if (input.method === 'tools/call') {
           requestFields(input.params, ['name', 'arguments']);
-          const op = OPERATIONS.find(op => toolName(op) === input.params.name); demand(op, 'UNKNOWN_TOOL');
-          demand(!Object.hasOwn(input.params.arguments, 'op'), 'EXTRA_FIELD');
-          const response = await callSocket(credential, { ...input.params.arguments, op }, 'model');
+          let response;
+          if (facade) response = await facade.call(input.params.name, input.params.arguments);
+          else {
+            const op = OPERATIONS.find(op => toolName(op) === input.params.name); demand(op, 'UNKNOWN_TOOL');
+            demand(!Object.hasOwn(input.params.arguments, 'op'), 'EXTRA_FIELD');
+            response = await callSocket(credential, { ...input.params.arguments, op }, 'model');
+          }
           result = { content: [{ type: 'text', text: JSON.stringify(response) }], isError: !response.ok };
         } else throw new RuntimeError('METHOD_NOT_FOUND');
       }
@@ -55,8 +62,7 @@ export function createMcpHandler(credential) {
 }
 
 /** Bounded newline framing, sequential requests; no readline's unbounded line buffer. */
-export async function serveMcp(credential, input = process.stdin, output = process.stdout) {
-  const handle = createMcpHandler(credential);
+export async function serveMcp(credential, input = process.stdin, output = process.stdout, handle = createMcpHandler(credential)) {
   let pending = Buffer.alloc(0); let count = 0;
   for await (const chunk of input) {
     pending = Buffer.concat([pending, Buffer.from(chunk)]);

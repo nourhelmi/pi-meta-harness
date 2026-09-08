@@ -64,17 +64,21 @@ export function installedRevision(detachPath, hostPath) {
   for (const root of roots) walk(root);
   return digest.digest('hex').slice(0, 32);
 }
-export function bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, childState }) {
+export function bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, childState, rootHost, nativeRoot }) {
   demand(typeof sessionId === 'string' && sessionId.length > 0 && sessionId.length <= 256, 'PI_SESSION_REQUIRED');
   demand(herdr && typeof herdr.paneId === 'string' && herdr.paneId, 'HERDR_CONTEXT_REQUIRED');
   const identity = { v: 1, sessionId, cwd: realpathSync(cwd), detachPath: realpathSync(detachPath), host: realpathSync(config.host), herdr: Object.fromEntries(Object.entries(herdr).filter(([, value]) => typeof value === "string")), childState: childState || null };
+  if (rootHost !== undefined) {
+    demand(['codex', 'claude-code'].includes(rootHost) && nativeRoot?.host === rootHost && !childState, 'STOCK_ROOT_BINDING');
+    identity.rootHost = rootHost; identity.nativeRoot = nativeRoot;
+  }
   const key = createHash('sha256').update(canonicalJson({ sessionId, config: config.host })).digest('hex').slice(0, 20);
   return { identity, stateRoot: childState || join(config.stateBase, key) };
 }
-export async function ensurePiDetach({ cwd, sessionId, detachPath, herdr, env = process.env }) {
+export async function ensurePiDetach({ cwd, sessionId, detachPath, herdr, env = process.env, rootHost, nativeRoot }) {
   const config = readManagedConfig(configPath(env));
   const node = validateNode(config.node);
-  const { identity, stateRoot } = bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, childState: env.ADVISOR_BRIDGE_CHILD_STATE });
+  const { identity, stateRoot } = bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, childState: env.ADVISOR_BRIDGE_CHILD_STATE, rootHost, nativeRoot });
   const roots = workspaceRoots(cwd);
   disjointControlPath(stateRoot, roots);
   demand(Buffer.byteLength(join(stateRoot, 'runtime.sock')) <= 100, 'SOCKET_PATH_TOO_LONG');

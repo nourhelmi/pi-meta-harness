@@ -90,6 +90,8 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
     "scripts/advisor-runtime/security.mjs",
     "scripts/advisor-runtime/service.mjs",
     "scripts/advisor-runtime/contract.mjs",
+    "scripts/advisor-runtime/stock-root.mjs",
+    "skills/advisor-stock-entry/SKILL.md",
     "extensions/advisor-core/advisor-state.ts",
     "extensions/advisor-core/result-artifact.ts",
     "extensions/advisor-core/trace-store.ts",

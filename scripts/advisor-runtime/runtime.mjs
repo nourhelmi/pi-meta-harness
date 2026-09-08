@@ -234,6 +234,12 @@ export class AdvisorRuntime {
           return { runId: row.runId, node: node ? { status: node.status, runtimeState: node.runtimeState, snapshot: { state: node.snapshot.state, cancel: node.snapshot.cancel }, packet: { cwd: node.packet.cwd, execution: { label: node.packet.execution.label.slice(0, 128) } } } : null };
         }) };
       }
+      if (c.action === 'artifact') {
+        fields(p, ['runId', 'path'], ['offset', 'maxBytes']);
+        const { binding } = owned(p.runId);
+        demand(['result.md', 'request.json'].includes(p.path), 'BRIDGE_ARTIFACT_FORBIDDEN');
+        return call({ ...binding.scope, node: 'worker' }, 'artifact.read', { path: p.path, offset: p.offset ?? 0, maxBytes: p.maxBytes ?? 32768 });
+      }
       if (['get', 'output', 'wait', 'ack'].includes(c.action)) {
         fields(p, ['runId'], c.action === 'ack' ? ['deliveryId'] : c.action === 'wait' ? ['timeoutMs'] : []);
         const { binding, run, node } = owned(p.runId);
@@ -243,7 +249,22 @@ export class AdvisorRuntime {
           return { ok: true, value: { text: output ?? 'Worker acquisition pending; no captured output yet.' } };
         }
         if (c.action === 'output') return call({ ...binding.scope, node: 'worker' }, 'log.read', { path: 'output.log', offset: 0, maxBytes: 32768 });
-        if (c.action === 'wait') { integer(p.timeoutMs ?? 1000, 0, 1000); return this.request(token, { v: 1, op: 'wait', scope: binding.scope, payload: { timeoutMs: p.timeoutMs ?? 1000, limit: 16 } }, audience); }
+        if (c.action === 'wait') {
+          const native = config.rootHost && config.rootHost !== 'pi';
+          const timeoutMs = p.timeoutMs ?? 1000; integer(timeoutMs, 0, native ? LIMITS.waitMs : 1000);
+          const wait = timeoutMs => this.request(token, { v: 1, op: 'wait', scope: binding.scope, payload: { timeoutMs, limit: 16 } }, audience);
+          if (!native) return wait(timeoutMs);
+          // Dispatch notifications can wake an empty wait. Keep the stock wait inside
+          // one bounded socket request, reauthenticating on every wake; Pi is unchanged.
+          const deadline = Date.now() + timeoutMs;
+          let result;
+          do {
+            const terminal = owned(p.runId).node.snapshot.state === 'terminal';
+            result = await wait(terminal ? 0 : Math.max(0, deadline - Date.now()));
+            if (!result.ok || result.value.length || terminal) return result;
+          } while (Date.now() < deadline);
+          return result;
+        }
         integer(p.deliveryId, 1);
         if (this.#one('SELECT a.delivery FROM acks a JOIN deliveries d ON d.id=a.delivery WHERE a.principal=? AND a.delivery=? AND d.run=?', principal, p.deliveryId, run.id)) return { ok: true, value: { acknowledged: true } };
         return call(binding.scope, 'delivery.ack', { deliveryId: p.deliveryId }, `pi-ack-${hash(canonicalJson({ principal, run: run.id, delivery: p.deliveryId }))}`, run.revision);
@@ -341,7 +362,7 @@ export class AdvisorRuntime {
       this.#transaction(() => {
         this.#write('UPDATE pi_bindings SET data=? WHERE id=? AND principal=? AND digest=?', canonicalJson({ action: 'launch', runId: scope.run, scope, packet }), key, principal, digest);
       });
-      let result = call(scope, 'workstream.create', { cwd, host: 'pi' }, `${key}-create`, 0);
+      let result = call(scope, 'workstream.create', { cwd, host: config.rootHost ?? 'pi' }, `${key}-create`, 0);
       if (result.ok) result = call(scope, 'packet.admit', { node: 'worker', packet }, `${key}-packet`, 1);
       if (result.ok) result = call(scope, 'node.launch', { node: 'worker' }, `${key}-launch`, 2);
       const response = result.ok ? { ok: true, value: { runId: scope.run, status: 'admitted', receipt: result.receipt } } : result;
@@ -802,6 +823,7 @@ export class AdvisorRuntime {
         node.snapshot.blockedSequence = sequence;
         node.snapshot.request = { id: request.requestId, run: run.id, node: name, attempt: node.snapshot.attempt, blockedSequence: sequence, answered: false };
         node.requestDetail = { id: request.requestId, kind: request.kind, text: request.text };
+        if (node.packet.adapter === 'pi-detach') atomicWrite(join(this.#nodeDirectory(run.id, name), 'request.json'), canonicalJson({ ...node.requestDetail, attempt: node.snapshot.attempt, answered: false }));
       }
       if (artifact?.text.trim() && !(node.snapshot.state === 'blocked' && status === 'cancelled')) {
         const path = join(this.#nodeDirectory(run.id, name), 'result.md');

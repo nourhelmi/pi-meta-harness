@@ -16,6 +16,8 @@ export async function hostPiDetach({ stateRoot, cwd, sessionId, credentialPath, 
   demand(Number.isInteger(slots) && slots >= 1 && slots <= 32, 'BRIDGE_POOL_BOUNDS');
   demand(Number.isInteger(maxLaunches) && maxLaunches >= 1 && maxLaunches <= 256, 'BRIDGE_LAUNCH_BOUND');
   demand(revision === null || (typeof revision === 'string' && /^[0-9a-f]{32}$/.test(revision)), 'BRIDGE_REVISION');
+  const rootHost = managedIdentity?.rootHost ?? 'pi';
+  demand(['pi', 'codex', 'claude-code'].includes(rootHost), 'UNSUPPORTED_HOST');
   const prefix = createHash('sha256').update(sessionId).digest('hex').slice(0, 24);
   const scopes = Array.from({ length: managedIdentity ? 1 : slots }, (_, i) => ({ workstream: `pi-${prefix}`, run: `pib-${prefix}-${i}`, node: 'root', ownerEpoch: 1 }));
   const principal = { id: `pi-${prefix}`, kind: 'advisor', scopes: scopes.flatMap(({ ownerEpoch, ...scope }) => [scope, { ...scope, node: 'worker' }]), operations: ['workstream.create', 'packet.admit', 'node.launch', 'node.reply', 'node.task', 'node.cancel', 'progress', 'wait', 'delivery.ack', 'artifact.read', 'log.read'] };
@@ -24,7 +26,7 @@ export async function hostPiDetach({ stateRoot, cwd, sessionId, credentialPath, 
   const allowedRoots = managedIdentity ? workspaceRoots(cwd) : [canonicalCwd];
   const runtime = new AdvisorRuntime({ stateRoot, allowedRoots, controlPaths: [credentialPath],
     adapters: { roots: {}, workers: { 'pi-detach': adapter } },
-    piBridge: { version: 1, portVersion: port.version, principalId: principal.id, sessionId, scopes, cwd: canonicalCwd, prepare: port.prepare, managedIdentity, maxLaunches, allowedRoots, dynamic: Boolean(managedIdentity), readLive: adapter.readLive, revision },
+    piBridge: { version: 1, portVersion: port.version, principalId: principal.id, sessionId, scopes, cwd: canonicalCwd, prepare: port.prepare, managedIdentity, rootHost, maxLaunches, allowedRoots, dynamic: Boolean(managedIdentity), readLive: adapter.readLive, revision },
   });
   try {
     const old = existsSync(credentialPath) ? readStoredCredential(credentialPath) : null;

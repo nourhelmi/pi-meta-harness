@@ -62,6 +62,7 @@ export function createPiDetachAdapter(port) {
       // rewrite its artifact must stall, never inherit the prior BLOCKED result.
       atomicWrite(join(intent.sourceDirectory, 'result.md'), '');
       atomicWrite(join(context.artifactDirectory, "output.log"), "");
+      atomicWrite(join(context.artifactDirectory, 'request.json'), JSON.stringify(effect.op === 'node.reply' ? { id: effect.payload.requestId, answered: true } : {}));
       const childState = intent.environment.ADVISOR_BRIDGE_CHILD_STATE;
       if (childState) {
         demand(childState === join(context.artifactDirectory, '../../../children', createHash('sha256').update(effect.scope.run).digest('hex').slice(0, 20)), 'BRIDGE_CHILD_SCOPE_MISMATCH');
