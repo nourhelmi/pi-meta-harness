@@ -101,9 +101,39 @@ available for trusted tests/operators.
   bg_run/watch/await retain their existing behavior. bg_list includes both backends;
   bg_output uses qualified live capture while running and durable output afterwards.
 
+- `bg_stop` admits `node.cancel` and sends Escape once. The node stays
+  `cancel-pending` until Herdr shows the same bound occupant settled afterwards;
+  only then does it settle `cancelled` with its captured output and result bytes.
+  Cancellation never closes the pane and never claims process exit. A worker that
+  keeps working stays cancel-pending; identity drift while waiting becomes
+  recovery-required. If canonical terminal settlement wins before interruption,
+  cancellation is superseded: no Escape is sent, that terminal result is retained,
+  and no follow-up task is allowed. Artifact BLOCKED is not terminal: it remains
+  interruptible at the composer and requires a post-Escape identity observation.
+  Cancelled workers accept no follow-up task. Tool results report the admitted
+  `keepAlive` intent separately from `reusable`, which reflects fresh-task
+  eligibility when the result is sealed, not a promise of later availability.
+- A finished, not-kept foreman closes its reserved child service by typed
+  shutdown; refusal (active or unacknowledged child work) is retried when the
+  parent closes. `/bg_runtime_close` first checks the parent's own work, then
+  closes reachable child services. An active child refuses the parent close with
+  `SHUTDOWN_CHILD_ACTIVE`; an owned but unreachable child, unsafe/malformed
+  control files, or invalid child identity produce `SHUTDOWN_CHILD_UNCERTAIN`.
+  The parent remains available after refusal. Nothing is killed and no lock is deleted.
+- Recovery-required deliveries state the cause and name the bound pane and agent
+  when one exists. The runtime never resends, adopts or kills; inspect the pane,
+  then launch a new worker for the task.
+- The service reports the content revision of the detach and runtime code it
+  loaded. After installing newer code, session start warns and `/bg_backend`
+  recomputes the installed revision on every call and warns that the connected
+  service is stale. Revision enumeration is capped at 2,000 entries across the
+  source roots and 64 directory levels before descending; hidden subtrees are
+  excluded. Reload reconnects to the same service and does not hot-swap code;
+  start a fresh Pi session to use the update.
+
 Unsupported: busy steering; foreign/closed/not-kept/stale targets; terminal
 credential or approval dialogs; stalled terminal repair; explicit agent commands;
-custom result paths; crash adoption and cancellation-finalization proof. Artifact
+custom result paths; crash adoption and process-exit proof after cancellation. Artifact
 BLOCKED is distinct from terminal UI blocking. Never send raw keys around dialogs.
 This ownership boundary does not claim OS confinement or cover same-UID compromise
 and simultaneous manual pane control.

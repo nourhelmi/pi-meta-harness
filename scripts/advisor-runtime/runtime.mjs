@@ -210,7 +210,7 @@ export class AdvisorRuntime {
         fields(p, ['identity', 'cwd']);
         demand(config.managedIdentity && canonicalJson(p.identity) === canonicalJson(config.managedIdentity) && realpathSync(p.cwd) === config.cwd, 'PI_DETACH_BINDING_MISMATCH');
         this.#fence();
-        return { ok: true, value: { ready: true } };
+        return { ok: true, value: { ready: true, revision: config.revision ?? null } };
       }
       const bindings = () => this.#all('SELECT data FROM pi_bindings WHERE principal=?', principal).map(row => decode(row.data));
       const owned = runId => {
@@ -225,7 +225,7 @@ export class AdvisorRuntime {
       if (c.action === 'supervision') {
         fields(p, []); this.#fence();
         const rows = bindings().filter(row => row.action === 'launch');
-        return { ok: true, value: { settled: rows.every(row => { const node = this.#load(row.runId)?.nodes.worker; return node?.snapshot.state === 'terminal' && node.runtimeState !== 'recovery-required' && !this.#pending(this.#load(row.runId), 'worker'); }) } };
+        return { ok: true, value: { settled: rows.every(row => { const node = this.#load(row.runId)?.nodes.worker; return node?.snapshot.state === 'terminal' && node.runtimeState !== 'recovery-required' && !this.#pending(this.#load(row.runId), 'worker'); }), revision: config.revision ?? null } };
       }
       if (c.action === 'list') {
         fields(p, []);
@@ -258,9 +258,10 @@ export class AdvisorRuntime {
           const run = this.#scopeRun({ scope: binding.scope });
           if (binding.toolResult || !p.seal) return { ok: true, value: binding.toolResult ?? null };
           const node = run.nodes.worker; demand(node, 'BRIDGE_RECOVERY_REQUIRED');
-          const status = node.runtimeState === 'recovery-required' ? 'recovery-required' : node.snapshot.cancel ? 'cancel-pending' : node.status;
+          const status = node.runtimeState === 'recovery-required' ? 'recovery-required' : node.snapshot.cancel && node.snapshot.state !== 'terminal' ? 'cancel-pending' : node.status;
           const e = node.packet.execution;
-          binding.toolResult = { runId: run.id, agentName: run.id, promoted: node.snapshot.state === 'running', status, agentState: status, durationMs: 0, role: e.role, model: e.model, thinking: e.thinking, maxTurns: e.maxTurns, reusable: e.keepAlive };
+          const reusable = Boolean(e.keepAlive && node.snapshot.state === 'terminal' && ['done', 'failed'].includes(node.status) && !node.snapshot.cancel && node.processExited === undefined && node.runtimeState !== 'recovery-required' && !this.#pending(run, 'worker'));
+          binding.toolResult = { runId: run.id, agentName: run.id, promoted: node.snapshot.state === 'running', status, agentState: status, durationMs: 0, role: e.role, model: e.model, thinking: e.thinking, maxTurns: e.maxTurns, keepAlive: e.keepAlive, reusable };
           this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson(binding), key);
           return { ok: true, value: binding.toolResult };
         });
@@ -836,7 +837,7 @@ export class AdvisorRuntime {
     }));
   }
   /** Typed refusal, never shutdown-as-cancel. Unacked deliveries also keep the service alive. */
-  close() {
+  assertClosable() {
     this.#transaction(() => {
       demand(!this.#dispatching, 'SHUTDOWN_BUSY');
       demand(!this.#one("SELECT id FROM effects WHERE state!='done' LIMIT 1"), 'SHUTDOWN_PENDING');
@@ -847,6 +848,9 @@ export class AdvisorRuntime {
       }
       demand(!this.#one('SELECT d.id FROM deliveries d WHERE NOT EXISTS (SELECT 1 FROM acks a WHERE a.delivery=d.id) LIMIT 1'), 'SHUTDOWN_DELIVERY');
     });
+  }
+  close() {
+    this.assertClosable();
     for (const row of this.#all('SELECT id FROM runs')) this.exportTrace(row.id);
     this.#closed = true; this.#notifications.emit('change'); this.#db.close(); this.#release();
   }

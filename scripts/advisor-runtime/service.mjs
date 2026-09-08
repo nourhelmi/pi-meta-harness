@@ -9,12 +9,14 @@ const failure = error => ({ ok: false, error: error instanceof RuntimeError ? er
 function encode(value) { const text = JSON.stringify(value); demand(Buffer.byteLength(text) <= LIMITS.reply, 'RESPONSE_TOO_LARGE'); return text + '\n'; }
 
 /** Foreground service host. Caller already owns the runtime's exclusive service lock. */
-export async function startService(runtime, { keepAlive = true } = {}) {
+export async function startService(runtime, { keepAlive = true, beforeShutdown = async () => {} } = {}) {
   const socketPath = join(runtime.stateRoot, 'runtime.sock');
   demand(Buffer.byteLength(socketPath) <= 100, 'SOCKET_PATH_TOO_LONG');
   if (existsSync(socketPath)) {
     const stat = lstatSync(socketPath); demand(stat.isSocket() && stat.uid === process.getuid(), 'UNSAFE_SOCKET'); unlinkSync(socketPath);
   }
+  // Own work is refused first; dependent child services are closed only for a closable parent.
+  const shutdown = async () => { runtime.assertClosable(); await beforeShutdown(); runtime.close(); };
   const connections = new Set();
   const server = createServer(socket => {
     if (connections.size >= LIMITS.connections) { socket.destroy(); return; }
@@ -39,7 +41,7 @@ export async function startService(runtime, { keepAlive = true } = {}) {
         const resultPromise = request.command?.op === "pi.detach" ? runtime.piDetachRequest(request.token, request.command, request.audience) : runtime.request(request.token, request.command, request.audience);
         if (request.command?.op === 'pi.detach' && request.command.action === 'shutdown') {
           const result = await resultPromise;
-          if (result.ok) { runtime.close(); socket.end(encode(result)); server.close(); }
+          if (result.ok) { await shutdown(); socket.end(encode(result)); server.close(); }
           else socket.end(encode(result));
           return;
         }
@@ -58,7 +60,7 @@ export async function startService(runtime, { keepAlive = true } = {}) {
     socketPath,
     async close() {
       // Runtime typed refusal occurs before dropping any client or accepting shutdown.
-      runtime.close();
+      await shutdown();
       for (const socket of connections) socket.destroy();
       await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     },

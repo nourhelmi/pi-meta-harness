@@ -16,5 +16,6 @@ export class AdvisorRuntime {
   execute(token: string, input: unknown, audience?: "operator" | "model"): Record<string, unknown>;
   request(token: string, input: unknown, audience?: "operator" | "model"): Promise<Record<string, unknown>>;
   dispatch(): Promise<void>;
+  assertClosable(): void;
   close(): void;
 }

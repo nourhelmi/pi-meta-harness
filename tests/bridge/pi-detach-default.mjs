@@ -47,8 +47,8 @@ for (const key of Object.keys(process.env)) if (key.startsWith("HERDR_") || key.
 Object.assign(process.env, env); delete process.env.PI_DETACH_RUNTIME_BRIDGE; delete process.env.ADVISOR_RUNTIME_DESCRIPTOR; delete process.env.PI_DETACH_WORKER_HARNESS;
 const extension = (await import(pathToFileURL(join(detach, 'extensions/index.ts')))).default;
 const { resetBridgeClients } = await import(pathToFileURL(join(detach, 'src/runtime-bridge.ts')));
-const tools = new Map(), handlers = new Map(), notices = [];
-const pi = { registerTool(t) { tools.set(t.name, t); }, on(n, h) { handlers.set(n, [...handlers.get(n) || [], h]); }, sendMessage(m) { notices.push(m); }, registerMessageRenderer() {} };
+const tools = new Map(), handlers = new Map(), commands = new Map(), notices = [];
+const pi = { registerTool(t) { tools.set(t.name, t); }, registerCommand(n, d) { commands.set(n, d); }, on(n, h) { handlers.set(n, [...handlers.get(n) || [], h]); }, sendMessage(m) { notices.push(m); }, registerMessageRenderer() {} };
 extension(pi);
 const ctx = { cwd: join(root, 'work'), sessionManager: { getSessionId: () => 'default-fixture' }, isIdle: () => true, ui: { notify(m) { notices.push(m); } } };
 const emit = async name => { for (const h of handlers.get(name) || []) await h({ reason: name === 'session_start' ? 'reload' : 'reload' }, ctx); };
@@ -74,6 +74,16 @@ assert.equal(createHash('sha256').update(readFileSync(connected[0].descriptor)).
 assert.deepEqual(await req('wait', { runId: launched.details.runId, timeoutMs: 0 }), pending);
 const calls = JSON.parse('[' + readFileSync(join(root, 'fake/calls.jsonl'), 'utf8').trim().split('\n').join(',') + ']');
 assert.equal(calls.filter(a => a[1] === 'prompt').length, 1);
+// Drift: code installed after the service started is reported by /bg_backend on every call, never hot-swapped.
+const backend = commands.get('bg_backend'); assert.ok(backend);
+const noticesBeforeBackend = notices.length;
+await backend.handler({}, ctx);
+assert.ok(notices.slice(noticesBeforeBackend).some(n => typeof n === 'string' && /runtime connected/.test(n) && !/older code/.test(n)), 'matching code reports no drift');
+const driftFile = join(detach, 'src/herdr/sentinel.ts');
+writeFileSync(driftFile, readFileSync(driftFile, 'utf8') + '\n// drift probe\n');
+await backend.handler({}, ctx);
+assert.ok(notices.slice(noticesBeforeBackend).some(n => typeof n === 'string' && /older code/.test(n)), 'bg_backend recomputes the installed revision');
+assert.equal(calls.filter(a => a[1] === 'prompt').length, 1, 'drift detection has no worker effect');
 for (const d of await req('wait', { runId: launched.details.runId, timeoutMs: 0 })) await req('ack', { runId: launched.details.runId, deliveryId: d.id });
 const connectInput = { cwd: ctx.cwd, sessionId: 'default-fixture', detachPath: detach, herdr: { paneId: 'w1:p1' } };
 const configFile = join(target, 'pi-detach-runtime.json');

@@ -25,7 +25,7 @@ if (!phase) {
  }
  symlinkSync(root, join(root, 'work', 'outside-alias'));
 
- for (const next of ['exercise', 'restart']) {
+ for (const next of ['blocked-cancel', 'exercise', 'restart']) {
   const child = spawnSync(process.execPath, [...process.execArgv, fileURLToPath(import.meta.url)], { env: { ...process.env, BRIDGE_PHASE: next, BRIDGE_ROOT: root }, encoding: 'utf8', timeout: 30000 });
   process.stdout.write(child.stdout); process.stderr.write(child.stderr);
   assert.equal(child.status, 0, `${next} process failed`);
@@ -34,8 +34,8 @@ if (!phase) {
  process.exit(0);
 }
 const root = process.env.BRIDGE_ROOT!;
-const stateRoot = join(root, 'state'); const cwd = join(root, 'work');
-const descriptor = join(root, 'pi.json');
+const stateRoot = join(root, phase === 'blocked-cancel' ? 'cancel-state' : 'state'); const cwd = join(root, 'work');
+const descriptor = join(root, phase === 'blocked-cancel' ? 'cancel-pi.json' : 'pi.json');
 const profile = join(root, 'profiles.json');
 writeFileSync(profile, JSON.stringify({ defaultAgent: 'pi', profiles: { foreman: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, reviewer: { agent: 'pi', skill: 'role-reviewer', maxTurns: 4, requireAnchor: true, resultDiscovery: 'advisor-worker' } } }));
 process.env.PI_DETACH_AGENT_PROFILES = profile;
@@ -137,9 +137,48 @@ for (const register of [registerBgAgentTool, registerBgStopTool, registerBgListT
 const ctx = { cwd, sessionManager: { getSessionId() { return 'owning-pi-session'; } } };
 const invoke = (name: string, id: string, params: object, context = ctx) => tools.get(name).execute(id, params, undefined, undefined, context);
 const params = { role: 'reviewer', prompt: 'Bounded deterministic task', model: 'openai/example', thinking: 'high', maxTurns: 7, requiredSkills: ['pi-lens-lsp-navigation'], acceptance: ['one prompt'], keepAlive: true, promoteAfterMs: 0 };
+if (phase === 'blocked-cancel') {
+ for (const harness of ['pi', 'native']) {
+  const result = await invoke('bg_agent', `${harness}-block-launch`, { ...params, harness, ...(harness === 'native' ? { model: 'openai-codex/example' } : {}) });
+  await runtime.dispatch();
+  const id = result.details.runId;
+  const blocked = await settle(id, '# Status\nBLOCKED\nNeed a decision.');
+  assert.equal(blocked.snapshot.state, 'blocked');
+  const pane = JSON.parse(blocked.handle.id)[0]; const before = calls.length;
+  await invoke('bg_stop', `${harness}-stop`, { runId: id }); await runtime.dispatch();
+  let stopped: any;
+  for (let i = 0; i < 100; i++) {
+   stopped = await req('get', { runId: id });
+   if (stopped.snapshot.state === 'terminal') break;
+   await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.equal(stopped.snapshot.state, 'terminal'); assert.equal(stopped.status, 'cancelled');
+  assert.notEqual(stopped.runtimeState, 'recovery-required'); assert.equal(stopped.processExited, undefined);
+  assert.deepEqual(stopped.handle, blocked.handle);
+  const inputs = calls.slice(before);
+  assert.equal(inputs.filter(args => args[1] === 'send-keys' && args[3] === 'esc').length, 1);
+  const escapeIndex = inputs.findIndex(args => args[1] === 'send-keys');
+  assert.ok(inputs.slice(escapeIndex + 1).some(args => args[1] === 'get' && args[2] === pane));
+  assert.equal(inputs.some(args => args[1] === 'close'), false);
+  await invoke('bg_stop', `${harness}-stop`, { runId: id }); await runtime.dispatch();
+  assert.equal(calls.slice(before).filter(args => args[1] === 'send-keys').length, 1, 'replay never repeats Escape');
+  await assert.rejects(invoke('bg_agent', `${harness}-cancelled-task`, { name: id, prompt: 'next' }), /BRIDGE_RESUME_OR_STEER_UNSUPPORTED/);
+  for (const delivery of await req('wait', { runId: id }) as any[]) await req('ack', { runId: id, deliveryId: delivery.id });
+  runtime.assertClosable();
+  const fresh = await invoke('bg_agent', `${harness}-fresh-slot`, { ...params, prompt: 'Use the released slot' });
+  await runtime.dispatch();
+  assert.equal((await settle(fresh.details.runId, '# Status\nPASS\nFresh worker completed.')).status, 'done');
+  for (const delivery of await req('wait', { runId: fresh.details.runId }) as any[]) await req('ack', { runId: fresh.details.runId, deliveryId: delivery.id });
+  runtime.assertClosable();
+ }
+ await req('shutdown', {});
+ console.log('PASS: artifact-BLOCKED Pi/Codex cancellation sends one Escape, settles without exit claim, releases slot and permits typed shutdown');
+ process.exit(0);
+}
 const launched = await invoke('bg_agent', 'actual-tool-call', params);
 const runId = launched.details.runId;
-assert.equal(launched.details.reusable, true, 'keepAlive intent remains visible through the public bridge result');
+assert.equal(launched.details.keepAlive, true, 'keepAlive intent remains visible through the public bridge result');
+assert.equal(launched.details.reusable, false, 'a running worker cannot yet accept a fresh task');
 await runtime.dispatch();
 await new Promise(resolveTurn => setImmediate(resolveTurn));
 assert.equal((await req('get', { runId }) as any).runtimeState, 'running', 'submission ACK must not let startup idle end observation');
@@ -393,6 +432,16 @@ assert.equal(calls.filter(args => args[1] === 'send-keys' && args[3] === 'esc').
 await invoke('bg_stop', 'actual-stop-call', { runId: cancelRun }); await runtime.dispatch();
 assert.equal(calls.filter(args => args[1] === 'send-keys' && args[3] === 'esc').length, 1);
 assert.equal(dbRows('events').some(row => JSON.parse(row.data).data?.status === 'cancelled'), false);
+// Cancellation truth: the same occupant observed settled after Escape settles cancelled; process exit stays unclaimed.
+const cancelPane = JSON.parse(cancel.handle.id)[0]; const cancelOccupant = occupants.get(cancelPane);
+cancelOccupant.status = 'idle'; cancelOccupant.state_change_seq += 1;
+let cancelledNode: any;
+for (let i = 0; i < 200; i++) { cancelledNode = await req('get', { runId: cancelRun }); if (cancelledNode.snapshot.state === 'terminal') break; await new Promise(r => setTimeout(r, 25)); }
+assert.equal(cancelledNode.snapshot.state, 'terminal'); assert.equal(cancelledNode.status, 'cancelled'); assert.equal(cancelledNode.processExited, undefined);
+assert.ok(dbRows('events').some(row => JSON.parse(row.data).data?.status === 'cancelled'));
+assert.equal(calls.filter(args => args[0] === 'pane' && args[1] === 'close' && args[2] === cancelPane).length, 0, 'cancellation never closes the pane');
+await assert.rejects(invoke('bg_agent', 'cancelled-task', { name: cancelRun, prompt: 'reuse cancelled worker' }), /UNSUPPORTED|TASK_TARGET_UNAVAILABLE/);
+assert.deepEqual(await req('get', { runId: cancelRun }).then((n: any) => n.status), 'cancelled');
 for (let i = 0; ; i++) {
  const count = (await req('list', {}) as any[]).length;
  if (count >= 64) break;

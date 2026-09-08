@@ -1,11 +1,11 @@
 // Node22-safe trusted lifecycle client. SQLite and execution stay in the host process.
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, opendirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { canonicalJson } from '../advisor-core/command-contract.mjs';
-import { demand, privateDirectory, safeFile, disjointControlPath } from './security.mjs';
+import { RuntimeError, boundedRead, demand, privateDirectory, safeFile, disjointControlPath } from './security.mjs';
 import { createPiDetachClient } from './pi-detach-client.mjs';
 
 export const PI_DETACH_BOOTSTRAP_VERSION = 1;
@@ -33,6 +33,36 @@ export function workspaceRoots(cwd) {
   const roots = listing.stdout.split('\0').filter(v => v.startsWith('worktree ')).map(v => realpathSync(v.slice(9)));
   demand(roots.includes(realpathSync(top.stdout.trim())) && roots.length <= 64, 'PI_DETACH_WORKSPACE_BOUND');
   return [...new Set([own, ...roots])].sort();
+}
+/**
+ * Content hash of the code a service loads: the detach sources plus this runtime
+ * and its core helpers. A live service reports the revision it started with, so a
+ * later install is detected as drift instead of being silently ignored.
+ */
+export function installedRevision(detachPath, hostPath) {
+  const runtimeDir = realpathSync(dirname(hostPath));
+  const roots = [join(realpathSync(detachPath), 'src'), runtimeDir, resolve(runtimeDir, '..', 'advisor-core')];
+  const digest = createHash('sha256'); let count = 0;
+  // Bound enumeration before sorting or descending, including empty directories.
+  // Hidden entries cost one visit, but their subtrees and bytes are excluded.
+  const walk = (root, directory = root, depth = 0) => {
+    demand(depth <= 64, 'PI_DETACH_REVISION_BOUND');
+    const entries = []; const dir = opendirSync(directory);
+    try {
+      let entry;
+      while ((entry = dir.readSync()) !== null) {
+        demand(++count <= 2000, 'PI_DETACH_REVISION_BOUND');
+        if (!entry.name.startsWith('.')) entries.push(entry);
+      }
+    } finally { dir.closeSync(); }
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) walk(root, path, depth + 1);
+      else if (entry.isFile()) digest.update(path.slice(root.length)).update('\0').update(readFileSync(path)).update('\0');
+    }
+  };
+  for (const root of roots) walk(root);
+  return digest.digest('hex').slice(0, 32);
 }
 export function bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, childState }) {
   demand(typeof sessionId === 'string' && sessionId.length > 0 && sessionId.length <= 256, 'PI_SESSION_REQUIRED');
@@ -74,13 +104,15 @@ export async function ensurePiDetach({ cwd, sessionId, detachPath, herdr, env = 
     child.once('exit', () => { failed = true; });
     child.unref();
   }
+  const revision = installedRevision(identity.detachPath, identity.host);
   const deadline = Date.now() + 10000;
   do {
     if (existsSync(descriptor)) {
       try {
         const ready = await client.request(sessionId, 'connect', { identity, cwd: identity.cwd });
         demand(ready.ready === true, 'PI_DETACH_BINDING_MISMATCH');
-        return { client, descriptor, stateRoot, identity };
+        // A reconnected service keeps the code it started with; drift is reported, never hot-swapped.
+        return { client, descriptor, stateRoot, identity, revision, stale: ready.revision !== revision };
       } catch (error) {
         // Socket not yet published is the only startup race we wait through.
         if (existsSync(join(stateRoot, 'runtime.sock'))) throw error;
@@ -101,4 +133,48 @@ export async function childWorkSettled(stateRoot) {
     const state = await client.request(identity.sessionId, 'supervision', {});
     return state.settled === true;
   } catch { return false; } // missing/dead/ambiguous child never proves completion
+}
+
+function ownerAlive(stateRoot) {
+  const owner = join(stateRoot, 'service.lock', 'owner.json');
+  if (!existsSync(owner)) return false;
+  try { process.kill(JSON.parse(readFileSync(owner, 'utf8')).pid, 0); return true; }
+  catch (error) { return error.code !== 'ESRCH'; } // EPERM: alive but not ours; treat as alive
+}
+
+/**
+ * Typed shutdown of one reserved child service. Never a kill and never a lock
+ * deletion: an active, unacknowledged or unreachable-but-owned child refuses.
+ * Returns 'closed', 'absent' (never bootstrapped or already closed) or throws.
+ */
+export async function closeChildService(childState) {
+  const marker = join(childState, 'startup.json'); const descriptor = join(childState, 'pi.json');
+  // Liveness first: a live owner whose control files are missing is mid-bootstrap or damaged, never absent.
+  if (!ownerAlive(childState)) return 'absent';
+  try {
+    safeFile(marker);
+    const stored = boundedRead(childState, 'startup.json');
+    demand(stored.eof, 'CHILD_MARKER_TOO_LARGE');
+    const { identity } = JSON.parse(stored.text);
+    demand(identity && !Array.isArray(identity) && typeof identity.sessionId === 'string' && identity.sessionId.length > 0 && identity.sessionId.length <= 256, 'CHILD_IDENTITY_INVALID');
+    await createPiDetachClient(descriptor).request(identity.sessionId, 'shutdown', {});
+    return 'closed';
+  } catch (error) {
+    if (!ownerAlive(childState)) return 'absent';
+    // Only a valid child's explicit lifecycle refusal establishes active work.
+    const active = ['SHUTDOWN_BUSY', 'SHUTDOWN_PENDING', 'SHUTDOWN_ACTIVE', 'SHUTDOWN_DELIVERY', 'SHUTDOWN_CHILD_ACTIVE'].includes(error.message);
+    throw new RuntimeError(active ? 'SHUTDOWN_CHILD_ACTIVE' : 'SHUTDOWN_CHILD_UNCERTAIN');
+  }
+}
+/** Close every reserved child service under a parent state root; the first refusal stops the parent shutdown. */
+export async function closeChildServices(stateRoot) {
+  const base = join(stateRoot, 'children');
+  if (!existsSync(base)) return [];
+  const closed = [];
+  for (const entry of readdirSync(base, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!entry.isDirectory()) continue;
+    const childState = join(base, entry.name);
+    if (await closeChildService(childState) === 'closed') closed.push(childState);
+  }
+  return closed;
 }
