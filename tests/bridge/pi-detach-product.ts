@@ -62,17 +62,30 @@ const cli = {
    if (failSplit) { failSplit = false; return { ok: false, code: 1, stdout: "", stderr: "", errorCode: "timeout" }; }
    return ok({ pane_id: `w1:p${++counter}` });
   }
-  if (args[1] === 'process-info') return ok({ result: { process_info: { foreground_processes: [{ name: 'zsh' }] } } });
+  if (args[1] === 'process-info') {
+   const pane = args[args.indexOf('--pane') + 1];
+   const occupant = occupants.get(pane);
+   return ok({ result: { process_info: occupant?.agent === 'codex'
+    ? { pane_id: pane, shell_pid: 10, foreground_process_group_id: 20, foreground_processes: [{ name: 'codex', argv0: 'codex', pid: occupant.pid }] }
+    : { foreground_processes: [{ name: 'zsh' }] } } });
+  }
   if (args[1] === 'start') {
    const pane = args[args.indexOf('--pane') + 1];
-   occupants.set(pane, { pane_id: pane, name: args[2], agent_session: { source: "fixture", agent: "pi", kind: "id", value: `session-${counter}` }, state_change_seq: 1, status: 'idle' });
-   return ok(occupants.get(pane));
+   const kind = args[args.indexOf('--kind') + 1];
+   occupants.set(pane, { pane_id: pane, name: args[2], agent: kind, terminal_id: `terminal-${counter}`, pid: counter + 100,
+    ...(kind === 'codex' ? {} : { agent_session: { source: 'fixture', agent: 'pi', kind: 'id', value: `session-${counter}` } }), state_change_seq: 1, status: 'idle' });
+   return ok({ result: { agent: occupants.get(pane) } });
   }
-  if (args[0] === 'agent' && args[1] === 'get') return ok(occupants.get(args[2]));
+  if (args[0] === 'agent' && args[1] === 'get') return ok({ result: { agent: occupants.get(args[2]) } });
   if (args[1] === 'prompt') {
    const occupant = occupants.get(args[2]);
-   const recordedEffect = dbRows('effects').find(row => row.handle && JSON.parse(row.handle).id.includes(occupant.agent_session.value));
+   const recordedEffect = dbRows('effects').find(row => row.handle && JSON.parse(JSON.parse(row.handle).id)[0] === occupant.pane_id);
    assert.ok(recordedEffect, 'qualified handle committed before first prompt');
+   if (occupant.agent === 'codex') {
+    assert.match(JSON.parse(recordedEffect.handle).session, /herdr-codex-process/);
+    // Fresh Codex has no thread at startup. Its hook arrives on first submission.
+    occupant.agent_session ??= { source: 'herdr:codex', agent: 'codex', kind: 'id', value: `thread-${occupant.pid}` };
+   }
    if (stallPrompt) { stallPrompt = false; return { ok: false, code: 1, stdout: '', stderr: '', errorCode: 'agent_prompt_stalled' }; }
    if (failPrompt) { failPrompt = false; occupant.status = 'working'; occupant.state_change_seq += 1; return { ok: false, code: 1, stdout: '', stderr: '', errorCode: 'timeout' }; }
    // Real Herdr without --wait only acknowledges submission: the old startup
@@ -293,6 +306,20 @@ const beforeClosedTask = calls.length;
 await assert.rejects(invoke('bg_agent', 'closed-task', { name: native.details.runId, prompt: 'Must not reuse a closed worker' }), /UNSUPPORTED/);
 assert.equal(calls.length, beforeClosedTask);
 assert.ok(calls.some(args => args[0] === 'pane' && args[1] === 'close'), 'keepAlive false closes only after validated settlement');
+const nativeKept = (await invoke('bg_agent', 'native-kept', { ...params, harness: 'native', model: 'openai-codex/example' })).details.runId;
+await runtime.dispatch();
+const nativeBlocked = await settle(nativeKept, '# Status\nBLOCKED\nChoice required.');
+await invoke('bg_agent', 'native-reply', { name: nativeKept, prompt: 'A', promoteAfterMs: 0 }); await runtime.dispatch();
+const nativePass = await settle(nativeKept, '# Status\nPASS\nNative reply verified.');
+await invoke('bg_agent', 'native-followup', { name: nativeKept, prompt: 'Fresh task', promoteAfterMs: 0 }); await runtime.dispatch();
+const nativeFresh = await settle(nativeKept, '# Status\nPASS\nNative fresh followup verified.');
+assert.equal(nativeBlocked.status, 'blocked'); assert.equal(nativePass.status, 'done'); assert.equal(nativeFresh.status, 'done');
+assert.deepEqual(nativeFresh.handle, nativeBlocked.handle, 'native provider attachment cannot rewrite durable transport authority');
+assert.deepEqual(nativePass.handle, nativeBlocked.handle);
+const nativeEffects = dbRows('effects').filter(row => row.run === nativeKept);
+assert.deepEqual(nativeEffects.map(row => JSON.parse(row.data).op), ['node.launch', 'node.reply', 'node.task']);
+assert.ok(nativeEffects.every(row => row.state === 'done' && row.handle === nativeEffects[0].handle));
+console.log('PASS: native pre-thread launch, blocked reply and fresh kept task retain committed transport identity');
 const credentialRun = (await invoke('bg_agent', 'credential-launch', params)).details.runId; await runtime.dispatch();
 const credentialNode: any = await req('get', { runId: credentialRun });
 writeFileSync(join(stateRoot, 'runs', credentialRun, 'worker', 'result.md'), '# Status\nBLOCKED');

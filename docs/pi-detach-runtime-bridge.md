@@ -65,9 +65,19 @@ available for trusted tests/operators.
   caps and result contracts survive admission. The `default` identity marker means
   no resolver override, not an observed provider identity. Auth stores are not read
   to fill omitted metadata.
-- Receipt/outbox claim precede acquisition; qualified pane/name/session/generation
-  handle commit precedes prompt. Herdr's supported 5000ms post-submission gate
-  remains inside the 6000ms CLI and 10000ms core budgets. Ambiguous effects do not retry.
+- Receipt/outbox claim precede acquisition; a qualified handle is committed before
+  the first prompt. Pi and Claude bind the reported provider session. Fresh Codex
+  may not report a thread until submission, so its handle binds pane, assigned
+  name, terminal ID, shell PID, foreground process group, native Codex PID and
+  initial lifecycle generation instead. This is explicitly a transport identity,
+  not a fabricated provider thread. The service pins the first reported Codex
+  session in memory and requires it before settlement or follow-up. Subsequent
+  missing/changed sessions, process/terminal changes and generation drift fail
+  closed. Restart does not adopt this in-memory binding.
+  Herdr's supported 5000ms post-submission gate remains inside the 6000ms CLI and
+  10000ms core budgets. Ambiguous effects do not retry. Folder trust and other
+  approval dialogs still require explicit user action; the bridge neither grants
+  trust nor types through them.
 - Issued pib IDs are stable, opaque authority bindings, never parsed pane names.
   Reply to artifact BLOCKED with bg_agent({name:id,prompt:"answer"}). A completed
   PASS/FAIL worker originally kept alive accepts a new bounded task with the same
