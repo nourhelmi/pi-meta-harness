@@ -137,6 +137,23 @@ for (const register of [registerBgAgentTool, registerBgStopTool, registerBgListT
 const ctx = { cwd, sessionManager: { getSessionId() { return 'owning-pi-session'; } } };
 const invoke = (name: string, id: string, params: object, context = ctx) => tools.get(name).execute(id, params, undefined, undefined, context);
 const params = { role: 'reviewer', prompt: 'Bounded deterministic task', model: 'openai/example', thinking: 'high', maxTurns: 7, requiredSkills: ['pi-lens-lsp-navigation'], acceptance: ['one prompt'], keepAlive: true, promoteAfterMs: 0 };
+// Real public tool → client → service → execution port, before any admitted worker.
+for (const [field, value, code, guidance] of [
+ ['resultPath', '/tmp/not-runtime-owned.md', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'Omit resultPath'],
+ ['agent', 'codex', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'Omit agent'],
+] as const) {
+ const invalid = { ...params, [field]: value };
+ for (let replay = 0; replay < 2; replay++) {
+  await assert.rejects(invoke('bg_agent', `reject-${field}`, invalid), error => {
+   assert.match(String(error), new RegExp(code)); assert.match(String(error), new RegExp(guidance)); return true;
+  });
+ }
+ assert.equal(dbRows('runs').length, 0); assert.equal(dbRows('effects').length, 0);
+ assert.equal(calls.length, 0, 'preparation rejection has no Herdr effects');
+}
+assert.match(BgAgentParameters.properties.resultPath.description, /Legacy backend only/);
+assert.match(BgAgentParameters.properties.agent.description, /Legacy backend only/);
+console.log('PASS: incompatible launch arguments return actionable durable rejection without execution');
 if (phase === 'blocked-cancel') {
  for (const harness of ['pi', 'native']) {
   const result = await invoke('bg_agent', `${harness}-block-launch`, { ...params, harness, ...(harness === 'native' ? { model: 'openai-codex/example' } : {}) });

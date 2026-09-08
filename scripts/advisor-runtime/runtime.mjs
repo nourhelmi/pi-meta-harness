@@ -324,8 +324,10 @@ export class AdvisorRuntime {
       });
       let execution;
       try { execution = await config.prepare(p.params, sourceDirectory); }
-      catch {
-        const response = { ok: false, error: 'BRIDGE_PREPARATION_REJECTED' };
+      catch (error) {
+        // Only execution-port validation codes are safe to expose; never return arbitrary exception text.
+        const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL'];
+        const response = { ok: false, error: error instanceof Error && safe.includes(error.message) ? error.message : 'BRIDGE_PREPARATION_REJECTED' };
         this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: 'rejected', scope, response }), key));
         return response;
       }

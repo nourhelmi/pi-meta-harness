@@ -65,6 +65,13 @@ available for trusted tests/operators.
   caps and result contracts survive admission. The `default` identity marker means
   no resolver override, not an observed provider identity. Auth stores are not read
   to fill omitted metadata.
+- Omit `resultPath` and `agent` with the managed runtime: it owns the artifact path;
+  select the worker through `role`, `harness`, and `model`. Those two fields remain
+  available only for legacy compatibility. Known preparation failures return a
+  stable error code and corrective guidance before any worker is launched. Submit
+  corrected arguments as a new tool call; replaying the rejected call returns the
+  same rejection. Unknown preparation exceptions remain redacted as
+  `BRIDGE_PREPARATION_REJECTED`, not exposed command or credential text.
 - Receipt/outbox claim precede acquisition; a qualified handle is committed before
   the first prompt. Pi and Claude bind the reported provider session. Fresh Codex
   may not report a thread until submission, so its handle binds pane, assigned
