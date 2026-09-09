@@ -2,12 +2,16 @@
   "name": "codex-max",
   "models": {
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: The advisor's own session model and the top-tier model for planning, implementation, and every kind of UX work. The advisor session and planner nodes run at max; foremen run at xhigh; all Astra builders run at high, including substantial builds and bounded implementation that needs material local judgment. All UX implementation, greenfield or existing, uses Astra high with frontend-design loaded. Concentrate deeper reasoning on advisor and planner decisions rather than raising builder effort by task size. Review and reduction are Sol xhigh, not Astra. Prefer Sol high, not Astra, when an execution packet has already locked the approach and material decisions.",
-      "defaultThinking": "max"
+      "character": "Advisory: The advisor session, planner, foreman, and primary builder model at xhigh reasoning. Use Astra xhigh for decision-bearing implementation, substantial builds, and every kind of UX work with frontend-design loaded. Review and reduction are Sol xhigh, not Astra. Prefer Sol high when an execution packet has already locked the approach and material decisions.",
+      "defaultThinking": "xhigh"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices, resolves environment and tooling obstacles locally and records them under Deviations, and stops and escalates rather than deciding product, architecture, schema, migration, auth, product-fallback, destructive, or external-effect behavior. Generally avoid decision-bearing implementation at high. Recommended reasoning is high for procedural work and xhigh for review and reduction.",
+      "character": "Advisory: The procedural-tier workhorse at high reasoning for mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices, resolves environment and tooling obstacles locally and records them under Deviations, and stops and escalates rather than deciding product, architecture, schema, migration, auth, product-fallback, destructive, or external-effect behavior. Generally avoid decision-bearing implementation at high. Recommended reasoning is high for procedural work and xhigh for review and reduction.",
       "defaultThinking": "high"
+    },
+    "openai-codex/gpt-5.6-luna": {
+      "character": "Advisory: The scouting and browser-verification model at max reasoning for bounded investigation, browser exercise, and evidence capture.",
+      "defaultThinking": "max"
     },
     "cursor/grok-4.6": {
       "character": "Advisory: High-efficiency generalist at high reasoning, kept as the alternate for research and bounded backend or mixed-stack work when Codex capacity is tight. UX work routes to Astra, not Grok. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default. This guide recommends Cursor only as cursor/grok-4.6.",
@@ -17,21 +21,16 @@
   "recommendations": {
     "scout": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
         "fit": "Preferred for bounded investigation in this profile."
-      },
-      {
-        "model": "cursor/grok-4.6",
-        "thinking": "high",
-        "fit": "Alternate for bounded investigation when Codex capacity is tight."
       }
     ],
     "planner": [
       {
         "model": "openai-codex/gpt-6-astra",
-        "thinking": "max",
-        "fit": "Preferred for planning: concentrate maximum reasoning on decisions that shape downstream work."
+        "thinking": "xhigh",
+        "fit": "Preferred for planning at xhigh reasoning."
       }
     ],
     "reducer": [
@@ -44,7 +43,7 @@
     "builder": [
       {
         "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
+        "thinking": "xhigh",
         "fit": "Preferred for all decision-bearing implementation, including substantial builds and all UX work with frontend-design loaded; prefer Sol high for a locked execution packet."
       },
       {
@@ -79,14 +78,9 @@
     ],
     "browser-verifier": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
         "fit": "Preferred for browser verification in this profile."
-      },
-      {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
-        "fit": "Alternate for ambiguous visual or behavioral verification."
       }
     ]
   }

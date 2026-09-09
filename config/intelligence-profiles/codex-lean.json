@@ -2,23 +2,23 @@
   "name": "codex-lean",
   "models": {
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: The advisor's own session model at xhigh. Planner and foreman nodes use high. Decision-bearing builders use medium, including backend, data, service, mixed-stack, debugging, and all UX implementation with frontend-design loaded. Fully locked execution packets use Astra low when the approach, surface, material decisions, and deterministic anchors are fixed; that executor owns ordinary local code choices, resolves environment and tooling obstacles locally and records them under Deviations, but stops and escalates on material ambiguity. Checker and reducer nodes use Astra low for fresh-context review and bounded synthesis. This profile recommends Codex models only.",
+      "character": "Advisory: The advisor's own session model at xhigh. Planner nodes and wide-breadth foremen use high. Reserve medium for implementation whose diagnosis, architecture, or breadth is still materially ambiguous. Regular bounded builders use Sol medium, including fully locked execution packets. This profile recommends Codex models only.",
       "defaultThinking": "xhigh"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The bounded scouting model at medium reasoning. Use it for source-linked investigation that reduces uncertainty before planning or implementation. Builders, review, reduction, and browser verification use the profile's Astra or Luna recommendations instead.",
+      "character": "Advisory: The regular workhorse at medium reasoning. Use it for bounded implementation, fully locked execution packets, fresh-context checking, and reduction. For locked packets, it resolves environment and tooling obstacles locally, uses deterministic anchors, and stops and escalates on material ambiguity. Escalate materially ambiguous or wide-breadth implementation to Astra.",
       "defaultThinking": "medium"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: The browser-verification model at max reasoning for integrated browser exercise and bounded evidence capture. Other semantic roles use Astra or Sol in this profile.",
+      "character": "Advisory: The scouting and browser-verification model at max reasoning. Use it for source-linked investigation, integrated browser exercise, and bounded evidence capture. Other semantic roles use Astra or Sol in this profile.",
       "defaultThinking": "max"
     }
   },
   "recommendations": {
     "scout": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "max",
         "fit": "Preferred for bounded source-linked investigation in this profile."
       }
     ],
@@ -31,21 +31,21 @@
     ],
     "reducer": [
       {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "low",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "medium",
         "fit": "Preferred for review-family synthesis and conflict reduction in this profile."
       }
     ],
     "builder": [
       {
-        "model": "openai-codex/gpt-6-astra",
+        "model": "openai-codex/gpt-5.6-sol",
         "thinking": "medium",
-        "fit": "Preferred for decision-bearing implementation, including all UX work with frontend-design loaded."
+        "fit": "Preferred workhorse for regular bounded implementation, including fully locked execution packets with deterministic anchors and stop-on-material-ambiguity."
       },
       {
         "model": "openai-codex/gpt-6-astra",
-        "thinking": "low",
-        "fit": "Preferred token-efficient executor for a fully locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
+        "thinking": "medium",
+        "fit": "Reserve for materially ambiguous or wide-breadth implementation."
       }
     ],
     "foreman": [
@@ -57,8 +57,8 @@
     ],
     "checker": [
       {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "low",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "medium",
         "fit": "Preferred fresh-context checker and reviewer in this profile."
       }
     ],

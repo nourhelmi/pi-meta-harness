@@ -16,50 +16,52 @@ const section = (source, heading, nextHeading) => {
   return source.slice(start, end === -1 ? source.length : end);
 };
 
-test("codex-max guidance agrees on max decisions, xhigh foremen, and high Astra builders", async () => {
+test("codex-max guidance agrees on Astra xhigh primaries and Luna max procedural roles", async () => {
   const [advisor, profiles, switcher] = await Promise.all([
     doctrine(),
     text("docs/intelligence-profiles.md"),
     text("skills/switch-intelligence-profile/SKILL.md"),
   ]);
-  assert.match(advisor, /in `codex-max`, every UX builder[\s\S]{0,150}uses Astra high with `frontend-design`/);
-  assert.match(advisor, /`codex-max` the advisor session and planner nodes run on Astra at max;\s+foremen run on Astra at xhigh/);
-  assert.match(advisor, /Astra high for all builders in `codex-max`/);
+  assert.match(advisor, /in `codex-max`, every UX builder[\s\S]{0,150}uses Astra xhigh with `frontend-design`/);
+  assert.match(advisor, /`codex-max` the advisor session, planner, foreman, and primary builder run on\s+Astra at xhigh/);
+  assert.match(advisor, /Astra xhigh for all decision-bearing builders in `codex-max`/);
   const card = section(profiles, "### `codex-max`", "### `codex-lean`");
-  assert.match(card, /\| advisor \| Astra max/);
-  assert.match(card, /\| planner \| Astra max/);
-  assert.match(card, /\| builder \| Astra high/);
+  assert.match(card, /\| advisor \| Astra xhigh/);
+  assert.match(card, /\| planner \| Astra xhigh/);
+  assert.match(card, /\| builder \| Astra xhigh/);
   assert.match(card, /\| foreman \| Astra xhigh/);
-  assert.match(card, /All Astra builders use high, including substantial implementation/);
-  assert.doesNotMatch(card, /Luna|advisor session model at high|workhorse at xhigh/);
+  assert.match(card, /\| scout \| Luna max/);
+  assert.match(card, /\| browser-verifier \| Luna max/);
+  assert.match(card, /advisor, planner, foreman, and primary builder at\s+xhigh/);
   const row = switcher.split("\n").find((line) => line.startsWith("| `codex-max` |"));
-  assert.match(row, /Astra high; Sol high for locked packets \| Sol xhigh \| Sol high/);
-  assert.doesNotMatch(row, /Luna/);
-  assert.match(switcher, /advisor and planner use Astra max, the foreman uses Astra\s+xhigh/);
+  assert.match(row, /Astra xhigh; Sol high for locked packets \| Sol xhigh \| Luna max/);
+  assert.match(switcher, /advisor, planner, foreman, and primary builder use Astra\s+xhigh/);
+  assert.match(switcher, /scouting and browser verification use Luna max/);
   assert.match(switcher, /https:\/\/github.com\/nourhelmi\/pi-meta-harness\/blob\/main\/docs\/intelligence-profiles.md/);
 });
 
-test("codex-lean guidance agrees on its Codex-only effort ladder", async () => {
+test("codex-lean guidance reserves Astra for ambiguity and uses Sol for regular work", async () => {
   const [advisor, profiles, switcher] = await Promise.all([
     doctrine(),
     text("docs/intelligence-profiles.md"),
     text("skills/switch-intelligence-profile/SKILL.md"),
   ]);
-  assert.match(advisor, /`codex-lean`, every decision-bearing UX builder uses Astra medium/);
+  assert.match(advisor, /`codex-lean`, regular UX builders use Sol medium/);
   assert.match(advisor, /advisor uses Astra xhigh while planner and foreman nodes use Astra high/);
-  assert.match(advisor, /Astra low for locked packets, checking, and reduction in `codex-lean`/);
+  assert.match(advisor, /Sol medium for regular\s+builders, locked packets, checking, and reduction in `codex-lean`/);
   const card = section(profiles, "### `codex-lean`", "### `anthropic-heavy`");
   assert.match(card, /\| advisor \| Astra xhigh/);
   assert.match(card, /\| planner \| Astra high/);
-  assert.match(card, /\| builder \| Astra medium, Astra low \(fully locked packet\)/);
-  assert.match(card, /\| checker \| Astra low/);
-  assert.match(card, /\| reducer \| Astra low/);
-  assert.match(card, /\| scout \| Sol medium/);
+  assert.match(card, /\| builder \| Sol medium; Astra medium \(ambiguous or wide breadth\)/);
+  assert.match(card, /\| checker \| Sol medium/);
+  assert.match(card, /\| reducer \| Sol medium/);
+  assert.match(card, /\| scout \| Luna max/);
   assert.match(card, /\| browser-verifier \| Luna max/);
   assert.doesNotMatch(card, /Sonnet|Fable|Grok/);
   assert.match(switcher, /In `codex-lean`, the advisor uses Astra xhigh/);
-  assert.match(switcher, /scouting\s+uses Sol medium/);
-  assert.match(switcher, /browser verification uses Luna max/);
+  assert.match(switcher, /regular builders use Sol medium/);
+  assert.match(switcher, /Checking, reduction, and fully locked\s+execution use Sol medium/);
+  assert.match(switcher, /scouting and browser verification use Luna max/);
   assert.match(switcher, /only OpenAI Codex models/);
 });
 

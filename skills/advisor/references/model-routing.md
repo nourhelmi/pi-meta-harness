@@ -30,10 +30,10 @@ Frontend routing is scope- and capacity-aware guidance, and the preferred IDs
 come from the live guide:
 
 - in `codex-max`, every UX builder, greenfield or existing and substantial or
-  bounded, uses Astra high with `frontend-design`; no Anthropic model is
+  bounded, uses Astra xhigh with `frontend-design`; no Anthropic model is
   recommended there;
-- in `codex-lean`, every decision-bearing UX builder uses Astra medium and a
-  fully locked UX execution packet uses Astra low, always with
+- in `codex-lean`, regular UX builders use Sol medium and materially
+  ambiguous or wide-breadth UX builders use Astra medium, always with
   `frontend-design`; no Anthropic or Cursor model is recommended there;
 - in the remaining guides, genuinely new or greenfield UX uses the model whose
   character reserves it for greenfield UX (Opus while Anthropic capacity is
@@ -57,16 +57,16 @@ advisor session (at medium) or guide-recommended planning (at high); if Fable
 reaches capacity, prefer the fallback in its character note (Astra at high in
 `balanced`, Grok in `grok-cycle` and `anthropic-heavy`). In `codex-lean`, the
 advisor uses Astra xhigh while planner and foreman nodes use Astra high. In
-`codex-max` the advisor session and planner nodes run on Astra at max;
-foremen run on Astra at xhigh. These are strong defaults, not role allowlists;
+`codex-max` the advisor session, planner, foreman, and primary builder run on
+Astra at xhigh. These are strong defaults, not role allowlists;
 depart when capability and task risk justify it and record the rationale when
 material. Workers still cannot silently change the advisor's active model.
 
 For non-UX work, normally pick the implementation workhorse from the live
-characters: Astra high for all builders in `codex-max`, with Sol high for
-locked packets and Sol xhigh for review and reduction; Astra medium for
-decision-bearing builders and
-Astra low for locked packets, checking, and reduction in `codex-lean`;
+characters: Astra xhigh for all decision-bearing builders in `codex-max`, with Sol high for
+locked packets and Sol xhigh for review and reduction; Sol medium for regular
+builders, locked packets, checking, and reduction in `codex-lean`, reserving
+Astra medium for materially ambiguous or wide-breadth implementation;
 Sonnet default with Astra high for hard backend in `balanced`; Grok in
 `grok-cycle`; Sonnet in `anthropic-heavy`. The shipped
 guides recommend Cursor only as `cursor/grok-4.6`; another Cursor identity is

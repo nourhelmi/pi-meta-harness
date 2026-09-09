@@ -17,7 +17,7 @@ const HARNESS = join(ROOT, "scripts", "meta-harness.mjs");
 const NAMES = ["codex-max", "codex-lean", "anthropic-heavy", "balanced", "grok-cycle"];
 const LOCKED_EXECUTORS = {
   "codex-max": ["openai-codex/gpt-5.6-sol", "high"],
-  "codex-lean": ["openai-codex/gpt-6-astra", "low"],
+  "codex-lean": ["openai-codex/gpt-5.6-sol", "medium"],
   "anthropic-heavy": ["openai-codex/gpt-5.6-sol", "high"],
   balanced: ["openai-codex/gpt-5.6-sol", "high"],
   "grok-cycle": ["claude-bridge/claude-sonnet-5", "medium"],
@@ -79,30 +79,30 @@ test("named advisor guides are structurally valid and cover every role", async (
   }
 });
 
-test("codex-max reserves max for advisor and planner, xhigh for foreman, and high for Astra builders", async () => {
+test("codex-max uses Astra xhigh for primary decisions and Luna max for scouting and browser verification", async () => {
   const guide = JSON.parse(
     await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"),
   );
   const astra = "openai-codex/gpt-6-astra";
   const sol = "openai-codex/gpt-5.6-sol";
+  const luna = "openai-codex/gpt-5.6-luna";
   const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
-  assert.equal(guide.models[astra].defaultThinking, "max");
-  assert.deepEqual(identities("planner"), [[astra, "max"]]);
+  assert.equal(guide.models[astra].defaultThinking, "xhigh");
+  assert.deepEqual(identities("planner"), [[astra, "xhigh"]]);
   assert.deepEqual(identities("foreman"), [[astra, "xhigh"]]);
   assert.deepEqual(identities("builder"), [
-    [astra, "high"],
+    [astra, "xhigh"],
     [sol, "high"],
     ["cursor/grok-4.6", "high"],
   ]);
   assert.deepEqual(identities("checker"), [[sol, "xhigh"], [sol, "high"]]);
   assert.deepEqual(identities("reducer"), [[sol, "xhigh"]]);
-  assert.deepEqual(identities("scout")[0], [sol, "high"]);
-  assert.deepEqual(identities("browser-verifier"), [[sol, "high"], [astra, "high"]]);
+  assert.deepEqual(identities("scout"), [[luna, "max"]]);
+  assert.deepEqual(identities("browser-verifier"), [[luna, "max"]]);
   assert(!Object.keys(guide.models).some((model) => /^(anthropic|claude-bridge)\//.test(model)));
-  assert.match(guide.models[astra].character, /advisor session and planner nodes run at max/);
-  assert.match(guide.models[astra].character, /foremen run at xhigh/);
-  assert.match(guide.models[astra].character, /all Astra builders run at high, including substantial builds/);
-  assert.match(guide.models[astra].character, /All UX implementation.*uses Astra high with frontend-design/);
+  assert.match(guide.models[astra].character, /advisor session, planner, foreman, and primary builder model at xhigh/);
+  assert.match(guide.models[astra].character, /every kind of UX work with frontend-design loaded/);
+  assert.match(guide.models[luna].character, /scouting and browser-verification model at max reasoning/);
 });
 
 test("codex-lean is Codex-only and assigns the requested effort ladder", async () => {
@@ -117,16 +117,17 @@ test("codex-lean is Codex-only and assigns the requested effort ladder", async (
   assert(Object.keys(guide.models).every((model) => model.startsWith("openai-codex/")));
   assert.equal(guide.models[astra].defaultThinking, "xhigh");
   assert.equal(guide.models[sol].defaultThinking, "medium");
-  assert.deepEqual(identities("scout"), [[sol, "medium"]]);
+  assert.deepEqual(identities("scout"), [[luna, "max"]]);
   assert.deepEqual(identities("planner"), [[astra, "high"]]);
-  assert.deepEqual(identities("reducer"), [[astra, "low"]]);
-  assert.deepEqual(identities("builder"), [[astra, "medium"], [astra, "low"]]);
+  assert.deepEqual(identities("reducer"), [[sol, "medium"]]);
+  assert.deepEqual(identities("builder"), [[sol, "medium"], [astra, "medium"]]);
   assert.deepEqual(identities("foreman"), [[astra, "high"]]);
-  assert.deepEqual(identities("checker"), [[astra, "low"]]);
+  assert.deepEqual(identities("checker"), [[sol, "medium"]]);
   assert.deepEqual(identities("browser-verifier"), [[luna, "max"]]);
   assert.match(guide.models[astra].character, /advisor's own session model at xhigh/);
-  assert.match(guide.models[astra].character, /Fully locked execution packets use Astra low/);
-  assert.match(guide.models[astra].character, /Checker and reducer nodes use Astra low/);
+  assert.match(guide.models[astra].character, /Reserve medium for implementation.*materially ambiguous/);
+  assert.match(guide.models[sol].character, /regular workhorse at medium reasoning/);
+  assert.match(guide.models[luna].character, /scouting and browser-verification model at max reasoning/);
 });
 
 test("every guide provides a native-routable choice for every semantic role", async () => {

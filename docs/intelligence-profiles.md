@@ -104,7 +104,7 @@ The shipped locked-packet executors are:
 | Profile | Cheap executor |
 | --- | --- |
 | `codex-max` | Sol high |
-| `codex-lean` | Astra low |
+| `codex-lean` | Sol medium |
 | `balanced` | Sol high |
 | `anthropic-heavy` | Sol high while Codex capacity remains |
 | `grok-cycle` | Sonnet medium |
@@ -179,23 +179,22 @@ the detailed task and capacity guidance.
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Astra max (session guidance) |
-| planner | Astra max |
-| builder | Astra high (all decision-bearing work), Sol high (locked packet), Grok high |
+| advisor | Astra xhigh (session guidance) |
+| planner | Astra xhigh |
+| builder | Astra xhigh (all decision-bearing work), Sol high (locked packet), Grok high |
 | foreman | Astra xhigh |
 | checker | Sol xhigh, Sol high |
 | reducer | Sol xhigh |
-| scout | Sol high, Grok high |
-| browser-verifier | Sol high, Astra high |
+| scout | Luna max |
+| browser-verifier | Luna max |
 
-Astra (GPT-6) is the advisor session and planner model at max. Foremen use
-Astra xhigh. All Astra builders use high, including substantial implementation,
-bounded-judgment work, and every kind of UX work. Greenfield and existing UX
-both load `frontend-design`. Sol xhigh is the
+Astra (GPT-6) is the advisor, planner, foreman, and primary builder at
+xhigh, including substantial implementation and every kind of UX work.
+Greenfield and existing UX both load `frontend-design`. Sol xhigh is the
 fresh-context reviewer and reducer, including adversarial checks. Sol high is
-the procedural tier: scouting, browser verification, routine checks, and
-locked execution packets; it stops instead of making material product or
-architecture decisions. Grok stays as the capacity alternate for research and
+the procedural tier for routine checks and locked execution packets; it stops
+instead of making material product or architecture decisions. Luna max handles
+scouting and browser verification. Grok stays as the capacity alternate for
 bounded backend work. This profile recommends no Anthropic model.
 
 This split concentrates deeper reasoning on decisions that shape downstream
@@ -209,19 +208,19 @@ level or a worker's launch identity.
 | --- | --- |
 | advisor | Astra xhigh (session guidance) |
 | planner | Astra high |
-| builder | Astra medium, Astra low (fully locked packet) |
+| builder | Sol medium; Astra medium (ambiguous or wide breadth) |
 | foreman | Astra high |
-| checker | Astra low |
-| reducer | Astra low |
-| scout | Sol medium |
+| checker | Sol medium |
+| reducer | Sol medium |
+| scout | Luna max |
 | browser-verifier | Luna max |
 
-Astra xhigh is the advisor-session guidance; planner and foreman nodes use
-Astra high. Decision-bearing builders use Astra medium, while fully locked
-execution packets use Astra low for better token efficiency. Checker and
-reducer nodes use Astra low, Sol medium handles bounded scouting, and Luna max
-handles browser verification. Every mapped model is an OpenAI Codex model;
-the guide remains advisory rather than a runtime allowlist.
+Astra xhigh is the advisor-session guidance; planner and wide-breadth foreman
+nodes use Astra high. Sol medium is the regular builder, locked-packet executor,
+checker, and reducer. Reserve Astra medium for materially ambiguous or
+wide-breadth implementation. Luna max handles scouting and browser verification. Every mapped
+model is an OpenAI Codex model; the guide remains advisory rather than a runtime
+allowlist.
 
 ### `anthropic-heavy` — spend the 5-hour window deliberately
 
