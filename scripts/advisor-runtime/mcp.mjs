@@ -39,9 +39,13 @@ export function createMcpHandler(credential, facade = null) {
       let result;
       if (input.method === 'initialize') {
         requestFields(input.params, ['protocolVersion', 'capabilities', 'clientInfo']);
-        demand(['2024-11-05', '2025-03-26', '2025-06-18'].includes(input.params.protocolVersion), 'UNSUPPORTED_PROTOCOL');
+        const requested = input.params.protocolVersion;
+        const supported = ['2024-11-05', '2025-03-26', '2025-06-18'].includes(requested);
+        demand(supported || facade && typeof requested === 'string' && requested.length > 0 && requested.length <= 64, 'UNSUPPORTED_PROTOCOL');
+        // Stock MCP negotiates our latest supported version; the client decides compatibility.
+        const protocolVersion = supported ? requested : '2025-06-18';
         initialized = true;
-        result = { protocolVersion: input.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: facade ? 'meta-harness' : 'advisor-runtime', version: '1.0.0' } };
+        result = { protocolVersion, capabilities: { tools: {} }, serverInfo: { name: facade ? 'meta-harness' : 'advisor-runtime', version: '1.0.0' } };
       } else {
         demand(initialized, 'NOT_INITIALIZED');
         if (input.method === 'tools/list') {

@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
-import { createStockFacade, identifyStockRoot, stockConfig, stockError, stockTools } from '../scripts/advisor-runtime/stock-root.mjs';
+import { createStockFacade, identifyStockRoot, stockConfig, stockError, stockTools, stockInheritedEnv } from '../scripts/advisor-runtime/stock-root.mjs';
 import { bootstrapIdentity } from '../scripts/advisor-runtime/pi-detach-bootstrap.mjs';
 import { createMcpHandler, serveMcp } from '../scripts/advisor-runtime/mcp.mjs';
 
@@ -44,16 +44,43 @@ for (const host of ['codex', 'claude-code']) {
   test(`${host}: config is only a separately named fixed stdio member; no config writer`, t => {
     const f = fixture(t, host);
     const result = stockConfig(host, f.options.detachPath);
-    assert.doesNotMatch(result.text, /--tools|--permission|--danger|--allow|CODEX_HOME|HOME|sandbox|features|hooks|env|advisor_runtime/);
+    assert.doesNotMatch(result.text, /--tools|--permission|--danger|--allow|CODEX_HOME|HOME|sandbox|features|hooks|advisor_runtime/);
     const args = [resolve('scripts/advisor-runtime/stock-root.mjs'), 'mcp', host, f.options.detachPath];
     if (host === 'claude-code') assert.deepEqual(JSON.parse(result.text), { mcpServers: { meta_harness: { command: realpathSync(process.execPath), args } } });
-    else assert.equal(result.text, `[mcp_servers.meta_harness]\ncommand = ${JSON.stringify(realpathSync(process.execPath))}\nargs = ${JSON.stringify(args)}\n`);
+    else {
+      assert.equal(result.text, `[mcp_servers.meta_harness]\ncommand = ${JSON.stringify(realpathSync(process.execPath))}\nargs = ${JSON.stringify(args)}\nenv_vars = ${JSON.stringify(stockInheritedEnv)}\n`);
+      assert.deepEqual(stockInheritedEnv, ['HERDR_ENV', 'HERDR_PANE_ID', 'HERDR_TAB_ID', 'HERDR_WORKSPACE_ID', 'HERDR_SOCKET_PATH', 'HERDR_SESSION', 'PI_DETACH_NO_HERDR', 'PI_CODING_AGENT_DIR', 'PI_DETACH_AGENT_PROFILES', 'ADVISOR_RUNTIME_CANONICAL_OWNER', 'ADVISOR_BRIDGE_CHILD_STATE', 'ADVISOR_RUNTIME_DESCRIPTOR', 'PI_DETACH_RUNTIME_BRIDGE']);
+      const inherited = Object.fromEntries(stockInheritedEnv.filter(key => key in f.env).map(key => [key, f.env[key]]));
+      assert.equal(f.identify({ ...f.options, env: inherited }).nativeRoot.pane, f.env.HERDR_PANE_ID);
+      for (const key of ['ADVISOR_RUNTIME_CANONICAL_OWNER', 'ADVISOR_BRIDGE_CHILD_STATE', 'ADVISOR_RUNTIME_DESCRIPTOR', 'PI_DETACH_RUNTIME_BRIDGE']) {
+        assert.throws(() => f.identify({ ...f.options, env: { ...inherited, [key]: 'present' } }), /STOCK_WORKER_FORBIDDEN/);
+      }
+      assert.doesNotMatch(result.text, /env\s*=|w1:p1|OPENAI_API_KEY|ANTHROPIC_API_KEY/);
+    }
     const cli = spawnSync(process.execPath, [resolve('scripts/advisor-runtime/stock-root.mjs'), 'config', host, f.options.detachPath], { encoding: 'utf8', env: f.env });
     assert.equal(cli.status, 0, cli.stderr); assert.equal(cli.stdout, result.text);
     assert.equal(existsSync(join(f.options.cwd, '.codex')), false); assert.equal(existsSync(join(f.options.cwd, '.mcp.json')), false);
     assert.equal(existsSync(f.config.stateBase), false);
   });
 }
+
+test('native Claude version-labelled process still requires exact executable and ancestor identity', t => {
+  const f = fixture(t, 'claude-code');
+  f.info.foreground_processes[0].name = '2.1.266';
+  assert.equal(f.current().nativeRoot.pid, 21);
+  f.info.foreground_processes[0].argv0 = 'node';
+  assert.throws(f.current, /STOCK_ROOT_BINDING/);
+  f.info.foreground_processes[0].argv0 = 'claude';
+  assert.throws(() => identifyStockRoot(f.options, f.query, () => new Map()), /STOCK_ROOT_BINDING/);
+  f.info.foreground_processes.push({ ...f.info.foreground_processes[0], pid: 22 });
+  assert.throws(f.current, /STOCK_ROOT_BINDING/);
+  f.info.foreground_processes.pop();
+  for (const name of ['unrelated', null, undefined, 42, {}, ['2.1.266']]) {
+    f.info.foreground_processes[0].name = name;
+    assert.throws(f.current, /STOCK_ROOT_BINDING/);
+  }
+  assert.equal(existsSync(f.config.stateBase), false);
+});
 
 test('initialize, exact tool list, read-before-launch and reconnect are effect-free', async t => {
   const f = fixture(t);

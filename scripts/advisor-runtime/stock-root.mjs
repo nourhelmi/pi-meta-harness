@@ -95,7 +95,8 @@ export function identifyStockRoot({ host, cwd, env = process.env }, query = herd
   text(session.source, 256); text(session.value, 256);
   const processes = info.foreground_processes;
   demand(Array.isArray(processes) && processes.length > 0 && processes.length <= 64, 'STOCK_ROOT_BINDING');
-  const native = processes.filter(p => p && basename(p.argv0 ?? '') === kind && (p.name === kind || kind === 'claude' && p.name === 'node'));
+  // Native Claude labels its process with its release number; argv0 and ancestry still bind the executable.
+  const native = processes.filter(p => p && typeof p.name === 'string' && basename(p.argv0 ?? '') === kind && (p.name === kind || kind === 'claude' && (p.name === 'node' || /^\d+\.\d+\.\d+$/.test(p.name))));
   demand(native.length === 1, 'STOCK_ROOT_BINDING');
   const process = native[0];
   for (const pid of [info.shell_pid, info.foreground_process_group_id, process.pid]) integer(pid, 1);
@@ -183,13 +184,17 @@ export function createStockFacade({ host, detachPath, cwd = process.cwd(), env =
   } };
 }
 
+// Forward names, never captured values: every new pane supplies its own identity.
+// Include negative worker markers so Codex's MCP environment filter cannot erase them.
+export const stockInheritedEnv = ['HERDR_ENV', 'HERDR_PANE_ID', 'HERDR_TAB_ID', 'HERDR_WORKSPACE_ID', 'HERDR_SOCKET_PATH', 'HERDR_SESSION', 'PI_DETACH_NO_HERDR', 'PI_CODING_AGENT_DIR', 'PI_DETACH_AGENT_PROFILES', 'ADVISOR_RUNTIME_CANONICAL_OWNER', 'ADVISOR_BRIDGE_CHILD_STATE', 'ADVISOR_RUNTIME_DESCRIPTOR', 'PI_DETACH_RUNTIME_BRIDGE'];
+
 /** Prints one fixed stdio member, never writes native configuration or changes permissions/HOME. */
 export function stockConfig(host, detachPath, node = process.execPath) {
   demand(['codex', 'claude-code'].includes(host), 'STOCK_HOST_REQUIRED');
   demand(isAbsolute(detachPath) && existsSync(join(detachPath, 'src/execution-port.ts')), 'PI_DETACH_RUNTIME_MISSING');
   const command = realpathSync(node);
   const args = [fileURLToPath(import.meta.url), 'mcp', host, realpathSync(detachPath)];
-  return host === 'codex' ? { format: 'toml', text: `[mcp_servers.meta_harness]\ncommand = ${JSON.stringify(command)}\nargs = ${JSON.stringify(args)}\n` } : { format: 'json', text: JSON.stringify({ mcpServers: { meta_harness: { command, args } } }, null, 2) + '\n' };
+  return host === 'codex' ? { format: 'toml', text: `[mcp_servers.meta_harness]\ncommand = ${JSON.stringify(command)}\nargs = ${JSON.stringify(args)}\nenv_vars = ${JSON.stringify(stockInheritedEnv)}\n` } : { format: 'json', text: JSON.stringify({ mcpServers: { meta_harness: { command, args } } }, null, 2) + '\n' };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
