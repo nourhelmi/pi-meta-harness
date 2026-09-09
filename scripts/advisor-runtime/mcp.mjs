@@ -23,9 +23,18 @@ export function createMcpHandler(credential, facade = null) {
   let initialized = false;
   return async input => {
     const requestId = typeof input?.id === 'string' || Number.isSafeInteger(input?.id) ? input.id : null;
+    const cancelledNotification = facade && input?.jsonrpc === '2.0' && input?.method === 'notifications/cancelled' && !Object.hasOwn(input, 'id');
     try {
       fields(input, ['jsonrpc', 'method'], ['id', 'params']); demand(input.jsonrpc === '2.0', 'INVALID_JSONRPC');
       if (input.method === 'notifications/initialized') { demand(initialized && !Object.hasOwn(input, 'id'), 'INVALID_NOTIFICATION'); return null; }
+      if (facade && input.method === 'notifications/cancelled') {
+        demand(initialized && cancelledNotification, 'INVALID_NOTIFICATION');
+        requestFields(input.params, ['requestId', ...(Object.hasOwn(input.params ?? {}, 'reason') ? ['reason'] : [])]);
+        demand(typeof input.params.requestId === 'string' || Number.isSafeInteger(input.params.requestId), 'INVALID_NOTIFICATION');
+        demand(input.params.reason === undefined || typeof input.params.reason === 'string' && Buffer.byteLength(input.params.reason) <= LIMITS.text, 'INVALID_NOTIFICATION');
+        // Transport IDs never cancel durable work; only the explicit scoped tool can do that.
+        return null;
+      }
       demand(requestId !== null, 'REQUEST_ID_REQUIRED');
       let result;
       if (input.method === 'initialize') {
@@ -57,7 +66,11 @@ export function createMcpHandler(credential, facade = null) {
         } else throw new RuntimeError('METHOD_NOT_FOUND');
       }
       return { jsonrpc: '2.0', id: requestId, result };
-    } catch (error) { return { jsonrpc: '2.0', id: requestId, error: { code: -32600, message: error instanceof RuntimeError ? error.code : 'INVALID_REQUEST' } }; }
+    } catch (error) {
+      // A stock cancellation notification, including malformed params, receives no JSON-RPC response.
+      if (cancelledNotification) return null;
+      return { jsonrpc: '2.0', id: requestId, error: { code: -32600, message: error instanceof RuntimeError ? error.code : 'INVALID_REQUEST' } };
+    }
   };
 }
 

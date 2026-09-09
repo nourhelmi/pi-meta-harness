@@ -131,3 +131,78 @@ test('Meta portable install copies the stock skill; strict package has no new ma
   assert.match(readFileSync(resolve('scripts/meta-harness.mjs'), 'utf8'), /\["skills\/advisor-stock-entry", "skills\/advisor-stock-entry"\]/);
   assert.doesNotMatch(readFileSync(resolve('scripts/pack-advisor-native.mjs'), 'utf8'), /dependencies:.*(?:herdr|pi-detach)/);
 });
+
+for (const host of ['codex', 'claude-code']) {
+  test(`F1 ${host}: foreign session source is rejected before any effect`, async t => {
+    const f = fixture(t, host);
+    for (const source of ['herdr:pi', host === 'codex' ? 'herdr:claude' : 'herdr:codex', 'fixture']) {
+      f.agent.agent_session.source = source;
+      assert.throws(f.current, /STOCK_SESSION_REQUIRED/);
+      assert.deepEqual(await createStockFacade(f.options, f.identify).call('advisor_worker_launch', { commandId: 'no-source', prompt: 'No effect' }), { ok: false, error: 'STOCK_SESSION_REQUIRED' });
+      assert.equal(existsSync(f.config.stateBase), false);
+    }
+  });
+}
+
+test('F2 stock cancellation notifications are silent transport-only input; strict MCP is unchanged', async t => {
+  const f = fixture(t); const facade = createStockFacade(f.options, f.identify);
+  const handle = createMcpHandler(null, facade); await handle(init);
+  const cancelled = { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 2, reason: 'caller cancelled' } };
+  assert.equal(await handle(cancelled), null);
+  assert.equal(await handle({ ...cancelled, params: { requestId: 'stable-transport', _meta: { progressToken: 't' } } }), null);
+  // Even malformed notifications must not receive a JSON-RPC response or enter the facade.
+  assert.equal(await handle({ ...cancelled, params: { requestId: 2, runId: 'not-authority', reason: {} } }), null);
+  assert.ok((await handle({ ...cancelled, id: 3 })).error);
+  const strict = createMcpHandler(null); await strict(init);
+  assert.equal((await strict(cancelled)).error.message, 'REQUEST_ID_REQUIRED');
+  let output = ''; const sink = new Writable({ write(chunk, _, callback) { output += chunk; callback(); } });
+  const wire = [init, cancelled, { jsonrpc: '2.0', id: 4, method: 'tools/list', params: {} }].map(JSON.stringify).join('\n') + '\n';
+  await serveMcp(null, Readable.from([wire]), sink, createMcpHandler(null, facade));
+  assert.deepEqual(output.trim().split('\n').map(line => JSON.parse(line).id), [1, 4]);
+  assert.equal(f.queries(), 0); assert.equal(existsSync(f.config.stateBase), false);
+});
+
+for (const initialStatus of ['PASS', 'BLOCKED']) {
+  test(`F3 ${initialStatus}: next attempt invalidates public result at admission before dispatch`, async t => {
+    const { hostPiDetach } = await import('../scripts/advisor-runtime/pi-detach-host.mjs');
+    const { readCredential } = await import('../scripts/advisor-runtime/service.mjs');
+    const f = fixture(t); const launches = [];
+    const port = { version: 1, async prepare(params, sourceDirectory) {
+      return { v: 1, command: 'fixture', prompt: params.prompt, role: 'worker', runtime: 'fixture', model: 'fixture', thinking: 'none', maxTurns: null, requiredSkills: [], harness: 'native', keepAlive: true, label: 'fixture', resultDiscovery: null, resultPolicy: 'runtime-capture', sourceDirectory,
+        environment: { ADVISOR_RUNTIME_DESCRIPTOR: '', PI_DETACH_RUNTIME_BRIDGE: '', ADVISOR_BRIDGE_WORKER_DIR: sourceDirectory, ADVISOR_RUNTIME_CANONICAL_OWNER: '1' } };
+    }, async launch({ hooks, intent }) { launches.push({ hooks, intent }); hooks.recordHandle({ id: 'fixture-worker', session: 'fixture-session' }); return { async interrupt() {}, async readLive() { return 'fixture'; } }; } };
+    const stateRoot = join(f.base, 'state'); const credentialPath = join(stateRoot, 'pi.json');
+    const host = await hostPiDetach({ stateRoot, cwd: f.options.cwd, sessionId: 'fixture-root', credentialPath, port, keepAlive: false, managedIdentity: { rootHost: 'codex' } });
+    t.after(async () => { try { await host.service.close(); } catch {} });
+    const { token } = readCredential(credentialPath);
+    const request = async (action, payload) => { const r = await host.runtime.piDetachRequest(token, { v: 1, op: 'pi.detach', sessionId: 'fixture-root', action, payload }, 'model'); assert.equal(r.ok, true, JSON.stringify(r)); return r.value ?? r.receipt; };
+    const call = (toolCallId, params) => request('call', { tool: 'bg_agent', toolCallId, cwd: f.options.cwd, params });
+    const runId = (await call('first', { prompt: 'First result' })).runId;
+    await host.runtime.dispatch();
+    const oldText = `# Status\n${initialStatus}\nFirst attempt evidence.`;
+    writeFileSync(join(launches[0].intent.sourceDirectory, 'result.md'), oldText);
+    launches[0].hooks.settled('done', 'first output', 2);
+    assert.equal((await request('artifact', { runId, path: 'result.md' })).text, oldText);
+    const oldDeliveries = await request('wait', { runId, timeoutMs: 0 });
+    const tracePath = join(stateRoot, 'traces', `${runId}.jsonl`); const oldTrace = readFileSync(tracePath, 'utf8');
+    const next = { name: runId, prompt: 'Next attempt without any new result' };
+    await call('next', next); // Direct runtime admission deliberately does NOT auto-dispatch.
+    assert.equal(launches.length, 1);
+    const current = await request('get', { runId }); assert.equal(current.snapshot.attempt, 2); assert.equal(current.snapshot.state, 'running');
+    assert.equal((await request('artifact', { runId, path: 'result.md' })).text, '', 'old result is not current even before dispatch');
+    const canonical = host.runtime.execute(token, { v: 1, op: 'artifact.read', scope: current.snapshot.scope, payload: { path: 'result.md', offset: 3, maxBytes: 8 } }, 'model');
+    assert.deepEqual(canonical.value, { text: '', bytes: 0, nextOffset: 3, eof: true });
+    assert.equal(readFileSync(join(stateRoot, 'runs', runId, 'worker/result.md'), 'utf8'), oldText, 'admission need not destructively rewrite historical capture bytes');
+    assert.ok(readFileSync(tracePath, 'utf8').startsWith(oldTrace), 'prior trace records remain byte-identical');
+    const deliveries = await request('wait', { runId, timeoutMs: 0 });
+    for (const old of oldDeliveries) assert.deepEqual(deliveries.find(d => d.id === old.id), old);
+    await call('next', next); assert.equal(launches.length, 1, 'replay cannot dispatch');
+    await host.runtime.dispatch(); assert.equal(launches.length, 2);
+    assert.equal((await request('artifact', { runId, path: 'result.md' })).text, '', 'running next attempt cannot read prior capture');
+    launches[1].hooks.settled('done', 'empty second result', 4);
+    assert.equal((await request('get', { runId })).status, 'stalled', 'missing fresh result never inherits PASS');
+    assert.equal((await request('artifact', { runId, path: 'result.md' })).text, '');
+    for (const delivery of await request('wait', { runId, timeoutMs: 0 })) await request('ack', { runId, deliveryId: delivery.id });
+    await host.service.close();
+  });
+}

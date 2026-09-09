@@ -617,6 +617,11 @@ export class AdvisorRuntime {
     if (c.op === 'artifact.read' || c.op === 'log.read') {
       demand(c.scope.node !== 'root' || run.root, 'NODE_NOT_FOUND');
       demand(c.scope.node === 'root' || run.nodes[c.scope.node], 'NODE_NOT_FOUND');
+      const node = run.nodes[c.scope.node];
+      // Reply/task admission commits the next running attempt before dispatch. Its
+      // current result is not ready, even if the prior capture still exists on disk.
+      // Preserve historical bytes/events; only settlement makes a fresh capture current.
+      if (c.payload.path === 'result.md' && node?.packet.adapter === 'pi-detach' && node.snapshot.state === 'running') return { text: '', bytes: 0, nextOffset: c.payload.offset, eof: true };
       return boundedRead(this.#nodeDirectory(run.id, c.scope.node), c.payload.path, c.payload.maxBytes, c.payload.offset);
     }
     if (c.op === 'history') {

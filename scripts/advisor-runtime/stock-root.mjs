@@ -91,7 +91,7 @@ export function identifyStockRoot({ host, cwd, env = process.env }, query = herd
   demand(agent?.agent === kind && agent.pane_id === paneId && info?.pane_id === paneId, 'STOCK_ROOT_BINDING');
   text(agent.terminal_id, 256);
   const session = agent.agent_session;
-  demand(session && session.agent === kind && session.kind === 'id', 'STOCK_SESSION_REQUIRED');
+  demand(session && session.agent === kind && session.kind === 'id' && session.source === `herdr:${kind}`, 'STOCK_SESSION_REQUIRED');
   text(session.source, 256); text(session.value, 256);
   const processes = info.foreground_processes;
   demand(Array.isArray(processes) && processes.length > 0 && processes.length <= 64, 'STOCK_ROOT_BINDING');
