@@ -48,8 +48,12 @@ choose useful work, not to expand your scope or another role's write authority.
    your assigned work. Required evidence and material contract/threat context
    must still be read; do not open every linked log merely because it exists.
    Drill into source or raw output when coverage, provenance, a critical claim,
-   or a contradiction needs resolving. Stay inside your node and treat a
-   declared repair round as scoped to its enumerated findings.
+   or a contradiction needs resolving. A repair round focuses on the listed
+   delta and its blast radius, not a fresh whole-work audit. Fix necessary
+   in-scope defects under your role's authority; report unrelated discoveries.
+   The same graph node can span successive attempts of its owned worker run;
+   the parent refreshes current evidence after repair. A graphless task needs
+   no GRAPH block. Never treat an old attempt's PASS as current proof.
 6. Filesystem tools remain available. Follow the role skill's write boundaries;
    tool availability is not permission to edit product code or configuration.
 7. Distinguish obstacles from blockers. `Blocked` means exactly one of four
@@ -71,12 +75,16 @@ choose useful work, not to expand your scope or another role's write authority.
    or reference an existing durable artifact; do not paste them into the result
    or chat merely to demonstrate effort. Keep the exact reproducible invocation
    and necessary probe source available through a precise path/section locator.
+   Use absolute or directory-qualified evidence paths: a captured report may live
+   outside your working result directory, so "beside this result" is ambiguous.
    Record each distinct proof once with its producer, tested revision/surface,
    command/outcome, and limitations; Claims reference that proof instead of
    repeating it. One proof may support several criteria only when its coverage
    actually establishes each claim. Distinct executions retain separate outcomes
    and provenance even when the command is the same. Attribute inherited proof;
-   never present it as a new execution or independent verification.
+   never present it as a new execution or independent verification. When the
+   runtime captures an attempt, that immutable capture is the handoff; continue
+   writing only your assigned working result, not a prior captured artifact.
    Keep failures, missing proof, material findings, and limitations visible in
    the handoff, not buried behind a link. If a separate artifact is unavailable
    or forbidden by the packet, include the necessary proof inline rather than

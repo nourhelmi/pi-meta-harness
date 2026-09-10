@@ -90,7 +90,7 @@ test('initialize, exact tool list, read-before-launch and reconnect are effect-f
     const list = await handle({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
     assert.deepEqual(list.result.tools, stockTools);
     assert.equal(f.queries(), reconnect * 18);
-    assert.deepEqual(stockTools.map(t => t.name), ['launch', 'message', 'cancel', 'list', 'status', 'output', 'wait', 'ack', 'artifact', 'runtime_close'].map(n => `advisor_worker_${n}`));
+    assert.deepEqual(stockTools.map(t => t.name), ['launch', 'message', 'cancel', 'graph_evidence', 'list', 'status', 'output', 'wait', 'ack', 'artifact', 'runtime_close'].map(n => `advisor_worker_${n}`));
     for (const tool of stockTools) assert.equal(tool.inputSchema.additionalProperties, false);
     assert.deepEqual(stockTools[0].inputSchema.required, ['commandId', 'prompt']);
     assert.deepEqual(Object.keys(stockTools[0].inputSchema.properties), ['commandId', 'prompt', 'role', 'harness', 'model', 'thinking', 'maxTurns', 'anchor', 'acceptance', 'requiredSkills', 'keepAlive', 'cwd', 'label']);
@@ -222,7 +222,11 @@ for (const initialStatus of ['PASS', 'BLOCKED']) {
     assert.equal(readFileSync(join(stateRoot, 'runs', runId, 'worker/result.md'), 'utf8'), oldText, 'admission need not destructively rewrite historical capture bytes');
     assert.ok(readFileSync(tracePath, 'utf8').startsWith(oldTrace), 'prior trace records remain byte-identical');
     const deliveries = await request('wait', { runId, timeoutMs: 0 });
-    for (const old of oldDeliveries) assert.deepEqual(deliveries.find(d => d.id === old.id), old);
+    for (const { handoff: oldHandoff, ...old } of oldDeliveries) {
+      const { handoff, ...delivery } = deliveries.find(d => d.id === old.id);
+      assert.deepEqual(delivery, old); assert.equal(handoff.attempt, 2); assert.equal(handoff.result, null);
+      assert.equal(oldHandoff.attempt, 1);
+    }
     await call('next', next); assert.equal(launches.length, 1, 'replay cannot dispatch');
     await host.runtime.dispatch(); assert.equal(launches.length, 2);
     assert.equal((await request('artifact', { runId, path: 'result.md' })).text, '', 'running next attempt cannot read prior capture');
@@ -233,3 +237,54 @@ for (const initialStatus of ['PASS', 'BLOCKED']) {
     await host.service.close();
   });
 }
+
+for (const status of ['PASS', 'FAIL', 'BLOCKED', 'malformed', null]) test(`stock actual facade ${status} exposes captured handoff on launch replay, status and delivery`, async t => {
+  const { hostPiDetach } = await import('../scripts/advisor-runtime/pi-detach-host.mjs');
+  const { workspaceRoots } = await import('../scripts/advisor-runtime/pi-detach-bootstrap.mjs');
+  const f = fixture(t); const current = f.current(); const { identity, stateRoot } = bootstrapIdentity({ ...current, detachPath: f.options.detachPath, config: f.config }); const launches = [];
+  const port = { version: 1, async prepare(params, sourceDirectory) { return { v: 1, command: 'fixture', prompt: params.prompt, role: 'worker', runtime: 'fixture', model: 'fixture', thinking: 'none', maxTurns: null, requiredSkills: [], harness: 'native', keepAlive: true, label: 'fixture', resultDiscovery: null, resultPolicy: 'runtime-capture', sourceDirectory,
+    environment: { ADVISOR_RUNTIME_DESCRIPTOR: '', PI_DETACH_RUNTIME_BRIDGE: '', ADVISOR_BRIDGE_WORKER_DIR: sourceDirectory, ADVISOR_RUNTIME_CANONICAL_OWNER: '1' } }; },
+    async launch({ hooks, intent }) { launches.push({ hooks, intent }); hooks.recordHandle({ id: 'fixture', session: 'fixture' }); return { async interrupt(observer) { observer.settled('done', 'cancelled', 4); }, async readLive() { return ''; } }; }
+  };
+  const host = await hostPiDetach({ stateRoot, cwd: current.cwd, sessionId: current.sessionId, credentialPath: join(stateRoot, 'pi.json'), port, keepAlive: false, managedIdentity: identity });
+  writeFileSync(join(stateRoot, 'startup.json'), JSON.stringify({ identity, roots: workspaceRoots(current.cwd) }), { mode: 0o600 });
+  t.after(async () => { try { await host.service.close(); } catch {} });
+  const facade = createStockFacade(f.options, f.identify); const call = async (name, args) => { const result = await facade.call(`advisor_worker_${name}`, args); assert.equal(result.ok, true, JSON.stringify(result)); return result.value; };
+  const args = { commandId: 'first', prompt: 'Complete task' }; const { runId } = await call('launch', args); await host.runtime.dispatch();
+  const markdown = status === 'malformed' ? '???' : `# Status\n${status}\n# Claims\nClaim\n# Remaining Risk\nLimitation\n`;
+  if (status !== null) writeFileSync(join(launches[0].intent.sourceDirectory, 'result.md'), markdown);
+  launches[0].hooks.settled('done', 'captured', 2);
+  const state = await call('status', { runId }); const replay = await call('launch', args);
+  assert.equal(launches.length, 1); assert.equal(replay.result?.path, state.result?.path); assert.equal(state.result?.proof ?? 'unknown', 'unknown');
+  if (status !== null) {
+    assert.match(state.result.path, /result-1-[a-f0-9]{64}\.md$/); assert.equal(readFileSync(state.result.path, 'utf8'), markdown);
+    assert.equal((await call('artifact', { runId, path: state.result.file })).text, markdown);
+  } else assert.equal(state.result, null);
+  const deliveries = await call('wait', { runId, timeoutMs: 0 }); const settled = deliveries.find(d => d.kind === 'settled'); assert.equal(settled.result?.path, state.result?.path); assert.match(settled.reason, status === null ? /result-blank/ : /captured/);
+  const reconnected = createStockFacade(f.options, f.identify); assert.deepEqual((await reconnected.call('advisor_worker_wait', { runId, timeoutMs: 0 })).value, deliveries);
+  const graph = JSON.stringify({ graphId: 'handoff', nodes: [{ id: 'maker', task: 'Task', dependsOn: [] }, { id: 'checker', task: 'Review', dependsOn: ['maker'] }] });
+  assert.equal((await call('graph_evidence', { graph, node: 'maker', runId })).node.proof, 'unknown');
+  if (status === 'PASS') {
+    const input = await call('graph_evidence', { graph, node: 'maker' });
+    await call('message', { commandId: 'repair', runId, text: input.prompt }); await host.runtime.dispatch();
+    assert.equal((await call('graph_evidence', { graph, node: 'maker' })).node.reason, 'attempt changed');
+    const stale = await facade.call('advisor_worker_graph_evidence', { graph, node: 'maker', runId, attempt: 1 }); assert.equal(stale.ok, false);
+    const refreshed = await call('graph_evidence', { graph, node: 'maker', runId, attempt: 2 });
+    assert.equal(refreshed.node.boundAttempt, 2); assert.equal(refreshed.node.budget.used, 1);
+    assert.equal(refreshed.node.history[0].result.path, state.result.path); assert.equal(refreshed.node.history[0].result.proof, 'unknown');
+    writeFileSync(join(launches[1].intent.sourceDirectory, 'result.md'), markdown);
+    launches[1].hooks.settled('done', 'repaired', 4);
+    const supplied = await call('graph_evidence', { graph, node: 'checker' });
+    const reviewer = await call('launch', { commandId: 'review', prompt: supplied.prompt }); await host.runtime.dispatch();
+    assert.equal(launches[2].intent.prompt, supplied.prompt);
+    writeFileSync(join(launches[2].intent.sourceDirectory, 'result.md'), markdown); launches[2].hooks.settled('done', 'reviewed', 2);
+    const linked = await call('graph_evidence', { graph, node: 'checker', runId: reviewer.runId });
+    assert.equal(linked.node.consumedInputs[0].attempt, 2);
+    const successor = await facade.call('advisor_worker_graph_evidence', { graph, node: 'maker', runId: reviewer.runId, attempt: 1, replacesRunId: runId, replacesAttempt: 2 });
+    assert.deepEqual(successor, { ok: false, error: 'GRAPH_OWNERSHIP_UNRESOLVED' });
+    for (const delivery of await call('wait', { runId: reviewer.runId, timeoutMs: 0 })) await call('ack', { runId: reviewer.runId, deliveryId: delivery.id });
+  }
+  for (const delivery of await call('wait', { runId, timeoutMs: 0 })) await call('ack', { runId, deliveryId: delivery.id });
+  if (status === 'BLOCKED') { await call('cancel', { commandId: 'cancel', runId }); await host.runtime.dispatch(); for (const delivery of await call('wait', { runId, timeoutMs: 0 })) await call('ack', { runId, deliveryId: delivery.id }); }
+  await host.service.close();
+});

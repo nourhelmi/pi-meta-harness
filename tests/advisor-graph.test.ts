@@ -275,3 +275,28 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
     await rm(temp, { recursive: true, force: true });
   }
 });
+
+test('graph evidence tool forwards the saved plan through the public bridge bus and fences foreign owners', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'graph-evidence-')); const old = process.env.ADVISOR_STATE_DIR; process.env.ADVISOR_STATE_DIR = dir;
+  t.after(async () => { if (old === undefined) delete process.env.ADVISOR_STATE_DIR; else process.env.ADVISOR_STATE_DIR = old; await rm(dir, { recursive: true, force: true }); });
+  const { mkdir } = await import('node:fs/promises'); await mkdir(join(dir, 'graphs'));
+  const plan = { graphId: 'flow', advisorSessionId: 'owner', nodes: [{ id: 'maker', task: 'Implement', role: 'builder' }, { id: 'checker', task: 'Close gaps', role: 'checker', dependsOn: ['maker'] }] };
+  await writeFile(join(dir, 'graphs/flow.json'), JSON.stringify(plan));
+  let tool: GraphTool | undefined; const requests: any[] = [];
+  advisorGraphExtension({ registerTool(candidate: GraphTool) { if (candidate.name === 'advisor_graph_evidence') tool = candidate; }, events: { emit(name: string, request: any) { assert.equal(name, 'pi-detach:request'); requests.push(request); request.response = Promise.resolve({ prompt: 'Close gaps plus upstream evidence', dependencies: [{ proof: 'unknown' }] }); } } } as unknown as ExtensionAPI);
+  const ctx = (sessionId: string) => ({ cwd: dir, sessionManager: { getSessionId: () => sessionId } }) as unknown as ExtensionContext;
+  const result = await tool!.execute('evidence', { graphId: 'flow', node: 'checker' }, undefined, undefined, ctx('owner'));
+  assert.match(resultText(result), /upstream evidence/); assert.equal(requests.length, 1); assert.deepEqual(requests[0].payload.graph.nodes[0], { id: 'maker', task: 'Implement', dependsOn: [] });
+  await assert.rejects(tool!.execute('foreign', { graphId: 'flow', node: 'checker' }, undefined, undefined, ctx('foreign')), /different advisor/); assert.equal(requests.length, 1);
+  await tool!.execute('refresh', { graphId: 'flow', node: 'maker', runId: 'run', attempt: 2 }, undefined, undefined, ctx('owner'));
+  assert.equal(requests[1].payload.attempt, 2); assert.equal(requests[1].payload.runId, 'run');
+  assert.equal(requests[1].payload.graph.maxRepairLoops, 2);
+  assert.equal(requests[1].payload.graph.contract, requests[0].payload.graph.contract);
+  await writeFile(join(dir, 'graphs/flow.json'), JSON.stringify({ ...plan, maxRepairLoops: 1, nodes: plan.nodes.map(node => ({ ...node, acceptance: ['New contract'] })) }));
+  await tool!.execute('changed', { graphId: 'flow', node: 'maker' }, undefined, undefined, ctx('owner'));
+  assert.notEqual(requests[2].payload.graph.contract, requests[1].payload.graph.contract);
+  assert.equal(requests[2].payload.graph.maxRepairLoops, 1);
+  await tool!.execute('successor', { graphId: 'flow', node: 'maker', runId: 'next', attempt: 1, replacesRunId: 'run', replacesAttempt: 2 }, undefined, undefined, ctx('owner'));
+  assert.equal(requests[3].payload.replacesRunId, 'run'); assert.equal(requests[3].payload.replacesAttempt, 2);
+  assert.equal(requests[3].payload.runId, 'next'); assert.equal(requests[3].payload.attempt, 1);
+});

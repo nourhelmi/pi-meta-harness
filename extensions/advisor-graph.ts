@@ -247,14 +247,14 @@ function validateMakers(
 	allowParallelBuilders: boolean,
 ): void {
 	for (const wave of waves) {
-		const makers = wave.map((id) => byId.get(id)).filter((node) => MAKER_ROLES.has(node?.role ?? ""));
+    const makers = wave.map((id) => byId.get(id)).filter((node) => MAKER_ROLES.has(node?.role ?? "") || node?.role === "checker");
 		if (makers.length < 2) continue;
 		if (!allowParallelBuilders) {
-			throw new Error("Parallel builders or foremen require explicit user approval and allowParallelBuilders=true");
+      throw new Error("Parallel builders or foremen require explicit user approval and allowParallelBuilders=true");
 		}
 		const worktrees = makers.map((node) => node?.worktree).filter((path): path is string => Boolean(path));
 		if (worktrees.length !== makers.length || new Set(worktrees).size !== makers.length) {
-			throw new Error("Parallel builders or foremen require distinct explicit worktrees");
+      throw new Error("Parallel builders or foremen require distinct explicit worktrees");
 		}
 	}
 }
@@ -323,6 +323,33 @@ async function planGraph(params: GraphParams, ctx: ExtensionContext): Promise<Ag
 }
 
 export default function advisorGraphExtension(pi: ExtensionAPI): void {
+  pi.registerTool({
+    name: "advisor_graph_evidence",
+    label: "Graph evidence",
+    description: "Bind or refresh an owned outcome attempt. Pass the returned prompt unchanged within the next launch/reply: admission captures its exact input lineage. Current output may supersede historical failed checks. For an explicit successor supply runId/attempt plus replacesRunId/replacesAttempt after prior ownership resolves; history and budgets remain. Never launches or verifies work.",
+    parameters: Type.Object({ graphId: Type.String({ pattern: "^[a-z][a-z0-9-]{0,47}$" }), node: Type.String(), runId: Type.Optional(Type.String()), attempt: Type.Optional(Type.Integer({ minimum: 1 })), replacesRunId: Type.Optional(Type.String()), replacesAttempt: Type.Optional(Type.Integer({ minimum: 1 })) }),
+    async execute(_id, params, _signal, _update, ctx) {
+      if (!GRAPH_IDENTIFIER.test(params.graphId)) throw new Error("Malformed graph id");
+      const path = join(await advisorStateRoot(ctx.cwd), "graphs", `${params.graphId}.json`);
+      const info = await stat(path); if (info.size > 32768) throw new Error("Graph manifest exceeds bound");
+      let plan;
+      try { plan = JSON.parse(await readFile(path, "utf8")); }
+      catch (cause) { throw new Error("Graph manifest is unreadable or malformed; recover the accepted plan before binding evidence", { cause }); }
+      if (plan.advisorSessionId !== ctx.sessionManager.getSessionId()) throw new Error("Graph belongs to a different advisor session");
+      const request: { sessionId: string; action: string; payload: object; response?: Promise<unknown> } = {
+        sessionId: ctx.sessionManager.getSessionId(), action: "graph.evidence",
+        payload: { graph: { graphId: plan.graphId, advisorSessionId: plan.advisorSessionId, maxRepairLoops: plan.maxRepairLoops ?? 2,
+          contract: createHash("sha256").update(JSON.stringify({ ...plan, createdAt: undefined, warnings: undefined })).digest("hex"),
+          nodes: plan.nodes.map((node: GraphNode) => ({ id: node.id, task: node.task, dependsOn: node.dependsOn ?? [] })) },
+          node: params.node, ...(params.runId ? { runId: params.runId } : {}), ...(params.attempt !== undefined ? { attempt: params.attempt } : {}),
+          ...(params.replacesRunId !== undefined ? { replacesRunId: params.replacesRunId } : {}), ...(params.replacesAttempt !== undefined ? { replacesAttempt: params.replacesAttempt } : {}) },
+      };
+      pi.events.emit("pi-detach:request", request);
+      if (!request.response) throw new Error("Managed pi-detach runtime is required for evidence; plan remains unchanged");
+      const evidence = await request.response;
+      return { content: [{ type: "text", text: JSON.stringify(evidence) }], details: { manifestPath: path, evidence } };
+    },
+  });
 	pi.registerTool({
 		name: "advisor_graph_plan",
 		label: "Advisor Graph",

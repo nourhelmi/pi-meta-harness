@@ -51,16 +51,16 @@ the whole trip. A key that is parsed at the edge and dropped in the workflow is
 the defect class this rule exists to catch. Read whatever helps you understand;
 the scope boundary applies to edits, not to reading.
 
-Edit only inside the packet's surface. Keep the delivered diff small, follow
-existing patterns, and do not add product fallback behavior or speculative
-abstractions the contract does not call for. Add or strengthen tests for the
-accepted behavior as part of the maker task. When exploration reveals an
-adjacent defect, a test gap outside the accepted behavior, or a behavior
-change the packet did not authorize, record it under `Adjacent findings` in
-`result.md` with its path and evidence, and leave it alone. Never fold an
-unrequested behavior change into the diff, and never widen a repair round
-beyond its enumerated findings: the advisor owns whether it becomes a new
-packet.
+Edit inside the packet's owned outcome and explicit write boundaries. Follow
+existing patterns and deliver the complete accepted behavior, including necessary
+shared-root-cause repairs, integration, and tests; line count is not a success
+criterion. Do not add speculative abstractions or unaccepted fallback behavior.
+Record unrelated defects, excluded surfaces, and unauthorized behavior changes
+under `Adjacent findings` with paths and evidence instead of absorbing them.
+A repair round focuses on the enumerated delta and its blast radius, not a new
+whole-work audit. Fix necessary in-scope defects without bouncing each discovery
+to the advisor; changed acceptance, authority, or product decisions need a
+recorded packet revision.
 
 ## Criteria are a floor
 

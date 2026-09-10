@@ -60,6 +60,8 @@ const GENERATED_SKILL_FILES = new Map([
 const PORTABLE_COPY_ENTRIES = [
   ["extensions/advisor-graph.ts", "extensions/advisor-graph.ts"],
   ["extensions/advisor-session.ts", "extensions/advisor-session.ts"],
+  ["extensions/advisor-memory.ts", "extensions/advisor-memory.ts"],
+  ["third-party/gentle-engram", "third-party/gentle-engram"],
   ["extensions/advisor-worker.ts", "extensions/advisor-worker.ts"],
   ["extensions/advisor-pi-host.ts", "extensions/advisor-pi-host.ts"],
   ["extensions/advisor-runtime.ts", "extensions/advisor-runtime.ts"],
@@ -788,7 +790,7 @@ async function repositorySecurityErrors() {
   for (const file of await repositoryFilesForSecurityScan()) {
     const relativePath = relative(ROOT, file);
     const portablePath = relativePath.split(sep).join("/");
-    if (relativePath.startsWith(`.git${sep}`) || relativePath.includes(`${sep}node_modules${sep}`)) continue;
+    if (relativePath === "node_modules" || relativePath.endsWith(`${sep}node_modules`) || relativePath.startsWith(`.git${sep}`) || relativePath.includes(`${sep}node_modules${sep}`)) continue;
     if (FORBIDDEN_REPOSITORY_PREFIXES.some((prefix) => portablePath.startsWith(prefix))) {
       errors.push(`Forbidden runtime-state path: ${portablePath}`);
     }
@@ -902,6 +904,13 @@ async function doctor(options) {
 
   const overlay = await readJson(join(ROOT, "config", "settings.overlay.json"), {});
   const settings = await readJson(join(target, "settings.json"), {});
+  for (const entry of [...(settings.extensions ?? []), ...(settings.packages ?? [])]) {
+    const source = packageSource(entry);
+    if (typeof source === 'string' && !/^[!-]/.test(source) && /(?:^|[/:\\\\])gentle-engram(?:$|[/@.\\\\])/.test(source)
+      && !(typeof entry === 'object' && Array.isArray(entry.extensions) && entry.extensions.length === 0)) {
+      errors.push(`Duplicate Engram activation conflicts with advisor-memory: ${source}. Disable this explicit activation before reloading; only the managed wrapper should load.`);
+    }
+  }
   const installedIds = new Set((settings.packages ?? []).map(packageIdentity));
   const installedSources = new Set((settings.packages ?? []).map(packageSource));
   for (const entry of overlay.packages ?? []) {

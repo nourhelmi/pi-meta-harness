@@ -32,8 +32,10 @@ waves:
 1. Launch every independent node in the current wave as parallel `bg_agent`
    calls in one turn.
 2. Wait for completion notifications; never poll.
-3. Read bounded `result.md` artifacts, not pane transcripts or raw evidence.
-4. Do not launch a dependent wave until all required upstream nodes passed.
+3. Read the returned handoff and relevant captured proof, not pane transcripts.
+4. Start a dependent node when the inputs its task actually needs are available.
+   A repair or review can consume an evidenced FAIL; do not pretend the upstream
+   implementation passed. Delivery still requires satisfied acceptance and review.
 5. Preserve maker/checker independence for implementation review. Baseline
    browser investigation may precede any builder, and a checker may perform a
    bounded audit without one. Post-change browser verification is equally
@@ -57,18 +59,55 @@ waves:
 8. Parallel builders or foremen require explicit user approval and distinct
    worktrees.
 
+## Carry evidence with the outcome
+
+A graph node represents an accepted outcome, not a single model turn or repair
+attempt. `advisor_graph_plan` records the plan; the managed runtime's
+`advisor_graph_evidence` associates a node with an owned worker run/attempt and
+projects its current evidence. These are different responsibilities, not two
+execution engines.
+
+- After launching, bind `{graphId, node, runId}` with `advisor_graph_evidence`.
+- Before downstream work, query `{graphId, node: downstreamId}` and use its
+  returned task/evidence prompt with the ordinary launch tool. Supply the same
+  accepted criteria, ownership and safety boundaries; the prompt is not a grant.
+  Keep the returned block and its input token intact when adding task context.
+  Launch/reply admission records what was supplied, so binding later cannot replace
+  consumed inputs with a newer upstream attempt. No token means unknown lineage,
+  not a reason to create a graph for ordinary work.
+- For a repair on the same kept worker, retain the graph/node/run and explicitly
+  refresh its association to the current attempt. Keep old attempt captures
+  attributable, invalidate stale current proof, and preserve repair budgets.
+  A checker may consume an evidenced failure and supersede its source checks with
+  valid current output. Historical inputs must remain intact and attributable,
+  not currently green. Changed input identities still invalidate stale claims.
+- If the original worker cannot continue and its ownership is resolved, explicitly
+  succeed it on the same outcome: bind the new `runId`/`attempt` with
+  `replacesRunId`/`replacesAttempt`. This uses one repair slot, retains history and
+  refuses active, cancel-pending, uncertain or multiply-bound prior ownership.
+  It never launches a replacement. Changed acceptance still needs a revised contract.
+- Query again after repair, reload or a relevant source/environment change.
+  Copied checkpoint summaries are evidence locators, not a source of current truth.
+  `reported` evidence can be inspected and reused with its producer and limits;
+  `unknown` or stale proof never becomes verified merely because a worker says PASS.
+  Trusted host checks attest only the invocation/surface they actually covered.
+- One maker without a real dependency graph uses the normal handoff directly.
+  Do not create a graph just to record a result or justify a repair.
+
 No driver script may spawn LLMs. The advisor directly owns every visible graph
 node and its cost.
 
 ## The `GRAPH:` block
 
-When a launch belongs to a graph or a repair loop, include the fixed block
-`GRAPH:` followed by indented `graph`, `node`, `wave`, and optional `repair`,
-comma-separated `upstream`, and comma-separated `downstream` key-value lines,
-ending at a blank line. Keep the risk tier in the packet so workers act on
-their position instead of rediscovering it. Workers parse the block, read the
-upstream claim summaries relevant to their node, and treat a declared repair
-round as scoped to its enumerated findings.
+For a real graph, retain a `GRAPH:` block when the host's existing trace
+correlation requires it: indented `graph`, `node`, `wave`, optional `repair`,
+comma-separated `upstream` and `downstream`, ending at a blank line. This is a
+trace label, not the evidence association or a second result report. The managed
+graph-evidence call supplies the dependency context; do not reconstruct it by
+copying raw worker transcripts. A graphless repair does not require this block.
+Keep the risk tier, assigned findings and write ownership in the packet. Focus a
+repair review on the changed delta, while fixing any qualifying in-scope defect
+it reveals rather than starting a fresh full audit.
 
 ## Foreman detail
 

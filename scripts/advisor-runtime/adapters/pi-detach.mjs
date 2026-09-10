@@ -37,15 +37,19 @@ export function createPiDetachAdapter(port) {
         context.assertActive();
         // Escape is the only input. The node stays cancel-pending until Herdr
         // shows the same occupant settled afterwards; process exit stays unclaimed.
+        let cancelled = false;
         await live.driver.interrupt({
           settled(state, output, generation) {
             context.assertActive();
+            if (cancelled) return;
+            context.assertSettlement(live.handle.id, generation, true);
             atomicWrite(join(context.artifactDirectory, 'output.log'), output.slice(-32768));
             captureResult(live.intent, context);
             emit({ id: `${effect.id}-cancelled`, kind: 'settled', attempt: effect.attempt, data: {
               observation: { handleId: live.handle.id, generation },
               status: 'cancelled', reason: `Escape delivered; the agent settled ${state} in its pane; process exit unconfirmed`, verified: false,
             } });
+            cancelled = true;
           },
           // The turn settled naturally before cancellation began: nothing to emit, no Escape was sent.
           superseded() {},
@@ -70,7 +74,7 @@ export function createPiDetachAdapter(port) {
         const grant = join(childState, 'child-grant.json');
         if (!existsSync(grant)) writeFileSync(grant, JSON.stringify({ v: 1, cwd: context.cwd, stateRoot: childState }), { flag: 'wx', mode: 0o600 });
       }
-      let boundHandle;
+      let boundHandle; let settlement;
       const driver = await port.launch({ id: effect.scope.run, cwd: context.cwd, intent,
         ...(effect.op !== 'node.launch' ? { reply: effect.payload.text } : {}),
         hooks: {
@@ -81,20 +85,22 @@ export function createPiDetachAdapter(port) {
           recoveryRequired: context.recoveryRequired,
           settled(state, output, generation) {
             context.assertActive();
+            if (settlement) return settlement;
+            context.assertSettlement(boundHandle?.id, generation);
             atomicWrite(join(context.artifactDirectory, 'output.log'), output.slice(-32768));
             const validation = captureResult(intent, context);
             // Actual terminal UI blocking has no typed safe reply. Artifact
             // BLOCKED from a settled turn is classified by the core itself.
             emit({ id: `${effect.id}-settled`, kind: 'settled', attempt: effect.attempt, data: {
               observation: { handleId: boundHandle.id, generation },
-              status: /^FAIL(?:ED)?\b/i.test(validation?.status ?? '') ? 'failed' : state === 'done' || state === 'idle' ? 'done' : 'stalled',
+              status: state === 'done' || state === 'idle' ? /^FAIL(?:ED)?\b/i.test(validation?.status ?? '') ? 'failed' : 'done' : 'stalled',
               reason: state === 'blocked' ? 'Herdr UI requires direct inspection; typed reply unavailable' : 'Herdr turn settled; authoritative result captured', verified: false,
             } });
             const terminal = Boolean(['done', 'idle'].includes(state) && validation?.valid && validation.classification === 'terminal');
             // A finished, not-kept foreman no longer needs its reserved child service.
             // Refusal (active or unacknowledged child work) is retried at parent shutdown.
             if (terminal && !intent.keepAlive && childState) void closeChildService(childState).catch(() => {});
-            return {
+            return settlement = {
               terminal: !(['done', 'idle'].includes(state) && validation?.valid && validation.classification === 'blocked'),
               close: terminal && !/^FAIL(?:ED)?\b/i.test(validation.status ?? ''),
             };

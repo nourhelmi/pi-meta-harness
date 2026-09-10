@@ -85,6 +85,14 @@ export function resultStatusLine(markdown) {
   return statusInfo(markdown)?.status;
 }
 
+/** Bounded projection using the same labels and section boundaries as validation. */
+export function resultSectionBody(markdown, name, maxChars = 1200) {
+  const lines = markdown.split(/\r?\n/); const allMarkers = markers(lines);
+  const marker = allMarkers.find(candidate => candidate.section === name);
+  if (!marker) return '';
+  return [marker.inline, ...prose(lines.slice(marker.index + 1, markerEnd(allMarkers, marker, lines.length)))].filter(Boolean).join('\n').slice(0, maxChars);
+}
+
 /** Bounded first-line summaries of bullets and paragraphs in the Deviations section. */
 export function resultDeviations(markdown) {
   const lines = markdown.split(/\r?\n/);

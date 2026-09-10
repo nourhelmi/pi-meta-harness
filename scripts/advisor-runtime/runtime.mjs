@@ -1,11 +1,13 @@
 import { DatabaseSync } from 'node:sqlite';
 import { EventEmitter } from 'node:events';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { closeSync, existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { admitCommand } from '../advisor-core/command-admission.mjs';
 import { canonicalJson } from '../advisor-core/command-contract.mjs';
 import { validateResultArtifact, resultStatusBody } from '../advisor-core/result-artifact.mjs';
+import { reportSummary, contentSurface, sameSurface } from './evidence.mjs';
 import { validateTrace } from '../advisor-trace.mjs';
 import { OPERATIONS, WORKER_OPERATIONS, LIMITS, fields, integer, parseEnvelope, text, validatePacket } from './contract.mjs';
 import { RuntimeError, acquireLock, atomicWrite, boundedRead, demand, disjointControlPath, id, privateDirectory, safeFile, within, withRunOwnership } from './security.mjs';
@@ -72,6 +74,8 @@ export class AdvisorRuntime {
         CREATE TABLE IF NOT EXISTS control_directories (path TEXT PRIMARY KEY);
         CREATE TABLE IF NOT EXISTS scope_grants (principal TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(principal,data));
         CREATE TABLE IF NOT EXISTS pi_bindings (id TEXT PRIMARY KEY, principal TEXT NOT NULL, digest TEXT NOT NULL, data TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS graph_evidence (principal TEXT NOT NULL, graph TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(principal,graph));
+        CREATE TABLE IF NOT EXISTS input_snapshots (principal TEXT NOT NULL, token TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(principal,token));
         CREATE TABLE IF NOT EXISTS bootstrap (singleton INTEGER PRIMARY KEY CHECK(singleton=1), digest TEXT NOT NULL);`);
       for (const row of this.#all('SELECT path FROM control_paths')) this.#controlPaths.add(disjointControlPath(row.path, this.#allowedRoots));
       for (const row of this.#all('SELECT path FROM control_directories')) this.#controlDirectories.add(disjointControlPath(row.path, this.#allowedRoots));
@@ -221,6 +225,114 @@ export class AdvisorRuntime {
         demand(run.nodes.worker, 'BRIDGE_RECOVERY_REQUIRED');
         return { binding, run, node: run.nodes.worker };
       };
+      if (c.action === 'graph.evidence') {
+        fields(p, ['graph', 'node'], ['runId', 'attempt', 'replacesRunId', 'replacesAttempt']);
+        if (p.replacesRunId !== undefined) { id(p.replacesRunId); integer(p.replacesAttempt, 1); demand(p.runId !== undefined && p.attempt !== undefined, 'GRAPH_SUCCESSOR_IDENTITY_REQUIRED'); }
+        else demand(p.replacesAttempt === undefined, 'GRAPH_SUCCESSOR_IDENTITY_REQUIRED');
+        const graph = p.graph; fields(graph, ['graphId', 'advisorSessionId', 'nodes'], ['contract', 'maxRepairLoops']);
+        id(graph.graphId); demand(graph.advisorSessionId === c.sessionId, 'GRAPH_OWNER_MISMATCH');
+        if (graph.contract !== undefined) text(graph.contract, 24000);
+        const maxRepairLoops = graph.maxRepairLoops ?? 2; integer(maxRepairLoops, 0, 3);
+        if (p.attempt !== undefined) { integer(p.attempt, 1); demand(p.runId !== undefined, 'INVALID_GRAPH'); }
+        demand(Array.isArray(graph.nodes) && graph.nodes.length > 0 && graph.nodes.length <= 24, 'INVALID_GRAPH');
+        const names = new Set();
+        for (const node of graph.nodes) { fields(node, ['id', 'task', 'dependsOn']); id(node.id); text(node.task); demand(!names.has(node.id), 'INVALID_GRAPH'); names.add(node.id); }
+        for (const node of graph.nodes) { demand(Array.isArray(node.dependsOn) && node.dependsOn.length <= 12 && new Set(node.dependsOn).size === node.dependsOn.length && node.dependsOn.every(dep => names.has(dep) && dep !== node.id), 'INVALID_GRAPH'); }
+        const visited = new Set(); const visiting = new Set();
+        const visit = name => { demand(!visiting.has(name), 'GRAPH_CYCLE_OR_ORDER'); if (visited.has(name)) return; visiting.add(name); graph.nodes.find(node => node.id === name).dependsOn.forEach(visit); visiting.delete(name); visited.add(name); };
+        graph.nodes.forEach(node => visit(node.id));
+        const target = graph.nodes.find(node => node.id === p.node); demand(target, 'INVALID_GRAPH');
+        return this.#transaction(() => {
+          const previous = this.#one('SELECT data FROM graph_evidence WHERE principal=? AND graph=?', principal, graph.graphId);
+          demand(previous || this.#one('SELECT COUNT(*) AS count FROM graph_evidence WHERE principal=?', principal).count < 128, 'GRAPH_LIMIT');
+          const record = previous ? decode(previous.data) : { digest: hash(canonicalJson(graph)), links: {} };
+          demand(record.digest === hash(canonicalJson(graph)), 'GRAPH_CHANGED');
+          record.maxRepairLoops = maxRepairLoops;
+          const linked = name => Object.hasOwn(record.links, name) ? record.links[name] : null;
+          const inputs = name => {
+            const ancestors = new Set();
+            const collect = name => { for (const dep of graph.nodes.find(node => node.id === name).dependsOn) if (!ancestors.has(dep)) { ancestors.add(dep); collect(dep); } };
+            collect(name);
+            return [...ancestors].sort().map(dep => {
+              const link = linked(dep); const current = link ? owned(link.runId).node : null;
+              return { node: dep, runId: link?.runId ?? null, attempt: current?.snapshot.attempt ?? null,
+                result: current && link?.attempt === current.snapshot.attempt && current.result?.attempt === current.snapshot.attempt ? current.result.sha256 : null };
+            });
+          };
+          if (p.runId !== undefined) {
+            const { node } = owned(p.runId); const prior = linked(p.node);
+            const successor = prior && prior.runId !== p.runId;
+            if (successor) {
+              demand(p.replacesRunId === prior.runId && p.replacesAttempt === prior.attempt, 'GRAPH_NODE_ALREADY_BOUND');
+              const old = owned(prior.runId);
+              demand(old.node.snapshot.attempt === prior.attempt, 'ATTEMPT_MISMATCH');
+              demand(old.node.snapshot.state === 'terminal' && old.node.runtimeState !== 'recovery-required' && !this.#pending(old.run, 'worker')
+                && (['done', 'failed', 'cancelled'].includes(old.node.status) || old.node.processExited !== undefined)
+                && (!(old.node.handle?.pid || old.node.handle?.requiresExit || old.node.packet.execution?.keepAlive) || old.node.processExited !== undefined), 'GRAPH_OWNERSHIP_UNRESOLVED');
+              demand(this.#repairCount(prior) + 1 + this.#repairCount({ runId: p.runId, firstAttempt: 1 }) <= maxRepairLoops, 'GRAPH_REPAIR_LIMIT');
+              const allLinks = this.#all('SELECT data FROM graph_evidence').flatMap(row => Object.values(decode(row.data).links));
+              demand(allLinks.filter(link => link.runId === prior.runId).length === 1, 'GRAPH_OWNERSHIP_AMBIGUOUS');
+              demand(!allLinks.some(link => link.runId === p.runId || (link.previous ?? []).some(old => old.runId === p.runId)), 'GRAPH_SUCCESSOR_ALREADY_USED');
+            } else if (p.replacesRunId !== undefined) {
+              demand(prior?.previous?.at(-1)?.runId === p.replacesRunId && prior.previous.at(-1).attempt === p.replacesAttempt, 'GRAPH_SUCCESSOR_IDENTITY_REQUIRED');
+            }
+            demand(p.attempt === undefined || p.attempt === node.snapshot.attempt, 'ATTEMPT_MISMATCH');
+            demand(!prior || successor || prior.attempt <= node.snapshot.attempt, 'ATTEMPT_MISMATCH');
+            // Binding reads immutable admission data, never the dependencies visible now.
+            if (!prior || successor || prior.attempt !== node.snapshot.attempt) {
+              const consumed = (node.consumedInputs ?? []).find(input => input.graph === graph.graphId && input.digest === record.digest && input.node === p.node);
+              if (node.consumedInputs?.length) demand(consumed, 'GRAPH_INPUT_MISATTRIBUTED');
+              record.links[p.node] = {
+                runId: p.runId, attempt: node.snapshot.attempt,
+                firstAttempt: successor ? 1 : prior?.firstAttempt ?? prior?.attempt ?? node.snapshot.attempt,
+                inputs: consumed?.inputs ?? (target.dependsOn.length ? null : []),
+                captures: consumed?.captures ?? [],
+                previous: successor ? [...(prior.previous ?? []), Object.fromEntries(Object.entries(prior).filter(([key]) => key !== 'previous'))] : prior?.previous ?? [],
+              };
+            }
+          }
+          this.#write('INSERT INTO graph_evidence VALUES (?,?,?) ON CONFLICT(principal,graph) DO UPDATE SET data=excluded.data', principal, graph.graphId, canonicalJson(record));
+          const checkedNodes = new Map();
+          const evidence = (name, includeHistory = false) => {
+            if (!includeHistory && checkedNodes.has(name)) return checkedNodes.get(name);
+            const link = linked(name); if (!link) return { node: name, proof: 'unknown', reason: 'missing binding' };
+            const { run, node } = owned(link.runId); const handoff = this.#handoff(run, 'worker');
+            const repairs = this.#repairCount(link);
+            const reason = node.snapshot.attempt !== link.attempt ? 'attempt changed' : repairs > maxRepairLoops ? 'repair budget exceeded'
+              : !Array.isArray(link.inputs) ? 'consumed inputs unknown'
+              : canonicalJson(link.inputs) !== canonicalJson(inputs(name)) ? 'dependency attempt or capture changed'
+              : !this.#inputsIntact(link.captures ?? []) ? 'consumed evidence missing or changed'
+              : graph.nodes.find(node => node.id === name).dependsOn.some(dep => evidence(dep).reason) ? 'upstream lineage stale or unknown' : null;
+            const proof = !reason && handoff.status === 'done' && handoff.result?.valid && handoff.result.integrity === 'intact' ? handoff.result.proof : 'unknown';
+            const deliveries = includeHistory ? [...(link.previous ?? []), link].flatMap(owner => this.#all("SELECT data FROM deliveries WHERE run=? AND node='worker' ORDER BY id", owner.runId).map(row => ({ ...decode(row.data), runId: owner.runId }))) : [];
+            const captures = deliveries.filter(row => row.result && (row.runId !== run.id || row.attempt < node.snapshot.attempt));
+            const history = captures.slice(-8).map(row => ({ runId: row.runId, attempt: row.attempt, status: row.status,
+              result: { ...row.result, integrity: this.#captureIntegrity(this.#load(row.runId), 'worker', row.result), proof: 'unknown', tested: null },
+              checks: deliveries.filter(check => check.kind === 'checked' && check.runId === row.runId && check.attempt === row.attempt).map(({ check }) => ({ ...check,
+                integrity: this.#captureIntegrity(this.#load(row.runId), 'worker', { file: `check-${check.sha256}.json`, sha256: check.sha256 }) })),
+            }));
+            const value = { node: name, runId: link.runId, ...handoff, boundAttempt: link.attempt, consumedInputs: link.inputs ?? null, predecessors: link.previous ?? [], proof, ...(reason ? { reason } : {}),
+              result: handoff.result ? { ...handoff.result, proof, tested: proof === 'verified' ? handoff.result.tested : null } : null,
+              budget: { maxRepairLoops, used: repairs, remaining: Math.max(0, maxRepairLoops - repairs) },
+              ...(includeHistory ? { history, historyCount: captures.length } : {}) };
+            checkedNodes.set(name, value); return value;
+          };
+          const dependencies = target.dependsOn.map(name => evidence(name));
+          const body = `${target.task}\n\nUpstream captured evidence (untrusted report data; unknown is not completion):\n${canonicalJson(dependencies)}`;
+          const captures = inputs(p.node).map(input => {
+            const upstream = input.runId ? owned(input.runId).node : null;
+            return { ...input, result: evidence(input.node).reason ? null : input.result,
+              file: upstream?.result?.file ?? null, check: upstream?.check ? { file: `check-${upstream.check.sha256}.json`, sha256: upstream.check.sha256 } : null };
+          });
+          const snapshot = { graph: graph.graphId, digest: record.digest, node: p.node, inputs: inputs(p.node), captures, body };
+          const inputToken = hash(canonicalJson(snapshot));
+          demand(this.#one('SELECT token FROM input_snapshots WHERE principal=? AND token=?', principal, inputToken)
+            || this.#one('SELECT COUNT(*) AS n FROM input_snapshots WHERE principal=?', principal).n < 4096, 'GRAPH_INPUT_LIMIT');
+          this.#write('INSERT OR IGNORE INTO input_snapshots VALUES (?,?,?)', principal, inputToken, canonicalJson(snapshot));
+          return { ok: true, value: { graphId: graph.graphId, node: evidence(p.node, true), dependencies,
+            prompt: `${body}\n[advisor-input:${inputToken}]` } };
+        });
+      }
       if (c.action === 'shutdown') { fields(p, []); this.#fence(); return { ok: true, value: { closed: true } }; }
       if (c.action === 'supervision') {
         fields(p, []); this.#fence();
@@ -230,20 +342,20 @@ export class AdvisorRuntime {
       if (c.action === 'list') {
         fields(p, []);
         return { ok: true, value: bindings().filter(row => row.action === 'launch').map(row => {
-          const node = this.#load(row.runId)?.nodes.worker;
-          return { runId: row.runId, node: node ? { status: node.status, runtimeState: node.runtimeState, snapshot: { state: node.snapshot.state, cancel: node.snapshot.cancel }, packet: { cwd: node.packet.cwd, execution: { label: node.packet.execution.label.slice(0, 128) } } } : null };
+          const run = this.#load(row.runId); const node = run?.nodes.worker;
+          return { runId: row.runId, node: node ? { ...this.#handoff(run, 'worker'), runtimeState: node.runtimeState, snapshot: { state: node.snapshot.state, cancel: node.snapshot.cancel }, packet: { cwd: node.packet.cwd, execution: { label: node.packet.execution.label.slice(0, 128) } } } : null };
         }) };
       }
       if (c.action === 'artifact') {
         fields(p, ['runId', 'path'], ['offset', 'maxBytes']);
         const { binding } = owned(p.runId);
-        demand(['result.md', 'request.json'].includes(p.path), 'BRIDGE_ARTIFACT_FORBIDDEN');
+        demand(['result.md', 'request.json'].includes(p.path) || /^(?:result-[1-9][0-9]*-[a-f0-9]{64}\.md|check-[a-f0-9]{64}\.json)$/.test(p.path), 'BRIDGE_ARTIFACT_FORBIDDEN');
         return call({ ...binding.scope, node: 'worker' }, 'artifact.read', { path: p.path, offset: p.offset ?? 0, maxBytes: p.maxBytes ?? 32768 });
       }
       if (['get', 'output', 'wait', 'ack'].includes(c.action)) {
         fields(p, ['runId'], c.action === 'ack' ? ['deliveryId'] : c.action === 'wait' ? ['timeoutMs'] : []);
         const { binding, run, node } = owned(p.runId);
-        if (c.action === 'get') return { ok: true, value: node };
+        if (c.action === 'get') return { ok: true, value: { ...node, ...this.#handoff(run, 'worker') } };
         if (c.action === 'output' && node.snapshot.state === 'running' && node.runtimeState !== 'recovery-required') {
           const output = await config.readLive?.(run.id, node.handle);
           return { ok: true, value: { text: output ?? 'Worker acquisition pending; no captured output yet.' } };
@@ -277,12 +389,12 @@ export class AdvisorRuntime {
           demand(row?.principal === principal, 'BRIDGE_TARGET_FORBIDDEN');
           const binding = decode(row.data);
           const run = this.#scopeRun({ scope: binding.scope });
-          if (binding.toolResult || !p.seal) return { ok: true, value: binding.toolResult ?? null };
+          if (binding.toolResult || !p.seal) return { ok: true, value: binding.toolResult ? { ...binding.toolResult, ...this.#handoff(run, 'worker') } : null };
           const node = run.nodes.worker; demand(node, 'BRIDGE_RECOVERY_REQUIRED');
           const status = node.runtimeState === 'recovery-required' ? 'recovery-required' : node.snapshot.cancel && node.snapshot.state !== 'terminal' ? 'cancel-pending' : node.status;
           const e = node.packet.execution;
           const reusable = Boolean(e.keepAlive && node.snapshot.state === 'terminal' && ['done', 'failed'].includes(node.status) && !node.snapshot.cancel && node.processExited === undefined && node.runtimeState !== 'recovery-required' && !this.#pending(run, 'worker'));
-          binding.toolResult = { runId: run.id, agentName: run.id, promoted: node.snapshot.state === 'running', status, agentState: status, durationMs: 0, role: e.role, model: e.model, thinking: e.thinking, maxTurns: e.maxTurns, keepAlive: e.keepAlive, reusable };
+          binding.toolResult = { runId: run.id, agentName: run.id, promoted: node.snapshot.state === 'running', status, agentState: status, durationMs: 0, role: e.role, model: e.model, thinking: e.thinking, maxTurns: e.maxTurns, keepAlive: e.keepAlive, reusable, ...this.#handoff(run, 'worker') };
           this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson(binding), key);
           return { ok: true, value: binding.toolResult };
         });
@@ -338,7 +450,7 @@ export class AdvisorRuntime {
       this.#transaction(() => {
         demand(this.#one('SELECT COUNT(*) AS n FROM pi_bindings').n < 100000, 'BRIDGE_BINDING_LIMIT');
         if (config.dynamic) {
-          const { ownerEpoch, ...grant } = scope;
+          const { ownerEpoch: _ownerEpoch, ...grant } = scope;
           for (const node of ['root', 'worker']) this.#write('INSERT INTO scope_grants VALUES (?,?)', principal, canonicalJson({ ...grant, node }));
         }
         this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: 'launch', runId: scope.run, scope }));
@@ -370,15 +482,47 @@ export class AdvisorRuntime {
       return response;
     } catch (error) { return rejection(error); }
   }
+  /** Trusted host runner, not a model command channel. A check which edits its surface
+   * cannot attest it; the host must rerun against the final content. */
+  checkNode({ scope, command, args = [], producer = 'host', timeout = 120000 }) {
+    text(command, 2048); text(producer, 256);
+    demand(Array.isArray(args) && args.length <= 64 && args.every(arg => typeof arg === 'string' && arg.length <= 2048), 'INVALID_VERIFICATION');
+    demand(Number.isInteger(timeout) && timeout > 0 && timeout <= 300000, 'INVALID_VERIFICATION');
+    text(JSON.stringify([command, ...args]), 2048);
+    const run = this.#scopeRun({ scope }); const node = run.nodes[scope.node];
+    demand(node?.status === 'done' && node.result?.valid, 'VERIFICATION_NOT_READY');
+    this.#transaction(() => { node.verified = false; delete node.verification; delete node.check; this.#save(run); });
+    const before = contentSurface(node.packet.cwd);
+    demand(before, 'TESTED_SURFACE_UNKNOWN');
+    const checked = spawnSync(command, args, { cwd: node.packet.cwd, encoding: 'utf8', timeout, maxBuffer: 1024 * 1024, shell: false });
+    const after = contentSurface(node.packet.cwd);
+    const evidence = { producer, invocation: JSON.stringify([command, ...args]), outcome: checked.status === 0 && !checked.error ? 'PASS' : 'FAIL',
+      surface: before, unchanged: sameSurface(before, after), exitCode: checked.status, signal: checked.signal,
+      output: `${checked.stdout ?? ''}\n${checked.stderr ?? ''}`.slice(-32000), limitations: before.limitations };
+    const bytes = canonicalJson(evidence, 65536); const evidenceSha256 = hash(bytes);
+    const path = join(this.#nodeDirectory(run.id, scope.node), `check-${evidenceSha256}.json`); atomicWrite(path, bytes);
+    this.#transaction(() => {
+      const { output: _output, ...summary } = evidence; node.check = { ...summary, path, sha256: evidenceSha256 };
+      this.#delivery(run, scope.node, { kind: 'checked', attempt: node.snapshot.attempt, resultSha256: node.result.sha256, check: node.check });
+      this.#save(run);
+    });
+    if (evidence.outcome === 'PASS' && evidence.unchanged) this.verifyNode({ scope, expectedRevision: node.revision,
+      resultSha256: node.result.sha256, evidenceSha256, surface: before, producer, invocation: evidence.invocation, limitations: before.limitations });
+    return { ...evidence, path, sha256: evidenceSha256, proof: evidence.outcome === 'PASS' && evidence.unchanged ? 'verified' : 'unknown' };
+  }
   /** Host-only attestation after inspecting deterministic evidence, never a model tool. */
-  verifyNode({ scope, expectedRevision, resultSha256, evidenceSha256 }) {
+  verifyNode({ scope, expectedRevision, resultSha256, evidenceSha256, surface = null, producer = 'host', invocation = null, limitations = [] }) {
     demand(/^[a-f0-9]{64}$/.test(resultSha256) && /^[a-f0-9]{64}$/.test(evidenceSha256), 'INVALID_VERIFICATION');
     this.#transaction(() => {
       const run = this.#scopeRun({ scope }); const node = run.nodes[scope.node];
       demand(node?.status === 'done' && node.revision === expectedRevision, 'VERIFICATION_NOT_READY');
       const result = boundedRead(this.#nodeDirectory(run.id, scope.node), 'result.md');
       demand(result.eof && hash(result.text) === resultSha256, 'RESULT_CHANGED');
-      node.verified = true; node.verification = { resultSha256, evidenceSha256 };
+      demand(node.result?.sha256 === resultSha256 && this.#captureIntegrity(run, scope.node, node.result) === 'intact', 'RESULT_CHANGED');
+      if (surface) demand(sameSurface(surface, contentSurface(node.packet.cwd)), 'TESTED_SURFACE_CHANGED');
+      text(producer, 256); demand(invocation === null || typeof invocation === 'string' && invocation.length <= 2048, 'INVALID_VERIFICATION');
+      demand(Array.isArray(limitations) && limitations.length <= 12 && limitations.every(value => typeof value === 'string' && value.length <= 1024), 'INVALID_VERIFICATION');
+      node.verified = true; node.verification = { owner: this.#owner, resultSha256, evidenceSha256, evidencePath: join(this.#nodeDirectory(run.id, scope.node), `check-${evidenceSha256}.json`), surface, producer, invocation, outcome: 'PASS', limitations };
       node.snapshot.revision += 1; node.revision = node.snapshot.revision; this.#save(run);
     });
   }
@@ -411,6 +555,35 @@ export class AdvisorRuntime {
     return run;
   }
   #nodeDirectory(run, node) { return join(this.#root, 'runs', run, node); }
+  #captureIntegrity(run, name, result) {
+    try { const bytes = boundedRead(this.#nodeDirectory(run.id, name), result.file, 65536); return bytes.eof && hash(bytes.text) === result.sha256 ? 'intact' : 'invalid'; }
+    catch { return 'missing'; }
+  }
+  #deliveryView(run, name, data) {
+    if (data.result) data.result.integrity = this.#captureIntegrity(run, name, data.result);
+    if (data.check) data.check.integrity = this.#captureIntegrity(run, name, { file: `check-${data.check.sha256}.json`, sha256: data.check.sha256 });
+    return data;
+  }
+  #handoff(run, name) {
+    const node = run.nodes[name];
+    const status = node.runtimeState === 'recovery-required' ? 'recovery-required' : node.snapshot.cancel && node.snapshot.state !== 'terminal' ? 'cancel-pending' : node.status;
+    const available = node.result?.attempt === node.snapshot.attempt && node.snapshot.state !== 'running';
+    let result = available ? { ...clone(node.result), lastCheck: node.check ?? null } : null;
+    if (result) {
+      result.integrity = this.#captureIntegrity(run, name, result);
+      result.proof = 'unknown'; result.tested = null;
+      if (result.integrity === 'intact') {
+        let capturedCheck = false;
+        try { const check = boundedRead(this.#nodeDirectory(run.id, name), `check-${node.verification?.evidenceSha256}.json`, 65536); capturedCheck = check.eof && hash(check.text) === node.verification?.evidenceSha256; } catch { /* Missing host proof is unknown. */ }
+        result.proof = status === 'done' && result.valid && capturedCheck && node.verification?.owner === this.#owner && node.verification?.surface && sameSurface(node.verification.surface, contentSurface(node.packet.cwd)) && node.verification.resultSha256 === result.sha256 ? 'verified' : 'unknown';
+        result.tested = result.proof === 'verified' ? node.verification : null;
+      }
+    }
+    const eligible = node.runtimeState !== 'recovery-required' && !node.snapshot.cancel && node.processExited === undefined && !this.#pending(run, name);
+    const reusable = Boolean(eligible && node.packet.execution?.keepAlive && node.snapshot.state === 'terminal' && ['done', 'failed'].includes(node.status));
+    return { status, agentState: status, attempt: node.snapshot.attempt, result, reusable,
+      continuation: eligible && node.snapshot.state === 'blocked' && !['credential', 'secret'].includes(node.requestDetail?.kind) ? 'reply' : reusable ? 'task' : 'none' };
+  }
   #event(run, node, type, data) {
     const prior = this.#one('SELECT seq,data FROM events WHERE run=? ORDER BY seq DESC LIMIT 1', run.id);
     const at = new Date(Math.max(Date.now(), prior ? Date.parse(decode(prior.data).at) : 0)).toISOString();
@@ -425,7 +598,8 @@ export class AdvisorRuntime {
   }
   #effect(run, node, op, payload, commandId, extra = {}) {
     const attempt = node === 'root' ? run.root.attempt : run.nodes[node].snapshot.attempt;
-    const effect = { id: `effect-${hash(canonicalJson({ commandId, node }))}`, commandId, scope: { workstream: run.workstream, run: run.id, node, ownerEpoch: run.epoch }, op, payload, attempt, ...extra };
+    const effect = { id: `effect-${hash(canonicalJson({ commandId, node }))}`, commandId, scope: { workstream: run.workstream, run: run.id, node, ownerEpoch: run.epoch }, op, payload, attempt,
+      ...(node !== 'root' ? { consumedInputs: run.nodes[node].consumedInputs ?? [] } : {}), ...extra };
     this.#write('INSERT INTO effects(id,run,node,state,data) VALUES (?,?,?,?,?)', effect.id, run.id, node, 'pending', canonicalJson(effect));
     return effect.id;
   }
@@ -481,6 +655,34 @@ export class AdvisorRuntime {
       this.#notifications.emit('change'); return response;
     } catch (error) { return rejection(error); }
   }
+  #inputsIntact(captures) {
+    return captures.every(input => {
+      const run = input.runId ? this.#load(input.runId) : null;
+      if (!run || !input.result || !input.file) return false;
+      const captured = this.#all("SELECT data FROM deliveries WHERE run=? AND node='worker'", input.runId).map(row => decode(row.data))
+        .some(row => row.attempt === input.attempt && row.result?.sha256 === input.result && row.result.file === input.file && row.result.producer?.run === input.runId);
+      return captured && this.#captureIntegrity(run, 'worker', { file: input.file, sha256: input.result }) === 'intact'
+        && (!input.check || this.#captureIntegrity(run, 'worker', input.check) === 'intact');
+    });
+  }
+  #consumeInputs(prompt, principal, previous = []) {
+    // Only a standalone control line is a marker; quoted report JSON is task data.
+    const markers = [...prompt.matchAll(/^\[advisor-input:([^\]\r\n]*)\]$/gm)];
+    if (!markers.length) return clone(previous);
+    demand(markers.length === 1 && /^[a-f0-9]{64}$/.test(markers[0][1]), 'GRAPH_INPUT_INVALID');
+    const token = markers[0][1];
+    const row = this.#one('SELECT data FROM input_snapshots WHERE principal=? AND token=?', principal, token);
+    demand(row, 'GRAPH_INPUT_FORBIDDEN');
+    const snapshot = decode(row.data);
+    demand(hash(canonicalJson(snapshot)) === token && prompt.includes(`${snapshot.body}\n[advisor-input:${token}]`), 'GRAPH_INPUT_CHANGED');
+    demand(this.#inputsIntact(snapshot.captures), 'GRAPH_INPUT_MISSING_OR_CHANGED');
+    const { body: _body, ...input } = snapshot;
+    return [...previous.filter(old => old.graph !== input.graph), { ...input, token }];
+  }
+  #repairCount(link) {
+    return (link.previous?.length ?? 0) + [...(link.previous ?? []), link].reduce((count, owner) => count + this.#all("SELECT data FROM effects WHERE run=? AND node='worker'", owner.runId)
+      .map(row => decode(row.data)).filter(effect => effect.op === 'node.task' && effect.attempt > (owner.firstAttempt ?? owner.attempt)).length, 0);
+  }
   #nodeCommand(run, c, principal) {
     demand(c.op !== 'node.resume', 'RESUME_UNSUPPORTED');
     const node = run.nodes[c.scope.node]; demand(node?.launched, 'NODE_NOT_LAUNCHED');
@@ -491,12 +693,20 @@ export class AdvisorRuntime {
       demand(node.snapshot.attempt === c.payload.attempt, 'ATTEMPT_MISMATCH');
       demand(node.handle?.id === c.payload.handleId && node.executionObservation?.generation === c.payload.generation, 'BRIDGE_HANDLE_MISMATCH');
       demand(!this.#pending(run, c.scope.node), 'TASK_PENDING');
+      for (const row of this.#all('SELECT data FROM graph_evidence')) {
+        const graph = decode(row.data);
+        for (const link of Object.values(graph.links)) {
+          demand(!(link.previous ?? []).some(old => old.runId === run.id), 'GRAPH_RUN_SUPERSEDED');
+          if (link.runId === run.id) demand(this.#repairCount(link) < (graph.maxRepairLoops ?? 2), 'GRAPH_REPAIR_LIMIT');
+        }
+      }
       this.#assertWriterAvailable(node.packet.role, this.#cwd(node.packet.cwd), c.scope);
       this.#adapter('workers', node.packet.adapter, c.op);
       demand(node.snapshot.attempt < Number.MAX_SAFE_INTEGER && node.revision < Number.MAX_SAFE_INTEGER, 'COUNTER_EXHAUSTED');
       node.snapshot.attempt += 1; node.snapshot.revision += 1; node.revision = node.snapshot.revision;
       node.snapshot.state = 'running'; node.snapshot.request = null; node.snapshot.blockedSequence = null; node.requestDetail = null;
-      node.status = 'running'; node.verified = false; delete node.verification;
+      node.consumedInputs = this.#consumeInputs(c.payload.text, principal.id, node.consumedInputs);
+      node.status = 'running'; node.verified = false; delete node.verification; delete node.check;
       this.#effect(run, c.scope.node, c.op, c.payload, c.commandId, { executionObservation: node.executionObservation });
       this.#event(run, c.scope.node, 'node.resumed', { reason: 'follow-up' });
       return { commandId: c.commandId, outcome: 'accepted', revision: node.revision };
@@ -504,6 +714,7 @@ export class AdvisorRuntime {
     const decision = admitCommand({ command: c, principal: { id: principal.id, scopes: principal.scopes }, snapshot: node.snapshot, receipts: new Map() });
     demand(decision.commit, decision.receipt.reason ?? 'ADMISSION_REJECTED');
     const next = clone(decision.commit.nextSnapshot);
+    if (c.op === 'node.reply') node.consumedInputs = this.#consumeInputs(c.payload.text, principal.id, node.consumedInputs);
     node.snapshot = next; node.revision = next.revision;
     for (const intent of decision.intents) {
       const adapter = this.#adapter('workers', node.packet.adapter, c.op); void adapter;
@@ -511,28 +722,29 @@ export class AdvisorRuntime {
       if (c.op === 'node.reply') {
         this.#event(run, c.scope.node, 'node.reply.sent', { text: c.payload.text, source: principal.kind === 'operator' ? 'user' : 'advisor', replyTo: intent.blockedSequence });
         this.#event(run, c.scope.node, 'node.resumed', { reason: 'reply' });
-        node.status = 'running';
+        node.status = 'running'; node.verified = false; delete node.verification; delete node.check;
       } else this.#event(run, c.scope.node, 'node.cancel.requested', { reason: c.payload.reason });
     }
     return decision.receipt;
   }
   #assertWriterAvailable(role, cwd, exclude = null) {
-    if (['builder', 'foreman'].includes(role)) {
+    if (['builder', 'foreman', 'checker'].includes(role)) {
       for (const row of this.#all('SELECT data FROM runs')) {
         for (const node of Object.values(decode(row.data).nodes)) {
           if (node.snapshot.scope.run === exclude?.run && node.snapshot.scope.node === exclude?.node) continue;
-          demand(!(['builder', 'foreman'].includes(node.packet.role) && (within(cwd, node.packet.cwd) || within(node.packet.cwd, cwd)) && (node.snapshot.state !== 'terminal' || ((node.handle?.pid || node.handle?.requiresExit) && node.processExited === undefined))), 'WRITER_CONCURRENCY');
+          demand(!(['builder', 'foreman', 'checker'].includes(node.packet.role) && (within(cwd, node.packet.cwd) || within(node.packet.cwd, cwd)) && (node.snapshot.state !== 'terminal' || ((node.handle?.pid || node.handle?.requiresExit) && node.processExited === undefined))), 'WRITER_CONCURRENCY');
         }
       }
     }
   }
-  #launch(run, name, c) {
+  #launch(run, name, c, principal) {
     const packet = run.packets[name]; demand(packet && !run.nodes[name], 'NODE_ALREADY_RESERVED_OR_MISSING');
     const cwd = this.#cwd(packet.cwd);
     this.#assertWriterAvailable(packet.role, cwd);
     const adapter = this.#adapter('workers', packet.adapter, 'node.launch');
     privateDirectory(this.#nodeDirectory(run.id, name));
     run.nodes[name] = { revision: 0, packet, launched: false, runtimeState: 'pending', status: 'running', verified: false, handle: null,
+      consumedInputs: this.#consumeInputs(packet.task, principal.id),
       snapshot: { scope: { ...c.scope, node: name }, revision: 0, state: 'running', attempt: 1, blockedSequence: null, request: null, cancel: null,
         capabilities: { 'node.reply': adapter.capabilities['node.reply'] === true, 'node.cancel': adapter.capabilities['node.cancel'] === true } } };
     this.#effect(run, name, 'node.launch', { packet, resultPath: join(this.#nodeDirectory(run.id, name), 'result.md') }, c.commandId);
@@ -552,7 +764,7 @@ export class AdvisorRuntime {
         demand(!run.graph && Object.keys(run.nodes).length === 0, 'GRAPH_FROZEN');
         const nodes = p.waves.flat();
         demand(nodes.length === Object.keys(run.packets).length && nodes.every(node => run.packets[node]), 'PACKET_MISMATCH');
-        for (const wave of p.waves) demand(wave.filter(node => ['builder', 'foreman'].includes(run.packets[node].role)).length <= 1, 'WRITER_CONCURRENCY');
+        for (const wave of p.waves) demand(wave.filter(node => ['builder', 'foreman', 'checker'].includes(run.packets[node].role)).length <= 1, 'WRITER_CONCURRENCY');
         run.graph = p;
         this.#event(run, null, 'graph.planned', { graph: p.graph, waves: p.waves, maxParallel: p.maxParallel, maxRepairLoops: p.maxRepairLoops }); break;
       }
@@ -563,17 +775,18 @@ export class AdvisorRuntime {
           demand(run.graph.dependencies[name].every(dep => run.nodes[dep]?.status === 'done' && run.nodes[dep]?.verified === true), 'UPSTREAM_NOT_VERIFIED');
           for (const dep of run.graph.dependencies[name]) {
             const verification = run.nodes[dep].verification;
+            if (verification?.surface) demand(sameSurface(verification.surface, contentSurface(run.nodes[dep].packet.cwd)), 'TESTED_SURFACE_CHANGED');
             if (verification) { const result = boundedRead(this.#nodeDirectory(run.id, dep), 'result.md'); demand(result.eof && hash(result.text) === verification.resultSha256, 'VERIFIED_RESULT_CHANGED'); }
           }
           this.#adapter('workers', run.packets[name].adapter, 'node.launch');
           this.#cwd(run.packets[name].cwd);
         }
         this.#event(run, null, 'wave.started', { wave: p.wave, nodes: wave }); run.wave = p.wave;
-        for (const name of wave) this.#launch(run, name, c);
+        for (const name of wave) this.#launch(run, name, c, principal);
         break;
       }
       case 'node.launch':
-        demand(!run.graph, 'DIRECT_GRAPH_CONFLICT'); this.#launch(run, p.node, c); break;
+        demand(!run.graph, 'DIRECT_GRAPH_CONFLICT'); this.#launch(run, p.node, c, principal); break;
       case 'root.stop':
         demand(run.root?.state === 'idle' && run.root.processExited === undefined && !this.#pending(run, 'root'), 'ROOT_NOT_IDLE');
         this.#adapter('roots', run.root.adapter, c.op); this.#effect(run, 'root', c.op, {}, c.commandId); break;
@@ -629,7 +842,7 @@ export class AdvisorRuntime {
       const rows = this.#all(`SELECT d.*, a.delivery AS acked FROM deliveries d LEFT JOIN acks a ON a.delivery=d.id AND a.principal=? WHERE d.run=? AND d.id>? AND (?='root' OR d.node=?) ORDER BY d.id LIMIT ?`, principal.id, run.id, c.payload.cursor, c.scope.node, c.scope.node, c.payload.limit + 1);
       const entries = []; let bytes = 128;
       for (const row of rows) {
-        const entry = { id: row.id, node: row.node, ...decode(row.data), acked: row.acked !== null };
+        const entry = { id: row.id, node: row.node, ...this.#deliveryView(run, row.node, decode(row.data)), acked: row.acked !== null };
         const size = Buffer.byteLength(JSON.stringify(entry)) + 1;
         if (entries.length === c.payload.limit || bytes + size > c.payload.maxBytes) break;
         entries.push(entry); bytes += size;
@@ -638,14 +851,14 @@ export class AdvisorRuntime {
     }
     if (c.op === 'wait') {
       const rows = this.#all(`SELECT d.* FROM deliveries d LEFT JOIN acks a ON a.delivery=d.id AND a.principal=? WHERE d.run=? AND a.delivery IS NULL AND (?='root' OR d.node=?) ORDER BY d.id LIMIT ?`, principal.id, run.id, c.scope.node, c.scope.node, c.payload.limit);
-      return rows.map(row => ({ id: row.id, node: row.node, ...decode(row.data) }));
+      return rows.map(row => ({ id: row.id, node: row.node, ...this.#deliveryView(run, row.node, decode(row.data)), ...(run.nodes[row.node] ? { handoff: this.#handoff(run, row.node) } : {}) }));
     }
     if (c.scope.node !== 'root') {
-      const node = run.nodes[c.scope.node]; demand(node, 'NODE_NOT_FOUND'); return clone(node);
+      const node = run.nodes[c.scope.node]; demand(node, 'NODE_NOT_FOUND'); return { ...clone(node), handoff: this.#handoff(run, c.scope.node) };
     }
     const committedSequence = this.#one('SELECT MAX(seq) AS seq FROM events WHERE run=?', run.id)?.seq ?? 0;
     const exportedSequence = this.#one('SELECT seq FROM exports WHERE run=?', run.id)?.seq ?? 0;
-    return { ...clone(run), export: { committedSequence, exportedSequence, pending: committedSequence !== exportedSequence } };
+    return { ...clone(run), nodes: Object.fromEntries(Object.entries(run.nodes).map(([name, node]) => [name, { ...node, handoff: this.#handoff(run, name) }])), export: { committedSequence, exportedSequence, pending: committedSequence !== exportedSequence } };
   }
   async request(token, input, audience = 'operator') {
     const result = this.execute(token, input, audience);
@@ -665,8 +878,9 @@ export class AdvisorRuntime {
       for (const effect of effects) {
         const run = this.#load(effect.run);
         const active = effect.node === 'root' ? Boolean(run.root?.handle && run.root.processExited === undefined) || run.root?.state !== 'idle' : run.nodes[effect.node]?.snapshot.state !== 'terminal';
+        const kept = effect.node !== 'root' && run.nodes[effect.node]?.packet.execution?.keepAlive && run.nodes[effect.node]?.processExited === undefined;
         const key = `${effect.run}/${effect.node}`;
-        if (effect.state === 'claimed' || (active && !marked.has(key))) { this.#markRecovery(effect, 'owner-restarted'); marked.add(key); }
+        if (effect.state === 'claimed' || ((active || kept) && !marked.has(key))) { this.#markRecovery(effect, 'owner-restarted'); marked.add(key); }
       }
     });
   }
@@ -707,6 +921,19 @@ export class AdvisorRuntime {
         context.assertActive = () => {
           this.#fence(); const current = this.#one("SELECT * FROM effects WHERE id=?", row.id);
           demand(current && ["claimed", "done"].includes(current.state) && current.owner === this.#owner, "OWNER_FENCE");
+          const latest = this.#load(run.id);
+          demand((root ? latest.root.attempt : latest.nodes[row.node].snapshot.attempt) === effect.attempt, 'ATTEMPT_MISMATCH');
+        };
+        // Adapter callbacks must pass the semantic fence BEFORE writing capture aliases/logs.
+        context.assertSettlement = (handleId, generation, cancelled = false) => {
+          context.assertActive();
+          const node = this.#load(run.id).nodes[row.node];
+          demand(node?.handle?.id === handleId, 'OBSERVATION_HANDLE_MISMATCH'); integer(generation, 1);
+          demand(node.snapshot.state !== 'terminal', 'NODE_TERMINAL');
+          demand(node.snapshot.state !== 'blocked' || cancelled, 'ALREADY_BLOCKED');
+          demand(!cancelled || node.snapshot.cancel, 'CANCEL_NOT_ACCEPTED');
+          const previous = node.executionObservation?.generation ?? 0;
+          demand(cancelled ? generation >= previous : generation > previous, 'BRIDGE_STALE_SETTLEMENT');
         };
         context.recoveryRequired = () => {
           this.#transaction(() => { const current = this.#one('SELECT * FROM effects WHERE id=?', row.id); if (['claimed', 'done'].includes(current.state)) this.#markRecovery(current, 'adapter-protocol-or-bound'); });
@@ -839,7 +1066,15 @@ export class AdvisorRuntime {
       this.#event(run, name, 'node.settled', { status, reason });
       node.status = status; node.verified = status === 'done' && p.verified === true;
       node.snapshot.state = status === 'blocked' ? 'blocked' : 'terminal';
-      this.#delivery(run, name, { kind: 'settled', status, reason, attempt: node.snapshot.attempt, request: node.snapshot.request, validation });
+      if (artifact?.text.trim()) {
+        const sha256 = hash(artifact.text); const file = `result-${node.snapshot.attempt}-${sha256}.md`;
+        const path = join(this.#nodeDirectory(run.id, name), file);
+        if (!existsSync(path)) atomicWrite(path, artifact.text);
+        node.result = { path, file, sha256, attempt: node.snapshot.attempt, producer: { run: run.id, node: name, role: node.packet.role, model: node.packet.model, handle: node.handle.id },
+          ...reportSummary(artifact.text), integrity: 'intact', proof: 'unknown', tested: null,
+          limitation: 'Captured worker report, not independent verification. Tested content is unknown unless host-attested.' };
+      } else delete node.result;
+      this.#delivery(run, name, { kind: 'settled', status, reason, attempt: node.snapshot.attempt, request: node.snapshot.request, validation, result: node.result ?? null });
       const wave = run.graph?.waves[run.wave - 1];
       if (wave && run.completedWave < run.wave && wave.every(n => run.nodes[n]?.snapshot.state === 'terminal')) {
         this.#event(run, null, 'wave.completed', { wave: run.wave, nodes: wave }); run.completedWave = run.wave;

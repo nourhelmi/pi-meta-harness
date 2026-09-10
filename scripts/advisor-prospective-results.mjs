@@ -14,6 +14,7 @@ export const CANDIDATE_INPUTS = [
   "config",
   "extensions",
   "skills",
+  "third-party/gentle-engram",
   "scripts/meta-harness.mjs",
   "scripts/intelligence-profile.mjs",
   "scripts/skill-path-policy.mjs",

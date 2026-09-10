@@ -37,7 +37,6 @@
     },
     "npm:pi-lens@^4.1.3",
     "npm:@juicesharp/rpiv-ask-user-question@^2.8.0",
-    "npm:gentle-engram@^0.1.10",
     "npm:pi-mcp-adapter@^2.31.0",
     "npm:@juicesharp/rpiv-todo@^2.8.0",
     "git:https://github.com/hasit/pi-community-themes@a6d7731fd46db4721654bf45161fb2cd1e8cbc1e",

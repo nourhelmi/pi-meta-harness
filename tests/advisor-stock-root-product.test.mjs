@@ -56,7 +56,7 @@ function fixture(t, host) {
     }, async close() { if (child.exitCode !== null || child.signalCode) return; const exit = once(child, 'exit'); child.stdin.end(); await exit; assert.equal(child.exitCode, 0, stderr); } };
     clients.push(client);
     const hello = await rpc('initialize', init); assert.equal(hello.result.serverInfo.name, 'meta-harness');
-    assert.equal((await rpc('tools/list', {})).result.tools.length, 10);
+    assert.equal((await rpc('tools/list', {})).result.tools.length, 11);
     return client;
   };
   t.after(async () => {
@@ -102,7 +102,7 @@ test('stock MCP over actual paired host/core/SQLite/Herdr execution port, both n
     assert.equal(f.calls().length, callsBeforeWorker); await worker.close();
     const args = { commandId: 'one', prompt: 'Bounded fixture task', harness: 'native', model: 'openai-codex/example', keepAlive: true };
     const admitted = success(await client.tool('launch', args)); const runId = admitted.runId;
-    assert.deepEqual(Object.keys(admitted), ['runId', 'status']); assert.match(runId, /^pib-/);
+    assert.match(runId, /^pib-/); assert.equal(admitted.attempt, 1); assert.equal(admitted.result, null); assert.equal(admitted.continuation, 'none');
     await stateIs(client, runId, 'running');
     // A running snapshot can precede asynchronous acquisition; live output uses the real port when ready.
     for (let i = 0; i < 30 && f.calls().filter(a => a[1] === 'prompt').length !== 1; i++) await client.tool('wait', { runId, timeoutMs: 100 });
@@ -114,7 +114,7 @@ test('stock MCP over actual paired host/core/SQLite/Herdr execution port, both n
     const markerHash = hashFile(join(f.state(), 'startup.json')); const descriptorHash = hashFile(join(f.state(), 'pi.json'));
     await client.close(); client = await f.mcp(); // EOF is not service shutdown.
     assert.equal(readFileSync(join(f.state(), 'service.lock/owner.json'), 'utf8'), owner);
-    assert.deepEqual(success(await client.tool('launch', args)), admitted);
+    const replayed = success(await client.tool('launch', args)); assert.equal(replayed.runId, admitted.runId); assert.equal(replayed.attempt, admitted.attempt); assert.equal(replayed.runtimeState, 'running');
     assert.equal((await client.tool('launch', { ...args, prompt: 'changed' })).error, 'COMMAND_ID_REUSE');
     assert.equal(f.rows('runs').length, 1); assert.equal(f.calls().filter(a => a[1] === 'prompt').length, 1);
     assert.equal(hashFile(join(f.state(), 'startup.json')), markerHash); assert.equal(hashFile(join(f.state(), 'pi.json')), descriptorHash);
@@ -153,12 +153,15 @@ test('stock MCP over actual paired host/core/SQLite/Herdr execution port, both n
     writeFileSync(join(node.packet.execution.sourceDirectory, 'result.md'), '# Status\nBLOCKED\nChoose A.');
     const pane = JSON.parse(node.handle.id)[0]; const panePath = join(f.root, `${pane.replace(':', '-')}.json`);
     const occupant = JSON.parse(readFileSync(panePath, 'utf8')); occupant.status = 'done'; occupant.state_change_seq += 2; writeFileSync(panePath, JSON.stringify(occupant));
-    await stateIs(client, runId, 'blocked');
+    const blockedState = await stateIs(client, runId, 'blocked');
+    assert.equal(blockedState.continuation, 'reply'); assert.match(blockedState.result.path, /result-1-[a-f0-9]{64}\.md$/); assert.equal(blockedState.result.proof, 'unknown');
     const request = JSON.parse(success(await client.tool('artifact', { runId, path: 'request.json' })).text);
     assert.equal(request.kind, 'question'); assert.equal(request.answered, false);
     const result = '# Status\nPASS\nA verified.\n'; f.behavior({ status: 'done', artifact: result });
     const message = { commandId: 'answer', runId, text: 'A' };
-    success(await client.tool('message', message)); await stateIs(client, runId, 'terminal');
+    success(await client.tool('message', message)); const passedState = await stateIs(client, runId, 'terminal');
+    assert.equal(passedState.result.attempt, 2); assert.notEqual(passedState.result.path, blockedState.result.path); assert.equal(passedState.continuation, 'task');
+    assert.equal(success(await client.tool('artifact', { runId, path: passedState.result.file })).text, result);
     const prompts = f.calls().filter(a => a[1] === 'prompt').length;
     success(await client.tool('message', message)); assert.equal(f.calls().filter(a => a[1] === 'prompt').length, prompts);
     assert.equal((await client.tool('message', { ...message, text: 'B' })).error, 'COMMAND_ID_REUSE');
@@ -175,7 +178,7 @@ test('stock MCP over actual paired host/core/SQLite/Herdr execution port, both n
     f.behavior({ status: 'working' });
     const historicalDeliveries = f.rows('deliveries'); const promptsBeforeTask = f.calls().filter(a => a[1] === 'prompt').length;
     success(await client.tool('message', { commandId: 'kept-task', runId, text: 'Fresh bounded task' }));
-    await stateIs(client, runId, 'running');
+    const runningTask = await stateIs(client, runId, 'running'); assert.equal(runningTask.result, null); assert.equal(runningTask.continuation, 'none');
     for (let i = 0; i < 30 && f.rows('effects').some(e => e.run === runId && e.state !== 'done'); i++) await client.tool('wait', { runId, timeoutMs: 100 });
     assert.equal(f.calls().filter(a => a[1] === 'prompt').length, promptsBeforeTask + 1);
     assert.equal(success(await client.tool('artifact', { runId, path: 'result.md' })).text, '', 'F3 real port: running kept task cannot read the prior PASS');
@@ -183,7 +186,7 @@ test('stock MCP over actual paired host/core/SQLite/Herdr execution port, both n
     const freshResult = '# Status\nPASS\nCurrent kept-task evidence.';
     writeFileSync(join(node.packet.execution.sourceDirectory, 'result.md'), freshResult);
     const freshOccupant = JSON.parse(readFileSync(panePath, 'utf8')); freshOccupant.status = 'done'; freshOccupant.state_change_seq += 2; writeFileSync(panePath, JSON.stringify(freshOccupant));
-    await stateIs(client, runId, 'terminal');
+    const taskState = await stateIs(client, runId, 'terminal'); assert.equal(taskState.result.attempt, 3); assert.notEqual(taskState.result.path, passedState.result.path);
     assert.equal(success(await client.tool('artifact', { runId, path: 'result.md' })).text, freshResult, 'current completion is readable');
     await ackAll(client, runId);
     f.behavior({ status: 'working' });
@@ -237,4 +240,34 @@ test('a dead or uncertain permanent stock marker never restarts a host or adopts
   const uncertain = await f.mcp(); assert.equal((await uncertain.tool('launch', args)).error, 'STOCK_UNAVAILABLE');
   assert.equal(existsSync(join(f.state(), 'pi.json')), false); assert.equal(f.effects().length, effects);
   assert.equal(readFileSync(ownerPath, 'utf8'), owner); await uncertain.close();
+});
+
+test('paired execution port carries admission snapshots and explicit successor identities over stock MCP', { skip: !detach, timeout: 90000 }, async t => {
+  for (const host of ['codex', 'claude-code']) {
+    const f = fixture(t, host); const client = await f.mcp();
+    f.behavior({ status: 'done', artifact: '# Status\nPASS\nFixture output; no application claim.' });
+    const launch = async (commandId, prompt) => {
+      const runId = success(await client.tool('launch', { commandId, prompt, harness: 'native', model: 'openai-codex/example', keepAlive: false })).runId;
+      await stateIs(client, runId, 'terminal'); return runId;
+    };
+    const graph = JSON.stringify({ graphId: 'paired-lineage', nodes: [{ id: 'maker', task: 'Make', dependsOn: [] }, { id: 'checker', task: 'Check', dependsOn: ['maker'] }] });
+    const evidence = async (node, extra = {}) => success(await client.tool('graph_evidence', { graph, node, ...extra }));
+    const maker = await launch('maker', 'Make'); await evidence('maker', { runId: maker });
+    const supplied = await evidence('checker'); const checker = await launch('checker', supplied.prompt);
+    const stored = JSON.parse(f.rows('runs').find(row => row.id === checker).data).nodes.worker;
+    assert.ok(stored.packet.execution.prompt.includes(supplied.prompt), 'real prepare/driver keeps supplied block intact');
+    assert.equal(stored.consumedInputs[0].inputs[0].runId, maker);
+    assert.equal(stored.consumedInputs[0].inputs[0].attempt, 1);
+    const effect = JSON.parse(f.rows('effects').find(row => row.run === checker).data);
+    assert.deepEqual(effect.consumedInputs, stored.consumedInputs, 'admission and dispatch share immutable lineage');
+    await evidence('checker', { runId: checker });
+    const next = await launch('successor', (await evidence('maker')).prompt);
+    const accepted = await evidence('maker', { runId: next, attempt: 1, replacesRunId: maker, replacesAttempt: 1 });
+    assert.equal(accepted.node.budget.used, 1); assert.equal(accepted.node.history[0].runId, maker);
+    const stale = (await evidence('checker', { runId: checker })).node;
+    assert.equal(stale.reason, 'dependency attempt or capture changed');
+    assert.equal(stale.consumedInputs[0].runId, maker);
+    for (const runId of [maker, checker, next]) await ackAll(client, runId);
+    success(await client.tool('runtime_close')); await client.close();
+  }
 });

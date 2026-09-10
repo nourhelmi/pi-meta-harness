@@ -108,7 +108,7 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
     | ((event: BeforeAgentStartEvent, ctx: ExtensionContext) => Promise<{ systemPrompt: string } | undefined>)
     | undefined;
   let sessionCompact: ((event: SessionCompactEvent, ctx: ExtensionContext) => void) | undefined;
-  let toolCall: ((event: ToolCallEvent) => { block: boolean; reason: string } | undefined) | undefined;
+  let toolCall: ((event: ToolCallEvent, ctx: ExtensionContext) => Promise<{ block: boolean; reason: string } | undefined>) | undefined;
   let sessionName: string | undefined;
   const pi = {
     exec: async () => ({ code: 0, stdout: "", stderr: "" }),
@@ -130,7 +130,7 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
         sessionCompact = handler as (event: SessionCompactEvent, ctx: ExtensionContext) => void;
       }
       if (name === "tool_call") {
-        toolCall = handler as (event: ToolCallEvent) => { block: boolean; reason: string } | undefined;
+        toolCall = handler as NonNullable<typeof toolCall>;
       }
     },
     registerTool: () => undefined,
@@ -148,7 +148,7 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
     },
     ui: { notify: () => undefined },
   } as unknown as ExtensionContext;
-  return { beforeAgentStart, ctx, sessionCompact, sessionStart, toolCall };
+  return { beforeAgentStart, ctx, sessionCompact, sessionStart, toolCall: (event: ToolCallEvent) => toolCall!(event, ctx) };
 }
 
 const REFERENCE_NAMES = ["graphs", "model-routing", "evidence", "transport-and-settlement"];
@@ -165,19 +165,21 @@ test("advisor doctrine routes locked execution without weakening decision bounda
   assert.match(source, /decision load and risk/);
   assert.match(source, /locked execution packet/);
   assert.match(source, /stop and report evidence rather\s+than invent or change a material product/);
-  assert.match(source, /deterministic readiness checks/);
+  assert.match(source, /Assign task-shaped readiness to the maker or browser verifier and reuse current\s+proof/);
+  assert.match(source, /missing safe target, credential or authority is a real\s+stop/);
   assert.match(source, /check `bg_list`\s+once/);
   assert.match(source, /Coalesce a\s+routine settlement/);
   assert.match(source, /## Foreman delegation/);
-  assert.match(source, /advisor stays at the boundaries[\s\S]+Review/);
-  assert.match(source, /foremen are Pi-hosted[\s\S]+visible depth-1 delegation/);
-  assert.match(source, /profile runs\s+through Pi[\s\S]+provider-native CLI/);
+  assert.match(source, /Stay at the\s+item's boundaries and decide independent review separately/);
+  assert.match(source, /Foreman delegation is\s+depth-1 only/);
+  assert.match(source, /Foremen are Pi-hosted, including in native mode, because visible\s+helpers use Pi's `bg_agent`/);
   assert.match(source, /Deliberate criteria\s+revision[\s\S]+new packet\s+revision/);
   assert.match(source, /criteria serve the advisor's\s+judgment, not the reverse/);
   assert.match(source, /## Worker transport recovery/);
-  assert.match(source, /at\s+most one fresh changed\s+retry/);
-  assert.match(source, /perform bounded\s+discovery or implementation[\s\S]+same maker and review duties/);
-  assert.match(source, /explicit acceptance requirement, report that requirement as unsatisfied\s+even when the functional repair proceeds/);
+  assert.match(source, /make at most one\s+changed retry, not an identical new launch/);
+  assert.match(source, /perform the cohesive work directly only when ownership and authority are clear/);
+  assert.match(source, /required independent review remains unsatisfied until actually obtained/);
+  assert.match(source, /explicit acceptance requirement for a particular transport or worker stays\s+unsatisfied if bypassed by direct work/);
 });
 
 test("advisor mode entrypoints select their worker harness and defer to the injected doctrine", async () => {
@@ -198,7 +200,12 @@ test("advisor mode entrypoints select their worker harness and defer to the inje
 });
 
 
-test("resumed advisors receive current doctrine over stale expanded skill history", async () => {
+test("resumed advisors receive current doctrine over stale expanded skill history", async t => {
+  const dir = await mkdtemp(join(tmpdir(), "advisor-resume-valid-"));
+  const previous = process.env.ADVISOR_STATE_DIR; process.env.ADVISOR_STATE_DIR = dir;
+  t.after(async () => { if (previous === undefined) delete process.env.ADVISOR_STATE_DIR; else process.env.ADVISOR_STATE_DIR = previous; await rm(dir, { recursive: true, force: true }); });
+  await mkdir(join(dir, "workstreams"));
+  await writeFile(join(dir, "workstreams/document-review.md"), "# Workstream: document-review\n- Owner session: `session-12345678`\n## Current state\nReview.");
   const staleSkill = `<skill name="advisor" location="/old/skills/advisor/SKILL.md">
 References are relative to /old/skills/advisor.
 
@@ -237,7 +244,7 @@ Review the current document.`;
   assert.match(result.systemPrompt, /OpenAI models route to Codex CLI/);
   assert.doesNotMatch(result.systemPrompt, /Model character notes are binding/);
   assert.deepEqual(
-    toolCall({
+    await toolCall({
       toolName: "bg_agent",
       input: { role: "builder", acceptance: ["tests pass"], prompt: "Implement this: [paste #1 +12 lines]" },
     }),
@@ -248,7 +255,7 @@ Review the current document.`;
     },
   );
   assert.deepEqual(
-    toolCall({
+    await toolCall({
       toolName: "bg_agent",
       input: { role: "scout", anchor: "findings are source-linked", harness: "pi" },
     }),
@@ -258,7 +265,7 @@ Review the current document.`;
     },
   );
   assert.deepEqual(
-    toolCall({
+    await toolCall({
       toolName: "bg_agent",
       input: { agent: "claude", anchor: "plan is evidence-backed" },
     }),
@@ -272,14 +279,14 @@ Review the current document.`;
     },
   );
   assert.equal(
-    toolCall({
+    await toolCall({
       toolName: "bg_agent",
       input: { anchor: "summary cites exact file paths", label: "freeform aide" },
     }),
     undefined,
   );
   assert.equal(
-    toolCall({
+    await toolCall({
       toolName: "bg_agent",
       input: {
         role: "builder",
@@ -290,7 +297,7 @@ Review the current document.`;
     undefined,
   );
   assert.deepEqual(
-    toolCall({
+    await toolCall({
       toolName: "bg_agent",
       input: { label: "freeform aide" },
     }),
@@ -326,7 +333,7 @@ test("advisor sessions inject the doctrine once with the live guide and re-send 
     await mkdir(join(stateDir, "workstreams"), { recursive: true });
     await writeFile(
       join(stateDir, "workstreams", "document-review.md"),
-      "# Workstream: document-review\n\n- Owner session: `session-12345678`\n\n## Goal\n\nReview the document.\n\n## Next\n\nLaunch the reviewer.\n\n## Log\n\n- D1: an old decision that must not be re-sent\n",
+      "# Workstream: document-review\n\n- Owner session: `session-12345678`\n\n## Goal\n\nReview the document.\n\n## Current state\nReviewing.\n\n## Next\n\nLaunch the reviewer.\n\n## Log\n\n- D1: an old decision that must not be re-sent\n",
       "utf8",
     );
     await writeFile(
@@ -483,6 +490,10 @@ test("advisor_session_init asks once and persists native worker mode", async () 
     assert.match(result.content[0]?.text ?? "", /skills\/advisor\/references/);
     assert.doesNotMatch(result.content[0]?.text ?? "", /Required next actions|read .* completely/);
     assert.match(result.content[0]?.text ?? "", /## Workstream hot section[\s\S]*## Scope ledger/);
+    const checkpoint = await readFile(join(stateDir, "workstreams/native-routing.md"), "utf8");
+    assert.match(checkpoint, /Record material scope decisions and why/);
+    assert.match(checkpoint, /maker owns remaining diagnosis, implementation and verification/);
+    assert.doesNotMatch(checkpoint, /Fill after diagnosis|minimal fix|literal-reading surface/);
     assert.match(result.content[0]?.text ?? "", /Every bg_agent launch must include an explicit model and thinking level/);
     assert.match(result.content[0]?.text ?? "", /OpenAI models route to Codex CLI/);
     assert.equal(process.env.PI_DETACH_WORKER_HARNESS, "native");
@@ -582,4 +593,20 @@ test("advisor_launch closes a created tab when its root pane is missing", async 
     ["tab", "create", "--no-focus", "--cwd", process.cwd(), "--label", "advisor · tab launch"],
     ["tab", "close", "w1:t9"],
   ]);
+});
+
+test('resume migrates legacy session notes to one pointer and missing checkpoint fences launch but not cancellation', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'advisor-pointer-')); const previous = process.env.ADVISOR_STATE_DIR; process.env.ADVISOR_STATE_DIR = dir;
+  t.after(async () => { if (previous === undefined) delete process.env.ADVISOR_STATE_DIR; else process.env.ADVISOR_STATE_DIR = previous; await rm(dir, { recursive: true, force: true }); });
+  await mkdir(join(dir, 'workstreams')); await mkdir(join(dir, 'sessions'));
+  const checkpoint = join(dir, 'workstreams/work.md'); const session = join(dir, 'sessions/session-12345678.md');
+  await writeFile(checkpoint, '# Workstream: work\n- Owner session: `session-12345678`\n## Current state\nAccepted state.\n');
+  const legacy = '# Session\n- Workstream: `work`\n## Current state\nOld diary.\n'; await writeFile(session, legacy);
+  const runtime = installedAdvisorResumeRuntime([]); await runtime.sessionStart({ reason: 'resume' }, runtime.ctx);
+  const pointer = await readFile(session, 'utf8'); assert.match(pointer, /- Checkpoint: `\.\.\/workstreams\/work.md`/); assert.doesNotMatch(pointer, /Old diary|## Current state/);
+  assert.equal(await readFile(session + '.legacy', 'utf8'), legacy);
+  await runtime.sessionStart({ reason: 'resume' }, runtime.ctx); assert.equal(await readFile(session, 'utf8'), pointer);
+  await rm(checkpoint);
+  assert.match((await runtime.toolCall({ toolName: 'bg_agent', input: { prompt: 'task', anchor: 'proof' } }))?.reason ?? '', /missing|unknown/);
+  assert.equal(await runtime.toolCall({ toolName: 'bg_stop', input: { runId: 'owned' } }), undefined);
 });

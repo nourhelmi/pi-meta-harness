@@ -104,7 +104,7 @@ test("routes put direct work and the single maker ahead of graphs and planners",
   assert.match(routes, /Stop expanding the route when another launch would\s+mostly replay evidence/);
   assert.match(routes, /Plan the work yourself by default/);
   assert.match(routes, /adopt, revise, or reject its recommendations, including\s+proposed roles and sequence/);
-  assert.match(routes, /Launch a planner only when product or\s+architecture direction has been invalidated, never after a tooling/);
+  assert.match(routes, /planner must resolve concrete product or\s+architecture uncertainty, never merely a tooling/);
   assert.doesNotMatch(routes, /\d+\s*(?:minutes?|hours?)/i);
   assert.doesNotMatch(routes, /(?:minimum|maximum)\s+(?:agent|worker|launch)/i);
 });
@@ -127,18 +127,19 @@ test("packets freeze the contract and never the procedure, and are sized after d
   assert.match(packets, /"no install or alternate runtime"/);
   assert.match(packets, /Do not open a packet with "execute\s+exactly"/);
   assert.match(packets, /never carries a formatter or lint pass as an acceptance\s+criterion/);
-  assert.match(packets, /never judge a maker against a hidden\s+contract/);
-  assert.match(packets, /`keepAlive: true`[\s\S]*checker expected to re-review its own findings/);
+  assert.match(packets, /judge a maker against a hidden contract/);
+  assert.match(packets, /`keepAlive: true`[\s\S]*checker expected to revisit its findings/);
+  assert.match(packets, /current continuation eligibility/);
 
-  assert.match(sizing, /smallest change that fixes\s+the observed defect with the smallest blast radius/);
-  assert.match(sizing, /wording sets\s+the goal, not the surface/);
-  assert.match(sizing, /does not by itself authorize rewriting shared\s+behavior/);
-  assert.match(sizing, /shared primitive is itself the defect, a side effect or\s+data\/security boundary is at stake, or the user explicitly asked/);
-  assert.match(sizing, /lock a packet for the minimal fix first, and present the expansion\s+as a separate, costed option/);
-  assert.match(sizing, /do not let the question\s+gate the minimal fix/);
-  assert.match(sizing, /reported and\s+offered, not silently absorbed/);
+  assert.match(sizing, /Bound the accepted outcome, not an arbitrary number of files or steps/);
+  assert.match(sizing, /maker may own the remaining diagnosis and implementation together/);
+  assert.match(sizing, /never\s+a partial fix merely because it is shorter/);
+  assert.match(sizing, /complete\s+cross-layer repair authorizes that outcome, not unrelated redesign/);
+  assert.match(sizing, /shared root cause, integration,\s+or safety boundary is part of the accepted outcome/);
+  assert.match(sizing, /without a new packet for\s+each discovery/);
+  assert.match(sizing, /Escalate an unaccepted product decision, explicitly excluded\s+surface, changed acceptance, or additional authority/);
   assert.match(sizing, /Scope ledger/);
-  assert.match(sizing, /there is no\s+file-count threshold/);
+  assert.doesNotMatch(sizing, /minimal fix first|separate, costed option|file-count threshold/);
   assert.doesNotMatch(sizing, /\d+\s*(?:files?|lines?|minutes?)/i);
 
   const extension = await text("extensions/advisor-session.ts");
@@ -202,7 +203,7 @@ test("obstacles are resolved by workers and Blocked has exactly four meanings ev
   assert.match(builder, /## Obstacles are yours to clear/);
   assert.match(builder, /none of these is\s+a blocker/);
   assert.match(builder, /Select or install the toolchain the repository pins/);
-  assert.match(builder, /do not add product fallback behavior/);
+  assert.match(builder, /Do not add speculative abstractions or unaccepted fallback behavior/);
   assert.match(foreman, /obstacle rule to yourself and to every helper/);
   assert.match(foreman, /never stop for it while your own helpers are live/);
   assert.match(checker, /Environment and tooling obstacles are yours to clear/);
@@ -241,7 +242,7 @@ test("checkers are repair-first and review converges with the same reviewer", as
   assert.match(review, /maker-owned fresh-context reviewer is\s+not automatic on Standard or High/);
   assert.match(review, /Do not stack it ahead of a planned independent checker covering\s+the same purpose/);
   assert.match(review, /\*\*Checkers are repair-first\.\*\*/);
-  assert.match(review, /at any severity, unless the fix needs a product\s+decision, changes schema or migration semantics, or has an external effect/);
+  assert.match(review, /at any severity, unless the fix needs an unaccepted product\s+or architecture decision, unauthorized schema\/migration semantics, or an external effect/);
   assert.match(review, /verdict describes the post-repair state/);
   assert.match(review, /A repaired finding alone does not cause FAIL/);
   assert.match(review, /Resume the same checker for a delta review/);
@@ -285,7 +286,7 @@ test("the advisor avoids redundant skill reads but loads decision-relevant instr
     text("skills/switch-intelligence-profile/SKILL.md"),
   ]);
 
-  assert.match(core, /This core is\s+in your system prompt for the whole session/);
+  assert.match(core, /This core stays in your system prompt/);
   const transportPolicy = section(core, "## Worker transport", "## Evidence");
   assert.match(transportPolicy, /Do not preload role\s+skills, the worker contract, or repository skills merely to launch a worker/);
   assert.match(transportPolicy, /Read the relevant skill or contract section when a concrete planning,\s+review, investigation, implementation, or recovery decision needs it/);
@@ -293,7 +294,7 @@ test("the advisor avoids redundant skill reads but loads decision-relevant instr
   assert.match(transportPolicy, /Required task and safety instructions still apply/);
   const state = section(core, "## Isolated state", "## Session start");
   assert.match(state, /\*\*hot section\*\* is everything above the `## Log` heading/);
-  assert.match(state, /returned to you at session start and after every compaction/);
+  assert.match(state, /hot section returns at start and compaction/);
   assert.match(section(core, "## Session start", "## References"), /returns the\s+workstream hot section/);
   assert.doesNotMatch(core, /Re-read the live guide|about 60%|load it completely/);
   assert.match(section(transport, "## Context budget"), /never read\s+them with a tool/);
@@ -325,11 +326,11 @@ test("verification ownership is proportional and review depth stops on resolved 
   assert.match(verification, /advisor[\s\S]*any still-needed\s+authoritative rerun by risk, oracle strength, and uncertainty/);
   assert.match(verification, /need not\s+replay every expensive criterion/);
   assert.match(verification, /checker audits the same acceptance contract and declared risk tier[\s\S]*Independently\s+probe/);
-  assert.match(verification, /genuinely new finding at or above the declared risk tier remains valid/);
+  assert.match(verification, /genuinely new finding that meets the packet's severity bar remains valid/);
   assert.match(verification, /actual required merge or CI gates once/);
   assert.match(verification, /Do not mandate\s+unrelated repository-wide sweeps/);
   assert.match(depth, /assigned claims and material risks are resolved with current evidence and no\s+material contradiction remains/);
-  assert.match(depth, /never launch an\s+automatic checker-of-checker for closed work/);
+  assert.match(depth, /never launch an automatic checker-of-checker for closed work/);
   assert.match(depth, /not independent review of that patch/);
 });
 
@@ -356,7 +357,7 @@ test("worker roles share maker ownership, risk context, conditional delegation, 
   assert.match(foreman, /depth-1 visible subagents/);
   assert.match(checker, /same acceptance[\s\S]*contract and declared risk tier/);
   assert.match(checker, /Do\s+not blindly replay every maker command/);
-  assert.match(checker, /new finding at or above\s+the declared risk tier remains valid/);
+  assert.match(checker, /new finding that meets\s+this packet's severity bar remains valid/);
   assert.match(browser, /maker owns ordinary browser exercise/);
   assert.match(browser, /baseline behavior is ambiguous[\s\S]*independent persona, safety,[\s\S]*or release witness/);
   assert.match(browser, /task-shaped readiness checks/);
@@ -402,7 +403,7 @@ test("role agency includes context and local decisions without erasing write bou
   assert.match(builder, /You own ordinary technical choices/);
   assert.match(builder, /do not bounce routine choices\s+back to the advisor/);
   assert.match(builder, /explicit edit boundaries stay\s+binding/);
-  assert.match(builder, /Add or strengthen tests for the\s+accepted behavior/);
+  assert.match(builder, /complete accepted behavior, including necessary\s+shared-root-cause repairs, integration, and tests/);
   assert.match(scout, /suggested search route is not a script/);
   assert.match(scout, /Do not edit product code or configuration/);
   assert.match(reducer, /including no further work/);
@@ -427,8 +428,8 @@ test("advisor and foreman own execution and planning while proposals remain nonb
   assert.match(advisor, /Plan the work yourself by default/);
   assert.match(advisor, /adopt, revise, or reject its recommendations, including\s+proposed roles and sequence/);
   assert.match(advisor, /Reclaim\s+ownership explicitly after settlement/);
-  assert.match(advisor, /Your own rerun of your own work is self-verification, not\s+independent review/);
-  assert.match(advisor, /explicit acceptance requirement, report that requirement as unsatisfied\s+even when the functional repair proceeds/);
+  assert.match(advisor, /Your own\s+rerun of your own work is self-verification, not independent review/);
+  assert.match(advisor, /explicit acceptance requirement for a particular transport or worker stays\s+unsatisfied if bypassed by direct work/);
   assert.match(foreman, /choose direct implementation or useful delegation/);
   assert.match(foreman, /not a launch quota; direct execution is available, not the preferred route/);
   assert.match(foreman, /never edit alongside a writing helper/);
@@ -446,9 +447,11 @@ test("blocked settlement doctrine documents Pi prompt and worker result signals"
   const settlement = section(transport, "## Settlement ground truth", "## Status updates");
   const blocked = section(runtime, "## Blocked signals", "## 🪜 Adaptive topology");
 
-  assert.match(settlement, /Settlement notices carry the worker's result Status line/);
-  assert.match(settlement, /`paused` notice means the worker ended a turn while waiting on its own\s+sub-workers/);
-  assert.match(settlement, /without asking the\s+worker to re-read or re-hash its packet/);
+  assert.match(settlement, /current handoff separates admission, worker status, captured report, attempt,\s+proof and continuation/);
+  assert.match(settlement, /`paused` worker remains supervised while its own helpers run/);
+  assert.match(settlement, /do not require re-reading\/re-hashing an unchanged packet/);
+  assert.match(settlement, /Historical deliveries refer to their original attempts/);
+  assert.match(settlement, /Do not use worktree commits, report mtimes or branch movement to override/);
   assert.match(blocked, /blocking Pi UI prompt[\s\S]*marks its Herdr pane blocked through the bridge extension/);
   assert.match(blocked, /Status starts with `BLOCKED`[\s\S]*parent `bg_agent` settles it as blocked[\s\S]*request[\s\S]*sound fires/);
   assert.match(blocked, /pi-detach discovers Pi worker result artifacts through the[\s\S]*`advisor-worker` session entry[\s\S]*`resultDiscovery`/i);
@@ -513,7 +516,8 @@ test("makers explore freely and deliver narrowly while the packet stays a floor"
   ]);
 
   assert.match(core, /The packet is a floor, not a ceiling/);
-  assert.match(core, /trace the capability end to end\s+before editing, to edit only inside the packet/);
+  assert.match(core, /maker traces the capability end to end\s+before editing/);
+  assert.match(core, /suggested file list is a starting point, not an exhaustive\s+write boundary unless explicitly locked/);
   assert.match(builder, /## Explore freely, deliver narrowly/);
   assert.match(builder, /trace the\s+capability end to end/);
   assert.match(builder, /`Adjacent findings`/);

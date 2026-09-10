@@ -5,6 +5,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import {
+  advisorCheckpoint,
 	advisorStateRoot,
 	isWorkerHarness,
 	restoredEntryState,
@@ -393,12 +394,13 @@ async function writeWorkstreamClaim(options: WorkstreamClaimOptions): Promise<vo
 	if (!current) {
 		await writeFile(
 			paths.workstream,
-			`# Workstream: ${workstream}\n\n- Owner session: \`${sessionId}\`\n- Status: active\n\n## Goal\n\nTo be defined from the advisor conversation.\n\n## Current state\n\nInitialized by \`/advisor\`.\n\n## Scope ledger\n\nFill after diagnosis, before locking a packet: observed defect and its sink; minimal fix and its surface; literal-reading surface; what would justify expanding; choice made, with confidence.\n`,
+			`# Workstream: ${workstream}\n\n- Owner session: \`${sessionId}\`\n- Status: active\n\n## Goal\n\nTo be defined from the advisor conversation.\n\n## Current state\n\nInitialized by \`/advisor\`.\n\n## Scope ledger\n\nRecord material scope decisions and why: accepted outcome, ownership and safety boundaries, necessary in-scope work, and unresolved product choices. The maker owns remaining diagnosis, implementation and verification; suggested files are orientation, not a partial-fix fence. Update when a material decision changes, not for every edit.\n`,
 			{ encoding: "utf8", flag: "wx" },
 		);
 		return;
 	}
-	if (!currentOwner || currentOwner === sessionId) return;
+  if (!currentOwner) throw new Error("Existing workstream has no valid owner; recover it explicitly instead of adopting corrupt state.");
+	if (currentOwner === sessionId) return;
 	if (!transferApproved || currentOwner !== firstOwner) {
 		throw new Error(`Workstream ownership changed to ${currentOwner}; initialize again.`);
 	}
@@ -420,13 +422,16 @@ async function ensurePrivateSession(
 		if (!current.includes(`- Workstream: \`${workstream}\``)) {
 			throw new Error("This Pi session already owns a different advisor workstream.");
 		}
-		return;
-	}
-	await writeFile(
-		path,
-		`# Advisor Session ${sessionId.slice(0, 8)}\n\n- Workstream: \`${workstream}\`\n- State: active\n\nInitialized by the advisor skill.\n`,
-		{ encoding: "utf8", flag: "wx" },
-	);
+    if (current.includes(`- Checkpoint: \`../workstreams/${workstream}.md\``)) return;
+    // Preserve pre-integration notes once, without keeping a second operational diary.
+    const archive = `${path}.legacy`;
+    const archived = await readIfPresent(archive);
+    if (archived !== undefined && archived !== current) throw new Error("Legacy session archive differs; resolve it without overwriting history.");
+    if (archived === undefined) await writeFile(archive, current, { encoding: "utf8", flag: "wx" });
+  }
+  const pointer = `# Advisor Session ${sessionId.slice(0, 8)}\n\n- Workstream: \`${workstream}\`\n- Checkpoint: \`../workstreams/${workstream}.md\`\n\nOperational state lives only in the workstream current section. This file is an identity pointer, not a diary.\n${current ? "Legacy notes were preserved in the adjacent .md.legacy archive.\n" : ""}`;
+  if (current) await writeAtomically(path, pointer);
+  else await writeFile(path, pointer, { encoding: "utf8", flag: "wx" });
 }
 
 async function claimWorkstream(
@@ -449,7 +454,6 @@ async function claimWorkstream(
 	} finally {
 		await rm(paths.lock, { recursive: true, force: true });
 	}
-	await ensurePrivateSession(paths.session, workstream, sessionId);
 	return paths;
 }
 
@@ -644,8 +648,12 @@ function registerVisibilityGuard(
 	pi: ExtensionAPI,
 	getState: () => AdvisorSessionState | undefined,
 ): void {
-	pi.on("tool_call", (event) => {
+  pi.on("tool_call", async (event, ctx) => {
 		if (!getState()) return;
+    if (["bg_agent", "advisor_graph_evidence"].includes(event.toolName)) {
+      const checkpoint = await advisorCheckpoint(ctx);
+      if (!checkpoint?.content) return { block: true, reason: checkpoint?.problem ?? "Advisor checkpoint unavailable; reinitialize before worker effects." };
+    }
 		if (INVISIBLE_AGENT_TOOLS.has(event.toolName)) {
 			return {
 				block: true,
@@ -732,6 +740,9 @@ async function initializeAdvisor(
 	} catch {
 		// Pane labels are presentational; the Herdr agent identity remains authoritative.
 	}
+  // A failed Herdr initialization may reserve the workstream for retry, but must
+  // not publish a restorable managed-session identity before initialization succeeds.
+  await ensurePrivateSession(paths.session, workstream, sessionId);
 	const state: AdvisorSessionState = {
 		workstream,
 		sessionId,
@@ -747,6 +758,7 @@ async function initializeAdvisor(
 }
 
 export default function advisorSessionExtension(pi: ExtensionAPI): void {
+  const previousEnvironment = Object.fromEntries(["ADVISOR_WORKSTREAM", "ADVISOR_STATE_ROOT", "PI_DETACH_WORKER_HARNESS"].map(key => [key, process.env[key]]));
 	let activeState: AdvisorSessionState | undefined;
 	let doctrine: string | undefined;
 	let hotSectionPending = false;
@@ -764,25 +776,35 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		doctrine = undefined;
 		hotSectionPending = false;
 		if (!activeState) return;
+    const checkpoint = await advisorCheckpoint(ctx);
+    if (checkpoint?.content) {
+      const root = await advisorStateRoot(ctx.cwd);
+      await ensureAdvisorDirectories(root);
+      await ensurePrivateSession(pathsFor(root, activeState.workstream, activeState.sessionId).session, activeState.workstream, activeState.sessionId);
+    }
 		await loadDoctrine(ctx);
 		hotSectionPending = true;
 		applyAdvisorToolSet(pi);
 	});
-	// Compaction keeps only the encrypted summary and recent user messages; the hot section re-orients the next turn.
+  pi.on("session_shutdown", () => {
+    activeState = undefined; doctrine = undefined; hotSectionPending = false;
+    for (const [key, value] of Object.entries(previousEnvironment)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  });
+	// The one operational checkpoint re-orients the next turn after compaction.
 	pi.on("session_compact", () => {
 		if (activeState) hotSectionPending = true;
 	});
 	pi.on("before_agent_start", async (event, ctx) => {
-		if (!activeState) return;
+    const checkpoint = await advisorCheckpoint(ctx);
+    if (!checkpoint) { activeState = undefined; return; }
+    activeState = checkpoint.state;
 		if (doctrine === undefined) await loadDoctrine(ctx);
 		const guide = await liveIntelligenceGuide().catch(() => undefined);
 		let hotSection: string | undefined;
 		let workstreamPath: string | undefined;
-		if (hotSectionPending) {
-			hotSectionPending = false;
-			workstreamPath = pathsFor(await advisorStateRoot(ctx.cwd), activeState.workstream, activeState.sessionId).workstream;
-			hotSection = await liveHotSection(workstreamPath).catch(() => undefined);
-		}
+    workstreamPath = checkpoint.path;
+    hotSection = checkpoint.problem ?? (hotSectionPending && checkpoint.content ? workstreamHotSection(checkpoint.content) : undefined);
+    hotSectionPending = false;
 		return {
 			systemPrompt: withAdvisorSystemPrompt(event.systemPrompt, {
 				doctrine,

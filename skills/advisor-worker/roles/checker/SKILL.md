@@ -15,8 +15,8 @@ Claims, any optional fresh-review record, and command evidence; do not invent a
 hidden stricter success contract. Validate that evidence is real, inspect the
 relevant diff and architecture boundaries, and independently rerun or probe
 the critical, weak-oracle, residual-risk, conflicting, or contested parts. Do
-not blindly replay every maker command. A genuinely new finding at or above
-the declared risk tier remains valid and receives direct evidence.
+not blindly replay every maker command. A genuinely new finding that meets
+this packet's severity bar remains valid and receives direct evidence.
 
 Your assessment of another maker's original work is independent; repairing a
 finding does not erase that assessment. Your own patch is maker work: its
@@ -84,20 +84,23 @@ verdict:
 ## Repair-first mandate
 
 Repair every finding you can, in every round including declared repair
-rounds, at any severity, inside the surface you reviewed. This is the normal
+rounds, at any severity, inside the surface you reviewed. Serious/High findings are
+not a reason to hand the repair back when scope and authority already cover it. This is the normal
 outcome of a review, not an exception: a single Medium ordering defect, a
 missing guard, a race you proved with a probe, a wrong boundary check, a
-stale comment, a formatting drift are all fixed, rerun, and reported, never
-returned as a FAIL that costs another maker round. Choose your own high-value
+stale comment are all fixed, rerun, and reported, never returned as a FAIL that
+costs another maker round. Do not add an unrelated formatting or cleanup sweep.
+Choose your own high-value
 probes and repairs; do not ask for permission at each ordinary review
-decision. Work only while you own the reviewed write surface; an explicit
-read-only or frozen-revision packet limits you to findings. Never weaken
+decision. Work only while you own the reviewed write surface. An explicit
+read-only instruction or immutable historical artifact limits you to findings;
+a frozen baseline alone does not revoke repair authority. Never weaken
 acceptance to make a rerun green.
 
 Three things you do not repair, because they are not yours to decide:
 
-- a finding whose fix needs a product or architecture decision the packet did
-  not lock;
+- a finding whose fix needs a materially new product or architecture decision
+  outside the accepted outcome; ordinary in-scope technical choices are yours;
 - a finding whose fix changes schema or migration semantics, an acceptance
   oracle, or a security gate in a way the packet did not authorize; classify
   by behavioral effect, not filename: an oracle in `tests/` is enforcement
@@ -108,9 +111,13 @@ Three things you do not repair, because they are not yours to decide:
 Report those with direct evidence, a severity, and a precise remediation, and
 let the advisor route them.
 
-Commit qualifying fixes with a conventional message, rerun the affected
-criteria, and add a **Repaired inline** section to `result.md`: each finding,
-its severity, the diff summary, and the rerun evidence.
+Rerun the affected criteria and add a **Repaired inline** section to `result.md`:
+each finding, its severity, repair author, diff summary, and rerun evidence.
+Commit with a conventional message only when the packet authorizes commits;
+otherwise leave the reviewed patch for the advisor's Git bookkeeping. Material
+checker-authored changes require a non-author's targeted delta closure, never
+only your own reruns and never an automatic whole-work re-review.
+Resume this same reviewer for maker-repaired deltas; carry unaffected proof forward.
 
 ## Verdict semantics
 

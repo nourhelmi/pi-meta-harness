@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { advisorStateRoot } from "../../scripts/advisor-core/advisor-state.mjs";
@@ -25,8 +25,8 @@ export function restoredEntryState(ctx: ExtensionContext): AdvisorSessionState |
 		if (entry.type !== "custom" || entry.customType !== ENTRY_TYPE) continue;
 		const data = entry.data as Partial<AdvisorSessionState> | undefined;
 		if (
-			typeof data?.workstream === "string" &&
-			typeof data.sessionId === "string" &&
+      typeof data?.workstream === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.workstream) && data.workstream.length <= 48 &&
+      typeof data.sessionId === "string" && data.sessionId === ctx.sessionManager.getSessionId() &&
 			typeof data.initializedAt === "string"
 		) {
 			return {
@@ -65,7 +65,7 @@ async function restoredDiskState(
 	for (const path of candidates) {
 		const content = await readIfPresent(path);
 		const workstream = content ? workstreamFromSession(content) : undefined;
-		if (workstream) return { workstream, sessionId, initializedAt: "legacy-state", workerHarness: "pi" };
+    if (workstream && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(workstream) && workstream.length <= 48) return { workstream, sessionId, initializedAt: "legacy-state", workerHarness: "pi" };
 	}
 	return undefined;
 }
@@ -75,4 +75,21 @@ export async function restoredState(
 	sessionId = ctx.sessionManager.getSessionId(),
 ): Promise<AdvisorSessionState | undefined> {
 	return restoredEntryState(ctx) ?? (await restoredDiskState(ctx, sessionId));
+}
+
+/** Session metadata is only a pointer. Never treat missing, corrupt or transferred work as current. */
+export async function advisorCheckpoint(ctx: ExtensionContext) {
+  const state = await restoredState(ctx);
+  if (!state) return undefined;
+  const path = join(await advisorStateRoot(ctx.cwd), "workstreams", `${state.workstream}.md`);
+  try {
+    if ((await stat(path)).size > 65536) throw new Error("Checkpoint too large");
+    const content = await readFile(path, "utf8");
+    if (content.length > 65536 || !content.startsWith(`# Workstream: ${state.workstream}\n`) || !content.includes("## Current state") || content.match(/^- Owner session: `([^`]+)`$/m)?.[1] !== state.sessionId) {
+      return { state, path, problem: "Checkpoint corrupt or owned by another session; do not resume effects or overwrite it. Reinitialize with explicit ownership resolution." };
+    }
+    return { state, path, content };
+  } catch {
+    return { state, path, problem: "Checkpoint missing or unreadable; operational state is unknown. Recover the workstream from accepted artifacts before resuming effects." };
+  }
 }

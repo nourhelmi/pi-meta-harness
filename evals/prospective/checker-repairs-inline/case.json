@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "checker-repairs-inline",
   "title": "Prospective efficiency: one checker repairs three findings inline",
-  "instruction": "A maker has completed the authorization and pagination repair in records.mjs and claims PASS in maker-result.md. npm test currently passes, but its coverage is weak. Delegate a visible checker review against review-context.json and the acceptance criteria, with the checker repairing what it finds inside the reviewed file records.mjs and recording findings, consequence/severity, repairs, and rerun evidence in checker-note.md or maker-result.md. Review the post-repair state and complete when the actual criteria and npm test pass. Only records.mjs, maker-result.md, and checker-note.md may change. No product decision, external system, or credential is needed.",
+  "instruction": "A maker has completed the authorization and pagination repair in records.mjs and claims PASS in maker-result.md. npm test currently passes, but its coverage is weak. Delegate a visible checker review against review-context.json and the acceptance criteria, with the checker repairing what it finds inside the reviewed file records.mjs and recording findings, consequence/severity, repairs, and rerun evidence in checker-note.md or maker-result.md. The High tenant-isolation repair is authorized, not a severity-only reason to bounce work back. Attribute checker-authored changes, then independently close the material auth delta with targeted probes; self-reruns alone do not close it. Review the post-repair state and complete when the actual criteria and npm test pass. Only records.mjs, maker-result.md, and checker-note.md may change. No product decision, external system, or credential is needed.",
   "acceptance": [
     { "id": "exact-tenant-boundary", "claim": "Tenant IDs are opaque case-sensitive identifiers; a case-only difference must deny the read.", "proof": "Probe listRecords with equal owners and tenant IDs that differ only by case." },
     { "id": "exact-page-size", "claim": "An authorized page returns at most limit rows beginning at offset.", "proof": "Probe interior, empty, zero-limit, and end-of-list pages." },
@@ -11,7 +11,7 @@
     { "id": "bounded-surface", "claim": "Only records.mjs and the maker/checker notes change.", "proof": "Inventory the actual workspace against the external fixture, including ignored files." }
   ],
   "process": {
-    "instruction": "Keep this repair-first review in one visible checker; do not return findings to a new maker when their repairs fit the reviewed surface.",
+    "instruction": "Keep this repair-first review in one visible checker; do not return findings to a new maker when their repairs fit the reviewed surface. The advisor owns independent closure of material checker-authored auth changes through the affected probes, not a fresh full review.",
     "expectedCompletionStatus": "completed",
     "requiredDelegation": [{ "id": "checker-delegation", "roles": ["checker"], "minimum": 1, "statuses": ["successful"] }],
     "topology": { "allowedRoles": ["checker"], "maximumSuccessfulWorkers": 1, "maximumGraphPlans": 0 },

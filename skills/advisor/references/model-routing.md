@@ -113,9 +113,10 @@ unrelated decisions merely to reduce launch count.
 
 ## Browser verification preflight
 
-Before a costly browser-verification launch, run the repository's available
-deterministic readiness checks yourself with normal commands: runtime
-ownership, the intended safe environment or data target, required local auth,
-and the relevant doctor or health gate. This is a task-shaped preflight, not a
-universal checklist. If a prerequisite cannot be proven outside the verifier,
-make it the verifier's first hard stop before page control.
+Assign task-shaped readiness to the maker or browser verifier and reuse current
+proof before a costly separate launch. Check relevant runtime ownership, safe
+environment/data target, local auth and doctor/health gates, not a universal
+checklist that the advisor repeats itself. If readiness can only be established
+inside the verifier, make it the first step before page control. Resolve permitted
+local obstacles there; a missing safe target, credential or authority is a real
+stop, not permission to proceed unsafely.

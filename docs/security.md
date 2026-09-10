@@ -66,8 +66,11 @@ another machine.
 
 Third-party Pi packages are installed from compatible caret ranges on npm or
 full reviewed Git commits. Compatible npm fixes arrive through normal extension
-updates without silently crossing a major compatibility boundary. Packages are
-not vendored, except for `extensions/unified-edit-fallback/upstream.ts`.
+updates without silently crossing a major compatibility boundary. Vendored exceptions
+are `extensions/unified-edit-fallback/upstream.ts` and the unchanged
+`third-party/gentle-engram/` snapshot used by the advisor memory wrapper. The latter
+ships its upstream license and per-file hashes in `SNAPSHOT.json`; changes require
+reviewing the wrapper's public hook contract and installed-context tests.
 
 Primary read/edit/undo is the compatible-range `pi-better-edit` npm package. It
 stores machine-local runtime state under `~/.config/pi-better-edit`, which is
@@ -87,7 +90,8 @@ then checks every installed folder against the recorded SHA-256 hash. Updating
 a skill requires a reviewed commit, tree, and hash change.
 
 `pi-detach` is first-party MIT source in its own public repository. This
-harness installs it from a full commit.
+harness tracks its Git source through the installed package manager; verify the
+reviewed revision before updating it.
 
 The installed `bg-agent-profiles.json` is role-only and carries no intelligence
 allowlist. `advisor-intelligence.json` contains recommendations only. Choosing

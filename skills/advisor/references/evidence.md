@@ -53,7 +53,7 @@ probe the critical, weak, residual-risk, conflicting, or contested parts and
 account for every assigned claim with inspected or newly produced evidence,
 clearly attributed. Explicitly required independent checks must actually run;
 evidence reuse never waives them. Missing proof remains unsatisfied. A
-genuinely new finding at or above the declared risk tier remains valid even
+genuinely new finding that meets the packet's severity bar remains valid even
 though it was not known to the maker.
 
 Assign delivery gates to an owner rather than every layer. Run the
@@ -87,12 +87,12 @@ independent reasoning or leaves material independent risk, not merely because
 a file changed or a test once failed. Review that delta first; expand only
 when the risk crosses its boundary. A checker's assessment of the original
 work remains independent, but its own patch's reruns are self-verification,
-not independent review of that patch. Close a well-proven delta with the rerun
-evidence and a targeted diff read when no material independent risk remains.
-Otherwise assign the unresolved delta to a reviewer who did not author the
-patch; the original maker can serve when its prior assumptions are not the
-contested issue. Preserve unaffected review evidence and never launch an
-automatic checker-of-checker for closed work.
+not independent review of that patch. The advisor or another non-author closes
+a material checker delta with inspected rerun evidence, a targeted diff read,
+and any still-needed independent probe. Use a separate reviewer only for named
+unresolved independent risk; the original maker can serve when its prior
+assumptions are not the contested issue. Preserve unaffected review evidence
+and never launch an automatic checker-of-checker for closed work.
 
 Independent read-only checks of the same frozen diff may run in parallel when
 they materially shorten the critical path and neither is likely to invalidate
@@ -114,9 +114,9 @@ Evidence is captured while verifying and submitted at delivery.
    retained.
 2. The delivery node collects the manifests, compares each capture SHA to the
    delivered SHA, and submits still-valid evidence with the PR. Evidence stays
-   valid while the delta does not touch its recorded surfaces: a
-   proven-equivalent rebase, test-only commits, or changes outside the
-   recorded flows.
+   valid only when the changed code, tests, dependencies, configuration and
+   environment leave its covered behavior and oracle intact. A test-only commit
+   or unchanged file path is not by itself proof of that.
 3. Only stale evidence earns a re-capture, and only for the affected flows,
    never the full suite by default.
 4. Artifact-upload authorization is a delivery-time gate. Pre-flight the
@@ -130,8 +130,9 @@ Evidence is captured while verifying and submitted at delivery.
 1. Do not rebase before PR by default. When the branch merges cleanly into
    the target and the changed-path intersection with the target delta is
    empty, open the PR from the current base; CI verifies the merge result.
-2. When a rebase is genuinely required, prove equivalence deterministically:
-   range-diff all `=`, byte-identical aggregate diffs, empty changed-path
-   intersection. That proof carries every prior verdict and evidence manifest
-   forward. Do not relaunch checkers or verifiers over a proven-equivalent
-   rebase; the rebase node's own single criterion rerun is the maximum.
+2. When a rebase is genuinely required, inspect range-diff, aggregate diffs and
+   the target's changes for equivalence and relevant integration effects. An
+   unchanged patch does not prove an unchanged dependency or environment.
+   Carry forward unaffected verdicts and captures with that justification;
+   rerun invalidated criteria and required merge gates. Do not impose either
+   an automatic full re-review or an arbitrary one-check ceiling.

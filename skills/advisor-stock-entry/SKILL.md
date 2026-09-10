@@ -24,9 +24,9 @@ Launch, message and cancel calls need an explicit unique `commandId`. Preserve t
 
 Admission means accepted work, not completion. Read status, then explicitly wait for a durable outcome; an empty wait is only a timeout. Native MCP does not promise an unsolicited wake after you end your turn. Continue bounded waiting while work is outstanding, or tell the user honestly that it remains active.
 
-On BLOCKED, read `request.json`/`result.md` through `advisor_worker_artifact` before using `advisor_worker_message` for that exact run. Solve permitted local obstacles or provide an authorized decision; never send credentials as a reply. On completion, read the captured result, inspect changes and run relevant checks. A worker's PASS is a claim, not independent verification. Call `advisor_worker_ack` only after consuming that delivery.
+Read the current handoff's bounded claims/risks and captured result locator first. On BLOCKED, use its `reply` eligibility and inspect the relevant request before `advisor_worker_message` for that exact run. Solve permitted local obstacles or provide an authorized decision; never send credentials. At settlement, inspect decision-relevant captured proof and changes, then run still-needed checks, not every maker command again. A worker's PASS is a claim, not independent verification. Missing or tampered capture is not repaired by guessing from worktree mtimes or transcript tails. Call `advisor_worker_ack` only after consuming that delivery.
 
-Use a kept worker for a planned follow-up only when its state permits it. Cancel requests do not prove cancellation, process exit or pane closure. Recovery-required means inspect the reported worker; never blindly relaunch, adopt it, delete locks or kill unrelated processes.
+Use a kept worker for a planned follow-up only when the current handoff permits `task`; a live pane alone is not continuation authority. Historical deliveries retain their original attempt/capture, so requery current state before continuing. Cancel requests do not prove cancellation, process exit or pane closure. Recovery-required means inspect the reported worker; never blindly relaunch, adopt it, delete locks or kill unrelated processes.
 
 Tool path: `advisor_worker_launch` → `advisor_worker_wait` / `advisor_worker_status` → `advisor_worker_artifact` → verification → `advisor_worker_ack`. `advisor_worker_list` and `advisor_worker_output` provide scoped visibility. Only an explicit first launch initializes a runtime; `STOCK_NOT_STARTED` on a read is not an instruction to start a worker just to get status.
 
@@ -34,7 +34,13 @@ Use `advisor_worker_runtime_close` when deliberately finishing this root's runti
 
 ## Review without ceremony
 
-Review findings may be repaired inline when the reviewer has a bounded write grant. Keep findings and repairs attributable; repaired output is author verification, not independent review. Use independent verification for materially risky changes, and recheck the changed boundary rather than repeating a whole review. You own the final accept/revert decision and truthful user summary.
+Give the checker repair ownership by default: it fixes findings within the accepted outcome and owned surface, including serious findings, reruns affected criteria, and reports the post-repair state. Only explicit read-only instructions, missing authority or an unaccepted material decision prevent an otherwise qualifying repair; a frozen baseline is not read-only. Keep findings and repairs attributable. Its original assessment is independent; its own fixes are maker work. You or another non-author close material deltas with inspected evidence, a targeted read and any necessary independent probe. Use a separate reviewer only for named unresolved risk, not an automatic checker-of-checker. Resume the same reviewer for maker-repaired deltas and carry unaffected proof forward. You own final acceptance and the truthful user summary.
+
+## Carry current evidence, not duplicate diaries
+
+For a real dependency graph, use `advisor_worker_graph_evidence` with the tool's actual schema. Bind nodes to owned runs, include its returned task/evidence prompt intact in launch/message, and explicitly refresh a node for the same run's new repair attempt. Admission records the supplied inputs; late binding cannot invent newer context. Historical inputs must remain intact, not currently green: a checker can repair an evidenced failure and establish valid current output. If the worker cannot continue, explicitly bind a successor with new `runId`/`attempt` and old `replacesRunId`/`replacesAttempt` only after resolved ownership. Succession retains captures and uses the existing repair budget; never silently substitute or automatically relaunch. Trusted host proof covers only its declared check and source surface, not worker assertions. A single maker uses the normal handoff without a mandatory graph.
+
+Keep one current operational checkpoint with decisions, ownership, handles, acceptance, evidence locators and next action. Update material changes, not every read or wait. Recover from that checkpoint and current runtime state; do not recreate parallel memory diaries or reread all role skills.
 
 ## Boundaries
 

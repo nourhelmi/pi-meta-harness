@@ -122,13 +122,23 @@ async function waitUntil(assertion: () => Promise<void> | void, timeoutMs = 2_00
 
 async function withStateRoot(run: (root: string) => Promise<void>): Promise<void> {
 	const root = await mkdtemp(join(tmpdir(), "advisor-pi-host-"));
-	const previous = process.env.ADVISOR_STATE_DIR;
+	const previous = {
+		ADVISOR_STATE_DIR: process.env.ADVISOR_STATE_DIR,
+		PI_DETACH_BACKEND: process.env.PI_DETACH_BACKEND,
+		PI_DETACH_RUNTIME_BRIDGE: process.env.PI_DETACH_RUNTIME_BRIDGE,
+		ADVISOR_RUNTIME_CANONICAL_OWNER: process.env.ADVISOR_RUNTIME_CANONICAL_OWNER,
+	};
 	process.env.ADVISOR_STATE_DIR = root;
+	process.env.PI_DETACH_BACKEND = "legacy";
+	delete process.env.PI_DETACH_RUNTIME_BRIDGE;
+	delete process.env.ADVISOR_RUNTIME_CANONICAL_OWNER;
 	try {
 		await run(root);
 	} finally {
-		if (previous === undefined) delete process.env.ADVISOR_STATE_DIR;
-		else process.env.ADVISOR_STATE_DIR = previous;
+		for (const [name, value] of Object.entries(previous)) {
+			if (value === undefined) delete process.env[name];
+			else process.env[name] = value;
+		}
 		await rm(root, { recursive: true, force: true });
 	}
 }

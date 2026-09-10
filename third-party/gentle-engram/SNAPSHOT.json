@@ -1,0 +1,13 @@
+{
+  "package": "gentle-engram@0.1.12",
+  "source": "npm package snapshot; LICENSE from upstream main",
+  "files": {
+    "LICENSE": "09608597ddda4e5f9033ac407a0d401986d96376c47f6d46789ca38db672dc15",
+    "README.md": "8bbd7d67c19c2d536332ad8eeccbeb3de2348521860440d30decaa6e1801913f",
+    "compaction-recovery.js": "d9d619b48824f9c6b3c4547c27b115ee6bc3fa82bb43d85c9afb2d9e5fa96d7c",
+    "index.ts": "96dc8896c4dbdc5433eacb8c4a519df63fcab14f21d6398b96bcb87f015b006a",
+    "memory-tool-chrome.js": "8d649cf707f7a31d30d758aa2b22df5826ce705dfd7dccbecb5133da93911d84",
+    "package.json": "7164b96842a9f6bb616c9b7c572827284da0388b2793a9e9f67aa0407a13da0d",
+    "private-redaction.js": "aa6f3d397afdee8b2a561d49cb08cf4b0b07f9647005addf53a4b84d58731473"
+  }
+}

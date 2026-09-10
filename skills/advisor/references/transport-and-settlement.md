@@ -14,19 +14,19 @@ and `anthropic/*` route through Claude Code. Keep semantic role names
 unchanged; do not invent harness-specific aliases. Every role packet includes
 the installed role-skill path and the worker loads it before starting.
 
-Pi workers receive the external advisor run directory from the worker
-extension. Native Codex and Claude role launches receive an automatically
-generated `result.md` path from `bg_agent`, reserved before launch as an
-empty file with the launcher's default modes; read that artifact after
-settlement and do not use the pane transcript as the durable result. The
-session's persisted worker mode is authoritative over per-launch requests; an
-explicit role-profile transport constraint takes precedence. Never pass a
-conflicting per-launch harness. Native settlement stalls only for a missing or
-blank result artifact; missing, empty, or differently formatted sections are
-advisory notes and do not prevent settlement. A Cursor-only recommendation has
-no native route; choose a task-appropriate OpenAI or Anthropic model from the
-same guide instead, or stop and report the transport mismatch rather than
-silently switching the session to Pi.
+Pi and native workers receive their writable run directory and `result.md` from
+the launcher; an empty reserved file is expected. In managed mode, consume the
+runtime handoff's captured attempt-specific result, not mutable `source/result.md`
+or the compatibility alias as historical proof. Legacy transports without captured
+locators use the assigned report, with its weaker provenance stated explicitly.
+Never invent a path or treat a pane transcript as the durable report.
+
+The persisted worker mode is authoritative over per-launch requests; an explicit
+role-profile transport constraint takes precedence. A missing or blank report
+cannot prove completion; nonstandard report headings are advisory, not a reason
+to repeat work. A Cursor-only recommendation has no native route; choose a
+compatible recommendation or report the mismatch rather than silently switching
+session mode.
 
 ## Delegation decision tree
 
@@ -40,8 +40,8 @@ silently switching the session to Pi.
   sleep-and-check loops through `bg_run`.
 - **One delegated task:** `bg_agent` with a self-contained prompt, a label, a
   model and reasoning from the guide, the correct worktree, and criteria.
-- **Needs supervision or dialogue:** `bg_agent`; answer blocked agents with the
-  same agent name.
+- **Needs supervision or dialogue:** `bg_agent`; answer the current blocked
+  request only when its returned continuation is `reply`, with the exact run ID.
 - **Wide independent work:** fan out several `bg_agent` calls in one turn.
 - **Dependent work:** execute directly or delegate serially according to who
   holds the useful context.
@@ -55,38 +55,44 @@ stop and report the visibility failure; never fall back to an invisible agent.
 
 ## Worker transport recovery
 
-A worker that fails before producing evidence is a transport or runtime
-failure, not evidence that the task route was wrong. Before retrying, read the
-bounded tool error, check `bg_list` once, and inspect the expected result path
-or worktree ground truth. Resume the same live worker when it exists;
-otherwise make at most one fresh changed retry for that role with a compatible
-model from the live guide. The retry must change a plausible failure variable
-(model or provider availability, malformed packet, stale agent identity)
-rather than repeat the same launch.
+A failure before useful evidence does not by itself show the task route was wrong.
+Read the bounded error and current handoff first; inspect `bg_list` once if state
+is unclear. Distinguish a definite pre-launch rejection from an ambiguous effect.
+Correct a rejected request within existing authority. For admitted work, use the
+same exact run ID only when current continuation is `reply` or `task`; a live or
+idle pane alone is not permission to send another prompt.
 
-If the changed retry also fails before work starts, do not abandon an
-otherwise safe workstream or pretend delegation succeeded. When repository
-evidence settles the boundary and ownership is clear, perform bounded
-discovery or implementation yourself under the same maker and review duties;
-record the fallback and its lower independence. If independent role evidence
-is an explicit acceptance requirement, report that requirement as unsatisfied
-even when the functional repair proceeds. Stop instead when the missing worker
-guards a material decision the available evidence cannot settle, or when every
-compatible route is unavailable. Never launch a recovery maker until settlement
-ground truth has ruled out a late worker success.
+`recovery-required`, cancellation, uncertain delivery, or a held writer claim
+must follow their supported recovery boundary. Never clear locks, adopt a pane,
+or relaunch because an artifact exists or output looks quiet. A missing capture
+stays missing even if mutable source output looks successful. Inspect output or
+source only to resolve that discrepancy, not as a routine handoff step.
+
+If a definite pre-effect rejection has a permitted correction, make at most one
+changed retry, not an identical new launch. If transport remains unavailable,
+perform the cohesive work directly only when ownership and authority are clear;
+required independent review remains unsatisfied until actually obtained. Any
+explicit acceptance requirement for a particular transport or worker stays
+unsatisfied if bypassed by direct work. Another root/workstream must be
+explicitly scoped through its supported bootstrap, not
+used to evade a refusal or adopt an uncertain worker. Keep unfinished criteria
+visible rather than reporting transport recovery as product success.
 
 ## Settlement ground truth
 
-Launch and settlement notifications are hints, not verdicts. Before treating a
-worker as failed, unstarted, or empty-handed, check ground truth in its
-worktree: new commits since launch, `result.md` existence and mtime, and
-branch movement. A maker whose commit landed after detach is a late success,
-not a failure. Settlement notices carry the worker's result Status line; a
-`paused` notice means the worker ended a turn while waiting on its own
-sub-workers and remains supervised, so no action is needed until its next
-settlement. A blocked settlement carries the worker's request; answer it with
-`bg_agent` and the same `name`, stating only what changed, without asking the
-worker to re-read or re-hash its packet.
+The current handoff separates admission, worker status, captured report, attempt,
+proof and continuation. Read its bounded claims/risks first and the relevant
+captured proof needed for your next decision. A reported PASS is not independent
+verification; an unknown proof field does not mean the worker must repeat every
+check if its attributed underlying evidence can be inspected.
+
+Historical deliveries refer to their original attempts. Requery current state
+before a follow-up or graph dependency consumption. Reply with only the changed
+decision or repair goal; do not require re-reading/re-hashing an unchanged packet.
+Do not use worktree commits, report mtimes or branch movement to override the
+runtime's ownership, capture or settlement state. They are troubleshooting inputs
+only. A `paused` worker remains supervised while its own helpers run; wait for
+its next meaningful settlement.
 
 ## Status updates
 

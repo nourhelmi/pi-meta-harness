@@ -2,6 +2,14 @@
   "schemaVersion": 2,
   "extensions": [
     {
+      "name": "gentle-engram",
+      "repository": "https://github.com/Gentleman-Programming/engram",
+      "package": "gentle-engram@0.1.12",
+      "license": "MIT",
+      "path": "third-party/gentle-engram",
+      "purpose": "Unchanged upstream snapshot with repo-owned public hook composition; ordinary memory unchanged, managed advisors use one checkpoint. Per-file hashes in SNAPSHOT.json."
+    },
+    {
       "name": "ponytail",
       "repository": "https://github.com/DietrichGebert/ponytail",
       "commit": "356918eba965ee1eac64bd3a7f0dd02108350de5",

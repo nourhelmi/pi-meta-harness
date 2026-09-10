@@ -243,6 +243,7 @@ Full guide (suites, trials, baselines, comparisons, privacy boundary):
 | Doc | What's inside |
 | --- | --- |
 | [`advisor-runtime.md`](docs/advisor-runtime.md) | Workstream isolation, adaptive topology, roles, pane rules |
+| [`outcome-owned-orchestration.md`](docs/outcome-owned-orchestration.md) | Captured handoffs, graph proof, continuation, repair-first review and one checkpoint |
 | [`advisor-protocol.md`](docs/advisor-protocol.md) | Host-neutral layers, canonical event trace, host-binding install, migration status |
 | [`intelligence-profiles.md`](docs/intelligence-profiles.md) | Guides, quota pick tree, per-role recommendations |
 | [`advisor-evals.md`](docs/advisor-evals.md) | Live prospective suite + Harbor calibration |

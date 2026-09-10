@@ -99,7 +99,9 @@ test("repair-first checkers close their own findings and delta review reuses the
   assert.match(policy.checker, /delta and its blast radius and rerun affected criteria/);
   assert.match(policy.checker, /no automatic checker-of-checker/);
   assert.match(policy.checker, /own the reviewed write surface/);
-  assert.match(policy.checker, /explicit read-only or frozen-revision packet limits you to findings/);
+  assert.match(policy.checker, /explicit read-only instruction or immutable historical artifact limits you to findings/);
+  assert.match(policy.checker, /a frozen baseline alone does not revoke repair authority/);
+  assert.match(policy.checker, /only when the packet authorizes commits/);
   assert.match(policy.checker, /Repair every finding you can, in every round including declared repair rounds, at any severity, inside the surface you reviewed/);
   assert.match(policy.checker, /Three things you do not repair/);
   assert.match(policy.checker, /classify by behavioral effect, not filename/);
@@ -122,14 +124,15 @@ test("checker-authored repairs keep self-verification distinct from independent 
       assert.match(source, /checker-authored patch follows the evidence reference's risk-based delta review, not self-certified independence/i, name);
     } else {
       assert.match(source, /not independent review of that patch/, name);
-      assert.match(source, /no material independent risk remains/, name);
+      assert.match(source, /no material independent risk remains|non-author.*(?:independent probe|targeted diff read)/, name);
     }
     assert.doesNotMatch(source, /Independence is a property of (?:the|your) verdict, not of (?:the|your) keystrokes|has not compromised its review|does not compromise your review/, name);
   }
-  assert.match(advisorCore, /someone who did not author that patch/);
-  assert.match(advisorCore, /original maker can supply that perspective when its prior assumptions are not the contested issue/);
+  assert.match(advisorCore, /advisor or another non-author inspects the patch and affected proof/);
+  assert.match(advisorCore, /original maker may supply that perspective when its prior assumptions are not the contested issue/i);
   assert.match(policy.checker, /reviewer who did not author the patch needs to inspect it/);
-  assert.match(advisorReferences.evidence, /reviewer who did not author the patch/);
+  assert.match(advisorReferences.evidence, /advisor or another non-author closes a material checker delta/i);
+  assert.match(advisorReferences.evidence, /separate reviewer only for named unresolved independent risk/);
 });
 
 test("exhausted review budgets leave unmet obligations incomplete rather than shippable", () => {

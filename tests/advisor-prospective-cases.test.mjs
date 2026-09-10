@@ -284,3 +284,19 @@ for (const caseId of [
     assert.equal(loaded.definition.process.topology.maximumGraphPlans, 0);
   });
 }
+
+test("High tenant-isolation finding is repaired inline, independently probed, and a regressed repair cannot close", async () => {
+  const { loaded, root, workspace } = await workspaceFor("checker-repairs-inline");
+  try {
+    const initial = await verifyProspectiveWorkspace(loaded, workspace);
+    assert.equal(initial.reward, 0); assert.equal(initial.checks.find(check => check.id === 'exact-tenant-boundary').passed, false);
+    const path = join(workspace, 'records.mjs'); const before = await readFile(path, 'utf8');
+    const repaired = before.replace('request.tenantId.toLowerCase() === resource.tenantId.toLowerCase()', 'request.tenantId === resource.tenantId').replace('status: 401', 'status: 403').replace('offset + limit + 1', 'offset + limit');
+    await writeFile(path, repaired);
+    await writeFile(join(workspace, 'checker-note.md'), '# Findings and repairs\nChecker-authored: High cross-tenant disclosure, Medium extra row, Medium status code. Repaired in records.mjs. Self-rerun is not independent closure. External verifier owns the affected auth and pagination probes.\n');
+    const closed = await verifyProspectiveWorkspace(loaded, workspace);
+    assert.equal(closed.reward, 1, JSON.stringify(closed.checks));
+    await writeFile(path, repaired.replace('request.tenantId === resource.tenantId', 'true'));
+    assert.equal((await verifyProspectiveWorkspace(loaded, workspace)).reward, 0, 'a checker PASS note cannot substitute for independent auth evidence');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

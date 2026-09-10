@@ -60,7 +60,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   );
   await writeFile(
     join(target, "settings.json"),
-    `${JSON.stringify({ packages: ["npm:custom-package@1.0.0", "npm:pi-footer@0.5.1", "npm:pi-claude-bridge@^0.7.0", "git:https://github.com/nourhelmi/pi-powerline@old", "git:https://github.com/nourhelmi/pi-detach@old"], enabledModels: ["custom/model", ...removedModels], customSetting: true, defaultProvider: "openai-codex", defaultModel: "gpt-5.6-sol", defaultThinkingLevel: "high" }, null, 2)}\n`,
+    `${JSON.stringify({ packages: ["npm:gentle-engram@^0.1.10", "npm:custom-package@1.0.0", "npm:pi-footer@0.5.1", "npm:pi-claude-bridge@^0.7.0", "git:https://github.com/nourhelmi/pi-powerline@old", "git:https://github.com/nourhelmi/pi-detach@old"], enabledModels: ["custom/model", ...removedModels], customSetting: true, defaultProvider: "openai-codex", defaultModel: "gpt-5.6-sol", defaultThinkingLevel: "high" }, null, 2)}\n`,
   );
   await writeFile(
     join(target, "mcp.json"),
@@ -81,11 +81,15 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   for (const model of removedModels) assert(!settings.enabledModels.includes(model));
   assert(!settings.enabledModels.includes("claude-bridge/claude-fable-5"));
   assert(packageSources.includes("npm:custom-package@1.0.0"));
+  assert(!packageSources.some(source => source.includes("gentle-engram")), "memory provider has one repo-owned activation");
   assert(packageSources.includes("git:https://github.com/nourhelmi/pi-detach"));
   // Every extension the installed advisor-session and advisor-worker import must ship with them.
   for (const relative of [
     "extensions/advisor-pi-host.ts",
     "extensions/advisor-runtime.ts",
+    "extensions/advisor-memory.ts",
+    "third-party/gentle-engram/index.ts",
+    "third-party/gentle-engram/SNAPSHOT.json",
     "extensions/ponytail.ts",
     "scripts/advisor-runtime/security.mjs",
     "scripts/advisor-runtime/service.mjs",
@@ -105,7 +109,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   // The installed extensions must actually load from the installed tree, not only exist.
   // Package imports resolve through the repository's node_modules, as the live Pi provides its own.
   await symlink(join(ROOT, "node_modules"), join(target, "node_modules"));
-  for (const extension of ["advisor-session.ts", "advisor-worker.ts", "advisor-pi-host.ts", "advisor-runtime.ts"]) {
+  for (const extension of ["advisor-session.ts", "advisor-worker.ts", "advisor-pi-host.ts", "advisor-runtime.ts", "advisor-memory.ts"]) {
     const loaded = spawnSync(
       process.execPath,
       ["--import", "tsx", "-e", `import(${JSON.stringify(join(target, "extensions", extension))}).then(() => process.stdout.write("loaded"))`],
@@ -726,7 +730,7 @@ test("doctor rejects generated Taskplane state in the source repository", async 
   const sourceRoot = join(parent, "source");
   const target = join(parent, "target");
   await mkdir(sourceRoot, { recursive: true });
-  for (const entry of ["scripts", "config", "extensions", "skills", "herdr"]) {
+  for (const entry of ["scripts", "config", "extensions", "skills", "herdr", "third-party"]) {
     await cp(join(ROOT, entry), join(sourceRoot, entry), { recursive: true });
   }
   await mkdir(join(sourceRoot, ".pi"), { recursive: true });
@@ -1052,4 +1056,36 @@ test("reinstall keeps a switched intelligence profile", async () => {
   const doctor = run("doctor", "--target", target);
   assert.equal(doctor.status, 0, `${doctor.stdout}\n${doctor.stderr}`);
   await rm(target, { recursive: true, force: true });
+});
+
+test("vendored memory snapshot hashes are reproducible and its wrapper is the only managed activation", async () => {
+  const snapshot = JSON.parse(await readFile(join(ROOT, 'third-party/gentle-engram/SNAPSHOT.json')));
+  for (const [file, sha256] of Object.entries(snapshot.files)) assert.equal(createHash('sha256').update(await readFile(join(ROOT, 'third-party/gentle-engram', file))).digest('hex'), sha256, file);
+  const target = await temporaryTarget();
+  try {
+    assert.equal(run('install', '--target', target).status, 0);
+    await symlink(join(ROOT, 'node_modules'), join(target, 'node_modules'));
+    const probe = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
+      import assert from 'node:assert/strict'; import {mkdirSync,writeFileSync} from 'node:fs';
+      const root = ${JSON.stringify(target)}; process.env.ADVISOR_STATE_DIR = root + '/state';
+      process.env.ENGRAM_URL = 'http://127.0.0.1:1'; globalThis.fetch = async () => new Response(JSON.stringify({project:'fixture'}), {status:200});
+      mkdirSync(root + '/state/workstreams', {recursive:true});
+      writeFileSync(root + '/state/workstreams/work.md', '# Workstream: work\\n- Owner session: \u0060owner\u0060\\n## Current state\\nKnown.');
+      const hooks = {}; const tools = []; const module = await import(root + '/extensions/advisor-memory.ts'); const install = module.default.default ?? module.default;
+      await install({on(name,fn){hooks[name]=fn},registerTool(tool){tools.push(tool.name)}});
+      const ctx={cwd:root,sessionManager:{getSessionId:()=> 'owner',getBranch:()=>[{type:'custom',customType:'advisor-session',data:{workstream:'work',sessionId:'owner',initializedAt:'now'}}]}};
+      await hooks.session_start({},ctx); await hooks.session_compact({compactionEntry:{summary:'old diary'}},ctx);
+      const result=await hooks.before_agent_start({systemPrompt:'base'},ctx);
+      assert.match(result.systemPrompt,/single operational checkpoint/); assert.doesNotMatch(result.systemPrompt,/WHEN TO SAVE|SESSION CLOSE PROTOCOL/);
+      assert.ok(tools.includes('mem_save'));
+      const normal={cwd:root,sessionManager:{getSessionId:()=> 'normal',getBranch:()=>[]}};
+      const direct={}; const {default:upstream}=await import(root + '/third-party/gentle-engram/index.ts');
+      upstream({on(name,fn){direct[name]=fn},registerTool(){}});
+      const before={systemPrompt:'ordinary'};
+      const expected=await direct.before_agent_start(before,normal); const forwarded=await hooks.before_agent_start(before,normal);
+      assert.deepEqual(forwarded,expected); assert.match(forwarded.systemPrompt,/WHEN TO SAVE/);
+      console.log('installed memory hook PASS');
+    `], { cwd: ROOT, encoding: 'utf8' });
+    assert.equal(probe.status, 0, probe.stderr); assert.match(probe.stdout, /installed memory hook PASS/);
+  } finally { await rm(target, { recursive: true, force: true }); }
 });
