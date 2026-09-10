@@ -9,7 +9,7 @@ Profiles are advisory judgment/cost guidance, not model availability or tool per
 
 Selection order: the user's explicit choice; otherwise the existing `~/.pi/agent/advisor-intelligence.json` if present (read-only); otherwise the bundled `profiles/balanced.json`. The installer copies current canonical presets into this skill's `profiles/` directory. Available names are the JSON filenames there. Never load every preset at startup or after compaction.
 
-Use the profile's role recommendations and task-fit descriptions. The current Codex Lean guide reserves Astra for advisor/planner and materially ambiguous or wide work; Sol medium owns regular implementation/checking/reduction; Luna max owns scouts and browser verification. The selected JSON is authoritative if these recommendations evolve.
+Use the profile's role recommendations and task-fit descriptions. The current Codex Lean guide uses Astra xhigh for the advisor, planner, and child advisor; Sol medium owns regular implementation/checking/reduction, while Sol max owns materially ambiguous or wide work; Luna max owns scouts and browser verification. The selected JSON is authoritative if these recommendations evolve.
 
 A provider-prefixed Pi model identifier is not necessarily a valid native model selector. Consult the host's exposed controls and actual model availability. Map recommendations to verified native equivalents only; when the recommended family/effort is unavailable, retain the current model or choose an available task-appropriate equivalent and disclose material differences. Do not fabricate cross-provider support or silently route through the managed runtime to obtain it.
 

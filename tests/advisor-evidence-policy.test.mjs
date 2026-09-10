@@ -7,7 +7,7 @@ const REFERENCES = ["graphs", "model-routing", "evidence", "transport-and-settle
 const paths = {
   contract: "skills/advisor-worker/references/WORKER_CONTRACT.md",
   builder: "skills/advisor-worker/roles/builder/SKILL.md",
-  foreman: "skills/advisor-worker/roles/foreman/SKILL.md",
+  child: "skills/advisor-worker/roles/advisor/SKILL.md",
   checker: "skills/advisor-worker/roles/checker/SKILL.md",
   runtime: "docs/advisor-runtime.md",
 };
@@ -63,7 +63,8 @@ test("advisor, maker, and checker handoffs reference evidence rather than recopy
   assert.match(policy.advisor, /link supporting detail rather than pasting upstream reports into every packet/);
   assert.match(policy.builder, /Record exact command evidence once and reference it from each matching result Claim/);
   assert.match(policy.builder, /do not repeat the same invocation, output, or diff per claim/);
-  assert.match(policy.foreman, /Summarize your integration delta and cite component proof rather than copying helper reports/);
+  assert.match(policy.child, /Carry forward attributable component evidence and rerun what integration invalidates/);
+  assert.match(policy.contract, /Claims reference that proof instead of repeating it/);
   assert.match(policy.checker, /Record each proof and its provenance once, reference it from the claims it establishes/);
   assert.match(policy.checker, /Do not reproduce the maker's report, full probe programs, or complete logs in your result/);
   assert.match(policy.checker, /accessible linked artifacts under the worker contract's handoff rules/);
@@ -74,7 +75,8 @@ test("concise reports do not replace maker checks, independent proof, or honest 
   assert.match(policy.contract, /An unverified criterion is a failure you report/);
   assert.match(policy.builder, /run the named checks, exercise the behavior each criterion claims/);
   assert.match(policy.builder, /test that failure path with the project's normal tooling, and inspect your own diff/);
-  assert.match(policy.foreman, /Rerun what the integration changes or invalidates and run the packet's required final checks/);
+  assert.match(policy.child, /rerun what integration invalidates/);
+  assert.match(policy.advisor, /Run the repository's actual merge or CI gates once for the delivered revision/);
   assert.match(policy.checker, /clearly identify what you ran versus reused/);
   assert.match(policy.checker, /Reject stale, contradicted, or unverifiable evidence; a PASS summary alone is not proof/);
   assert.match(policy.checker, /Missing evidence remains unsatisfied, not silently omitted from your verdict/);

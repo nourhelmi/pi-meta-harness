@@ -2,11 +2,11 @@
   "name": "codex-lean",
   "models": {
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: The advisor's own session model at xhigh. Planner nodes and wide-breadth foremen use high. Reserve medium for implementation whose diagnosis, architecture, or breadth is still materially ambiguous. Regular bounded builders use Sol medium, including fully locked execution packets. This profile recommends Codex models only.",
+      "character": "Advisory: Astra runs at xhigh wherever it is used in this profile: the advisor session, planner nodes, and wide-breadth child advisors. Regular bounded builders use Sol medium, including fully locked execution packets. This profile recommends Codex models only.",
       "defaultThinking": "xhigh"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The regular workhorse at medium reasoning. Use it for bounded implementation, fully locked execution packets, fresh-context checking, and reduction. For locked packets, it resolves environment and tooling obstacles locally, uses deterministic anchors, and stops and escalates on material ambiguity. Escalate materially ambiguous or wide-breadth implementation to Astra.",
+      "character": "Advisory: The regular workhorse at medium reasoning for bounded implementation, fully locked execution packets, fresh-context checking, and reduction. For locked packets, it resolves environment and tooling obstacles locally, uses deterministic anchors, and stops and escalates on material ambiguity. Use Sol max for materially ambiguous or wide-breadth implementation.",
       "defaultThinking": "medium"
     },
     "openai-codex/gpt-5.6-luna": {
@@ -25,7 +25,7 @@
     "planner": [
       {
         "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
+        "thinking": "xhigh",
         "fit": "Preferred for planning in this profile."
       }
     ],
@@ -43,15 +43,15 @@
         "fit": "Preferred workhorse for regular bounded implementation, including fully locked execution packets with deterministic anchors and stop-on-material-ambiguity."
       },
       {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "medium",
+        "model": "openai-codex/gpt-5.6-sol",
+        "thinking": "max",
         "fit": "Reserve for materially ambiguous or wide-breadth implementation."
       }
     ],
-    "foreman": [
+    "advisor": [
       {
         "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
+        "thinking": "xhigh",
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       }
     ],

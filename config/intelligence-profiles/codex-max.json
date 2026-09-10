@@ -2,7 +2,7 @@
   "name": "codex-max",
   "models": {
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: The advisor session, planner, foreman, and primary builder model at xhigh reasoning. Use Astra xhigh for decision-bearing implementation, substantial builds, and every kind of UX work with frontend-design loaded. Review and reduction are Sol xhigh, not Astra. Prefer Sol high when an execution packet has already locked the approach and material decisions.",
+      "character": "Advisory: The advisor session, planner, child advisor, and primary builder model at xhigh reasoning. Use Astra xhigh for decision-bearing implementation, substantial builds, and every kind of UX work with frontend-design loaded. Review and reduction are Sol xhigh, not Astra. Prefer Sol high when an execution packet has already locked the approach and material decisions.",
       "defaultThinking": "xhigh"
     },
     "openai-codex/gpt-5.6-sol": {
@@ -57,7 +57,7 @@
         "fit": "Alternate for bounded backend or mixed-stack work when Codex capacity is tight."
       }
     ],
-    "foreman": [
+    "advisor": [
       {
         "model": "openai-codex/gpt-6-astra",
         "thinking": "xhigh",

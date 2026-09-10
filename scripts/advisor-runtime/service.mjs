@@ -1,8 +1,8 @@
 import { createConnection, createServer } from 'node:net';
 import { chmodSync, existsSync, lstatSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { LIMITS, fields } from './contract.mjs';
-import { RuntimeError, demand, privateDirectory, safeFile, within } from './security.mjs';
+import { LIMITS, MUTATIONS, fields } from './contract.mjs';
+import { RuntimeError, atomicWrite, demand, privateDirectory, safeFile, within } from './security.mjs';
 
 function decode(text) { try { return JSON.parse(text); } catch { throw new RuntimeError('INVALID_JSON'); } }
 const failure = error => ({ ok: false, error: error instanceof RuntimeError ? error.code : 'TRANSPORT_ERROR' });
@@ -16,7 +16,15 @@ export async function startService(runtime, { keepAlive = true, beforeShutdown =
     const stat = lstatSync(socketPath); demand(stat.isSocket() && stat.uid === process.getuid(), 'UNSAFE_SOCKET'); unlinkSync(socketPath);
   }
   // Own work is refused first; dependent child services are closed only for a closable parent.
-  const shutdown = async () => { runtime.assertClosable(); await beforeShutdown(); runtime.close(); };
+  let closing = false;
+  const shutdown = async () => {
+    demand(!closing, 'SHUTDOWN_BUSY'); closing = true;
+    try {
+      runtime.assertClosable(); await beforeShutdown(); runtime.close();
+      // Typed quiescence proof only, not an OS-process exit claim. A subsequent owner lock invalidates it.
+      atomicWrite(join(runtime.stateRoot, 'service-closed.json'), JSON.stringify({ v: 1, stateRoot: runtime.stateRoot, settled: true }));
+    } catch (error) { closing = false; throw error; }
+  };
   const connections = new Set();
   const server = createServer(socket => {
     if (connections.size >= LIMITS.connections) { socket.destroy(); return; }
@@ -38,7 +46,9 @@ export async function startService(runtime, { keepAlive = true, beforeShutdown =
           fields(request.command, ['v', 'op']); demand(request.command.v === 1, 'UNSUPPORTED_VERSION');
           socket.end(encode({ ok: true, value: runtime.describe(request.token, request.audience) })); return;
         }
-        const resultPromise = request.command?.op === "pi.detach" ? runtime.piDetachRequest(request.token, request.command, request.audience) : runtime.request(request.token, request.command, request.audience);
+        const command = request.command;
+        demand(!closing || !(MUTATIONS.includes(command?.op) || command?.op === 'pi.detach' && ['call', 'cancel', 'shutdown', 'advisor.bind'].includes(command.action) || command?.op === 'family' && ['reserve', 'register', 'bind'].includes(command.action)), 'SHUTDOWN_BUSY');
+        const resultPromise = request.command?.op === 'family' ? runtime.familyRequest(request.token, request.command, request.audience) : request.command?.op === "pi.detach" ? runtime.piDetachRequest(request.token, request.command, request.audience) : runtime.request(request.token, request.command, request.audience);
         if (request.command?.op === 'pi.detach' && request.command.action === 'shutdown') {
           const result = await resultPromise;
           if (result.ok) { await shutdown(); socket.end(encode(result)); server.close(); }

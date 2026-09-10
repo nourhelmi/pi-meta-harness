@@ -182,13 +182,13 @@ the detailed task and capacity guidance.
 | advisor | Astra xhigh (session guidance) |
 | planner | Astra xhigh |
 | builder | Astra xhigh (all decision-bearing work), Sol high (locked packet), Grok high |
-| foreman | Astra xhigh |
+| child advisor | Astra xhigh |
 | checker | Sol xhigh, Sol high |
 | reducer | Sol xhigh |
 | scout | Luna max |
 | browser-verifier | Luna max |
 
-Astra (GPT-6) is the advisor, planner, foreman, and primary builder at
+Astra (GPT-6) is the advisor, planner, child advisor, and primary builder at
 xhigh, including substantial implementation and every kind of UX work.
 Greenfield and existing UX both load `frontend-design`. Sol xhigh is the
 fresh-context reviewer and reducer, including adversarial checks. Sol high is
@@ -207,18 +207,18 @@ level or a worker's launch identity.
 | Role | Ordered recommendations |
 | --- | --- |
 | advisor | Astra xhigh (session guidance) |
-| planner | Astra high |
-| builder | Sol medium; Astra medium (ambiguous or wide breadth) |
-| foreman | Astra high |
+| planner | Astra xhigh |
+| builder | Sol medium; Sol max (ambiguous or wide breadth) |
+| child advisor | Astra xhigh |
 | checker | Sol medium |
 | reducer | Sol medium |
 | scout | Luna max |
 | browser-verifier | Luna max |
 
-Astra xhigh is the advisor-session guidance; planner and wide-breadth foreman
-nodes use Astra high. Sol medium is the regular builder, locked-packet executor,
-checker, and reducer. Reserve Astra medium for materially ambiguous or
-wide-breadth implementation. Luna max handles scouting and browser verification. Every mapped
+Astra runs at xhigh wherever it is used in this profile: advisor-session
+guidance, planner, and wide-breadth child advisor nodes. Sol medium is the regular
+builder, locked-packet executor, checker, and reducer; Sol max handles materially
+ambiguous or wide-breadth implementation. Luna max handles scouting and browser verification. Every mapped
 model is an OpenAI Codex model; the guide remains advisory rather than a runtime
 allowlist.
 

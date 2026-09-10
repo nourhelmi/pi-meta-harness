@@ -152,8 +152,10 @@ a trusted allowed root and rechecked at dispatch. Packet admission freezes befor
 graph admission. Graph topology is only `flat-root`, max 24 nodes, 6 parallel,
 0–3 recorded repair loops (no autonomous repair scheduler). Every packet occurs
 exactly once in ordered nonempty waves. Dependencies must point to an earlier
-wave; unknown, cyclic, duplicated, or same-wave edges reject. At most one
-builder/foreman per wave. Packet role names and adapter IDs cannot configure a
+wave; unknown, cyclic, duplicated, or same-wave edges reject. Writer scheduling
+is advisor policy, not runtime admission. Each local graph is flat; a scoped
+child advisor may own another graph linked by its runtime-issued parent outcome.
+Packet role names and adapter IDs cannot configure a
 shell command. Native adapters must enforce the corresponding role/delegation
 policy, not merely echo it.
 

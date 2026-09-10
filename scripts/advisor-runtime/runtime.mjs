@@ -11,6 +11,9 @@ import { reportSummary, contentSurface, sameSurface } from './evidence.mjs';
 import { validateTrace } from '../advisor-trace.mjs';
 import { OPERATIONS, WORKER_OPERATIONS, LIMITS, fields, integer, parseEnvelope, text, validatePacket } from './contract.mjs';
 import { RuntimeError, acquireLock, atomicWrite, boundedRead, demand, disjointControlPath, id, privateDirectory, safeFile, within, withRunOwnership } from './security.mjs';
+import { childStatePath, familyCall, publicChildScope } from './child-scope.mjs';
+import { newFamily, familyOperation } from './family.mjs';
+import { cancelChildService, childWorkSettled } from './pi-detach-bootstrap.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 function decode(value) { try { return JSON.parse(value); } catch { throw new RuntimeError('STORE_CORRUPT'); } }
@@ -76,6 +79,9 @@ export class AdvisorRuntime {
         CREATE TABLE IF NOT EXISTS pi_bindings (id TEXT PRIMARY KEY, principal TEXT NOT NULL, digest TEXT NOT NULL, data TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS graph_evidence (principal TEXT NOT NULL, graph TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(principal,graph));
         CREATE TABLE IF NOT EXISTS input_snapshots (principal TEXT NOT NULL, token TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(principal,token));
+        CREATE TABLE IF NOT EXISTS family_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), data TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS family_admissions (id TEXT PRIMARY KEY, digest TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS family_control (singleton INTEGER PRIMARY KEY CHECK(singleton=1), sealed INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS bootstrap (singleton INTEGER PRIMARY KEY CHECK(singleton=1), digest TEXT NOT NULL);`);
       for (const row of this.#all('SELECT path FROM control_paths')) this.#controlPaths.add(disjointControlPath(row.path, this.#allowedRoots));
       for (const row of this.#all('SELECT path FROM control_directories')) this.#controlDirectories.add(disjointControlPath(row.path, this.#allowedRoots));
@@ -87,6 +93,48 @@ export class AdvisorRuntime {
     } catch (error) { this.#db?.close(); this.#release(); throw error; }
   }
   get stateRoot() { return this.#root; }
+  initializeFamily() {
+    const config = this.#piBridge;
+    if (!config || config.childGrant) return;
+    this.#transaction(() => {
+      const row = this.#one('SELECT data FROM family_state WHERE singleton=1');
+      if (!row) {
+        // Existing unmetered state stays readable, never silently adopted into a fresh allowance.
+        if (this.#one('SELECT COUNT(*) AS n FROM pi_bindings').n) return;
+        this.#write('INSERT INTO family_state VALUES (1,?)', canonicalJson(newFamily(this.#root, config), 1048576));
+      } else {
+        const ledger = decode(row.data); const own = ledger.services[this.#root];
+        demand(ledger.maxLaunches === config.maxLaunches && own.sessionId === config.sessionId && canonicalJson(own.allowedRoots) === canonicalJson(config.allowedRoots), 'FAMILY_BINDING_MISMATCH');
+      }
+    });
+  }
+  familyRequest(token, input, audience) {
+    try {
+      fields(input, ['v', 'op', 'action', 'payload']);
+      demand(input.v === 1 && input.op === 'family' && audience === 'model' && this.#piBridge && !this.#piBridge.childGrant, 'FAMILY_UNAUTHORIZED');
+      demand(typeof token === 'string' && /^[a-f0-9]{64}$/.test(token), 'FAMILY_UNAUTHORIZED');
+      return this.#transaction(() => {
+        const row = this.#one('SELECT data FROM family_state WHERE singleton=1'); demand(row, 'FAMILY_LEGACY_ACCOUNTING_REQUIRED');
+        const ledger = decode(row.data);
+        const value = familyOperation(ledger, token, input.action, clone(input.payload));
+        this.#write('UPDATE family_state SET data=? WHERE singleton=1', canonicalJson(ledger, 1048576));
+        return { ok: true, value };
+      });
+    } catch (error) { return rejection(error); }
+  }
+  async familyOperation(action, payload = {}) {
+    const config = this.#piBridge; demand(config, 'BRIDGE_UNAVAILABLE');
+    if (config.childGrant) return familyCall(config.childGrant, action, payload);
+    const row = this.#one('SELECT data FROM family_state WHERE singleton=1'); demand(row, 'FAMILY_LEGACY_ACCOUNTING_REQUIRED');
+    const token = decode(row.data).services[this.#root].token;
+    const result = this.familyRequest(token, { v: 1, op: 'family', action, payload }, 'model');
+    demand(result.ok, result.error); return result.value;
+  }
+  #familyIdentity() {
+    if (this.#piBridge?.childGrant?.v === 2) return this.#piBridge.childGrant.family;
+    const row = this.#one('SELECT data FROM family_state WHERE singleton=1');
+    return row ? decode(row.data).family : null;
+  }
   #one(sql, ...args) { return this.#db.prepare(sql).get(...args); }
   #all(sql, ...args) { return this.#db.prepare(sql).all(...args); }
   #write(sql, ...args) { return this.#db.prepare(sql).run(...args); }
@@ -209,12 +257,35 @@ export class AdvisorRuntime {
       }
       const principal = config.principalId;
       const p = c.payload;
-      const call = (scope, op, payload, commandId, expectedRevision) => this.execute(token, { v: 1, op, scope, payload, ...(commandId ? { commandId, expectedRevision } : {}) }, audience);
+      const call = (scope, op, payload, commandId, expectedRevision) => this.request(token, { v: 1, op, scope, payload, ...(commandId ? { commandId, expectedRevision } : {}) }, audience);
       if (c.action === 'connect') {
         fields(p, ['identity', 'cwd']);
         demand(config.managedIdentity && canonicalJson(p.identity) === canonicalJson(config.managedIdentity) && realpathSync(p.cwd) === config.cwd, 'PI_DETACH_BINDING_MISMATCH');
         this.#fence();
         return { ok: true, value: { ready: true, revision: config.revision ?? null } };
+      }
+      if (c.action === 'advisor.bind') {
+        fields(p, ['workstream', 'workerHarness']);
+        text(p.workstream, 128);
+        demand(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(p.workstream) && ['pi', 'native'].includes(p.workerHarness), 'FAMILY_BINDING_MISMATCH');
+        demand(!config.childGrant, 'FAMILY_SCOPE_FORBIDDEN');
+        return this.#transaction(() => {
+          this.#fence();
+          const row = this.#one('SELECT data FROM family_state WHERE singleton=1'); demand(row, 'FAMILY_LEGACY_ACCOUNTING_REQUIRED');
+          const ledger = decode(row.data); const family = ledger.family;
+          const establishedWorkstream = ledger.advisorBinding?.workstream ?? config.managedIdentity?.workstream;
+          const establishedHarness = ledger.advisorBinding?.workerHarness ?? config.managedIdentity?.workerHarness;
+          // Matching provisional values are a first binding, not replay: freeze both fields below.
+          if (establishedWorkstream && establishedHarness && family.workstream === p.workstream && family.workerHarness === p.workerHarness) return { ok: true, value: { bound: true } };
+          demand((!establishedWorkstream || family.workstream === p.workstream)
+            && (!family.workerHarness || family.workerHarness === p.workerHarness), 'FAMILY_BINDING_MISMATCH');
+          demand(!Object.keys(ledger.admissions).length && Object.keys(ledger.services).length === 1
+            && !ledger.services[this.#root].sealed
+            && !this.#all('SELECT data FROM pi_bindings').some(row => decode(row.data).action !== 'rejected'), 'FAMILY_BINDING_TOO_LATE');
+          family.workstream = p.workstream; family.workerHarness = p.workerHarness; ledger.advisorBinding = clone(p);
+          this.#write('UPDATE family_state SET data=? WHERE singleton=1', canonicalJson(ledger, 1048576));
+          return { ok: true, value: { bound: true } };
+        });
       }
       const bindings = () => this.#all('SELECT data FROM pi_bindings WHERE principal=?', principal).map(row => decode(row.data));
       const owned = runId => {
@@ -229,7 +300,9 @@ export class AdvisorRuntime {
         fields(p, ['graph', 'node'], ['runId', 'attempt', 'replacesRunId', 'replacesAttempt']);
         if (p.replacesRunId !== undefined) { id(p.replacesRunId); integer(p.replacesAttempt, 1); demand(p.runId !== undefined && p.attempt !== undefined, 'GRAPH_SUCCESSOR_IDENTITY_REQUIRED'); }
         else demand(p.replacesAttempt === undefined, 'GRAPH_SUCCESSOR_IDENTITY_REQUIRED');
-        const graph = p.graph; fields(graph, ['graphId', 'advisorSessionId', 'nodes'], ['contract', 'maxRepairLoops']);
+        const graph = p.graph; fields(graph, ['graphId', 'advisorSessionId', 'nodes'], ['contract', 'maxRepairLoops', 'parentOutcome']);
+        const parentOutcome = config.childGrant?.v === 2 ? config.childGrant.parent : null;
+        if (graph.parentOutcome !== undefined) demand(parentOutcome && canonicalJson(graph.parentOutcome) === canonicalJson(parentOutcome), 'GRAPH_PARENT_SCOPE_MISMATCH');
         id(graph.graphId); demand(graph.advisorSessionId === c.sessionId, 'GRAPH_OWNER_MISMATCH');
         if (graph.contract !== undefined) text(graph.contract, 24000);
         const maxRepairLoops = graph.maxRepairLoops ?? 2; integer(maxRepairLoops, 0, 3);
@@ -248,6 +321,7 @@ export class AdvisorRuntime {
           const record = previous ? decode(previous.data) : { digest: hash(canonicalJson(graph)), links: {} };
           demand(record.digest === hash(canonicalJson(graph)), 'GRAPH_CHANGED');
           record.maxRepairLoops = maxRepairLoops;
+          if (parentOutcome) record.parentOutcome = parentOutcome;
           const linked = name => Object.hasOwn(record.links, name) ? record.links[name] : null;
           const inputs = name => {
             const ancestors = new Set();
@@ -329,15 +403,39 @@ export class AdvisorRuntime {
           demand(this.#one('SELECT token FROM input_snapshots WHERE principal=? AND token=?', principal, inputToken)
             || this.#one('SELECT COUNT(*) AS n FROM input_snapshots WHERE principal=?', principal).n < 4096, 'GRAPH_INPUT_LIMIT');
           this.#write('INSERT OR IGNORE INTO input_snapshots VALUES (?,?,?)', principal, inputToken, canonicalJson(snapshot));
-          return { ok: true, value: { graphId: graph.graphId, node: evidence(p.node, true), dependencies,
+          return { ok: true, value: { graphId: graph.graphId, ...(parentOutcome ? { parentOutcome } : {}), node: evidence(p.node, true), dependencies,
             prompt: `${body}\n[advisor-input:${inputToken}]` } };
         });
+      }
+      if (c.action === 'family.budget') { fields(p, []); return { ok: true, value: await this.familyOperation('budget') }; }
+      if (c.action === 'cancel') {
+        fields(p, []);
+        this.#transaction(() => this.#write('INSERT INTO family_control VALUES (1,1) ON CONFLICT(singleton) DO UPDATE SET sealed=1'));
+        await this.familyOperation('seal');
+        // Dispatch accepted acquisitions first; cancellation still requires their recorded handle.
+        await this.dispatch();
+        let uncertain = false;
+        for (const binding of bindings().filter(row => row.action === 'launch')) {
+          const run = this.#load(binding.runId); const node = run?.nodes.worker;
+          if (!node || node.runtimeState === 'recovery-required') { uncertain = true; continue; }
+          const childState = node.packet.execution.environment.ADVISOR_BRIDGE_CHILD_STATE;
+          if (node.snapshot.state === 'terminal') {
+            if (childState) try { await cancelChildService(childState); } catch { uncertain = true; }
+            continue;
+          }
+          if (node.snapshot.cancel) continue;
+          const response = await call({ ...binding.scope, node: 'worker' }, 'node.cancel', { attempt: node.snapshot.attempt, reason: 'Ancestor cancellation; Escape settlement required' }, `cascade-${hash(canonicalJson({ run: run.id, attempt: node.snapshot.attempt }))}`, node.revision);
+          if (!response.ok) uncertain = true;
+        }
+        return { ok: true, value: { requested: true, uncertain } };
       }
       if (c.action === 'shutdown') { fields(p, []); this.#fence(); return { ok: true, value: { closed: true } }; }
       if (c.action === 'supervision') {
         fields(p, []); this.#fence();
         const rows = bindings().filter(row => row.action === 'launch');
-        return { ok: true, value: { settled: rows.every(row => { const node = this.#load(row.runId)?.nodes.worker; return node?.snapshot.state === 'terminal' && node.runtimeState !== 'recovery-required' && !this.#pending(this.#load(row.runId), 'worker'); }), revision: config.revision ?? null } };
+        const local = rows.every(row => { const node = this.#load(row.runId)?.nodes.worker; return node?.snapshot.state === 'terminal' && node.runtimeState !== 'recovery-required' && !this.#pending(this.#load(row.runId), 'worker'); });
+        const children = rows.map(row => this.#load(row.runId)?.nodes.worker?.childService?.stateRoot).filter(Boolean);
+        return { ok: true, value: { settled: local && (await Promise.all(children.map(childWorkSettled))).every(Boolean), revision: config.revision ?? null } };
       }
       if (c.action === 'list') {
         fields(p, []);
@@ -413,7 +511,7 @@ export class AdvisorRuntime {
         this.#scopeRun({ scope: binding.scope });
         if (binding.response) return clone(binding.response);
         demand(binding.command, 'BRIDGE_RECOVERY_REQUIRED');
-        return this.execute(token, binding.command, audience);
+        return this.request(token, binding.command, audience);
       }
       demand(this.#one('SELECT COUNT(*) AS n FROM pi_bindings').n < 100000, 'BRIDGE_BINDING_LIMIT');
       if (p.tool === 'bg_stop' || p.params?.name !== undefined) {
@@ -433,7 +531,7 @@ export class AdvisorRuntime {
           payload: op === 'node.cancel' ? { attempt: node.snapshot.attempt, reason: 'bg_stop requested Escape; process exit is unconfirmed' } : op === 'node.task' ? { attempt: node.snapshot.attempt, handleId: node.handle.id, generation: node.executionObservation?.generation, text: p.params.prompt } : { attempt: node.snapshot.attempt, requestId: node.snapshot.request.id, text: p.params.prompt } };
         // Persist the exact CAS/request binding before admission, including failures.
         this.#transaction(() => this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: op, scope: binding.scope, command })));
-        const result = this.execute(token, command, audience);
+        const result = await this.request(token, command, audience);
         const response = result.ok ? { ok: true, value: { runId: binding.runId, status: op === 'node.cancel' ? 'cancel-pending' : 'admitted', receipt: result.receipt } } : result;
         this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: op, scope: binding.scope, command, response }), key));
         return response;
@@ -441,8 +539,8 @@ export class AdvisorRuntime {
       demand(p.params && typeof p.params === 'object', 'BRIDGE_INVALID_INPUT');
       const cwd = this.#cwd(p.params.cwd ? resolve(p.cwd, p.params.cwd) : p.cwd);
       demand(config.dynamic ? config.allowedRoots.includes(cwd) : cwd === config.cwd, 'BRIDGE_CWD_FORBIDDEN');
-      const used = new Set(bindings().filter(row => row.action === 'launch').map(row => row.runId));
-      demand(!config.dynamic || used.size < config.maxLaunches, 'BRIDGE_LAUNCH_LIMIT');
+      const used = new Set(bindings().filter(row => row.runId).map(row => row.runId));
+      // The family ledger, not this service's binding count, owns the cumulative ceiling.
       const scope = config.dynamic ? { ...scopes[0], run: `pib-${randomUUID()}` } : scopes.find(scope => !used.has(scope.run)); demand(scope, 'BRIDGE_POOL_EXHAUSTED');
       const sourceDirectory = join(this.#nodeDirectory(scope.run, 'worker'), 'source');
       // Reserve one exact scope before asynchronous role resolution.
@@ -456,7 +554,7 @@ export class AdvisorRuntime {
         this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: 'launch', runId: scope.run, scope }));
       });
       let execution;
-      try { execution = await config.prepare(p.params, sourceDirectory); }
+      try { execution = await config.prepare(p.params, sourceDirectory, { childState: childStatePath(this.#familyIdentity()?.rootStateRoot ?? this.#root, this.#root, scope.run), workstream: this.#familyIdentity()?.workstream, workerHarness: this.#familyIdentity()?.workerHarness }); }
       catch (error) {
         // Only execution-port validation codes are safe to expose; never return arbitrary exception text.
         const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL'];
@@ -474,11 +572,11 @@ export class AdvisorRuntime {
       this.#transaction(() => {
         this.#write('UPDATE pi_bindings SET data=? WHERE id=? AND principal=? AND digest=?', canonicalJson({ action: 'launch', runId: scope.run, scope, packet }), key, principal, digest);
       });
-      let result = call(scope, 'workstream.create', { cwd, host: config.rootHost ?? 'pi' }, `${key}-create`, 0);
-      if (result.ok) result = call(scope, 'packet.admit', { node: 'worker', packet }, `${key}-packet`, 1);
-      if (result.ok) result = call(scope, 'node.launch', { node: 'worker' }, `${key}-launch`, 2);
+      let result = await call(scope, 'workstream.create', { cwd, host: config.rootHost ?? 'pi' }, `${key}-create`, 0);
+      if (result.ok) result = await call(scope, 'packet.admit', { node: 'worker', packet }, `${key}-packet`, 1);
+      if (result.ok) result = await call(scope, 'node.launch', { node: 'worker' }, `${key}-launch`, 2);
       const response = result.ok ? { ok: true, value: { runId: scope.run, status: 'admitted', receipt: result.receipt } } : result;
-      this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: 'launch', runId: scope.run, scope, packet, response }), key));
+      this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: result.ok ? 'launch' : 'rejected', runId: scope.run, scope, packet, response }), key));
       return response;
     } catch (error) { return rejection(error); }
   }
@@ -582,12 +680,14 @@ export class AdvisorRuntime {
     const eligible = node.runtimeState !== 'recovery-required' && !node.snapshot.cancel && node.processExited === undefined && !this.#pending(run, name);
     const reusable = Boolean(eligible && node.packet.execution?.keepAlive && node.snapshot.state === 'terminal' && ['done', 'failed'].includes(node.status));
     return { status, agentState: status, attempt: node.snapshot.attempt, result, reusable,
+      ...(run.parentOutcome ? { parentOutcome: run.parentOutcome } : {}), ...(node.childService ? { childService: node.childService } : {}), ...(run.family ? { family: run.family } : {}),
       continuation: eligible && node.snapshot.state === 'blocked' && !['credential', 'secret'].includes(node.requestDetail?.kind) ? 'reply' : reusable ? 'task' : 'none' };
   }
   #event(run, node, type, data) {
     const prior = this.#one('SELECT seq,data FROM events WHERE run=? ORDER BY seq DESC LIMIT 1', run.id);
     const at = new Date(Math.max(Date.now(), prior ? Date.parse(decode(prior.data).at) : 0)).toISOString();
-    const event = { v: 1, seq: (prior?.seq ?? 0) + 1, at, run: run.id, node, parent: node ? 'root' : null, host: run.host, type, data };
+    const event = { v: 1, seq: (prior?.seq ?? 0) + 1, at, run: run.id, node, parent: node ? 'root' : null, host: run.host, type, data,
+      ...(run.parentOutcome ? { lineage: { family: run.family.id, runtime: this.#root, parentRuntime: run.parentOutcome.parent.stateRoot, parentSession: run.parentOutcome.parent.sessionId, ...run.parentOutcome.parent.scope, issuedAttempt: run.parentOutcome.issuedAttempt } } : {}) };
     demand(event.seq <= 10000 && this.#one('SELECT COALESCE(SUM(length(data)),0) AS bytes FROM events WHERE run=?', run.id).bytes + Buffer.byteLength(canonicalJson(event)) <= 16 * 1024 * 1024, 'EVENT_LIMIT');
     this.#write('INSERT INTO events VALUES (?,?,?)', run.id, event.seq, canonicalJson(event)); return event.seq;
   }
@@ -623,6 +723,10 @@ export class AdvisorRuntime {
           const replayRun = this.#scopeRun(c); this.#commandTargets(principal, c, replayRun);
           return { ok: true, receipt: decode(prior.data), replayed: true };
         }
+        if (this.#piBridge && ['node.launch', 'node.task', 'node.reply'].includes(c.op)) {
+          demand(!this.#one('SELECT sealed FROM family_control WHERE singleton=1')?.sealed, 'FAMILY_ADMISSION_SEALED');
+          demand(this.#one('SELECT digest FROM family_admissions WHERE id=?', c.commandId)?.digest === digest, 'FAMILY_ADMISSION_REQUIRED');
+        }
         let run = this.#scopeRun(c, c.op === 'workstream.create');
         this.#commandTargets(principal, c, run);
         if (!mutation) return { ok: true, value: this.#read(principal, run, c) };
@@ -637,7 +741,8 @@ export class AdvisorRuntime {
           withRunOwnership(this.#root, c.scope.run, 'runtime', 'runtime', () => {});
           privateDirectory(join(this.#root, 'runs', c.scope.run));
           privateDirectory(this.#nodeDirectory(c.scope.run, 'root'));
-          run = { id: c.scope.run, workstream: c.scope.workstream, epoch: 1, revision: 0, cwd: this.#cwd(c.payload.cwd), host: c.payload.host, nodes: {}, packets: {}, graph: null, wave: 0, completedWave: 0, root: null };
+          run = { id: c.scope.run, workstream: c.scope.workstream, epoch: 1, revision: 0, cwd: this.#cwd(c.payload.cwd), host: c.payload.host, nodes: {}, packets: {}, graph: null, wave: 0, completedWave: 0, root: null,
+            ...(this.#piBridge?.childGrant?.v === 2 ? { parentOutcome: publicChildScope(this.#piBridge.childGrant) } : {}), ...(this.#familyIdentity() ? { family: this.#familyIdentity() } : {}) };
           this.#write('INSERT INTO runs VALUES (?,?,?)', run.id, 0, canonicalJson(run));
           this.#event(run, null, 'run.created', { workstream: run.workstream, root: { node: 'root', session: `runtime-${run.id}` } });
         } else if (nodeOp) {
@@ -849,6 +954,26 @@ export class AdvisorRuntime {
     return { ...clone(run), nodes: Object.fromEntries(Object.entries(run.nodes).map(([name, node]) => [name, { ...node, handoff: this.#handoff(run, name) }])), export: { committedSequence, exportedSequence, pending: committedSequence !== exportedSequence } };
   }
   async request(token, input, audience = 'operator') {
+    if (this.#piBridge && ['node.launch', 'node.task', 'node.reply'].includes(input?.op)) {
+      try {
+        const { command: c, digest } = parseEnvelope(input);
+        const principal = this.#authorize(token, c);
+        demand(audience !== 'model' || principal.kind !== 'operator', 'MODEL_OPERATOR_FORBIDDEN');
+        const run = this.#scopeRun(c); this.#commandTargets(principal, c, run);
+        if (!this.#one('SELECT id FROM receipts WHERE id=?', c.commandId)) {
+          const node = c.op === 'node.launch' ? null : run.nodes[c.scope.node];
+          demand((node?.revision ?? run.revision) === c.expectedRevision, 'STALE_REVISION');
+          if (node) { demand(node.snapshot.attempt === c.payload.attempt, 'ATTEMPT_MISMATCH'); demand(node.runtimeState !== 'recovery-required', 'RECOVERY_REQUIRED'); }
+          await this.familyOperation('reserve', { commandId: c.commandId, digest, scope: { ...c.scope, node: c.op === 'node.launch' ? c.payload.node : c.scope.node }, op: c.op, attempt: node ? c.payload.attempt + 1 : 1 });
+          await this.familyOperation('check');
+          this.#transaction(() => {
+            const old = this.#one('SELECT digest FROM family_admissions WHERE id=?', c.commandId);
+            demand(!old || old.digest === digest, 'COMMAND_ID_REUSE');
+            this.#write('INSERT OR IGNORE INTO family_admissions VALUES (?,?)', c.commandId, digest);
+          });
+        }
+      } catch (error) { return rejection(error); }
+    }
     const result = this.execute(token, input, audience);
     if (!result.ok || input.op !== 'wait' || result.value.length || input.payload.timeoutMs === 0) return result;
     await new Promise(resolve => {
@@ -905,7 +1030,13 @@ export class AdvisorRuntime {
         const root = row.node === 'root'; const target = root ? run.root : run.nodes[row.node];
         const adapter = this.#adapter(root ? 'roots' : 'workers', root ? target.adapter : target.packet.adapter, effect.op);
         const context = { cwd: this.#cwd(root ? run.cwd : target.packet.cwd), artifactDirectory: this.#nodeDirectory(run.id, row.node), resultPath: join(this.#nodeDirectory(run.id, row.node), 'result.md'), nestedDelegation: false, scope: effect.scope, attempt: effect.attempt,
-          controlPaths: [...this.#controlPaths, ...this.#controlDirectories] };
+          controlPaths: [...this.#controlPaths, ...this.#controlDirectories],
+          reserveChild: async () => {
+            const grant = await this.familyOperation('register', { scope: effect.scope, cwd: target.packet.cwd, issuedAttempt: effect.attempt });
+            this.#transaction(() => { const current = this.#load(run.id); current.nodes[row.node].childService = publicChildScope(grant); this.#save(current); });
+            return grant;
+          },
+          cancelChildren: async childState => { await this.familyOperation('seal', { scope: effect.scope }); return cancelChildService(childState); } };
         context.assertActive = () => {
           this.#fence(); const current = this.#one("SELECT * FROM effects WHERE id=?", row.id);
           demand(current && ["claimed", "done"].includes(current.state) && current.owner === this.#owner, "OWNER_FENCE");
@@ -1093,6 +1224,10 @@ export class AdvisorRuntime {
     this.#transaction(() => {
       demand(!this.#dispatching, 'SHUTDOWN_BUSY');
       demand(!this.#one("SELECT id FROM effects WHERE state!='done' LIMIT 1"), 'SHUTDOWN_PENDING');
+      for (const row of this.#all('SELECT data FROM pi_bindings')) {
+        const binding = decode(row.data);
+        demand(binding.action === 'rejected' || binding.response || binding.toolResult, 'SHUTDOWN_PENDING');
+      }
       for (const row of this.#all('SELECT data FROM runs')) {
         const run = decode(row.data);
         demand(!run.root || (run.root.state === 'idle' && (!(run.root.handle?.pid || run.root.handle?.requiresExit) || run.root.processExited !== undefined)), 'SHUTDOWN_ACTIVE');

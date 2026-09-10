@@ -26,14 +26,14 @@
     }
   ],
   "process": {
-    "instruction": "Delegate the locked implementation packet through the normal visible builder or foreman path, independently rerun `npm test` after settlement, and judge completion from that check rather than worker prose.",
+    "instruction": "Delegate the locked implementation packet through the normal visible builder or child advisor path, independently rerun `npm test` after settlement, and judge completion from that check rather than worker prose.",
     "expectedCompletionStatus": "completed",
     "requiredDelegation": [
-      { "id": "builder-delegation", "roles": ["builder", "foreman"], "minimum": 1 }
+      { "id": "builder-delegation", "roles": ["builder", "advisor", "foreman"], "minimum": 1 }
     ],
     "parallelism": {
       "maxUsefulWidth": 1,
-      "roles": ["builder", "foreman"],
+      "roles": ["builder", "advisor", "foreman"],
       "rationale": "The bounded repair has one shared write surface and therefore one useful maker lane."
     }
   },

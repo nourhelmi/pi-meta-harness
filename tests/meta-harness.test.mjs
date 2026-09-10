@@ -92,6 +92,9 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
     "third-party/gentle-engram/SNAPSHOT.json",
     "extensions/ponytail.ts",
     "scripts/advisor-runtime/security.mjs",
+    "scripts/advisor-runtime/child-scope.mjs",
+    "scripts/advisor-runtime/family.mjs",
+    "skills/advisor-worker/roles/advisor/SKILL.md",
     "scripts/advisor-runtime/service.mjs",
     "scripts/advisor-runtime/contract.mjs",
     "scripts/advisor-runtime/stock-root.mjs",
@@ -168,11 +171,12 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.deepEqual(Object.keys(roles).sort(), ["defaultAgent", "profiles"]);
   assert.equal(roles.profiles.planner.skill, "advisor-role-planner");
   assert.equal(roles.profiles.builder.maxTurns, 6);
-  assert.equal(roles.profiles.foreman.skill, "advisor-role-foreman");
-  assert.equal(roles.profiles.foreman.harness, "pi");
-  assert(roles.profiles.foreman.cliArgs.includes("--advisor-worker-allow-subagents"));
-  assert.equal("allowSubagents" in roles.profiles.foreman, false);
-  assert.equal("excludeTools" in roles.profiles.foreman, false);
+  assert.equal(roles.profiles.advisor.skill, "advisor-role-advisor");
+  assert.equal(roles.profiles.advisor.harness, "pi");
+  assert(roles.profiles.advisor.cliArgs.includes("--advisor-worker-allow-subagents"));
+  assert.equal("allowSubagents" in roles.profiles.advisor, false);
+  assert.equal("excludeTools" in roles.profiles.advisor, false);
+  assert.equal(roles.profiles.foreman, undefined);
   assert.equal(roles.profiles.checker.requireAnchor, true);
   assert.equal(roles.profiles.scout.skillPath, "skills/advisor-worker/roles/scout/SKILL.md");
   assert.equal(roles.profiles["browser-verifier"].skillPath, "skills/advisor-worker/roles/browser-verifier/SKILL.md");
@@ -186,8 +190,8 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(guide.recommendations.planner[0].model, "openai-codex/gpt-6-astra");
   assert.equal(guide.models["openai-codex/gpt-6-astra"].defaultThinking, "xhigh");
   assert.equal(guide.recommendations.planner[0].thinking, "xhigh");
-  assert.equal(guide.recommendations.foreman[0].model, "openai-codex/gpt-6-astra");
-  assert.equal(guide.recommendations.foreman[0].thinking, "xhigh");
+  assert.equal(guide.recommendations.advisor[0].model, "openai-codex/gpt-6-astra");
+  assert.equal(guide.recommendations.advisor[0].thinking, "xhigh");
   assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-5.6-sol");
   assert.equal(guide.recommendations.checker[0].thinking, "xhigh");
   assert.equal(guide.recommendations.reducer[0].thinking, "xhigh");
@@ -475,10 +479,12 @@ test("doctor reports resolvable advisor host snippets and warns when absent", as
   await rm(parent, { recursive: true, force: true });
 });
 
-test("worker runtime uses instructional boundaries without tool blocking", async () => {
+test("specialist write boundaries stay instructional while child advisors share root visibility guards", async () => {
   const worker = await readFile(join(ROOT, "extensions", "advisor-worker.ts"), "utf8");
   assert.match(worker, /Never invoke \/advisor, advisor_session_init, another agent/);
-  assert.doesNotMatch(worker, /tool_call/);
+  assert.match(worker, /if \(!state\?\.childScope\) return/);
+  assert.match(worker, /advisorToolGuardReason\(event.toolName, event.input/);
+  assert.doesNotMatch(worker, /WRITER_CONCURRENCY|assertWriterAvailable|excludeTools/);
   assert.doesNotMatch(worker, /action: "handled"/);
 });
 
@@ -1045,7 +1051,7 @@ test("reinstall keeps a switched intelligence profile", async () => {
     guide.recommendations.builder.map(({ model, thinking }) => [model, thinking]),
     [
       ["openai-codex/gpt-5.6-sol", "medium"],
-      ["openai-codex/gpt-6-astra", "medium"],
+      ["openai-codex/gpt-5.6-sol", "max"],
     ],
   );
   assert.deepEqual(

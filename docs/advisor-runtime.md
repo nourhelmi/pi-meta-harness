@@ -27,7 +27,7 @@ native agent process.
 1. Launch every separate advisor with `advisor_launch`; it creates a new Herdr tab with `--no-focus`, never a pane split. A manually opened advisor may still invoke `/advisor` in its own fresh tab.
 2. `advisor_session_init` creates or claims one isolated workstream, persists one worker mode (`pi` or `native`), trims the session's active tool set, and returns the workstream hot section. The root advisor remains Pi in both modes.
 3. The advisor session extension injects the doctrine core (`skills/advisor/doctrine.md`) and a compact rendering of the live intelligence guide into the system prompt on every turn, and re-sends the workstream hot section after every compaction. The advisor reuses the injected doctrine and guide; other skill and contract reads follow the decision-driven policy under Roles and intelligence, and situational references under `skills/advisor/references/` are read only when needed.
-4. Each live advisor must use a different workstream.
+4. Each live root advisor must use a different workstream. A child owns a bounded outcome under its parent instead.
 5. Within advisor state, an advisor writes only its own session record, its owned workstream record, new immutable events, and unique run output. Product edits follow the assigned checkout boundary, not this state-only restriction.
 6. Treat legacy in-repo `.advisor/` directories as read-only history.
 7. Transfer ownership with an immutable handoff event.
@@ -35,7 +35,7 @@ native agent process.
 9. Launch delegated LLM work only through `bg_agent` — usually a configured semantic role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi. A launch whose prompt still contains an unexpanded paste placeholder is rejected.
 10. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. The quick packet is the default: goal, write surface, criteria phrased as failure probes, evidence linked by path, one risk-tier line, and stop conditions, in ten to twenty lines. A packet may freeze criteria, safety boundaries, the write surface, and locked decisions; it may never freeze tool versions the repository does not pin, directory modes, hash manifests outside a release gate, or literal command order, and never declares every severity terminal. Makers explore freely and deliver narrowly: they may propose criteria and report adjacent defects, and the advisor accepts proposals through a recorded packet revision.
 11. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work, but create a graph only for real independent ownership or dependency boundaries.
-12. One writer owns a checkout at a time, including the advisor and a foreman alongside their helpers. Settle or stop a writing worker before reclaiming its surface. Parallel makers require explicit approval and separate worktrees; independent review uses a frozen revision.
+12. One writer owns a checkout at a time, including parent and child advisors alongside their helpers. Settle or stop a writing worker before reclaiming its surface. Parallel makers require explicit approval and separate worktrees; independent review uses a frozen revision.
 13. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
 14. Keep a builder alive for a planned bounded repair and a checker alive for the delta review of its own findings. Makers prove criteria and inspect their own diff; an extra fresh-context helper requires a named distinct benefit, not just a Standard/High label. High requires a designated independent checker, without an automatic maker-owned reviewer first. Every checker starts fresh, judges against the packet tier's FAIL bar, and repairs every finding it can inside the reviewed surface in any round, including repair rounds. Auto-fixable mechanical findings (formatter output, lint autofix, generated-file drift, result formatting) are repaired inline by whoever finds them and never bind a verdict; a formatter or lint pass is never an acceptance criterion on its own.
 15. Keep global advisor routines paused because open Pi processes share routine state.
@@ -64,7 +64,7 @@ the packet names is not an obstacle.
 
 Three routes exist: direct work, a single maker, and a graph. For small and
 cohesive-medium work with one decision set, presume **one empowered maker** —
-the advisor itself, a builder, or a foreman — from a short packet, and let it
+the advisor itself, a builder, or a child advisor — from a short packet, and let it
 feel like launching one ordinary agent: no planner, no graph, no checker
 unless the tier or the user asks for one. Choose direct, delegated, or hybrid
 execution by context, decision load, specialization, evidence value, and total
@@ -87,10 +87,10 @@ config:
 ---
 flowchart TD
   Task["task packet"] --> Q{"small or cohesive-medium\nwith one decision set?"}
-  Q -->|yes| Maker["advisor / builder / foreman\n(diagnose · implement · verify)"]
+  Q -->|yes| Maker["advisor / builder / child advisor\n(diagnose · implement · verify)"]
   Q -->|no| Gate{"would another launch\nmaterially…"}
   Gate -->|"resolve uncertainty"| Scout["+ scout"]
-  Gate -->|"parallelize real work"| Graph["+ foreman / validated graph"]
+  Gate -->|"parallelize real work"| Graph["+ child advisor / validated graph"]
   Gate -->|"add independent confidence\n(risk or info-value rationale)"| Check["+ checker / browser-verifier"]
   Scout --> Stop
   Graph --> Stop
@@ -107,13 +107,13 @@ flowchart TD
   class Task,Done t
 ```
 
-Optimize marginal evidence value and critical-path latency: add a foreman,
+Optimize marginal evidence value and critical-path latency: add a child advisor,
 graph, checker, browser verifier, or freeform worker whenever it materially
 resolves uncertainty, parallelizes real work, or adds useful independent
-confidence. Foremen are mini-advisors: the parent delegates outcomes and real
-constraints, not execution strategy. They choose direct work or useful depth-1
-delegation, not a mandatory role sequence.
-Their turn cap is advisory while their helpers are live.
+confidence. Child advisors use the same doctrine: the parent delegates outcomes
+and real constraints, not execution strategy. They choose direct work or useful
+delegation, not a mandatory role sequence. Their turn cap is advisory while
+their helpers are live.
 Graphs require genuine ownership or dependency boundaries; dedicated checkers and browser verifiers
 require a risk or information-value rationale.
 Stop adding launches when another would mostly replay existing evidence.
@@ -155,7 +155,7 @@ separate execution with its own provenance and outcome, not a second copy of the
 maker's proof. A failing claim stays explicit even when its detailed log is linked.
 
 The planner rejects malformed structure, cycles, and invalid `maxParallel` bounds.
-Writer coordination is advisor/foreman policy, not a runtime admission gate:
+Writer coordination is parent/child advisor policy, not a runtime admission gate:
 roles, shared checkouts and unresolved prior runs do not create workspace locks.
 Real permissions and each worker's lifecycle/replay boundaries still apply.
 Checker or browser nodes without
@@ -237,7 +237,7 @@ Examples, not fixed routes:
   checker for the boundary. Do not add a maker-side reviewer for the same purpose.
 - A weak acceptance oracle may warrant substantial independent probes; if the
   packet explicitly requires generated reference or mutation checks, run them.
-- An integrated foreman result reuses current component evidence and verifies
+- An integrated child-advisor result reuses current component evidence and verifies
   the integration delta plus required final checks, not every child's work again.
 - A checker that finds one Medium race in a reviewed file fixes it, reruns the
   affected criteria, and reports the post-repair state. The advisor can close
@@ -252,12 +252,16 @@ Examples, not fixed routes:
 
 ## 🎭 Roles and intelligence
 
-Configured roles are `scout`, `planner`, `reducer`, `builder`, `foreman`,
-`checker`, and `browser-verifier`; a meta-owned Pi launch flag grants depth-1
-visible subagents — to the foreman for bounded delegation and to the builder
-for at most one optional read-only review helper — and every granted subagent
-inherits the full no-further-delegation prohibition. The generic transport
-profile merely forwards that flag.
+Configured roles are `scout`, `planner`, `reducer`, `builder`, `advisor`,
+`checker`, and `browser-verifier`. A child advisor uses the same installed
+advisor doctrine and intelligence guide as the root, scoped to one parent
+outcome. It may implement directly, use specialists, or delegate further to
+child advisors; an optional local graph belongs to its parent outcome. The
+runtime supplies validated ancestry and a separate graph namespace, not a new
+top-level workstream. It shares the root family's cumulative allowance and
+cancellation tree. The delegation flag also grants the builder
+at most one optional read-only review helper under its role contract; ordinary
+specialist helpers retain the no-further-delegation prohibition.
 
 Workers load their own role skill and contract. Do not preload those or
 repository skills merely to launch a worker. Read the relevant skill or
@@ -281,7 +285,7 @@ standard; a generated diff is not automatically mechanical.
 [`../config/bg-agent-profiles.json`](../config/bg-agent-profiles.json) is fixed
 semantic role configuration: the instructed role skill and portable skill path,
 anchor requirement, and instructional cycle cap. Cycle caps are advisory
-ceilings, never a reason for a foreman to stop while its helpers are live. It
+ceilings, never a reason for a child advisor to stop while its helpers are live. It
 contains no model or reasoning policy and is never changed by intelligence
 switching.
 
@@ -295,10 +299,20 @@ changes transport, not roles or intelligence policy:
 | `pi` | `bg_agent` starts Pi and forwards the selected provider/model/reasoning. |
 | `native` | `openai-codex`/`openai` route to Codex CLI; `claude-bridge`/`anthropic` route to Claude Code. Native workers receive an automatically generated durable result path under the advisor state root, reserved before launch as an empty file with the launcher's default modes. Settlement stalls only when that artifact is missing or blank. Missing, empty, or differently formatted expected sections are advisory notes surfaced to the parent and do not prevent settlement. |
 
-The foreman profile is constrained to `harness: "pi"`, including in an advisor
-session whose other workers use native Codex/Claude. Its delegation permission
-is a separate advisor-worker CLI flag; pi-detach remains unaware of foreman or
-delegation semantics.
+The advisor profile is constrained to `harness: "pi"`, including in a session
+whose specialists use native Codex/Claude. The inherited specialist choice is
+independent of that transport constraint. A runtime-issued v2 grant binds each
+child to a stable parent outcome; a role label or copied graph cannot grant
+scope. Child graphs use that child's state root, with `parentOutcome` derived
+by the extension and checked by the runtime. A graphless parent/child is valid.
+
+Launch/reply/task reservations share one persistent family allowance and retain
+per-outcome repair history. Descendant cancellation is downward; observed
+settlement composes upward before parent result capture. Acknowledgement remains
+a separate shutdown condition. An old PASS, dead service or uncertain child
+never becomes current proof. Historical foreman skill paths are compatibility
+links, not a separate management role; old v1/unmetered scopes need explicit
+reissue for new execution. There is no automatic migration or crash adoption.
 
 Every shipped intelligence profile remains usable in either mode, but a
 specific recommendation is native-routable only when its provider maps to Codex

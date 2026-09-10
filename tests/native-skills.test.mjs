@@ -11,14 +11,16 @@ function home(t) {
   return dir;
 }
 
-test('native bundle installs nine distinct skills, resolves references and preserves profiles/settings', t => {
+test('native bundle installs ten distinct skills, resolves references and preserves profiles/settings', t => {
   const dir = home(t);
   fs.mkdirSync(path.join(dir, '.claude'), { recursive: true });
   const settings = path.join(dir, '.claude/settings.json');
   fs.writeFileSync(settings, '{"untouched":true}');
   const installed = installNativeSkills(dir);
-  assert.equal(installed.names.length, 9);
-  assert.equal(installed.links.length, 18);
+  assert.equal(installed.names.length, 10);
+  assert.equal(installed.links.length, 20);
+  assert.ok(installed.names.includes('advisor-role-advisor'));
+  assert.match(fs.readFileSync(path.join(installed.bundle, 'advisor-role-foreman/SKILL.md'), 'utf8'), /compatibility link/);
   for (const link of installed.links) {
     const text = fs.readFileSync(path.join(link, 'SKILL.md'), 'utf8');
     assert.match(text, new RegExp(`^---\\nname: ${path.basename(link)}\\n`));
@@ -65,7 +67,8 @@ test('publication failure restores previous bundle and removes only newly create
 
 test('native guidance separates schedulers and retains independent review without changing Pi discovery', () => {
   const advisor = fs.readFileSync('native-skills/advisor/SKILL.md', 'utf8');
-  assert.match(advisor, /Default to \*\*host-native orchestration\*\*/);
+  assert.match(advisor, /A root defaults to \*\*host-native orchestration\*\*/);
+  assert.match(advisor, /A child inherits its parent's chosen lane and remaining limits/);
   assert.match(advisor, /High requires a designated independent checker/);
   assert.match(advisor, /Do not preload every role/);
   assert.match(advisor, /not automatically registered native agent types/);

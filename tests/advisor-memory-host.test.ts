@@ -79,10 +79,12 @@ test('public Pi loader and hook chaining preserve managed checkpoint and ordinar
   const healthy = spawnSync(process.execPath, [resolve('scripts/meta-harness.mjs'), 'doctor', '--target', installed], { encoding: 'utf8' });
   assert.equal(healthy.status, 0, healthy.stderr);
 
-  // Actual advisor initializer + memory composition; only the Herdr display/process calls are fake.
-  const oldEnv = Object.fromEntries(['HERDR_ENV', 'HERDR_PANE_ID', 'PI_CODING_AGENT_DIR', 'ADVISOR_WORKSTREAM', 'ADVISOR_STATE_ROOT', 'PI_DETACH_WORKER_HARNESS'].map(key => [key, process.env[key]]));
+  // Memory/checkpoint composition is backend-independent; this fixture loads no worker transport.
+  // Managed binding and its failures are exercised through the real paired caller in advisor-binding.test.ts.
+  const oldEnv = Object.fromEntries(['HERDR_ENV', 'HERDR_PANE_ID', 'PI_CODING_AGENT_DIR', 'ADVISOR_WORKSTREAM', 'ADVISOR_STATE_ROOT', 'PI_DETACH_WORKER_HARNESS', 'PI_DETACH_BACKEND'].map(key => [key, process.env[key]]));
   t.after(() => { for (const [key, value] of Object.entries(oldEnv)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
   process.env.HERDR_ENV = '1'; process.env.HERDR_PANE_ID = 'fake-checker-pane'; process.env.PI_CODING_AGENT_DIR = installed;
+  process.env.PI_DETACH_BACKEND = 'legacy';
   sm.newSession(); let rejectRename = true;
   const loader = new DefaultResourceLoader({ cwd: root, agentDir: installed, settingsManager: SettingsManager.inMemory({}), noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true,
     additionalExtensionPaths: [join(installed, 'extensions/advisor-memory.ts')],

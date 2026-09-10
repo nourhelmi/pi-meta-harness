@@ -12,7 +12,7 @@
     "expectedCompletionStatus": "completed",
     "requiredDelegation": [],
     "topology": {
-      "allowedRoles": ["builder", "foreman"],
+      "allowedRoles": ["builder", "advisor", "foreman"],
       "maximumSuccessfulWorkers": 1,
       "maximumGraphPlans": 0,
       "maximumUserQuestions": 0

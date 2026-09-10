@@ -65,18 +65,18 @@ inconsistent pair rather than guessing which side is authoritative.
 | Name | When | Workhorse | Adversarial review | Procedural |
 | --- | --- | --- | --- | --- |
 | `codex-max` | Codex weekly is healthy | Astra xhigh; Sol high for locked packets | Sol xhigh | Luna max scouting/browser verification; Sol high locked execution |
-| `codex-lean` | Codex remainder is usable | Sol medium; Astra medium for ambiguous/wide builds | Sol medium | Luna max scouting/browser verification; Sol medium locked execution |
+| `codex-lean` | Codex remainder is usable | Sol medium; Sol max for ambiguous/wide builds | Sol medium | Luna max scouting/browser verification; Sol medium locked execution |
 | `anthropic-heavy` | Spend Anthropic on purpose | Sonnet | Sonnet, Opus if high-risk | Luna, else Grok |
 | `balanced` | Codex builds hard, Anthropic checks, no Grok | Sonnet default; Sol high/medium hard; Opus greenfield UX | Sonnet, Opus if extreme-risk | Luna, Sonnet |
 | `grok-cycle` | No Codex; Grok owns maker + hefty review | Grok | Grok | Sonnet |
 
-In `codex-lean`, the advisor uses Astra xhigh, the planner and wide-breadth
-foreman use Astra high, regular builders use Sol medium, and materially ambiguous
-or wide-breadth builders use Astra medium. Checking, reduction, and fully locked
+In `codex-lean`, Astra runs at xhigh wherever it is used: the advisor,
+planner, and wide-breadth child advisor. Regular builders use Sol medium; materially
+ambiguous or wide-breadth builders use Sol max. Checking, reduction, and fully locked
 execution use Sol medium; scouting and browser verification use Luna max. The
 named guide contains only OpenAI Codex models.
 
-In `codex-max`, the advisor, planner, foreman, and primary builder use Astra
+In `codex-max`, the advisor, planner, child advisor, and primary builder use Astra
 xhigh, including substantial and all UX implementation. Review and reduction
 use Sol xhigh; scouting and browser verification use Luna max. Changing this guidance does
 not switch the running advisor's reasoning level.

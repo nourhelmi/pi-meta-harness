@@ -39,6 +39,14 @@ host/detach paths and Herdr context. State defaults to private
 The existing 100-byte Unix socket path bound applies; trusted configuration can
 select a shorter private stateBase.
 
+The service can start before the root chooses advisor mode. `advisor_session_init`
+and restoration use an authenticated root-only `advisor.bind` before publishing
+advisor identity. Unspecified workstream/harness metadata can bind only before
+execution reservations, in-flight launches or child grants. Pre-supplied metadata
+is fixed; exact binding replay remains valid after use/restart. Binding preserves
+the family ID, allowance, credentials and history, and rejects conflicting,
+child, legacy or late requests. Reload reconnects the unchanged transport startup
+marker; it neither rewrites that marker nor mints a new family.
 Concurrent initialization uses one exclusive startup marker. Reload closes client
 resources and reconnects to the same live service, descriptor and pending delivery
 IDs without prompting again. Enqueue/ack does not prove a later model turn; lost
@@ -93,22 +101,34 @@ available for trusted tests/operators.
   Omit settings on follow-up; implicit model/harness/keepAlive changes are rejected.
 - Authorized cwd is the owning canonical cwd/repository or a registered Git worktree
   captured at startup. Unrelated workspaces, escaping aliases and invented nodes
-  reject. Changes to the registry require a new root, not wider live grants.
-- Exact scopes enroll on demand with unique durable IDs. The finite lifetime limit
-  is 256 launches per service (trusted tests can lower it), alongside existing
-  binding/receipt/event/delivery/transport bounds. Identities are never recycled.
-  Exhaustion rejects before acquisition; finish safely and start a new root.
-- Profiles granting depth-1 visible subagents receive a separate reserved child
-  control directory, never the parent descriptor. Child Pi bootstraps a distinct
-  session/service/scopes. Live or uncertain child work keeps the same parent
-  supervisor active. Child completion still requires a fresh parent turn before
-  capturing the integrated result. Descendants receive no further child grant.
+  reject. Missing secondary worktree registrations are ignored without pruning Git
+  metadata; invalid cwd and permission errors still fail. Changes to live roots
+  require a new root, not wider live grants.
+- Exact scopes enroll on demand with unique durable IDs. The finite family limit
+  is 256 execution admissions (launch, reply or fresh task; trusted tests can lower
+  it), serialized in root SQLite across all descendants. Conservative reservations
+  are not refunded after later admission/acquisition failures; exact replay charges
+  once. Creating a child or graph never resets this allowance. At exhaustion,
+  stop and reassess within user authority, not by silently starting a fresh root.
+- Profiles granting visible delegation receive a reserved child control directory,
+  never the parent's descriptor. Pi bootstraps a distinct service with a validated
+  v2 scope, stable parent outcome and family identity. Child paths stay flat under
+  the family root to bound socket length. Advisors may recursively grant child
+  advisors; specialists remain governed by their role's bounded helper policy.
+  Live or uncertain descendants retain parent supervision. A child completion
+  requires a fresh parent turn before capturing its integrated result.
+  Extensions use `readChildScope` for non-secret validated context; local graphs
+  carry its exact `parent` as `parentOutcome`. V1/unmetered scopes remain readable
+  but require explicit reissue for new execution.
 - Runtime owns canonical events/results/delivery; legacy Pi-host writes, artifact
   BLOCKED UI signals, reaping and agent notifications are fenced. Non-agent
   bg_run/watch/await retain their existing behavior. bg_list includes both backends;
   bg_output uses qualified live capture while running and durable output afterwards.
 
-- `bg_stop` admits `node.cancel` and sends Escape once. The node stays
+- `bg_stop` admits `node.cancel`, seals new descendant admission and cascades
+  cancellation down the family through the existing Escape controls. Parent
+  settlement waits for observed descendant settlement, not acknowledgement.
+  Each node sends Escape once and stays
   `cancel-pending` until Herdr shows the same bound occupant settled afterwards;
   only then does it settle `cancelled` with its captured output and result bytes.
   Cancellation never closes the pane and never claims process exit. A worker that
@@ -120,7 +140,7 @@ available for trusted tests/operators.
   Cancelled workers accept no follow-up task. Tool results report the admitted
   `keepAlive` intent separately from `reusable`, which reflects fresh-task
   eligibility when the result is sealed, not a promise of later availability.
-- A finished, not-kept foreman closes its reserved child service by typed
+- A finished, not-kept child advisor closes its reserved child service by typed
   shutdown; refusal (active or unacknowledged child work) is retried when the
   parent closes. `/bg_runtime_close` first checks the parent's own work, then
   closes reachable child services. An active child refuses the parent close with

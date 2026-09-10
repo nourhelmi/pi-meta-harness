@@ -1,7 +1,7 @@
 # Ponytail: default working method
 
 [Ponytail](https://github.com/DietrichGebert/ponytail) is on by default in managed
-Pi sessions, including ordinary sessions without `/advisor`, advisors, foremen,
+Pi sessions, including ordinary sessions without `/advisor`, parent/child advisors,
 and Pi workers. Native role workers use the same core skill through their shared
 worker contract. Use it throughout technical work, not as a separate ceremony.
 
@@ -9,7 +9,7 @@ The ladder is: understand the flow → question work that need not exist → reu
 repository code → standard library → native platform → installed dependencies →
 the smallest clear implementation. Apply it to orchestration too: one capable
 owner beats a graph of handoffs when the graph adds no value. It does not remove
-advisor/foreman implementation authority or the single-maker fast path.
+advisor implementation authority or the single-maker fast path.
 
 ## Controls
 

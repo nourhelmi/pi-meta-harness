@@ -10,7 +10,7 @@ export const REQUIRED_ROLES = [
   "planner",
   "reducer",
   "builder",
-  "foreman",
+  "advisor",
   "checker",
   "browser-verifier",
 ];

@@ -8,7 +8,7 @@ import advisorWorkerExtension, { isBlockedStatus, resultStatusLine } from "../ex
 
 interface HookMap {
   session_start?: (event: unknown, ctx: ExtensionContext) => Promise<void>;
-  before_agent_start?: (event: { systemPrompt: string }, ctx: ExtensionContext) => { systemPrompt: string } | undefined;
+  before_agent_start?: (event: { systemPrompt: string }, ctx: ExtensionContext) => Promise<{ systemPrompt: string } | undefined>;
   agent_start?: (event: unknown, ctx: ExtensionContext) => void | Promise<void>;
   agent_end?: (event: unknown, ctx: ExtensionContext) => void | Promise<void>;
   agent_settled?: (event: unknown, ctx: ExtensionContext) => Promise<void>;
@@ -20,7 +20,7 @@ test("worker runtime grants bounded delegation only when its launch flag allows 
   await writeFile(rolesPath, `${JSON.stringify({
     profiles: {
       builder: { skill: "advisor-role-builder", maxTurns: 6 },
-      foreman: { skill: "advisor-role-foreman", maxTurns: 6 },
+      advisor: { skill: "advisor-role-advisor", maxTurns: 6 },
     },
   })}\n`);
 
@@ -29,7 +29,7 @@ test("worker runtime grants bounded delegation only when its launch flag allows 
   process.env.PI_DETACH_AGENT_PROFILES = rolesPath;
   process.env.ADVISOR_STATE_DIR = join(temp, "state");
   try {
-    const contractFor = async (role: "builder" | "foreman", allowSubagents = role === "foreman") => {
+    const contractFor = async (role: "builder" | "advisor", allowSubagents = false) => {
       const hooks: HookMap = {};
       const pi = {
         appendEntry: () => undefined,
@@ -53,7 +53,7 @@ test("worker runtime grants bounded delegation only when its launch flag allows 
         ui: { notify: () => undefined, setStatus: () => undefined },
       } as unknown as ExtensionContext;
       await hooks.session_start?.({}, context);
-      return hooks.before_agent_start?.({ systemPrompt: "base" }, context)?.systemPrompt ?? "";
+      return (await hooks.before_agent_start?.({ systemPrompt: "base" }, context))?.systemPrompt ?? "";
     };
 
     const builderContract = await contractFor("builder");
@@ -61,15 +61,14 @@ test("worker runtime grants bounded delegation only when its launch flag allows 
     assert.doesNotMatch(builderContract, /depth-1 visible subagents/);
     assert.match(builderContract, /not an advisor or orchestrator/);
 
-    const foremanContract = await contractFor("foreman");
-    assert.match(foremanContract, /only depth-1 visible subagents through bg_agent/);
-    assert.match(foremanContract, /each subagent that it must never launch another agent, graph, orchestrator/);
-    assert.doesNotMatch(foremanContract, /advisor_session_init, another agent, a graph/);
-    assert.match(foremanContract, /mini-advisor owning the assigned sub-workstream's execution strategy/);
-    assert.doesNotMatch(foremanContract, /not an advisor or orchestrator/);
-    const ungrantedForemanContract = await contractFor("foreman", false);
-    assert.match(ungrantedForemanContract, /advisor_session_init, another agent, a graph/);
-    assert.doesNotMatch(ungrantedForemanContract, /only depth-1 visible subagents/);
+    const grantedBuilder = await contractFor("builder", true);
+    assert.match(grantedBuilder, /only depth-1 visible subagents through bg_agent/);
+    assert.match(grantedBuilder, /each subagent that it must never launch another agent, graph, orchestrator/);
+    assert.doesNotMatch(grantedBuilder, /advisor_session_init, another agent, a graph/);
+    assert.match(grantedBuilder, /not an advisor or orchestrator/);
+    const unscopedAdvisor = await contractFor("advisor", true);
+    assert.match(unscopedAdvisor, /Child advisor requires a runtime-issued parent scope/);
+    assert.doesNotMatch(unscopedAdvisor, /# Current Advisor Doctrine/);
   } finally {
     if (previousProfiles === undefined) delete process.env.PI_DETACH_AGENT_PROFILES;
     else process.env.PI_DETACH_AGENT_PROFILES = previousProfiles;
@@ -117,7 +116,7 @@ test("worker accepts launch and changed identities outside advisor recommendatio
     } as unknown as ExtensionContext;
 
     await hooks.session_start?.({}, context);
-    const contract = hooks.before_agent_start?.({ systemPrompt: "base" }, context);
+    const contract = await hooks.before_agent_start?.({ systemPrompt: "base" }, context);
     assert.match(contract?.systemPrompt ?? "", /Load each REQUIRED SKILLS entry before task work/);
     assert.equal("input" in hooks, false);
 

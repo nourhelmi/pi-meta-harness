@@ -7,8 +7,8 @@ matters, when waiting on external state, or when managing session context.
 
 The persisted session mode is the default for every semantic role. A role
 profile may impose a stricter transport when its contract depends on a runtime
-capability: foremen are Pi-hosted because visible depth-1 delegation uses Pi's
-`bg_agent`. In Pi mode, selected models run through Pi. In native mode,
+capability: child advisors are Pi-hosted because visible delegation and child
+graphs use Pi's tools. In Pi mode, selected models run through Pi. In native mode,
 `openai-codex/*` and `openai/*` route through Codex CLI and `claude-bridge/*`
 and `anthropic/*` route through Claude Code. Keep semantic role names
 unchanged; do not invent harness-specific aliases. Every role packet includes
@@ -65,7 +65,7 @@ idle pane alone is not permission to send another prompt.
 `recovery-required`, cancellation and uncertain delivery retain their supported
 recovery boundary for that effect. Never clear locks, adopt a pane, or replay it
 because an artifact exists or output looks quiet. These states are not workspace
-write locks: advisors and foremen coordinate subsequent work using actual
+write locks: parent and child advisors coordinate subsequent work using actual
 execution evidence. A missing capture stays missing even if mutable source
 output looks successful. Inspect output or source only to resolve that discrepancy,
 not as a routine handoff step.

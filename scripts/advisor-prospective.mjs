@@ -38,7 +38,7 @@ const DEFAULT_THINKING = "high";
 const DEFAULT_TIMEOUT_MINUTES = 30;
 const CASE_ID = /^[a-z0-9][a-z0-9-]*$/;
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
-const WORKER_ROLES = new Set(["browser-verifier", "builder", "checker", "foreman", "planner", "reducer", "scout"]);
+const WORKER_ROLES = new Set(["advisor", "browser-verifier", "builder", "checker", "foreman", "planner", "reducer", "scout"]); // Keep historical foreman cases readable.
 const SETTLEMENT_STATUSES = new Set(["successful", "blocked", "failed", "cancelled", "stopped"]);
 
 function usage() {

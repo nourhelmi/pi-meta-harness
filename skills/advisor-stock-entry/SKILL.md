@@ -46,4 +46,4 @@ Keep one current operational checkpoint with decisions, ownership, handles, acce
 
 Runtime tools authorize only this root's admitted workspaces and workers. Reconnecting MCP to the same live native session must not create a replacement run. A different session or ambiguous identity is not permission to adopt previous work. The runtime cannot widen your native host permissions or answer its trust dialogs. Missing tools, authentication and explicit approval requirements must be reported accurately.
 
-Do not inspect runtime credentials, provider auth files or private service state. Do not change global settings to bypass a rejection. Worker processes receive no parent runtime authority. Nested stock-root use is unsupported; the existing explicit Pi foreman depth-one path remains separate.
+Do not inspect runtime credentials, provider auth files or private service state. Do not change global settings to bypass a rejection. Worker processes receive no broad parent runtime authority. Nested stock-root use is unsupported; the scoped Pi child-advisor path is separate and requires a runtime-issued parent grant.

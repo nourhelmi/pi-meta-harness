@@ -87,7 +87,7 @@ for (const [caseId, [path, repair]] of Object.entries(repairs)) {
     assert.match(prompt, /choose direct execution or useful delegation/);
     assert.doesNotMatch(prompt, /must not implement|must implement|allowedRoles|maximumSuccessfulWorkers/);
     assert(processChecks({ events: [] }, completion, definition).every((check) => check.passed));
-    for (const role of ["builder", "foreman"]) {
+    for (const role of ["builder", "advisor", "foreman"]) {
       const events = [
         { kind: "worker_launch", role, attemptAlias: "maker-1" },
         { kind: "worker_status", role, attemptAlias: "maker-1", status: "successful" },

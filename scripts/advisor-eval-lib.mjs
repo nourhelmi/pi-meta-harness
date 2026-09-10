@@ -31,6 +31,7 @@ const CALIBRATION_DECISIONS = new Set([
 ]);
 const RISK_THRESHOLDS = new Set(["low", "medium", "high"]);
 const ALLOWED_ROLES = new Set([
+  "advisor",
   "scout",
   "planner",
   "reducer",

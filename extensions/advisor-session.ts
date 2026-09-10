@@ -4,6 +4,7 @@ import { basename, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
+import { managedBridgeEnabled } from "../scripts/advisor-runtime/pi-detach-bootstrap.mjs";
 import {
   advisorCheckpoint,
 	advisorStateRoot,
@@ -78,7 +79,7 @@ function advisorSkillBody(source: string): string {
 		.trim();
 }
 
-async function liveAdvisorDoctrine(): Promise<string> {
+export async function liveAdvisorDoctrine(): Promise<string> {
 	return advisorSkillBody(await readFile(ADVISOR_DOCTRINE_URL, "utf8"));
 }
 
@@ -135,7 +136,7 @@ export function renderIntelligenceGuide(raw: string): string | undefined {
 	return lines.join("\n").trim();
 }
 
-async function liveIntelligenceGuide(): Promise<string | undefined> {
+export async function liveIntelligenceGuide(): Promise<string | undefined> {
 	const raw = await readIfPresent(join(agentDirectory(), INTELLIGENCE_GUIDE_FILE));
 	return raw === undefined ? undefined : renderIntelligenceGuide(raw);
 }
@@ -154,17 +155,19 @@ async function liveHotSection(workstreamPath: string): Promise<string | undefine
 	return content === undefined ? undefined : workstreamHotSection(content);
 }
 
-function workerHarnessDoctrine(workerHarness: WorkerHarness): string {
+function workerHarnessDoctrine(workerHarness?: WorkerHarness): string {
 	const policy = workerHarness === "native"
-		? "Every configured bg_agent role launch uses the native worker harness. Keep semantic role names unchanged. Choose model and thinking from the live intelligence guide; OpenAI models route to Codex CLI and Anthropic/Claude models route to Claude Code. Cursor-only models have no native route here, so select a task-appropriate OpenAI or Anthropic recommendation from the same guide instead. The root advisor remains Pi."
-		: "Every configured bg_agent role launch uses the Pi worker harness. Keep semantic role names unchanged and choose model and thinking from the live intelligence guide. The root advisor remains Pi.";
-	return `# Advisor Worker Harness\n\nSession mode: **${workerHarness}**.\n\n${policy}`;
+		? "Configured specialist roles use the native worker harness: OpenAI models route to Codex CLI and Anthropic/Claude models to Claude Code. Cursor-only models have no native route; choose a task-appropriate OpenAI or Anthropic recommendation instead."
+		: workerHarness === "pi"
+			? "Configured specialist roles use the Pi worker harness."
+			: "No specialist harness preference was inherited. Use the host's configured defaults; do not infer native or Pi specialist routing from the advisor's transport.";
+	return `# Advisor Worker Harness\n\nSession mode: **${workerHarness ?? "host default"}**.\n\n${policy} The advisor role and freeform workers are Pi-hosted; the advisor profile's transport constraint overrides the specialist default. Choose model and thinking from the live intelligence guide.`;
 }
 
 interface AdvisorPromptParts {
 	doctrine?: string;
 	guide?: string;
-	workerHarness: WorkerHarness;
+	workerHarness?: WorkerHarness;
 	hotSection?: string;
 	workstreamPath?: string;
 }
@@ -577,12 +580,25 @@ async function renameHerdrAgent(
 	return fallback;
 }
 
+async function bindAdvisorFamily(pi: ExtensionAPI, ctx: ExtensionContext, state: Pick<AdvisorSessionState, "workstream" | "workerHarness">): Promise<void> {
+	if (process.env.PI_DETACH_BACKEND === "legacy" || !managedBridgeEnabled() && !process.env.PI_DETACH_RUNTIME_BRIDGE) return;
+	const request: { sessionId: string; action: string; context: ExtensionContext; payload: object; response?: Promise<unknown> } = {
+		sessionId: ctx.sessionManager.getSessionId(), action: "advisor.bind", context: ctx,
+		payload: { workstream: state.workstream, workerHarness: state.workerHarness },
+	};
+	pi.events?.emit("pi-detach:request", request);
+	if (!request.response) throw new Error("Advisor family binding unavailable; load the paired pi-detach extension before initializing.");
+	const result = await request.response as { bound?: boolean };
+	if (result?.bound !== true) throw new Error("Advisor family binding was not confirmed.");
+}
+
 async function restoreActiveSession(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 ): Promise<AdvisorSessionState | undefined> {
 	const state = await restoredState(ctx);
 	if (!state) return undefined;
+	await bindAdvisorFamily(pi, ctx, state);
 	process.env.ADVISOR_WORKSTREAM = state.workstream;
 	process.env.ADVISOR_STATE_ROOT = await advisorStateRoot(ctx.cwd);
 	process.env.PI_DETACH_WORKER_HARNESS = state.workerHarness;
@@ -603,7 +619,7 @@ async function restoreActiveSession(
 	return state;
 }
 
-function bgAgentGuardReason(input: unknown, workerHarness: WorkerHarness): string | undefined {
+function bgAgentGuardReason(input: unknown, workerHarness?: WorkerHarness): string | undefined {
 	const params = input as {
 		role?: unknown;
 		anchor?: unknown;
@@ -617,8 +633,9 @@ function bgAgentGuardReason(input: unknown, workerHarness: WorkerHarness): strin
 		return "The prompt contains an unexpanded paste placeholder such as [paste #1 +12 lines]; include the pasted content in the prompt or reference it by path.";
 	}
 	if (typeof params.name === "string" && params.name) return undefined;
-	if (isWorkerHarness(params.harness) && params.harness !== workerHarness) {
-		return `Advisor session worker harness is ${workerHarness}; per-launch ${params.harness} is not allowed.`;
+	const expectedHarness = params.role === "advisor" ? "pi" : workerHarness;
+	if (expectedHarness && isWorkerHarness(params.harness) && params.harness !== expectedHarness) {
+		return `Advisor session worker harness is ${expectedHarness}; per-launch ${params.harness} is not allowed.`;
 	}
 	if (typeof params.agent === "string" && params.agent) {
 		if (workerHarness === "native") {
@@ -644,36 +661,35 @@ function bgAgentGuardReason(input: unknown, workerHarness: WorkerHarness): strin
 	return undefined;
 }
 
+/** Shared visibility/packet rules; a child uses its own checkpoint, not the root workstream file. */
+export function advisorToolGuardReason(toolName: string, input: unknown, workerHarness?: WorkerHarness): string | undefined {
+	if (INVISIBLE_AGENT_TOOLS.has(toolName)) return "Advisor agents must use bg_agent so each helper is visible in Herdr.";
+	if (toolName === "bg_agent") return bgAgentGuardReason(input, workerHarness);
+	if (toolName === "bg_run") {
+		const command = (input as { command?: unknown }).command;
+		if (typeof command === "string" && HEADLESS_AGENT_COMMAND.test(command)) {
+			return "Do not start a headless LLM through bg_run. Use bg_agent for Herdr visibility.";
+		}
+	}
+	return undefined;
+}
+
 function registerVisibilityGuard(
 	pi: ExtensionAPI,
 	getState: () => AdvisorSessionState | undefined,
+	getBindingError: () => string | undefined,
 ): void {
-  pi.on("tool_call", async (event, ctx) => {
-		if (!getState()) return;
-    if (["bg_agent", "advisor_graph_evidence"].includes(event.toolName)) {
-      const checkpoint = await advisorCheckpoint(ctx);
-      if (!checkpoint?.content) return { block: true, reason: checkpoint?.problem ?? "Advisor checkpoint unavailable; reinitialize before worker effects." };
-    }
-		if (INVISIBLE_AGENT_TOOLS.has(event.toolName)) {
-			return {
-				block: true,
-				reason: "Advisor agents must use bg_agent so each helper is visible in Herdr.",
-			};
+	pi.on("tool_call", async (event, ctx) => {
+		const bindingError = getBindingError();
+		if (bindingError && ["bg_agent", "advisor_graph_evidence"].includes(event.toolName)) return { block: true, reason: bindingError };
+		const state = getState();
+		if (!state) return;
+		if (["bg_agent", "advisor_graph_evidence"].includes(event.toolName)) {
+			const checkpoint = await advisorCheckpoint(ctx);
+			if (!checkpoint?.content) return { block: true, reason: checkpoint?.problem ?? "Advisor checkpoint unavailable; reinitialize before worker effects." };
 		}
-		if (event.toolName === "bg_agent") {
-			const state = getState();
-			if (!state) return;
-			const reason = bgAgentGuardReason(event.input, state.workerHarness);
-			return reason ? { block: true, reason } : undefined;
-		}
-		if (event.toolName !== "bg_run") return;
-		const command = (event.input as { command?: unknown }).command;
-		if (typeof command === "string" && HEADLESS_AGENT_COMMAND.test(command)) {
-			return {
-				block: true,
-				reason: "Do not start a headless LLM through bg_run. Use bg_agent for Herdr visibility.",
-			};
-		}
+		const reason = advisorToolGuardReason(event.toolName, event.input, state.workerHarness);
+		return reason ? { block: true, reason } : undefined;
 	});
 }
 
@@ -740,9 +756,9 @@ async function initializeAdvisor(
 	} catch {
 		// Pane labels are presentational; the Herdr agent identity remains authoritative.
 	}
-  // A failed Herdr initialization may reserve the workstream for retry, but must
-  // not publish a restorable managed-session identity before initialization succeeds.
-  await ensurePrivateSession(paths.session, workstream, sessionId);
+	// A failed initialization may reserve a retryable claim, but publishes no session identity.
+	await bindAdvisorFamily(pi, ctx, { workstream, workerHarness });
+	await ensurePrivateSession(paths.session, workstream, sessionId);
 	const state: AdvisorSessionState = {
 		workstream,
 		sessionId,
@@ -760,6 +776,7 @@ async function initializeAdvisor(
 export default function advisorSessionExtension(pi: ExtensionAPI): void {
   const previousEnvironment = Object.fromEntries(["ADVISOR_WORKSTREAM", "ADVISOR_STATE_ROOT", "PI_DETACH_WORKER_HARNESS"].map(key => [key, process.env[key]]));
 	let activeState: AdvisorSessionState | undefined;
+	let bindingError: string | undefined;
 	let doctrine: string | undefined;
 	let hotSectionPending = false;
 	const loadDoctrine = async (ctx: ExtensionContext): Promise<void> => {
@@ -772,7 +789,10 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		}
 	};
 	pi.on("session_start", async (_event, ctx) => {
-		activeState = await restoreActiveSession(pi, ctx);
+		if (pi.getFlag("advisor-worker-role")) return;
+		activeState = undefined;
+		try { activeState = await restoreActiveSession(pi, ctx); bindingError = undefined; }
+		catch (error) { bindingError = String(error); ctx.ui.notify(`Advisor initialization refused: ${bindingError}`, "error"); return; }
 		doctrine = undefined;
 		hotSectionPending = false;
 		if (!activeState) return;
@@ -795,8 +815,11 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		if (activeState) hotSectionPending = true;
 	});
 	pi.on("before_agent_start", async (event, ctx) => {
+		if (pi.getFlag("advisor-worker-role")) return;
     const checkpoint = await advisorCheckpoint(ctx);
     if (!checkpoint) { activeState = undefined; return; }
+		try { await bindAdvisorFamily(pi, ctx, checkpoint.state); bindingError = undefined; }
+		catch (error) { bindingError = String(error); return { systemPrompt: `${event.systemPrompt}\n\nAdvisor family binding failed: ${bindingError}. Worker effects are fenced; resolve initialization before proceeding.` }; }
     activeState = checkpoint.state;
 		if (doctrine === undefined) await loadDoctrine(ctx);
 		const guide = await liveIntelligenceGuide().catch(() => undefined);
@@ -815,7 +838,7 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 			}),
 		};
 	});
-	registerVisibilityGuard(pi, () => activeState);
+	registerVisibilityGuard(pi, () => activeState, () => bindingError);
 
 	pi.registerTool({
 		name: "advisor_launch",
@@ -885,7 +908,8 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		}),
 		async execute(...args) {
 			const [, params, , , ctx] = args;
-			const initialized = await initializeAdvisor(pi, ctx, params.workstream, params.workerHarness);
+			const initialized = await initializeAdvisor(pi, ctx, params.workstream, params.workerHarness).catch(error => { bindingError = String(error); throw error; });
+			bindingError = undefined;
 			activeState = initialized.state;
 			await loadDoctrine(ctx);
 			hotSectionPending = false;

@@ -91,25 +91,28 @@ test("routing scales with decision context rather than a shared product goal", (
   }
 });
 
-test("foremen own execution strategy without topology quotas or lost safety boundaries", async () => {
+test("child advisors share strategy doctrine without topology quotas or lost boundaries", async () => {
   for (const source of [core, native]) {
-    assert.match(source, /Delegate the outcome and constraints, not the execution strategy/);
-    assert.match(source, /Do not prescribe read-only helpers, forbid builders, or lock role order as management preferences/);
+    assert.match(source, /Delegate the outcome and constraints, not the execution strategy/i);
+    assert.match(source, /Do not prescribe read-only helpers, forbid builders, or lock role order as management preferences/i);
+    assert.match(source, /parent outcome/);
+    assert.match(source, /independent checking|independent review/);
   }
-  const foreman = await text("skills/advisor-worker/roles/foreman/SKILL.md");
-  const nativeForeman = await text("native-skills/advisor-role-foreman/SKILL.md");
-  for (const source of [foreman, nativeForeman]) {
-    assert.match(source, /mini-advisor for a bounded sub-workstream/);
-    assert.match(source, /parent delegates the outcome and constraints, not the execution strategy/);
-    assert.match(source, /role\/model choice, sequencing, delegation/);
-    assert.match(source, /builders/);
-    assert.match(source, /no required role sequence/);
-    assert.match(source, /parent.*independent|independent.*parent/i);
+  const child = await text("skills/advisor-worker/roles/advisor/SKILL.md");
+  const nativeChild = await text("native-skills/advisor-role-advisor/SKILL.md");
+  assert.match(child, /same installed advisor doctrine/);
+  assert.match(child, /parent.*outcome/);
+  assert.match(child, /result\.md/);
+  assert.match(core, /no graph, delegation depth, role sequence or launch quota is required/);
+  assert.match(core, /creating a child, graph or repair attempt never creates a fresh budget/);
+  assert.match(graphs, /never edit alongside a writing helper in the same checkout/);
+  assert.match(core, /child advisor's self-review is still maker evidence/);
+  assert.match(nativeChild, /shared advisor guidance/);
+  assert.match(nativeChild, /Inherit the parent's execution lane, actual authority, remaining spend\/depth limits/);
+  assert.match(nativeChild, /Do not report completion with unaccounted live children/);
+  for (const path of ["skills/advisor-worker/roles/foreman/SKILL.md", "native-skills/advisor-role-foreman/SKILL.md"]) {
+    const legacy = await text(path);
+    assert.match(legacy, /compatibility/); assert.match(legacy, /advisor\/SKILL\.md/);
+    assert.doesNotMatch(legacy, /mini-advisor|depth-1/);
   }
-  assert.match(foreman, /scoped review/);
-  assert.match(foreman, /never edit alongside a writing helper in the same checkout/);
-  assert.match(foreman, /Every subagent prompt must explicitly forbid launching another agent/);
-  assert.match(foreman, /checker of your integrated outcome remains the parent advisor's responsibility when justified and is required for High/);
-  assert.doesNotMatch(foreman, /Never launch a checker/);
-  assert.match(nativeForeman, /native depth\/capacity limits still apply/);
 });

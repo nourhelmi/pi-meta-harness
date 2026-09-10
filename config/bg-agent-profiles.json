@@ -54,16 +54,16 @@
       "maxTurns": 6,
       "requireAnchor": true
     },
-    "foreman": {
-      "description": "Own a bounded sub-workstream as a mini-advisor: choose execution strategy, direct work or depth-1 delegation, integrate, and verify.",
+    "advisor": {
+      "description": "Own a bounded outcome as a child advisor: use the shared advisor doctrine, choose direct work or a child subgraph, integrate, and verify.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "harness": "pi",
-      "skill": "advisor-role-foreman",
-      "skillPath": "skills/advisor-worker/roles/foreman/SKILL.md",
+      "skill": "advisor-role-advisor",
+      "skillPath": "skills/advisor-worker/roles/advisor/SKILL.md",
       "cliArgs": [
         "--advisor-worker-role",
-        "foreman",
+        "advisor",
         "--advisor-worker-allow-subagents"
       ],
       "maxTurns": 6,

@@ -460,8 +460,8 @@ assert.equal(calls.filter(args => args[0] === 'pane' && args[1] === 'close' && a
 await assert.rejects(invoke('bg_agent', 'cancelled-task', { name: cancelRun, prompt: 'reuse cancelled worker' }), /UNSUPPORTED|TASK_TARGET_UNAVAILABLE/);
 assert.deepEqual(await req('get', { runId: cancelRun }).then((n: any) => n.status), 'cancelled');
 for (let i = 0; ; i++) {
- const count = (await req('list', {}) as any[]).length;
- if (count >= 64) break;
+ const budget = await req('family.budget', {}) as any;
+ if (budget.used >= 64) break;
  const result = await invoke('bg_agent', `bound-${i}`, { prompt: 'Finite resource bound', promoteAfterMs: 0 }); await runtime.dispatch();
  await settle(result.details.runId, '# Status\nPASS');
 }

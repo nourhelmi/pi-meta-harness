@@ -86,7 +86,7 @@
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
-    "foreman": [
+    "advisor": [
       {
         "model": "claude-bridge/claude-sonnet-5",
         "thinking": "high",

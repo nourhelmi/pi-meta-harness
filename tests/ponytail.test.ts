@@ -134,7 +134,7 @@ test("Ponytail defaults retain native access, owner agency, and binding verifica
   }
   assert.match(worker, /not make the repair-capable checker role globally read-only/);
   assert.match(worker, /shared root cause does not authorize edits outside your scope/);
-  for (const role of ["scout", "planner", "builder", "foreman", "checker", "reducer", "browser-verifier"]) {
+  for (const role of ["scout", "planner", "builder", "advisor", "checker", "reducer", "browser-verifier"]) {
     const skill = await readFile(new URL(`../skills/advisor-worker/roles/${role}/SKILL.md`, import.meta.url), "utf8");
     assert.match(skill, /WORKER_CONTRACT\.md/, role);
   }

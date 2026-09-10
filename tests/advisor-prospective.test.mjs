@@ -154,7 +154,7 @@ test("prospective preparation stages setup resources without leaking credentials
     assert.match(prepared.manifest.execution.piDetach.revision, /^[0-9a-f]{40}$/);
     assert.equal(prepared.manifest.candidate.fingerprint.algorithm, "sha256-candidate-tree-plus-pi-detach-v1");
     assert.equal(prepared.manifest.case.parallelism.maxUsefulWidth, 1);
-    assert.deepEqual(prepared.manifest.case.parallelism.roles, ["builder", "foreman"]);
+    assert.deepEqual(prepared.manifest.case.parallelism.roles, ["builder", "advisor", "foreman"]);
     assert.match(prepared.manifest.candidate.fingerprint.value, /^[0-9a-f]{64}$/);
     assert.equal(prepared.manifest.evaluation.fingerprint.algorithm, "sha256-prospective-evaluator-tree-v2");
     assert.match(prepared.manifest.evaluation.fingerprint.value, /^[0-9a-f]{64}$/);

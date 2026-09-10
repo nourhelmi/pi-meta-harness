@@ -63,7 +63,7 @@
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
     ],
-    "foreman": [
+    "advisor": [
       {
         "model": "cursor/grok-4.6",
         "thinking": "high",

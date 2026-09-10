@@ -7,7 +7,7 @@ const REFERENCES = ["graphs", "model-routing", "evidence", "transport-and-settle
 const paths = {
   contract: "skills/advisor-worker/references/WORKER_CONTRACT.md",
   builder: "skills/advisor-worker/roles/builder/SKILL.md",
-  foreman: "skills/advisor-worker/roles/foreman/SKILL.md",
+  child: "skills/advisor-worker/roles/advisor/SKILL.md",
   checker: "skills/advisor-worker/roles/checker/SKILL.md",
   runtime: "docs/advisor-runtime.md",
   readme: "README.md",
@@ -20,7 +20,8 @@ const advisorReferences = Object.fromEntries(await Promise.all(REFERENCES.map(as
   [name, collapse(await read(`skills/advisor/references/${name}.md`))],
 )));
 policy.advisor = [advisorCore, ...Object.values(advisorReferences)].join(" ");
-
+// Child behavior comes from the shared core and worker evidence contract, not a duplicated role.
+policy.child = [policy.child, advisorCore, policy.contract].join(" ");
 // These are instruction-contract regressions, not a claim about live model behavior.
 test("review admission keeps maker proof and High independence without automatic stacked reviewers", () => {
   assert.match(policy.advisor, /maker proves every acceptance criterion, inspects its own diff/);
@@ -28,14 +29,14 @@ test("review admission keeps maker proof and High independence without automatic
   assert.match(policy.builder, /inspect your own diff/);
   assert.match(policy.advisor, /maker-owned fresh-context reviewer is not automatic on Standard or High/);
   assert.match(policy.builder, /helper is optional, not an automatic Standard\/High step/);
-  assert.match(policy.foreman, /no automatic integrated fresh-review launch on Standard\/High/);
+  assert.match(policy.child, /maker-owned fresh-context reviewer is not automatic on Standard or High/);
   assert.match(policy.advisor, /Do not stack it ahead of a planned independent checker covering the same purpose/);
   assert.match(policy.builder, /Do not stack a maker-owned reviewer ahead of a planned independent checker covering the same purpose/);
-  assert.match(policy.foreman, /named distinct uncertainty, not duplicate the parent advisor's planned independent checker/);
+  assert.match(policy.child, /Do not stack it ahead of a planned independent checker covering the same purpose/);
   assert.match(policy.advisor, /High-risk boundaries receive independent review before completion/);
   assert.match(policy.advisor, /if a checker is unavailable, report the requirement as unsatisfied rather than relabeling maker review/);
   assert.match(policy.builder, /High still requires the parent advisor's designated independent checker/);
-  assert.match(policy.foreman, /designated independent checker of your integrated outcome remains the parent advisor's responsibility when justified and is required for High/);
+  assert.match(policy.child, /Arrange required independent checking of the integrated outcome separately/);
   assert.match(policy.advisor, /Low tier alone never earns a checker; explicit review requests still apply/);
 });
 
@@ -45,11 +46,11 @@ test("optional review capacity retains delegation boundaries and needs a distinc
   assert.match(policy.builder, /Forbid editing, further delegation, or messaging any session/);
   assert.match(policy.builder, /supplemental maker evidence, never an independent checker verdict/);
   assert.match(policy.builder, /model and effort by the review need and live guide/);
-  assert.match(policy.foreman, /scoped review; builders are not excluded/);
-  assert.match(policy.foreman, /Internal scoped reviews may help your work, but do not replace that check or make your own review independent/);
-  assert.doesNotMatch(policy.foreman, /Never launch a checker/);
-  assert.match(policy.foreman, /Every subagent prompt must explicitly forbid launching another agent, graph, orchestrator, routine, or inter-session message/);
-  assert.match(policy.contract, /Every granted subagent inherits the full prohibition/);
+  assert.match(policy.child, /Do not prescribe read-only helpers, forbid builders/);
+  assert.match(policy.child, /child advisor's self-review is still maker evidence/);
+  assert.doesNotMatch(policy.child, /Never launch a checker/);
+  assert.match(policy.child, /may delegate further within the root family's remaining cumulative allowance/);
+  assert.match(policy.contract, /specialists never start another agent or graph unless their role explicitly grants bounded depth-1 helpers; those helpers inherit the leaf prohibition/);
   for (const [name, source] of Object.entries(policy)) {
     assert.doesNotMatch(source, /one reasoning level below|with the same model family|launch exactly one read-only subagent|Makers run one fresh-context review|one maker with (?:maker-owned )?fresh review/i, name);
   }
@@ -74,8 +75,9 @@ test("scoped evidence reuse preserves provenance, explicit independent checks, a
   assert.match(policy.contract, /An unverified criterion is a failure you report/);
   assert.match(policy.contract, /no additional report schema is required/);
   assert.match(policy.advisor, /Assign delivery gates to an owner rather than every layer/);
-  assert.match(policy.foreman, /carry forward current component evidence with its provenance/);
-  assert.match(policy.foreman, /integration changes or invalidates and run the packet's required final checks/);
+  assert.match(policy.child, /Carry evidence forward only with its tested revision/);
+  assert.match(policy.child, /rerun what a code, test, dependency, or environment change invalidates/);
+  assert.match(policy.child, /Run the repository's actual merge or CI gates once for the delivered revision, with one owner/);
 });
 
 test("review stops on resolved claims and material risks, not test counts or a time target", () => {

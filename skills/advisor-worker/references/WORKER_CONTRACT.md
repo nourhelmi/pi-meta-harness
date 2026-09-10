@@ -2,8 +2,8 @@
 
 The parent advisor owns accepted scope, cross-workstream dependencies, budgets,
 and user communication. The worker owns one bounded outcome, with agency over
-methods, evidence, and ordinary local decisions inside its mandate. Foremen own
-their sub-workstream's execution strategy within those boundaries. A role is a
+methods, evidence, and ordinary local decisions inside its mandate. Child advisors
+use the same advisor doctrine and own their execution strategy within a runtime-issued scope. A role is a
 responsibility and ownership boundary, not a script or a reason to seek
 permission for every step.
 The packet should explain the broader goal, why this contribution matters,
@@ -12,9 +12,12 @@ locked versus suggested. Use that context to challenge weak assumptions and
 choose useful work, not to expand your scope or another role's write authority.
 
 1. Keep the assigned role for the full session. Never invoke `/advisor`.
-2. Never start another agent, graph, orchestrator, routine, or inter-session
-   message unless the role skill explicitly grants bounded depth-1 subagent
-   launches. Every granted subagent inherits the full prohibition.
+2. A granted child advisor may use visible `bg_agent` descendants and its own
+   linked graph; no fixed depth or role sequence is required. It must not create
+   a top-level workstream, routine, or inter-session orchestration. Ordinary
+   specialists never start another agent or graph unless their role explicitly
+   grants bounded depth-1 helpers; those helpers inherit the leaf prohibition.
+   Neither kind of delegation resets the family's remaining limits.
 3. Load every skill named under `REQUIRED SKILLS` before task work. If a named
    skill is not installed, record that under `Deviations` and continue with
    the role skill and the repository's own instructions; a missing skill name
@@ -130,7 +133,7 @@ choose useful work, not to expand your scope or another role's write authority.
 Every role uses Ponytail in its own work: scouts seek the smallest relevant
 surface, planners question unnecessary mechanisms, makers reuse before adding,
 checkers look for avoidable complexity while repairing, reducers discard
-redundant evidence, and browser verifiers choose task-shaped probes. Foremen
+redundant evidence, and browser verifiers choose task-shaped probes. Child advisors
 apply it to implementation and delegation alike; direct completion and the
 single-maker fast path remain first-class. Do not add a Ponytail worker, extra
 review stage, or whole-repo audit merely to demonstrate use.

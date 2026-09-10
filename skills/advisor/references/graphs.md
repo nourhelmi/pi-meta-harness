@@ -1,7 +1,7 @@
 # Graphs, waves, and repair loops
 
 Read this when work has real independent ownership or dependency boundaries,
-when a launch belongs to a graph or a repair loop, or when a foreman needs the
+when a launch belongs to a graph or a repair loop, or when a child advisor needs the
 delegation detail. The single-maker route never needs it.
 
 ## Information-value graphing
@@ -21,7 +21,7 @@ Use `advisor_graph_plan` as a structural validator and coordination aid before
 any graph with three or more nodes or mixed parallel and dependent work. Its
 immutable manifest hard-checks IDs, configured or freeform roles, acceptance
 criteria, dependencies, cycles, and bounded `maxParallel`. Writer coordination
-belongs to the advisor and foreman, not graph or runtime admission. Legacy
+belongs to each advisor, not graph or runtime admission. Legacy
 `allowParallelBuilders` metadata is accepted but never grants or vetoes a launch.
 Role-order and reducer-shape findings are advisory warnings: confirm the shape
 is intentional, then proceed without contorting valid baseline or audit work.
@@ -58,8 +58,8 @@ waves:
    and disclose only non-blocking residuals. Otherwise report incomplete work
    and a bounded next step or user decision. Never silently reset a cap by
    renaming the slice or launching another planner.
-8. Parallel builders or foremen require explicit user approval and distinct
-   worktrees.
+8. Parallel writers, including child advisors, require explicit user approval
+   and distinct worktrees.
 
 ## Carry evidence with the outcome
 
@@ -96,8 +96,8 @@ execution engines.
 - One maker without a real dependency graph uses the normal handoff directly.
   Do not create a graph just to record a result or justify a repair.
 
-No driver script may spawn LLMs. The advisor directly owns every visible graph
-node and its cost.
+No driver script may spawn LLMs. Each advisor directly owns its local visible
+nodes and accounts for their cost within the same family allowance.
 
 ## The `GRAPH:` block
 
@@ -111,21 +111,32 @@ Keep the risk tier, assigned findings and write ownership in the packet. Focus a
 repair review on the changed delta, while fixing any qualifying in-scope defect
 it reveals rather than starting a fresh full audit.
 
-## Foreman detail
+## Child graphs
 
-The foreman is a mini-advisor for an owned sub-workstream: delegate its outcome
-and real constraints, not its execution strategy. It chooses decomposition,
-role/model choice, sequencing, direct implementation or useful delegation,
-integration and verification, and owns every acceptance criterion. Suitable leaf
-roles include builders, scouts, planners, reducers, browser verifiers and scoped
-checkers; there is no required role sequence. Its subagents never delegate. The
-parent still arranges the required independent check of the integrated outcome.
+Launch `role: "advisor"` for an owned outcome, not a prescribed graph recipe.
+The child uses the same doctrine and chooses direct implementation, specialists
+or further child advisors as useful. No graph or role sequence is mandatory.
+A parent graph's advisor node owns the child's integrated outcome; its local
+nodes remain a separate flat graph rather than duplicating them in the parent.
 
-Use `bg_run` for test and build commands. Keep one writer per checkout, including
-the foreman: never edit alongside a writing helper in the same checkout, and
-reclaim ownership after it settles before integrating. Read-only helpers can
-work alongside the foreman when they do not need a frozen diff. Its helpers
-follow the same obstacle rule and repair-first review rule as any worker. A
-repair-first checker is the exclusive writer for its frozen review surface.
-Parallel writers, including foremen, need distinct worktrees and explicit user
-approval for the added spend, within runtime permissions.
+`advisor_graph_plan` derives `parentOutcome` from the validated runtime grant,
+never from model-supplied identifiers. Child manifests live under that child's
+state root, so siblings may reuse a graph ID without colliding. Evidence carries
+the same stable parent outcome through kept-worker repairs. The run handoff
+links the child service; its `issuedAttempt` is provenance, not the current
+parent attempt. The root family's cumulative launch/reply/task allowance and
+per-outcome repair history cannot be reset by adding graphs or descendants.
+
+Coordinate one writer per checkout, including yourself; never edit alongside a
+writing helper in the same checkout. Reclaim ownership after settlement before
+integrating. Read-only helpers may work alongside a maker when they do not need
+a frozen diff. A repair-first checker owns its review surface while repairing.
+Use `bg_run` for tests and builds. Verify integration paths and carry forward
+valid component evidence rather than rerunning every leaf check. Parent-required
+independent checking of the integrated outcome remains separate.
+
+Typed cancellation seals descendant admission and descends through the existing
+worker controls. Parent settlement waits for observed descendant settlement,
+not acknowledgement or a stale PASS. Unknown/recovery-required descendants stay
+uncertain; do not silently replay or adopt them. Acknowledgements are still
+required before typed service shutdown.

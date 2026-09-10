@@ -7,6 +7,8 @@ import { homedir } from 'node:os';
 import { canonicalJson } from '../advisor-core/command-contract.mjs';
 import { RuntimeError, boundedRead, demand, privateDirectory, safeFile, disjointControlPath } from './security.mjs';
 import { createPiDetachClient } from './pi-detach-client.mjs';
+import { readChildGrant } from './child-scope.mjs';
+export { readChildScope } from './child-scope.mjs';
 
 export const PI_DETACH_BOOTSTRAP_VERSION = 1;
 export const configPath = (env = process.env) => join(env.PI_CODING_AGENT_DIR || join(homedir(), '.pi', 'agent'), 'pi-detach-runtime.json');
@@ -18,7 +20,8 @@ export function validateNode(executable) {
   return realpathSync(executable);
 }
 export function readManagedConfig(path = configPath()) {
-  const value = JSON.parse(readFileSync(path, 'utf8'));
+  let value;
+  try { value = JSON.parse(readFileSync(path, 'utf8')); } catch { throw new RuntimeError('PI_DETACH_BRIDGE_CONFIGURATION'); }
   demand(value?.v === 1 && value.backend === 'runtime' && typeof value.host === 'string' && value.host.startsWith('/') && typeof value.stateBase === 'string' && value.stateBase.startsWith('/'), 'PI_DETACH_BRIDGE_CONFIGURATION');
   demand(existsSync(value.host), 'PI_DETACH_RUNTIME_MISSING');
   return value;
@@ -30,7 +33,10 @@ export function workspaceRoots(cwd) {
   if (top.status !== 0) return [own];
   const listing = git(['worktree', 'list', '--porcelain', '-z']);
   demand(listing.status === 0, 'PI_DETACH_WORKTREE_DISCOVERY_FAILED');
-  const roots = listing.stdout.split('\0').filter(v => v.startsWith('worktree ')).map(v => realpathSync(v.slice(9)));
+  const roots = listing.stdout.split('\0').filter(v => v.startsWith('worktree ')).flatMap(v => {
+    try { return [realpathSync(v.slice(9))]; }
+    catch (error) { if (error.code === 'ENOENT') return []; throw error; } // Stale secondary registration; never prune or suppress permission errors.
+  });
   demand(roots.includes(realpathSync(top.stdout.trim())) && roots.length <= 64, 'PI_DETACH_WORKSPACE_BOUND');
   return [...new Set([own, ...roots])].sort();
 }
@@ -64,10 +70,14 @@ export function installedRevision(detachPath, hostPath) {
   for (const root of roots) walk(root);
   return digest.digest('hex').slice(0, 32);
 }
-export function bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, childState, rootHost, nativeRoot }) {
+export function bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, childState, rootHost, nativeRoot, workstream, workerHarness }) {
   demand(typeof sessionId === 'string' && sessionId.length > 0 && sessionId.length <= 256, 'PI_SESSION_REQUIRED');
   demand(herdr && typeof herdr.paneId === 'string' && herdr.paneId, 'HERDR_CONTEXT_REQUIRED');
   const identity = { v: 1, sessionId, cwd: realpathSync(cwd), detachPath: realpathSync(detachPath), host: realpathSync(config.host), herdr: Object.fromEntries(Object.entries(herdr).filter(([, value]) => typeof value === "string")), childState: childState || null };
+  if (!childState) {
+    if (workstream) { demand(typeof workstream === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(workstream), 'PI_DETACH_WORKSTREAM'); identity.workstream = workstream; }
+    if (workerHarness) { demand(['pi', 'native'].includes(workerHarness), 'PI_DETACH_WORKER_HARNESS'); identity.workerHarness = workerHarness; }
+  }
   if (rootHost !== undefined) {
     demand(['codex', 'claude-code'].includes(rootHost) && nativeRoot?.host === rootHost && !childState, 'STOCK_ROOT_BINDING');
     identity.rootHost = rootHost; identity.nativeRoot = nativeRoot;
@@ -78,15 +88,11 @@ export function bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, c
 export async function ensurePiDetach({ cwd, sessionId, detachPath, herdr, env = process.env, rootHost, nativeRoot }) {
   const config = readManagedConfig(configPath(env));
   const node = validateNode(config.node);
-  const { identity, stateRoot } = bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, childState: env.ADVISOR_BRIDGE_CHILD_STATE, rootHost, nativeRoot });
-  const roots = workspaceRoots(cwd);
+  let { identity, stateRoot } = bootstrapIdentity({ cwd, sessionId, detachPath, config, herdr, childState: env.ADVISOR_BRIDGE_CHILD_STATE, rootHost, nativeRoot, workstream: env.ADVISOR_WORKSTREAM, workerHarness: env.PI_DETACH_WORKER_HARNESS });
+  const parent = env.ADVISOR_BRIDGE_CHILD_STATE ? readChildGrant(stateRoot, identity.cwd) : null;
+  const roots = parent?.v === 2 ? parent.allowedRoots : workspaceRoots(cwd);
   disjointControlPath(stateRoot, roots);
   demand(Buffer.byteLength(join(stateRoot, 'runtime.sock')) <= 100, 'SOCKET_PATH_TOO_LONG');
-  if (env.ADVISOR_BRIDGE_CHILD_STATE) {
-    const grant = join(stateRoot, 'child-grant.json'); safeFile(grant);
-    const parent = JSON.parse(readFileSync(grant, 'utf8'));
-    demand(parent.v === 1 && parent.cwd === identity.cwd && parent.stateRoot === stateRoot, 'PI_DETACH_CHILD_GRANT_MISMATCH');
-  }
   privateDirectory(stateRoot);
   const marker = join(stateRoot, 'startup.json');
   const descriptor = join(stateRoot, 'pi.json');
@@ -98,8 +104,14 @@ export async function ensurePiDetach({ cwd, sessionId, detachPath, herdr, env = 
   catch (error) { if (error.code !== 'EEXIST') throw error; }
   if (!won) {
     safeFile(marker);
-    const stored = JSON.parse(readFileSync(marker, 'utf8'));
-    demand(canonicalJson(stored.identity) === canonicalJson(identity) && canonicalJson(stored.roots) === canonicalJson(roots), 'PI_DETACH_BINDING_MISMATCH');
+    let stored;
+    try { stored = JSON.parse(readFileSync(marker, 'utf8')); } catch { throw new RuntimeError('PI_DETACH_BINDING_MISMATCH'); }
+    // Advisor selection may happen after eager service startup. It binds separately;
+    // transport reconnect uses the original identity, never rewrites its marker.
+    const transport = ({ workstream: _workstream, workerHarness: _harness, ...value }) => value;
+    demand(canonicalJson(transport(stored.identity)) === canonicalJson(transport(identity)) && canonicalJson(stored.roots) === canonicalJson(roots), 'PI_DETACH_BINDING_MISMATCH');
+    for (const key of ['workstream', 'workerHarness']) demand(!stored.identity[key] || !identity[key] || stored.identity[key] === identity[key], 'PI_DETACH_BINDING_MISMATCH');
+    identity = stored.identity;
   }
   let child, failed = false;
   if (won) {
@@ -131,6 +143,7 @@ export async function ensurePiDetach({ cwd, sessionId, detachPath, herdr, env = 
 /** Trusted parent supervisor reads only its reserved child's control directory. */
 export async function childWorkSettled(stateRoot) {
   try {
+    if (closedChild(stateRoot)) return true;
     const marker = join(stateRoot, 'startup.json'); safeFile(marker);
     const { identity } = JSON.parse(readFileSync(marker, 'utf8'));
     const client = createPiDetachClient(join(stateRoot, 'pi.json'));
@@ -139,11 +152,46 @@ export async function childWorkSettled(stateRoot) {
   } catch { return false; } // missing/dead/ambiguous child never proves completion
 }
 
+function closedChild(stateRoot) {
+  const marker = join(stateRoot, 'service-closed.json');
+  if (!existsSync(marker) || existsSync(join(stateRoot, 'service.lock'))) return false;
+  safeFile(marker);
+  const stored = boundedRead(stateRoot, 'service-closed.json'); demand(stored.eof, 'CHILD_MARKER_TOO_LARGE');
+  let closed;
+  try { closed = JSON.parse(stored.text); } catch { throw new RuntimeError('CHILD_IDENTITY_INVALID'); }
+  demand(canonicalJson(closed) === canonicalJson({ v: 1, stateRoot, settled: true }), 'CHILD_IDENTITY_INVALID');
+  return true;
+}
+
+/** Cancellation never closes a service or acknowledges delivery. Missing services remain uncertain. */
+export async function cancelChildService(stateRoot) {
+  if (closedChild(stateRoot)) return { requested: false, settled: true };
+  const marker = join(stateRoot, 'startup.json'); safeFile(marker);
+  const stored = boundedRead(stateRoot, 'startup.json'); demand(stored.eof, 'CHILD_MARKER_TOO_LARGE');
+  let identity;
+  try { ({ identity } = JSON.parse(stored.text)); } catch { throw new RuntimeError('CHILD_IDENTITY_INVALID'); }
+  demand(typeof identity?.sessionId === 'string' && identity.sessionId.length > 0 && identity.sessionId.length <= 256, 'CHILD_IDENTITY_INVALID');
+  return createPiDetachClient(join(stateRoot, 'pi.json')).request(identity.sessionId, 'cancel', {});
+}
+
 function ownerAlive(stateRoot) {
   const owner = join(stateRoot, 'service.lock', 'owner.json');
   if (!existsSync(owner)) return false;
   try { process.kill(JSON.parse(readFileSync(owner, 'utf8')).pid, 0); return true; }
   catch (error) { return error.code !== 'ESRCH'; } // EPERM: alive but not ours; treat as alive
+}
+
+function childAbsent(stateRoot) {
+  try {
+    if (closedChild(stateRoot)) return true;
+    if (ownerAlive(stateRoot)) return false;
+    const path = join(stateRoot, 'child-grant.json');
+    if (!existsSync(path)) return true; // Legacy lifecycle behavior is unchanged.
+    safeFile(path);
+    const stored = boundedRead(stateRoot, 'child-grant.json'); demand(stored.eof, 'CHILD_GRANT_TOO_LARGE');
+    const grant = JSON.parse(stored.text);
+    return grant?.v === 1 || grant?.v === 2 && !['startup.json', 'runtime.sqlite', 'service.lock'].some(name => existsSync(join(stateRoot, name)));
+  } catch { return false; }
 }
 
 /**
@@ -154,7 +202,7 @@ function ownerAlive(stateRoot) {
 export async function closeChildService(childState) {
   const marker = join(childState, 'startup.json'); const descriptor = join(childState, 'pi.json');
   // Liveness first: a live owner whose control files are missing is mid-bootstrap or damaged, never absent.
-  if (!ownerAlive(childState)) return 'absent';
+  if (childAbsent(childState)) return 'absent';
   try {
     safeFile(marker);
     const stored = boundedRead(childState, 'startup.json');
@@ -164,17 +212,18 @@ export async function closeChildService(childState) {
     await createPiDetachClient(descriptor).request(identity.sessionId, 'shutdown', {});
     return 'closed';
   } catch (error) {
-    if (!ownerAlive(childState)) return 'absent';
+    if (childAbsent(childState)) return 'absent';
     // Only a valid child's explicit lifecycle refusal establishes active work.
     const active = ['SHUTDOWN_BUSY', 'SHUTDOWN_PENDING', 'SHUTDOWN_ACTIVE', 'SHUTDOWN_DELIVERY', 'SHUTDOWN_CHILD_ACTIVE'].includes(error.message);
     throw new RuntimeError(active ? 'SHUTDOWN_CHILD_ACTIVE' : 'SHUTDOWN_CHILD_UNCERTAIN');
   }
 }
 /** Close every reserved child service under a parent state root; the first refusal stops the parent shutdown. */
-export async function closeChildServices(stateRoot) {
+export async function closeChildServices(stateRoot, reserved = []) {
   const base = join(stateRoot, 'children');
-  if (!existsSync(base)) return [];
   const closed = [];
+  for (const childState of reserved) if (await closeChildService(childState) === 'closed') closed.push(childState);
+  if (!existsSync(base)) return closed;
   for (const entry of readdirSync(base, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
     if (!entry.isDirectory()) continue;
     const childState = join(base, entry.name);

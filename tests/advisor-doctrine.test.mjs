@@ -23,43 +23,46 @@ test("codex-max guidance agrees on Astra xhigh primaries and Luna max procedural
     text("skills/switch-intelligence-profile/SKILL.md"),
   ]);
   assert.match(advisor, /in `codex-max`, every UX builder[\s\S]{0,150}uses Astra xhigh with `frontend-design`/);
-  assert.match(advisor, /`codex-max` the advisor session, planner, foreman, and primary builder run on\s+Astra at xhigh/);
+  assert.match(advisor, /`codex-max` the advisor session, planner, child advisor, and primary builder run on\s+Astra at xhigh/);
   assert.match(advisor, /Astra xhigh for all decision-bearing builders in `codex-max`/);
   const card = section(profiles, "### `codex-max`", "### `codex-lean`");
   assert.match(card, /\| advisor \| Astra xhigh/);
   assert.match(card, /\| planner \| Astra xhigh/);
   assert.match(card, /\| builder \| Astra xhigh/);
-  assert.match(card, /\| foreman \| Astra xhigh/);
+  assert.match(card, /\| child advisor \| Astra xhigh/);
   assert.match(card, /\| scout \| Luna max/);
   assert.match(card, /\| browser-verifier \| Luna max/);
-  assert.match(card, /advisor, planner, foreman, and primary builder at\s+xhigh/);
+  assert.match(card, /advisor, planner, child advisor, and primary builder at\s+xhigh/);
   const row = switcher.split("\n").find((line) => line.startsWith("| `codex-max` |"));
   assert.match(row, /Astra xhigh; Sol high for locked packets \| Sol xhigh \| Luna max/);
-  assert.match(switcher, /advisor, planner, foreman, and primary builder use Astra\s+xhigh/);
+  assert.match(switcher, /advisor, planner, child advisor, and primary builder use Astra\s+xhigh/);
   assert.match(switcher, /scouting and browser verification use Luna max/);
   assert.match(switcher, /https:\/\/github.com\/nourhelmi\/pi-meta-harness\/blob\/main\/docs\/intelligence-profiles.md/);
 });
 
-test("codex-lean guidance reserves Astra for ambiguity and uses Sol for regular work", async () => {
+test("codex-lean uses Sol max for ambiguous builders and Sol medium for regular work", async () => {
   const [advisor, profiles, switcher] = await Promise.all([
     doctrine(),
     text("docs/intelligence-profiles.md"),
     text("skills/switch-intelligence-profile/SKILL.md"),
   ]);
   assert.match(advisor, /`codex-lean`, regular UX builders use Sol medium/);
-  assert.match(advisor, /advisor uses Astra xhigh while planner and foreman nodes use Astra high/);
+  assert.match(advisor, /ambiguous or wide-breadth UX builders use Sol max/);
+  assert.match(advisor, /advisor uses Astra xhigh, and planner and child advisor nodes also use Astra xhigh/);
   assert.match(advisor, /Sol medium for regular\s+builders, locked packets, checking, and reduction in `codex-lean`/);
   const card = section(profiles, "### `codex-lean`", "### `anthropic-heavy`");
   assert.match(card, /\| advisor \| Astra xhigh/);
-  assert.match(card, /\| planner \| Astra high/);
-  assert.match(card, /\| builder \| Sol medium; Astra medium \(ambiguous or wide breadth\)/);
+  assert.match(card, /\| planner \| Astra xhigh/);
+  assert.match(card, /\| builder \| Sol medium; Sol max \(ambiguous or wide breadth\)/);
+  assert.match(card, /\| child advisor \| Astra xhigh/);
   assert.match(card, /\| checker \| Sol medium/);
   assert.match(card, /\| reducer \| Sol medium/);
   assert.match(card, /\| scout \| Luna max/);
   assert.match(card, /\| browser-verifier \| Luna max/);
   assert.doesNotMatch(card, /Sonnet|Fable|Grok/);
-  assert.match(switcher, /In `codex-lean`, the advisor uses Astra xhigh/);
-  assert.match(switcher, /regular builders use Sol medium/);
+  assert.match(switcher, /In `codex-lean`, Astra runs at xhigh wherever it is used/);
+  assert.match(switcher, /Regular builders use Sol medium/);
+  assert.match(switcher, /ambiguous or wide-breadth builders use Sol max/);
   assert.match(switcher, /Checking, reduction, and fully locked\s+execution use Sol medium/);
   assert.match(switcher, /scouting and browser verification use Luna max/);
   assert.match(switcher, /only OpenAI Codex models/);
@@ -77,7 +80,8 @@ test("the advisor entry skill is thin and the injected core stays small with a r
 
   assert.deepEqual(core.match(/^# [^#].*$/gm) ?? [], ["# Advisor"]);
   assert.doesNotMatch(core, /^---\n/, "the injected core carries no skill frontmatter");
-  assert.ok(core.length < 26000, `doctrine core is ${core.length} bytes; keep it near six thousand tokens`);
+  // The shared core now also carries child scope, lineage and descendant obligations.
+  assert.ok(core.length < 28000, `doctrine core is ${core.length} bytes; keep the shared root/child core bounded`);
   const references = section(core, "## References");
   for (const name of REFERENCES) {
     assert.match(references, new RegExp("`references/" + name + "\\.md`"));
@@ -96,7 +100,7 @@ test("routes put direct work and the single maker ahead of graphs and planners",
   assert.match(routes, /should feel like launching one ordinary agent/);
   assert.match(routes, /no planner, no\s+graph, no checker unless the tier or the user asks/);
   assert.match(routes, /\*\*Direct\.\*\*[\s\S]*First-class at every risk tier/);
-  assert.match(routes, /default to one empowered maker: you, a\s+builder, or a foreman/);
+  assert.match(routes, /default to one empowered maker: you, a\s+builder, or a child advisor/);
   assert.match(routes, /owns diagnosis, implementation, task-shaped\s+deterministic tests, and ordinary browser exercise/);
   assert.match(routes, /presumption against ceremony, not a one-agent target/);
   assert.match(routes, /marginal evidence value\s+and critical-path latency/);
@@ -174,7 +178,7 @@ test("obstacles are resolved by workers and Blocked has exactly four meanings ev
     text("skills/advisor/doctrine.md"),
     text("skills/advisor-worker/references/WORKER_CONTRACT.md"),
     text("skills/advisor-worker/roles/builder/SKILL.md"),
-    text("skills/advisor-worker/roles/foreman/SKILL.md"),
+    text("skills/advisor-worker/roles/advisor/SKILL.md"),
     text("skills/advisor-worker/roles/checker/SKILL.md"),
     text("skills/advisor-worker/roles/browser-verifier/SKILL.md"),
     text("extensions/advisor-worker.ts"),
@@ -205,8 +209,8 @@ test("obstacles are resolved by workers and Blocked has exactly four meanings ev
   assert.match(builder, /none of these is\s+a blocker/);
   assert.match(builder, /Select or install the toolchain the repository pins/);
   assert.match(builder, /Do not add speculative abstractions or unaccepted fallback behavior/);
-  assert.match(foreman, /obstacle rule to yourself and to every helper/);
-  assert.match(foreman, /never stop for it while your own helpers are live/);
+  assert.match(foreman, /same installed advisor doctrine/);
+  assert.match(core, /Never stop for a turn cap with live helpers/);
   assert.match(checker, /Environment and tooling obstacles are yours to clear/);
   assert.match(browser, /Runtime setup is an obstacle, not a blocker/);
   assert.match(browser, /wrong data target, a production system,\s+or a missing credential is a safety boundary or a blocker/);
@@ -339,7 +343,7 @@ test("worker roles share maker ownership, risk context, conditional delegation, 
   const [contract, builder, foreman, checker, browser] = await Promise.all([
     text("skills/advisor-worker/references/WORKER_CONTRACT.md"),
     text("skills/advisor-worker/roles/builder/SKILL.md"),
-    text("skills/advisor-worker/roles/foreman/SKILL.md"),
+    text("skills/advisor-worker/roles/advisor/SKILL.md"),
     text("skills/advisor-worker/roles/checker/SKILL.md"),
     text("skills/advisor-worker/roles/browser-verifier/SKILL.md"),
   ]);
@@ -354,8 +358,9 @@ test("worker roles share maker ownership, risk context, conditional delegation, 
   assert.doesNotMatch(contract, /at most 12 lines/);
   assert.match(builder, /diagnose it, implement it,[\s\S]*task-shaped deterministic tests[\s\S]*ordinary browser exercise/);
   assert.match(builder, /exact command\s+evidence/);
-  assert.match(foreman, /Use depth-1 visible subagents[\s\S]*shorten the critical[\s\S]*path, isolate useful working context, resolve material uncertainty, or add useful[\s\S]*evidence/);
-  assert.match(foreman, /depth-1 visible subagents/);
+  assert.match(foreman, /same installed advisor doctrine/);
+  assert.match(foreman, /There is no required graph, role sequence, or number of helpers/);
+  assert.match(contract, /granted child advisor may use visible `bg_agent` descendants/);
   assert.match(checker, /same acceptance[\s\S]*contract and declared risk tier/);
   assert.match(checker, /Do\s+not blindly replay every maker command/);
   assert.match(checker, /new finding that meets\s+this packet's severity bar remains valid/);
@@ -379,7 +384,7 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   assert.match(source, /no-role\s+freeform worker is Pi-hosted/);
   assert.match(source, /## Freeform workers/);
   assert.match(source, /Use a graph only when work has real independent ownership or dependency/);
-  assert.match(source, /Foreman delegation is\s+depth-1 only/);
+  assert.match(source, /Child advisors\s+may delegate further within the root family's remaining cumulative allowance/);
   assert.match(source, /High-risk boundaries receive independent review before\s+completion/);
   assert.match(source, /Deterministic evidence is authoritative for\s+the claim it actually proves/);
   assert.match(runtime, /presumption\s+against ceremony, not a target worker\s+count/);
@@ -416,10 +421,10 @@ test("role agency includes context and local decisions without erasing write bou
   assert.match(checker, /Never weaken\s+acceptance/);
 });
 
-test("advisor and foreman own execution and planning while proposals remain nonbinding", async () => {
+test("parent and child advisors own execution while proposals remain nonbinding", async () => {
   const [advisor, foreman, planner, builder, contract] = await Promise.all([
     doctrine(),
-    text("skills/advisor-worker/roles/foreman/SKILL.md"),
+    text("skills/advisor-worker/roles/advisor/SKILL.md"),
     text("skills/advisor-worker/roles/planner/SKILL.md"),
     text("skills/advisor-worker/roles/builder/SKILL.md"),
     text("skills/advisor-worker/references/WORKER_CONTRACT.md"),
@@ -431,10 +436,10 @@ test("advisor and foreman own execution and planning while proposals remain nonb
   assert.match(advisor, /Reclaim\s+ownership explicitly after settlement/);
   assert.match(advisor, /Your own\s+rerun of your own work is self-verification, not independent review/);
   assert.match(advisor, /explicit acceptance requirement for a particular transport or worker stays\s+unsatisfied if bypassed by direct work/);
-  assert.match(foreman, /choose direct implementation or useful delegation/);
-  assert.match(foreman, /not a launch quota; direct execution is available, not the preferred route/);
-  assert.match(foreman, /never edit alongside a writing helper/);
-  assert.match(foreman, /escalate only changes to accepted scope, criteria, explicitly locked\s+decisions/);
+  assert.match(foreman, /same installed advisor doctrine/);
+  assert.match(advisor, /Direct work\s+remains available/);
+  assert.match(advisor, /never edit alongside a\s+writing helper/);
+  assert.match(contract, /explicitly locked decision[\s\S]*explicit packet revision/);
   assert.match(planner, /advisor owns the plan and may adopt, revise, or reject/);
   assert.match(planner, /Do not edit product code/);
   assert.doesNotMatch(builder, /Understanding is your job, not the advisor's/);
@@ -510,7 +515,7 @@ test("makers explore freely and deliver narrowly while the packet stays a floor"
   const [core, builder, foreman, contract, runtime, roles] = await Promise.all([
     text("skills/advisor/doctrine.md"),
     text("skills/advisor-worker/roles/builder/SKILL.md"),
-    text("skills/advisor-worker/roles/foreman/SKILL.md"),
+    text("skills/advisor-worker/roles/advisor/SKILL.md"),
     text("skills/advisor-worker/references/WORKER_CONTRACT.md"),
     text("docs/advisor-runtime.md"),
     text("config/bg-agent-profiles.json"),
@@ -526,13 +531,14 @@ test("makers explore freely and deliver narrowly while the packet stays a floor"
   assert.match(builder, /## Fresh review before handoff/);
   assert.match(builder, /model and\s+effort by the review need and live guide/);
   assert.match(builder, /fresh-context helper is optional, not an\s+automatic Standard\/High step/);
-  assert.match(foreman, /explore-freely, deliver-narrowly/);
-  assert.match(foreman, /`Fresh review`/);
+  assert.match(foreman, /same installed advisor doctrine/);
+  assert.match(core, /maker traces the capability end to end/);
+  assert.match(contract, /`Fresh review`/);
   assert.match(contract, /`Proposed criteria`/);
   assert.match(contract, /inspect the linked proof needed for\s+your assigned work/);
   assert.match(contract, /Required evidence and material contract\/threat context\s+must still be read/);
   assert.match(runtime, /## 🎚️ Risk tiers/);
-  assert.match(runtime, /to the builder\s+for at most one optional read-only review helper/);
+  assert.match(runtime, /grants the builder\s+at most one optional read-only review helper/);
   assert.match(runtime, /Settlement stalls only when that artifact is missing or blank/);
   assert.match(runtime, /mechanical findings \(formatter output, lint autofix, generated-file drift, result formatting\) are repaired inline by whoever finds them and never bind a verdict/);
   assert.match(runtime, /formatter or lint pass is never an acceptance criterion on its own/);

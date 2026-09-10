@@ -207,7 +207,7 @@ test("checker alone passes orchestration; read-only checker followed by builder 
 
 test("environment obstacle accepts either maker but rejects blocking, questions, and extra launches", async () => {
   const { definition } = await loadProspectiveCase("builder-environment-obstacle");
-  for (const role of ["builder", "foreman"]) {
+  for (const role of ["builder", "advisor", "foreman"]) {
     const events = attempt(role, "worker-1", "attempt-1");
     assert(processChecks({ events }, completion, definition).every((check) => check.passed));
     const blocked = structuredClone(events);

@@ -42,7 +42,7 @@ flowchart TB
     Scout[scout]
     Plan[planner]
     Build[builder]
-    Foreman[foreman]
+    Child["child advisor\noptional linked subgraph"]
     Check[checker]
     Reduce[reducer]
     Browser[browser-verifier]
@@ -51,7 +51,7 @@ flowchart TB
   Route -->|resolve uncertainty| Scout
   Route -->|material planning| Plan
   Route -->|cohesive implementation| Build
-  Route -->|useful delegated depth| Foreman
+  Route -->|scoped outcome| Child
   Route -->|risk-triggered review| Check
   Route -->|merge independent evidence| Reduce
   Route -->|independent UI evidence| Browser
@@ -66,7 +66,7 @@ flowchart TB
   class Ghostty,Herdr mux
   class Adv,Route advisor
   class Guide,Roles map
-  class Scout,Plan,Build,Foreman,Check,Reduce,Browser worker
+  class Scout,Plan,Build,Child,Check,Reduce,Browser worker
 ```
 
 **[Quick start](#-quick-start)** ·
@@ -86,12 +86,12 @@ flowchart TB
 
 | | |
 | --- | --- |
-| 🎯 **No ceremony** | Small and medium work runs as **direct work or one empowered maker** from a short packet, like launching one ordinary agent. Scouts, planners, foremen, checkers, reducers, and browser verifiers join only when they reduce uncertainty, expose real parallelism, or add independent evidence. |
-| 🐴 **Ponytail throughout** | [Default-on simplicity guidance](docs/ponytail.md) in ordinary Pi sessions, advisors, foremen, and workers: reuse before adding, fewer unnecessary handoffs, no repeated core-skill loading. Required behavior, tests, safety, and evidence remain binding. |
+| 🎯 **No ceremony** | Small and medium work runs as **direct work or one empowered maker** from a short packet. Scouts, planners, child advisors, checkers, reducers, and browser verifiers join only when they reduce uncertainty, expose real parallelism, or add independent evidence. Child advisors reuse the same doctrine, with linked subgraphs and shared family limits. |
+| 🐴 **Ponytail throughout** | [Default-on simplicity guidance](docs/ponytail.md) in ordinary Pi sessions, parent/child advisors, and workers: reuse before adding, fewer unnecessary handoffs, no repeated core-skill loading. Required behavior, tests, safety, and evidence remain binding. |
 | 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what the change touches, with Standard as the default. The tier sets review obligations and the checker's FAIL bar; High retains independent checking without an automatic extra maker-owned reviewer. |
 | 🔍 **Makers understand, checkers repair** | Makers prove criteria, clear environment and tooling obstacles themselves, and inspect their own diff. Checkers repair what they find inside the reviewed surface and report the post-repair state; a repair round is a delta review by the same reviewer, capped at two rounds. |
 | 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |
-| 🔀 **Two worker harnesses** | Workers run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. The root advisor is always Pi. |
+| 🔀 **Two worker harnesses** | Specialists run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. Managed root and child advisors are Pi-hosted. |
 | 🧪 **Evals that bite** | 21 hermetic live cases graded by **hidden deterministic verifiers**, including routing, explicit capability, and a medium API repair with regression-test mutation checks, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
 | 📌 **Controlled updates** | Compatible npm ranges, full 40-hex Git commits, tree and SHA-256 verification, scoped backups, and a live doctor. |
 | 🔒 **Public-safe by design** | Every tracked file is treated as public. A closed-allowlist privacy boundary keeps transcripts, identities, and credentials out of eval artifacts. |

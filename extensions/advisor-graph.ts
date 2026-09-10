@@ -4,6 +4,8 @@ import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import type { AgentToolResult, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
+import { isDeepStrictEqual } from "node:util";
+import { readChildScope, type ChildScope } from "../scripts/advisor-runtime/pi-detach-bootstrap.mjs";
 
 const GRAPH_IDENTIFIER = /^[a-z][a-z0-9-]{0,47}$/;
 
@@ -43,7 +45,7 @@ interface GraphWarning {
 	message: string;
 }
 
-const MAKER_ROLES = new Set(["builder", "foreman"]);
+const MAKER_ROLES = new Set(["builder", "advisor", "foreman"]); // Historical foreman manifests remain readable.
 
 interface RoleProfiles {
 	profiles?: Record<string, unknown>;
@@ -188,7 +190,7 @@ function roleOrderWarnings(nodes: GraphNode[], byId: Map<string, GraphNode>): Gr
 				warnings.push({
 					code: "checker-without-builder",
 					nodeId: node.id,
-					message: `Checker ${node.id} has no builder or foreman ancestor; confirm this is an intentional baseline or audit review.`,
+					message: `Checker ${node.id} has no maker ancestor; confirm this is an intentional baseline or audit review.`,
 				});
 			}
 		}
@@ -198,7 +200,7 @@ function roleOrderWarnings(nodes: GraphNode[], byId: Map<string, GraphNode>): Gr
 				warnings.push({
 					code: "browser-without-builder",
 					nodeId: node.id,
-					message: `Browser verifier ${node.id} has no builder or foreman ancestor; confirm this is intentional baseline investigation.`,
+					message: `Browser verifier ${node.id} has no maker ancestor; confirm this is intentional baseline investigation.`,
 				});
 			}
 		}
@@ -246,13 +248,15 @@ function manifest(
 	ctx: ExtensionContext,
 	waves: string[][],
 	warnings: GraphWarning[],
+	childScope: ChildScope | null,
 ): object {
 	return {
 		version: 1,
 		graphId: params.graphId,
 		goal: params.goal,
 		advisorSessionId: ctx.sessionManager.getSessionId(),
-		workstream: process.env.ADVISOR_WORKSTREAM,
+		workstream: childScope?.family.workstream ?? process.env.ADVISOR_WORKSTREAM,
+		...(childScope ? { parentOutcome: childScope.parent } : {}),
 		maxParallel: params.maxParallel ?? 3,
 		maxRepairLoops: params.maxRepairLoops ?? 2,
 		allowParallelBuilders: params.allowParallelBuilders ?? false,
@@ -268,11 +272,12 @@ async function saveManifest(
 	ctx: ExtensionContext,
 	waves: string[][],
 	warnings: GraphWarning[],
+	childScope: ChildScope | null,
 ): Promise<string> {
-	const directory = join(await advisorStateRoot(ctx.cwd), "graphs");
+	const directory = join(childScope?.stateRoot ?? await advisorStateRoot(ctx.cwd), "graphs");
 	await mkdir(directory, { recursive: true });
 	const path = join(directory, `${params.graphId}.json`);
-	await writeFile(path, `${JSON.stringify(manifest(params, ctx, waves, warnings), null, 2)}\n`, {
+	await writeFile(path, `${JSON.stringify(manifest(params, ctx, waves, warnings, childScope), null, 2)}\n`, {
 		encoding: "utf8",
 		flag: "wx",
 	});
@@ -280,7 +285,8 @@ async function saveManifest(
 }
 
 async function planGraph(params: GraphParams, ctx: ExtensionContext): Promise<AgentToolResult<GraphDetails>> {
-	if (!process.env.ADVISOR_WORKSTREAM) throw new Error("Invoke /advisor before planning a graph");
+	const childScope = await readChildScope({ cwd: ctx.cwd });
+	if (!childScope && !process.env.ADVISOR_WORKSTREAM) throw new Error("Invoke /advisor before planning a root graph, or use a runtime-issued child advisor scope");
 	validateStructuralParameters(params);
 	const roles = await configuredRoles();
 	const byId = nodeMap(params.nodes);
@@ -288,7 +294,7 @@ async function planGraph(params: GraphParams, ctx: ExtensionContext): Promise<Ag
 	validateDependencies(params.nodes, byId);
 	const warnings = roleOrderWarnings(params.nodes, byId);
 	const waves = executionWaves(params.nodes, params.maxParallel ?? 3);
-	const manifestPath = await saveManifest(params, ctx, waves, warnings);
+	const manifestPath = await saveManifest(params, ctx, waves, warnings, childScope);
 	const warningText = warnings.length
 		? `\nAdvisory warnings (${warnings.length}; non-blocking):\n${warnings.map((warning) => `- [${warning.code}] ${warning.message}`).join("\n")}\nConfirm these graph shapes are intentional before launch.`
 		: "\nAdvisory warnings: none.";
@@ -311,15 +317,18 @@ export default function advisorGraphExtension(pi: ExtensionAPI): void {
     parameters: Type.Object({ graphId: Type.String({ pattern: "^[a-z][a-z0-9-]{0,47}$" }), node: Type.String(), runId: Type.Optional(Type.String()), attempt: Type.Optional(Type.Integer({ minimum: 1 })), replacesRunId: Type.Optional(Type.String()), replacesAttempt: Type.Optional(Type.Integer({ minimum: 1 })) }),
     async execute(_id, params, _signal, _update, ctx) {
       if (!GRAPH_IDENTIFIER.test(params.graphId)) throw new Error("Malformed graph id");
-      const path = join(await advisorStateRoot(ctx.cwd), "graphs", `${params.graphId}.json`);
+      const childScope = await readChildScope({ cwd: ctx.cwd });
+      const path = join(childScope?.stateRoot ?? await advisorStateRoot(ctx.cwd), "graphs", `${params.graphId}.json`);
       const info = await stat(path); if (info.size > 32768) throw new Error("Graph manifest exceeds bound");
       let plan;
       try { plan = JSON.parse(await readFile(path, "utf8")); }
       catch (cause) { throw new Error("Graph manifest is unreadable or malformed; recover the accepted plan before binding evidence", { cause }); }
       if (plan.advisorSessionId !== ctx.sessionManager.getSessionId()) throw new Error("Graph belongs to a different advisor session");
+      if (!isDeepStrictEqual(plan.parentOutcome, childScope?.parent)) throw new Error("Graph belongs to a different parent outcome");
       const request: { sessionId: string; action: string; payload: object; response?: Promise<unknown> } = {
         sessionId: ctx.sessionManager.getSessionId(), action: "graph.evidence",
         payload: { graph: { graphId: plan.graphId, advisorSessionId: plan.advisorSessionId, maxRepairLoops: plan.maxRepairLoops ?? 2,
+          ...(childScope ? { parentOutcome: childScope.parent } : {}),
           contract: createHash("sha256").update(JSON.stringify({ ...plan, createdAt: undefined, warnings: undefined })).digest("hex"),
           nodes: plan.nodes.map((node: GraphNode) => ({ id: node.id, task: node.task, dependsOn: node.dependsOn ?? [] })) },
           node: params.node, ...(params.runId ? { runId: params.runId } : {}), ...(params.attempt !== undefined ? { attempt: params.attempt } : {}),

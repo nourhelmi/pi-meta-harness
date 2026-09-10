@@ -1,6 +1,7 @@
 import { validateResultArtifact } from '../../advisor-core/result-artifact.mjs';
-import { createHash } from 'node:crypto';
+import { canonicalJson } from '../../advisor-core/command-contract.mjs';
 import { childWorkSettled, closeChildService } from '../pi-detach-bootstrap.mjs';
+import { readChildGrant } from '../child-scope.mjs';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWrite, boundedRead, demand, privateDirectory } from '../security.mjs';
@@ -35,6 +36,8 @@ export function createPiDetachAdapter(port) {
         const live = sessions.get(key);
         demand(live && live.handle.id === handle.id, 'BRIDGE_HANDLE_MISMATCH');
         context.assertActive();
+        const childState = live.intent.environment.ADVISOR_BRIDGE_CHILD_STATE;
+        if (childState) await context.cancelChildren(childState);
         // Escape is the only input. The node stays cancel-pending until Herdr
         // shows the same occupant settled afterwards; process exit stays unclaimed.
         let cancelled = false;
@@ -69,10 +72,12 @@ export function createPiDetachAdapter(port) {
       atomicWrite(join(context.artifactDirectory, 'request.json'), JSON.stringify(effect.op === 'node.reply' ? { id: effect.payload.requestId, answered: true } : {}));
       const childState = intent.environment.ADVISOR_BRIDGE_CHILD_STATE;
       if (childState) {
-        demand(childState === join(context.artifactDirectory, '../../../children', createHash('sha256').update(effect.scope.run).digest('hex').slice(0, 20)), 'BRIDGE_CHILD_SCOPE_MISMATCH');
+        const expected = await context.reserveChild();
+        demand(childState === expected.stateRoot, 'BRIDGE_CHILD_SCOPE_MISMATCH');
         privateDirectory(childState);
         const grant = join(childState, 'child-grant.json');
-        if (!existsSync(grant)) writeFileSync(grant, JSON.stringify({ v: 1, cwd: context.cwd, stateRoot: childState }), { flag: 'wx', mode: 0o600 });
+        if (!existsSync(grant)) writeFileSync(grant, JSON.stringify(expected), { flag: 'wx', mode: 0o600 });
+        demand(canonicalJson(readChildGrant(childState, context.cwd)) === canonicalJson(expected), 'PI_DETACH_CHILD_GRANT_MISMATCH');
       }
       let boundHandle; let settlement;
       const driver = await port.launch({ id: effect.scope.run, cwd: context.cwd, intent,
@@ -97,7 +102,7 @@ export function createPiDetachAdapter(port) {
               reason: state === 'blocked' ? 'Herdr UI requires direct inspection; typed reply unavailable' : 'Herdr turn settled; authoritative result captured', verified: false,
             } });
             const terminal = Boolean(['done', 'idle'].includes(state) && validation?.valid && validation.classification === 'terminal');
-            // A finished, not-kept foreman no longer needs its reserved child service.
+            // A finished, not-kept advisor no longer needs its reserved child service.
             // Refusal (active or unacknowledged child work) is retried at parent shutdown.
             if (terminal && !intent.keepAlive && childState) void closeChildService(childState).catch(() => {});
             return settlement = {

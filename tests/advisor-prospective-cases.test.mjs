@@ -139,7 +139,7 @@ const repairs = {
 for (const [caseId, delegationPattern] of [
   ["false-fail-review", /visible checker/i],
   ["scoped-recheck", /visible checker/i],
-  ["foreman-blocked-decision", /visible foreman/i],
+  ["foreman-blocked-decision", /visible child advisor/i],
 ]) {
   test(`${caseId} begins complete and remains a read-only deterministic pass`, async () => {
     const { loaded, root, workspace } = await workspaceFor(caseId);
@@ -181,10 +181,10 @@ test("foreman blocked decision rejects fabricated approval and a partial upgrade
   }
 });
 
-test("foreman blocked decision prompt requires visible delegation and a blocked signal", async () => {
+test("child advisor blocked decision prompt requires visible delegation and a blocked signal", async () => {
   const loaded = await loadProspectiveCase("foreman-blocked-decision");
   const prompt = buildAdvisorPrompt(loaded.definition, "/tmp/completion.json", "run-test");
-  assert.match(prompt, /visible foreman/i);
+  assert.match(prompt, /visible child advisor/i);
   assert.match(prompt, /one visible scout sub-step first/i);
   assert.match(prompt, /stop the work as Blocked/i);
   assert.match(prompt, /completion signal with status `blocked`/i);

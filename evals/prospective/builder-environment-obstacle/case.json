@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "builder-environment-obstacle",
   "title": "Prospective efficiency: resolve an optional lint-engine obstacle locally",
-  "instruction": "Repair the local retry configuration to match contract.json, make npm test pass, and record any environment workaround in deviations.json as an array of {what: string, why: string}. Read README.md for the supported local lint modes. Only settings.json and deviations.json may change; preserve package metadata, checks, and the contract. Delegate this cohesive repair to a visible builder or foreman and complete from deterministic evidence. No external systems, credentials, installations, or user decisions are needed.",
+  "instruction": "Repair the local retry configuration to match contract.json, make npm test pass, and record any environment workaround in deviations.json as an array of {what: string, why: string}. Read README.md for the supported local lint modes. Only settings.json and deviations.json may change; preserve package metadata, checks, and the contract. Delegate this cohesive repair to a visible builder or child advisor and complete from deterministic evidence. No external systems, credentials, installations, or user decisions are needed.",
   "acceptance": [
     { "id": "retry-limit-aligned", "claim": "The retry limit exactly matches the immutable contract.", "proof": "Compare settings.json with contract.json and run npm test." },
     { "id": "public-check-passes", "claim": "The public configuration and lint checks pass using the sanctioned local workaround.", "proof": "Run npm test and require exit 0." },
@@ -10,12 +10,12 @@
     { "id": "bounded-surface", "claim": "Only settings.json and deviations.json change.", "proof": "Inventory the actual workspace against the external fixture, including ignored files." }
   ],
   "process": {
-    "instruction": "Use one visible builder or foreman to resolve the documented environment obstacle locally, verify the result, and complete without a blocked settlement or user question.",
+    "instruction": "Use one visible builder or child advisor to resolve the documented environment obstacle locally, verify the result, and complete without a blocked settlement or user question.",
     "expectedCompletionStatus": "completed",
-    "requiredDelegation": [{ "id": "builder-delegation", "roles": ["builder", "foreman"], "minimum": 1, "statuses": ["successful"] }],
-    "requiredWorkerSequence": [{ "roles": ["builder", "foreman"], "action": "launch" }],
-    "topology": { "allowedRoles": ["builder", "foreman"], "maximumSuccessfulWorkers": 1, "maximumGraphPlans": 0, "maximumUserQuestions": 0 },
-    "parallelism": { "maxUsefulWidth": 1, "roles": ["builder", "foreman"], "rationale": "The config repair and local lint workaround share one bounded maker surface." }
+    "requiredDelegation": [{ "id": "builder-delegation", "roles": ["builder", "advisor", "foreman"], "minimum": 1, "statuses": ["successful"] }],
+    "requiredWorkerSequence": [{ "roles": ["builder", "advisor", "foreman"], "action": "launch" }],
+    "topology": { "allowedRoles": ["builder", "advisor", "foreman"], "maximumSuccessfulWorkers": 1, "maximumGraphPlans": 0, "maximumUserQuestions": 0 },
+    "parallelism": { "maxUsefulWidth": 1, "roles": ["builder", "advisor", "foreman"], "rationale": "The config repair and local lint workaround share one bounded maker surface." }
   },
   "verifier": "tests/verify.mjs"
 }

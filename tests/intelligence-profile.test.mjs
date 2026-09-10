@@ -28,10 +28,11 @@ test("fixed role configuration is standalone and model-free", async () => {
   assert.deepEqual(roleConfigErrors(config), []);
   assert.deepEqual(Object.keys(config).sort(), ["defaultAgent", "profiles"]);
   assert.deepEqual(Object.keys(config.profiles), REQUIRED_ROLES);
-  assert.equal(config.profiles.foreman.harness, "pi");
-  assert(config.profiles.foreman.cliArgs.includes("--advisor-worker-allow-subagents"));
-  assert.equal("excludeTools" in config.profiles.foreman, false);
-  assert.equal(config.profiles.foreman.cliArgs.includes("--exclude-tools"), false);
+  assert.equal(config.profiles.advisor.harness, "pi");
+  assert(config.profiles.advisor.cliArgs.includes("--advisor-worker-allow-subagents"));
+  assert.equal("excludeTools" in config.profiles.advisor, false);
+  assert.equal(config.profiles.advisor.cliArgs.includes("--exclude-tools"), false);
+  assert.equal(config.profiles.foreman, undefined);
   for (const [role, profile] of Object.entries(config.profiles)) {
     assert.equal(typeof profile.skill, "string");
     assert.equal(typeof profile.skillPath, "string");
@@ -42,7 +43,7 @@ test("fixed role configuration is standalone and model-free", async () => {
     assert.equal("allowedModels" in profile, false);
     assert.equal("allowedThinkingByModel" in profile, false);
     assert.equal("allowSubagents" in profile, false);
-    assert.equal(profile.harness === "pi", role === "foreman");
+    assert.equal(profile.harness === "pi", role === "advisor");
     if (profile.agent === "pi") assert.equal(profile.resultDiscovery, "advisor-worker");
   }
 });
@@ -89,7 +90,7 @@ test("codex-max uses Astra xhigh for primary decisions and Luna max for scouting
   const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
   assert.equal(guide.models[astra].defaultThinking, "xhigh");
   assert.deepEqual(identities("planner"), [[astra, "xhigh"]]);
-  assert.deepEqual(identities("foreman"), [[astra, "xhigh"]]);
+  assert.deepEqual(identities("advisor"), [[astra, "xhigh"]]);
   assert.deepEqual(identities("builder"), [
     [astra, "xhigh"],
     [sol, "high"],
@@ -100,7 +101,7 @@ test("codex-max uses Astra xhigh for primary decisions and Luna max for scouting
   assert.deepEqual(identities("scout"), [[luna, "max"]]);
   assert.deepEqual(identities("browser-verifier"), [[luna, "max"]]);
   assert(!Object.keys(guide.models).some((model) => /^(anthropic|claude-bridge)\//.test(model)));
-  assert.match(guide.models[astra].character, /advisor session, planner, foreman, and primary builder model at xhigh/);
+  assert.match(guide.models[astra].character, /advisor session, planner, child advisor, and primary builder model at xhigh/);
   assert.match(guide.models[astra].character, /every kind of UX work with frontend-design loaded/);
   assert.match(guide.models[luna].character, /scouting and browser-verification model at max reasoning/);
 });
@@ -118,14 +119,20 @@ test("codex-lean is Codex-only and assigns the requested effort ladder", async (
   assert.equal(guide.models[astra].defaultThinking, "xhigh");
   assert.equal(guide.models[sol].defaultThinking, "medium");
   assert.deepEqual(identities("scout"), [[luna, "max"]]);
-  assert.deepEqual(identities("planner"), [[astra, "high"]]);
+  assert.deepEqual(identities("planner"), [[astra, "xhigh"]]);
+  assert(
+    Object.values(guide.recommendations)
+      .flat()
+      .filter(({ model }) => model === astra)
+      .every(({ thinking }) => thinking === "xhigh"),
+  );
   assert.deepEqual(identities("reducer"), [[sol, "medium"]]);
-  assert.deepEqual(identities("builder"), [[sol, "medium"], [astra, "medium"]]);
-  assert.deepEqual(identities("foreman"), [[astra, "high"]]);
+  assert.deepEqual(identities("builder"), [[sol, "medium"], [sol, "max"]]);
+  assert.deepEqual(identities("advisor"), [[astra, "xhigh"]]);
   assert.deepEqual(identities("checker"), [[sol, "medium"]]);
   assert.deepEqual(identities("browser-verifier"), [[luna, "max"]]);
-  assert.match(guide.models[astra].character, /advisor's own session model at xhigh/);
-  assert.match(guide.models[astra].character, /Reserve medium for implementation.*materially ambiguous/);
+  assert.match(guide.models[astra].character, /Astra runs at xhigh wherever it is used/);
+  assert.match(guide.models[sol].character, /Use Sol max for materially ambiguous or wide-breadth implementation/);
   assert.match(guide.models[sol].character, /regular workhorse at medium reasoning/);
   assert.match(guide.models[luna].character, /scouting and browser-verification model at max reasoning/);
 });

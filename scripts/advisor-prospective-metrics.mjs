@@ -65,7 +65,7 @@ export const PROCESS_SCALAR_FIELDS = [
   "firstTurnInputTokens", "doctrineReads", "guideReads", "roleSkillReads", "memoryToolCalls",
 ];
 const TERMINAL_STATUSES = new Set(["successful", "blocked", "failed", "cancelled", "stopped"]);
-const REPAIR_ROLES = new Set(["builder", "foreman", "checker"]);
+const REPAIR_ROLES = new Set(["advisor", "builder", "foreman", "checker"]);
 
 function hasGraphRepair(prompt) {
   if (typeof prompt !== "string") return false;

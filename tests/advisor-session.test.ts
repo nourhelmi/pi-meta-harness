@@ -111,6 +111,7 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
   let toolCall: ((event: ToolCallEvent, ctx: ExtensionContext) => Promise<{ block: boolean; reason: string } | undefined>) | undefined;
   let sessionName: string | undefined;
   const pi = {
+    getFlag: () => undefined,
     exec: async () => ({ code: 0, stdout: "", stderr: "" }),
     getSessionName: () => sessionName,
     setSessionName: (value: string) => {
@@ -169,10 +170,11 @@ test("advisor doctrine routes locked execution without weakening decision bounda
   assert.match(source, /missing safe target, credential or authority is a real\s+stop/);
   assert.match(source, /check `bg_list`\s+once/);
   assert.match(source, /Coalesce a\s+routine settlement/);
-  assert.match(source, /## Foreman delegation/);
-  assert.match(source, /pass only real user, authority, ownership\s+and safety constraints\. Arrange required independent checking separately/);
-  assert.match(source, /Foreman delegation is\s+depth-1 only/);
-  assert.match(source, /Foremen are Pi-hosted, including in native\s+mode; `bg_agent` helpers stay visible/);
+  assert.match(source, /## Child advisors/);
+  assert.match(source, /pass only real user, authority, ownership and safety constraints/);
+  assert.match(source, /no graph, delegation depth, role sequence or launch quota is\s+required/);
+  assert.match(source, /Managed advisors are Pi-hosted, including in native specialist mode/);
+  assert.match(source, /Arrange required independent checking of the integrated outcome/);
   assert.match(source, /Deliberate criteria\s+revision[\s\S]+new packet\s+revision/);
   assert.match(source, /criteria serve the advisor's\s+judgment, not the reverse/);
   assert.match(source, /## Worker transport recovery/);

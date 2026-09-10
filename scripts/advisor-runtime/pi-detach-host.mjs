@@ -8,6 +8,7 @@ import { startService, readStoredCredential, writeCredential } from './service.m
 import { createPiDetachAdapter } from './adapters/pi-detach.mjs';
 import { closeChildServices, installedRevision, workspaceRoots } from './pi-detach-bootstrap.mjs';
 import { demand, privateDirectory } from './security.mjs';
+import { familyCall, readChildGrant } from './child-scope.mjs';
 
 /** Trusted bootstrap only; no per-task packet files and no provider launch here. */
 export async function hostPiDetach({ stateRoot, cwd, sessionId, credentialPath, port, slots = 16, managedIdentity = null, maxLaunches = 256, revision = null, keepAlive = true }) {
@@ -20,20 +21,30 @@ export async function hostPiDetach({ stateRoot, cwd, sessionId, credentialPath, 
   demand(['pi', 'codex', 'claude-code'].includes(rootHost), 'UNSUPPORTED_HOST');
   const prefix = createHash('sha256').update(sessionId).digest('hex').slice(0, 24);
   const scopes = Array.from({ length: managedIdentity ? 1 : slots }, (_, i) => ({ workstream: `pi-${prefix}`, run: `pib-${prefix}-${i}`, node: 'root', ownerEpoch: 1 }));
-  const principal = { id: `pi-${prefix}`, kind: 'advisor', scopes: scopes.flatMap(({ ownerEpoch, ...scope }) => [scope, { ...scope, node: 'worker' }]), operations: ['workstream.create', 'packet.admit', 'node.launch', 'node.reply', 'node.task', 'node.cancel', 'progress', 'wait', 'delivery.ack', 'artifact.read', 'log.read'] };
+  const principal = { id: `pi-${prefix}`, kind: 'advisor', scopes: scopes.flatMap(({ ownerEpoch: _ownerEpoch, ...scope }) => [scope, { ...scope, node: 'worker' }]), operations: ['workstream.create', 'packet.admit', 'node.launch', 'node.reply', 'node.task', 'node.cancel', 'progress', 'wait', 'delivery.ack', 'artifact.read', 'log.read'] };
   const adapter = createPiDetachAdapter(port);
   const canonicalCwd = realpathSync(cwd);
-  const allowedRoots = managedIdentity ? workspaceRoots(cwd) : [canonicalCwd];
+  const childGrant = existsSync(`${stateRoot}/child-grant.json`) ? readChildGrant(stateRoot, canonicalCwd) : null;
+  demand(!managedIdentity?.childState || childGrant, 'PI_DETACH_CHILD_GRANT_MISMATCH');
+  const allowedRoots = childGrant?.v === 2 ? childGrant.allowedRoots : managedIdentity ? workspaceRoots(cwd) : [canonicalCwd];
+  if (childGrant?.v === 2) await familyCall(childGrant, 'bind', { grant: childGrant, sessionId, workstream: scopes[0].workstream });
   const runtime = new AdvisorRuntime({ stateRoot, allowedRoots, controlPaths: [credentialPath],
     adapters: { roots: {}, workers: { 'pi-detach': adapter } },
-    piBridge: { version: 1, portVersion: port.version, principalId: principal.id, sessionId, scopes, cwd: canonicalCwd, prepare: port.prepare, managedIdentity, rootHost, maxLaunches, allowedRoots, dynamic: Boolean(managedIdentity), readLive: adapter.readLive, revision },
+    piBridge: { version: 1, portVersion: port.version, principalId: principal.id, sessionId, scopes, cwd: canonicalCwd, prepare: port.prepare, managedIdentity, rootHost, maxLaunches, allowedRoots, childGrant, dynamic: Boolean(managedIdentity) || childGrant?.v === 2, readLive: adapter.readLive, revision },
   });
   try {
     const old = existsSync(credentialPath) ? readStoredCredential(credentialPath) : null;
     const tokens = runtime.bootstrapPrincipals([{ principal, credentialPath }], [old]);
     if (tokens) writeCredential(credentialPath, { token: tokens[0], socketPath: `${runtime.stateRoot}/runtime.sock` }, runtime);
-    // Reserved depth-1 child services close with their closable parent, by typed shutdown only.
-    const service = await startService(runtime, { keepAlive, beforeShutdown: () => closeChildServices(runtime.stateRoot) });
+    runtime.initializeFamily();
+    // Family children are flat on disk; typed close follows explicit service parentage.
+    const service = await startService(runtime, { keepAlive, beforeShutdown: async () => {
+      const children = await runtime.familyOperation('children').catch(error => {
+        if (['PI_DETACH_LEGACY_CHILD_REQUIRES_REISSUE', 'FAMILY_LEGACY_ACCOUNTING_REQUIRED'].includes(error.code)) return [];
+        throw error;
+      });
+      await closeChildServices(runtime.stateRoot, children);
+    } });
     return { runtime, service };
   } catch (error) { runtime.disposeUnstarted(); throw error; }
 }
