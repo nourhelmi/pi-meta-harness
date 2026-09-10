@@ -24,7 +24,7 @@ const GraphParameters = Type.Object({
 	nodes: Type.Array(GraphNodeSchema, { minItems: 1, maxItems: 24 }),
 	maxParallel: Type.Optional(Type.Integer({ minimum: 1, maximum: 6, default: 3 })),
 	maxRepairLoops: Type.Optional(Type.Integer({ minimum: 0, maximum: 3, default: 2 })),
-	allowParallelBuilders: Type.Optional(Type.Boolean({ default: false })),
+	allowParallelBuilders: Type.Optional(Type.Boolean({ description: "Legacy metadata only; writer coordination belongs to the advisor.", default: false })),
 });
 
 type GraphNode = Static<typeof GraphNodeSchema>;
@@ -241,24 +241,6 @@ function executionWaves(nodes: GraphNode[], maxParallel: number): string[][] {
 	return waves;
 }
 
-function validateMakers(
-	waves: string[][],
-	byId: Map<string, GraphNode>,
-	allowParallelBuilders: boolean,
-): void {
-	for (const wave of waves) {
-    const makers = wave.map((id) => byId.get(id)).filter((node) => MAKER_ROLES.has(node?.role ?? "") || node?.role === "checker");
-		if (makers.length < 2) continue;
-		if (!allowParallelBuilders) {
-      throw new Error("Parallel builders or foremen require explicit user approval and allowParallelBuilders=true");
-		}
-		const worktrees = makers.map((node) => node?.worktree).filter((path): path is string => Boolean(path));
-		if (worktrees.length !== makers.length || new Set(worktrees).size !== makers.length) {
-      throw new Error("Parallel builders or foremen require distinct explicit worktrees");
-		}
-	}
-}
-
 function manifest(
 	params: GraphParams,
 	ctx: ExtensionContext,
@@ -306,7 +288,6 @@ async function planGraph(params: GraphParams, ctx: ExtensionContext): Promise<Ag
 	validateDependencies(params.nodes, byId);
 	const warnings = roleOrderWarnings(params.nodes, byId);
 	const waves = executionWaves(params.nodes, params.maxParallel ?? 3);
-	validateMakers(waves, byId, params.allowParallelBuilders ?? false);
 	const manifestPath = await saveManifest(params, ctx, waves, warnings);
 	const warningText = warnings.length
 		? `\nAdvisory warnings (${warnings.length}; non-blocking):\n${warnings.map((warning) => `- [${warning.code}] ${warning.message}`).join("\n")}\nConfirm these graph shapes are intentional before launch.`
@@ -354,7 +335,7 @@ export default function advisorGraphExtension(pi: ExtensionAPI): void {
 		name: "advisor_graph_plan",
 		label: "Advisor Graph",
 		description:
-			"Structurally validate, lint, and persist a bounded DAG of visible Pi role agents. Malformed structure and unsafe builder or foreman concurrency are rejected; role-order and reducer-shape concerns are returned as non-blocking warnings. It never launches hidden agents.",
+			"Structurally validate, lint, and persist a bounded DAG of visible Pi role agents. Malformed structure is rejected; role-order and reducer-shape concerns are non-blocking warnings. Writer coordination belongs to the advisor, not graph admission. It never launches agents.",
 		parameters: GraphParameters,
 		async execute(...args) {
 			const [, params, , , ctx] = args;

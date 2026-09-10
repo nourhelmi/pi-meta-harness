@@ -59,7 +59,7 @@ test("captured handoffs replace routine forensic hunts but never bypass recovery
     assert.match(source, /captured (?:result|report|proof)/);
     assert.match(source, /continuation|reply\/task|permits `task`/);
     assert.match(source, /missing.*capture|Missing.*capture/);
-    assert.match(source, /(?:Never|never).*(?:relaunch|clear locks)/);
+    assert.match(source, /(?:Never|never).*(?:replay|relaunch|clear locks)/);
   }
   assert.match(transport, /Historical deliveries refer to their original attempts/);
   assert.match(transport, /Do not use worktree commits, report mtimes or branch movement to override/);
@@ -79,4 +79,37 @@ test("readiness and integration evidence have owners rather than mandatory repea
     assert.match(source, /(?:not every read|not every read or status tick)/);
     assert.match(source, /parallel memory diaries/);
   }
+});
+
+test("routing scales with decision context rather than a shared product goal", () => {
+  for (const source of [core, native]) {
+    assert.match(source, /small (?:and|or) cohesive-medium/);
+    assert.match(source, /Cohesion means shared decisions and useful working context, not merely one product goal/);
+    assert.match(source, /sustained multi-domain work, normally delegate bounded outcomes/);
+    assert.match(source, /One accountable owner does not mean one executor/);
+    assert.match(source, /Front-load the hardest uncertain acceptance claim with a small real proof/);
+  }
+});
+
+test("foremen own execution strategy without topology quotas or lost safety boundaries", async () => {
+  for (const source of [core, native]) {
+    assert.match(source, /Delegate the outcome and constraints, not the execution strategy/);
+    assert.match(source, /Do not prescribe read-only helpers, forbid builders, or lock role order as management preferences/);
+  }
+  const foreman = await text("skills/advisor-worker/roles/foreman/SKILL.md");
+  const nativeForeman = await text("native-skills/advisor-role-foreman/SKILL.md");
+  for (const source of [foreman, nativeForeman]) {
+    assert.match(source, /mini-advisor for a bounded sub-workstream/);
+    assert.match(source, /parent delegates the outcome and constraints, not the execution strategy/);
+    assert.match(source, /role\/model choice, sequencing, delegation/);
+    assert.match(source, /builders/);
+    assert.match(source, /no required role sequence/);
+    assert.match(source, /parent.*independent|independent.*parent/i);
+  }
+  assert.match(foreman, /scoped review/);
+  assert.match(foreman, /never edit alongside a writing helper in the same checkout/);
+  assert.match(foreman, /Every subagent prompt must explicitly forbid launching another agent/);
+  assert.match(foreman, /checker of your integrated outcome remains the parent advisor's responsibility when justified and is required for High/);
+  assert.doesNotMatch(foreman, /Never launch a checker/);
+  assert.match(nativeForeman, /native depth\/capacity limits still apply/);
 });

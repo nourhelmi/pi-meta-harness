@@ -27,8 +27,40 @@ async function fixture(t, keepAlive = true) {
   const ack = async runId => { for (const delivery of await request('wait', { runId, timeoutMs: 0 })) await request('ack', { runId, deliveryId: delivery.id }); };
   const restart = async () => { await host.service.close(); host = await hostPiDetach(options); };
   t.after(async () => { try { for (const run of await request('list')) await ack(run.runId); await host.service.close(); } catch {} rmSync(base, { force: true, recursive: true }); });
-  return { work, stateRoot, launches, request, launch, settle, ack, restart, runtime: () => host.runtime, client };
+  return { work, stateRoot, launches, request, launch, settle, ack, restart, runtime: () => host.runtime, client, port };
 }
+
+for (const role of ['builder', 'foreman', 'checker']) test(`active ${role} does not veto same-checkout launches or follow-up tasks`, async t => {
+  const f = await fixture(t); const owner = await f.launch({ role }); const original = f.launches[0];
+  const leaf = await f.launch({ role: 'builder' }); f.settle('PASS');
+  assert.equal((await f.request('get', { runId: owner })).snapshot.state, 'running');
+  await f.launch({ name: leaf, prompt: 'Continue the leaf outcome' });
+  assert.equal((await f.request('get', { runId: leaf })).attempt, 2);
+  assert.equal((await f.request('get', { runId: owner })).snapshot.state, 'running');
+  f.settle('PASS');
+  writeFileSync(join(original.intent.sourceDirectory, 'result.md'), report('PASS'));
+  original.hooks.settled('done', 'owner output', 2);
+  await f.ack(owner); await f.ack(leaf);
+});
+
+test('an unbound failed checker does not veto replacement work or repairs', async t => {
+  const f = await fixture(t); const launch = f.port.launch; let failedLaunches = 0;
+  f.port.launch = async input => {
+    if (input.intent.role === 'checker') { failedLaunches++; throw new Error('fixture: unproven launch before handle binding'); }
+    return launch(input);
+  };
+  const failed = await f.launch({ role: 'checker', prompt: 'READ ONLY review' }, 'failed-checker');
+  const failure = await f.request('get', { runId: failed });
+  assert.equal(failure.status, 'recovery-required'); assert.equal(failure.handle, null);
+  assert.equal(failure.result, null); assert.equal(failure.continuation, 'none');
+  const replacement = await f.launch({ role: 'builder' }); f.settle('PASS');
+  await f.launch({ name: replacement, prompt: 'Apply review repairs' }); f.settle('PASS');
+  assert.equal((await f.request('get', { runId: replacement })).attempt, 2);
+  assert.equal((await f.request('get', { runId: failed })).status, 'recovery-required');
+  await assert.rejects(f.launch({ name: failed, prompt: 'Retry the ambiguous checker' }), /BRIDGE_RESUME_OR_STEER_UNSUPPORTED/);
+  assert.equal(failedLaunches, 1, 'replacement work must not replay or adopt the ambiguous effect');
+  await f.ack(replacement);
+});
 
 for (const status of ['PASS', 'FAIL', 'BLOCKED', 'malformed', null]) test(`captured ${status}: bounded authentic report, replay and fresh same-worker evidence`, async t => {
   const f = await fixture(t); const runId = await f.launch({}, 'initial'); f.settle(status);

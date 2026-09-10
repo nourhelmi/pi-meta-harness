@@ -110,9 +110,10 @@ flowchart TD
 Optimize marginal evidence value and critical-path latency: add a foreman,
 graph, checker, browser verifier, or freeform worker whenever it materially
 resolves uncertainty, parallelizes real work, or adds useful independent
-confidence. Foremen are hands-on makers with useful depth-1 delegation capacity,
-not mandatory dispatchers; they may finish directly when helpers add no value,
-and their turn cap is advisory while their helpers are live.
+confidence. Foremen are mini-advisors: the parent delegates outcomes and real
+constraints, not execution strategy. They choose direct work or useful depth-1
+delegation, not a mandatory role sequence.
+Their turn cap is advisory while their helpers are live.
 Graphs require genuine ownership or dependency boundaries; dedicated checkers and browser verifiers
 require a risk or information-value rationale.
 Stop adding launches when another would mostly replay existing evidence.
@@ -153,8 +154,11 @@ both; each claim cites that same proof. A checker's independent rerun is a
 separate execution with its own provenance and outcome, not a second copy of the
 maker's proof. A failing claim stays explicit even when its detailed log is linked.
 
-The planner rejects malformed structure, cycles, invalid concurrency, and
-unsafe parallel-builder checkout conflicts. Checker or browser nodes without
+The planner rejects malformed structure, cycles, and invalid `maxParallel` bounds.
+Writer coordination is advisor/foreman policy, not a runtime admission gate:
+roles, shared checkouts and unresolved prior runs do not create workspace locks.
+Real permissions and each worker's lifecycle/replay boundaries still apply.
+Checker or browser nodes without
 builder ancestors and reducers with low fan-in produce non-blocking warnings
 instead: baseline browser investigation, checker audits, and small reduction
 shapes can be intentional. Warnings are stored in the immutable graph manifest

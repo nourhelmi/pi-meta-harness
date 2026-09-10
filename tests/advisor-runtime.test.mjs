@@ -52,6 +52,15 @@ function setup(t, { fault, behavior, create = true } = {}) {
   return { runtime, root, work, calls, contexts, token, grants, state, send, prepare, emit, settle, ack };
 }
 
+test('graph waves admit concurrent writing roles in the same checkout', async t => {
+  const h = setup(t); h.prepare([['maker', 'checker']], { maker: [], checker: [] });
+  success(h.send('wave.launch', { wave: 1 })); await h.runtime.dispatch();
+  assert.deepEqual(h.calls.map(call => call.scope.node), ['maker', 'checker']);
+  assert.equal(h.state('maker').snapshot.state, 'running');
+  assert.equal(h.state('checker').snapshot.state, 'running');
+  h.settle('maker'); h.settle('checker'); h.ack(); h.runtime.close();
+});
+
 test('SQLite admission: exact replay/conflicts/auth/revocation/CAS/epochs are pre-effect, kernel untouched', async t => {
   const h = setup(t); h.prepare();
   const launch = command('wave.launch', h.state().revision, { wave: 1 }, 'root', 'stable-launch');

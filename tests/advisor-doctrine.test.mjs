@@ -95,7 +95,7 @@ test("routes put direct work and the single maker ahead of graphs and planners",
   assert.match(routes, /3\. \*\*Graph\.\*\*/);
   assert.match(routes, /should feel like launching one ordinary agent/);
   assert.match(routes, /no planner, no\s+graph, no checker unless the tier or the user asks/);
-  assert.match(routes, /Direct implementation is a first-class route at every risk tier/);
+  assert.match(routes, /\*\*Direct\.\*\*[\s\S]*First-class at every risk tier/);
   assert.match(routes, /default to one empowered maker: you, a\s+builder, or a foreman/);
   assert.match(routes, /owns diagnosis, implementation, task-shaped\s+deterministic tests, and ordinary browser exercise/);
   assert.match(routes, /presumption against ceremony, not a one-agent target/);
@@ -103,8 +103,9 @@ test("routes put direct work and the single maker ahead of graphs and planners",
   assert.match(routes, /materially resolve uncertainty, shorten genuinely parallel work, or add useful\s+independent confidence/);
   assert.match(routes, /Stop expanding the route when another launch would\s+mostly replay evidence/);
   assert.match(routes, /Plan the work yourself by default/);
-  assert.match(routes, /adopt, revise, or reject its recommendations, including\s+proposed roles and sequence/);
-  assert.match(routes, /planner must resolve concrete product or\s+architecture uncertainty, never merely a tooling/);
+  assert.match(routes, /Adopt, revise, or reject its proposed roles and sequence/);
+  assert.match(routes, /planner offers an optional second opinion\s+for product or architecture uncertainty/);
+  assert.match(routes, /Tooling, environment,\s+harness and formatting failures belong to the same maker/);
   assert.doesNotMatch(routes, /\d+\s*(?:minutes?|hours?)/i);
   assert.doesNotMatch(routes, /(?:minimum|maximum)\s+(?:agent|worker|launch)/i);
 });
@@ -353,7 +354,7 @@ test("worker roles share maker ownership, risk context, conditional delegation, 
   assert.doesNotMatch(contract, /at most 12 lines/);
   assert.match(builder, /diagnose it, implement it,[\s\S]*task-shaped deterministic tests[\s\S]*ordinary browser exercise/);
   assert.match(builder, /exact command\s+evidence/);
-  assert.match(foreman, /only when delegation[\s\S]*shorten the critical path, resolve material uncertainty, or add useful[\s\S]*evidence/);
+  assert.match(foreman, /Use depth-1 visible subagents[\s\S]*shorten the critical[\s\S]*path, isolate useful working context, resolve material uncertainty, or add useful[\s\S]*evidence/);
   assert.match(foreman, /depth-1 visible subagents/);
   assert.match(checker, /same acceptance[\s\S]*contract and declared risk tier/);
   assert.match(checker, /Do\s+not blindly replay every maker command/);
@@ -368,7 +369,7 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   const source = await doctrine();
   const runtime = await text("docs/advisor-runtime.md");
 
-  assert.match(source, /Direct implementation is a first-class route at every risk tier/);
+  assert.match(source, /\*\*Direct\.\*\*[\s\S]*First-class at every risk tier/);
   assert.match(source, /maker self-verification at\s+every tier[\s\S]*fresh review on Standard, and independent\s+checking on High/);
   assert.doesNotMatch(source, /Implement High in workers only|High packets always go to a visible worker|Never implement in this session|advisor still never edits implementation/);
   assert.match(source, /Deliberate criteria\s+revision[\s\S]*new packet\s+revision/);
@@ -398,7 +399,7 @@ test("role agency includes context and local decisions without erasing write bou
   assert.match(core, /accepted decisions separated from\s+suggestions/);
   assert.match(core, /the worker's authority to act/);
   assert.match(core, /Context should enable judgment, not encode a recipe/);
-  assert.match(contract, /agency over methods, evidence, and\s+ordinary local decisions/);
+  assert.match(contract, /agency over\s+methods, evidence, and\s+ordinary local decisions/);
   assert.match(contract, /downstream consumers, and which decisions are\s+locked versus suggested/);
   assert.match(builder, /You own ordinary technical choices/);
   assert.match(builder, /do not bounce routine choices\s+back to the advisor/);
@@ -426,7 +427,7 @@ test("advisor and foreman own execution and planning while proposals remain nonb
   assert.match(advisor, /technical lead and orchestrator/);
   assert.match(advisor, /not an\s+obligation or a preference over delegation/);
   assert.match(advisor, /Plan the work yourself by default/);
-  assert.match(advisor, /adopt, revise, or reject its recommendations, including\s+proposed roles and sequence/);
+  assert.match(advisor, /Adopt, revise, or reject its proposed roles and sequence/);
   assert.match(advisor, /Reclaim\s+ownership explicitly after settlement/);
   assert.match(advisor, /Your own\s+rerun of your own work is self-verification, not independent review/);
   assert.match(advisor, /explicit acceptance requirement for a particular transport or worker stays\s+unsatisfied if bypassed by direct work/);

@@ -234,37 +234,28 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
       );
     });
 
-    await t.test("rejects parallel builders sharing a checkout", async () => {
-      const checkout = join(temp, "shared-checkout");
-      await rejected(
-        {
-          graphId: "shared-builders",
-          goal: "invalid",
-          allowParallelBuilders: true,
-          nodes: [
-            node("builder-left", "builder", { worktree: checkout }),
-            node("builder-right", "builder", { worktree: checkout }),
-          ],
-        },
-        /Parallel builders or foremen require distinct explicit worktrees/,
-      );
-    });
-
-    await t.test("applies builder worktree isolation to parallel foremen", async () => {
-      const checkout = join(temp, "shared-foreman-checkout");
-      await rejected(
-        {
-          graphId: "shared-foremen",
-          goal: "invalid",
-          allowParallelBuilders: true,
-          nodes: [
-            node("foreman-left", "foreman", { worktree: checkout }),
-            node("foreman-right", "foreman", { worktree: checkout }),
-          ],
-        },
-        /Parallel builders or foremen require distinct explicit worktrees/,
-      );
-    });
+    for (const role of ["builder", "foreman", "checker"]) {
+      await t.test(`leaves parallel ${role} coordination to the advisor`, async () => {
+        for (const allowParallelBuilders of [undefined, false, true]) {
+          const result = await execute({
+            graphId: `parallel-${role}-${String(allowParallelBuilders)}`,
+            goal: "Advisor-owned write coordination",
+            ...(allowParallelBuilders === undefined ? {} : { allowParallelBuilders }),
+            nodes: [node("left", role), node("right", role)],
+          });
+          assert.deepEqual(result.details.waves, [["left", "right"]]);
+          assert.ok(result.details.manifestPath);
+        }
+        const checkout = join(temp, "shared-checkout");
+        const shared = await execute({
+          graphId: `shared-${role}`,
+          goal: "Explicit shared checkout does not create a runtime write lock",
+          nodes: [node("left", role, { worktree: checkout }), node("right", role, { worktree: checkout })],
+        });
+        assert.deepEqual(shared.details.waves, [["left", "right"]]);
+        assert.ok(shared.details.manifestPath);
+      });
+    }
   } finally {
     if (previousProfiles === undefined) delete process.env.PI_DETACH_AGENT_PROFILES;
     else process.env.PI_DETACH_AGENT_PROFILES = previousProfiles;

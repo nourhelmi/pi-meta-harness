@@ -33,12 +33,13 @@ function fixture(t, finalText) {
   t.after(() => { try { for (const node of inputs.keys()) if (progress(node).processExited === undefined) exit(node); for (const d of runtime.execute(token, { v: 1, op: 'wait', scope: scope('root'), payload: { timeoutMs: 0, limit: 128 } }).value) send('delivery.ack', { deliveryId: d.id }); runtime.close(); } finally { rmSync(base, { recursive: true, force: true }); } });
   return { runtime, send, progress, exit, inputs };
 }
-test('session-only native handles retain writer and shutdown fences until observed OS exit', async t => {
+test('session-only native handles retain shutdown fences, not workspace writer locks', async t => {
   const h = fixture(t); assert.equal(h.send('node.launch', { node: 'maker' }).ok, true); await h.runtime.dispatch();
   assert.equal(h.progress('maker').snapshot.state, 'terminal'); assert.equal(h.progress('maker').handle.pid, undefined);
   assert.throws(() => h.runtime.close(), /SHUTDOWN_ACTIVE/);
-  assert.equal(h.send('node.launch', { node: 'second' }).error, 'WRITER_CONCURRENCY');
-  h.exit('maker'); assert.equal(h.send('node.launch', { node: 'second' }).ok, true); await h.runtime.dispatch(); h.exit('second');
+  assert.equal(h.send('node.launch', { node: 'second' }).ok, true); await h.runtime.dispatch();
+  assert.throws(() => h.runtime.close(), /SHUTDOWN_ACTIVE/);
+  h.exit('maker'); h.exit('second');
 });
 test('trusted readiness rechecks the attested result at dependent wave admission', async t => {
   const h = fixture(t); assert.equal(h.send('graph.admit', { graph: 'graph', waves: [['maker'], ['second']], dependencies: { maker: [], second: ['maker'] }, maxParallel: 1, maxRepairLoops: 0, topology: 'flat-root' }).ok, true);

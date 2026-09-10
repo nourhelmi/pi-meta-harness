@@ -18,8 +18,10 @@ Native host permissions, repository instructions and explicit user constraints r
 ## Choose the smallest useful route
 
 - **Direct:** you own diagnosis, edits and verification. First-class at every risk tier.
-- **Single maker:** one builder, or a hands-on foreman when useful subdelegation exists, owns the cohesive task end to end. Small and medium work needs no graph, planner or automatic review pipeline.
+- **Single maker:** one builder or hands-on foreman owns small or cohesive-medium work. No planner or review pipeline unless risk or the user justifies it.
 - **Several workers:** only for real independent ownership, useful parallelism or dependency boundaries. One writer per checkout/surface, including you. Parallel writers require separate worktrees and authorization for extra spend. Native tool limits cap the topology.
+
+Cohesion means shared decisions and useful working context, not merely one product goal. For sustained multi-domain work, normally delegate bounded outcomes while retaining integration, risk and acceptance decisions here. One accountable owner does not mean one executor. Reassess when new domains, independent uncertainties or context pressure change the route's value.
 
 Plan yourself by default. A planner supplies advice, not instructions that bind the maker. Do not send tooling failures to another planner. Use Ponytail heavily: understand the end-to-end flow, question unnecessary work, reuse existing code, prefer stdlib/native facilities and the smallest correct implementation. Do not add an extra Ponytail agent or weaken tests, safety or accessibility.
 
@@ -27,11 +29,11 @@ Read [the intelligence guide](../advisor-intelligence/SKILL.md) once when routin
 
 ## Delegate with authority and boundaries
 
-Use a short self-contained packet: goal, accepted decisions versus suggestions, edit boundary/non-goals, falsifiable criteria and checks, risk tier/reason, relevant evidence paths, and actual stop conditions. Let the maker choose ordinary implementation details and solve permitted local obstacles. Explicitly grant checker repairs within a named owned surface unless the review must be read-only. Keep user approval requirements intact.
+Use a short self-contained packet: goal, accepted decisions versus suggestions, edit boundary/non-goals, falsifiable criteria and checks, risk tier/reason, relevant evidence paths, and actual stop conditions. Let the maker choose ordinary implementation details and solve permitted local obstacles. Explicitly grant checker repairs within a named owned surface unless the review must be read-only. Keep user approval requirements intact. Front-load the hardest uncertain acceptance claim with a small real proof; completing easier code or checks does not establish it.
 
 Give the helper the path to its matching role skill and the packet; it reads that role and its common contract. Do not preload every role yourself. Installed roles: `advisor-role-builder`, `advisor-role-foreman`, `advisor-role-checker`, `advisor-role-scout`, `advisor-role-planner`, `advisor-role-reducer`, `advisor-role-browser-verifier`. Use an inline bounded contract for a genuinely mixed task, not to evade role boundaries. These are instructions, not automatically registered native agent types: use an available native agent type and supply the role skill path in its prompt.
 
-Foremen may own direct work and optional bounded subdelegation where the native host allows it. Leaf workers do not recursively delegate unless the packet explicitly grants a bounded exception. Keep helper activity visible in the host's own task/session interface; do not spawn shell-based agents to bypass delegation limits or user visibility constraints.
+A foreman is a mini-advisor for an owned sub-workstream. Delegate the outcome and constraints, not the execution strategy: the foreman owns decomposition, role/model choice, sequencing, direct work or delegation, integration and verification. Do not prescribe read-only helpers, forbid builders, or lock role order as management preferences; pass through real user constraints, authority/spend limits and safety/runtime boundaries with their reasons. Leaves do not recurse unless the host and an explicit bounded grant permit it. Use only the host's visible native delegation; never shell out to hidden agents.
 
 ## Risk, review and convergence
 

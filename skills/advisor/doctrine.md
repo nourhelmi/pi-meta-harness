@@ -7,35 +7,35 @@ read the indexed references only for the current decision.
 
 ## Routes
 
-Choose the route by decision load, risk, available context, useful
-parallelism, and total cost including handoffs. Three routes exist:
+Choose by decision load, risk, context, parallelism, and total cost with handoffs:
 
-1. **Direct.** You implement and verify. First-class at every risk tier; the
-   same maker duties apply to you as to any builder.
-2. **Single maker.** The default for cohesive work: one empowered maker from
-   a short packet. It should feel like launching one ordinary agent: no planner, no
-   graph, no checker unless the tier or the user asks for one.
+1. **Direct.** You implement and verify with the same maker duties.
+   First-class at every risk tier, not an obligation or a preference over delegation.
+2. **Single maker.** The default for small and cohesive-medium work: one
+   empowered maker from a short packet. It should feel like launching one ordinary agent:
+   no planner, no graph, no checker unless the tier or the user asks for one.
 3. **Graph.** Real ownership/dependency boundaries, validated by `advisor_graph_plan`.
 
-Direct implementation is a first-class route at every risk tier, not an
-obligation or a preference over delegation. For small and cohesive-medium
+For small and cohesive-medium
 implementation with one decision set, default to one empowered maker: you, a
 builder, or a foreman. That maker owns diagnosis, implementation, task-shaped
-deterministic tests, and ordinary browser exercise. Do not split scouting,
-planning, building, testing, or browser work into separate launches by
-default. This is a presumption against ceremony, not a one-agent target: add a
+deterministic tests, and ordinary browser exercise.
+This is a presumption against ceremony, not a one-agent target: add a
 foreman, graph, checker, browser verifier, or freeform worker whenever it will
 materially resolve uncertainty, shorten genuinely parallel work, or add useful
 independent confidence. Topology is a judgment about marginal evidence value
 and critical-path latency. Stop expanding the route when another launch would
 mostly replay evidence already available.
 
-Plan the work yourself by default. A planner is an optional second opinion for
-substantial uncertainty or useful context isolation, never a prerequisite or
-an authority above you: adopt, revise, or reject its recommendations, including
-proposed roles and sequence. A planner must resolve concrete product or
-architecture uncertainty, never merely a tooling, environment, harness or
-formatting failure; those belong to the same maker.
+Cohesion means shared decisions and useful working context, not merely one
+product goal. For sustained multi-domain work, normally delegate bounded
+outcomes; retain integration, risk and acceptance. One accountable owner does
+not mean one executor.
+
+Plan the work yourself by default. A planner offers an optional second opinion
+for product or architecture uncertainty or context isolation, not a prerequisite.
+Adopt, revise, or reject its proposed roles and sequence. Tooling, environment,
+harness and formatting failures belong to the same maker.
 
 ## Non-negotiables
 
@@ -138,7 +138,8 @@ reported rather than silently absorbed. Do not reserve stricter known success
 conditions for a later checker or judge a maker against a hidden contract.
 A packet never carries a formatter or lint pass as an acceptance
 criterion; when a required CI gate enforces one, the criterion is that gate
-command and the maker runs the fixer before rerunning it.
+command and the maker runs the fixer before rerunning it. Front-load the hardest
+uncertain acceptance claim with a small real proof.
 
 **What a packet may freeze:** acceptance criteria, safety boundaries, the
 write surface, and explicitly locked product or architecture decisions.
@@ -298,11 +299,14 @@ freeform prompt to escape its guardrails.
 
 ## Foreman delegation
 
-A foreman is a hands-on maker with optional subdelegation for useful parallelism
-or evidence, not a compulsory pipeline. It may finish directly. Stay at the
-item's boundaries and decide independent review separately. Foreman delegation is
-depth-1 only. Foremen are Pi-hosted, including in native mode, because visible
-helpers use Pi's `bg_agent`. Its turn cap never stops it while helpers are live.
+A foreman is a mini-advisor. Delegate the outcome and constraints, not the
+execution strategy: decomposition, roles/models, sequencing and delegation are
+its decisions. Do not prescribe read-only helpers, forbid builders, or lock
+role order as management preferences; pass only real user, authority, ownership
+and safety constraints. Arrange required independent checking separately.
+
+Foreman delegation is depth-1 only. Foremen are Pi-hosted, including in native
+mode; `bg_agent` helpers stay visible. Never stop for the turn cap with live helpers.
 
 ## Worker transport
 
@@ -350,7 +354,7 @@ or crawl transcripts after a useful handoff.
 Use `bg_output` or source/commit inspection only for a concrete missing-evidence
 or transport discrepancy. Mutable worktree artifacts can explain what happened,
 but cannot replace a missing or rejected canonical capture or prove settlement.
-Never resume, relaunch, adopt, or clear a writer claim merely because a worker
+Never resume, replay, or adopt an effect merely because a worker
 looks idle or a file exists; honor current reply/task eligibility and recovery
 fences. A `paused` worker remains supervised while its own helpers run. Coalesce
 routine settlement and the already-decided next action into one user update.

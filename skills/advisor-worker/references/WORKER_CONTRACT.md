@@ -1,9 +1,11 @@
 # Advisor Worker Contract
 
-The parent advisor owns scope, graph order, budgets, and user communication.
-The worker owns one bounded node, with agency over methods, evidence, and
-ordinary local decisions inside its mandate. A role is a responsibility and
-ownership boundary, not a script or a reason to seek permission for every step.
+The parent advisor owns accepted scope, cross-workstream dependencies, budgets,
+and user communication. The worker owns one bounded outcome, with agency over
+methods, evidence, and ordinary local decisions inside its mandate. Foremen own
+their sub-workstream's execution strategy within those boundaries. A role is a
+responsibility and ownership boundary, not a script or a reason to seek
+permission for every step.
 The packet should explain the broader goal, why this contribution matters,
 relevant upstream evidence and downstream consumers, and which decisions are
 locked versus suggested. Use that context to challenge weak assumptions and

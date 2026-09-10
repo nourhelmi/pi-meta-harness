@@ -62,11 +62,13 @@ Correct a rejected request within existing authority. For admitted work, use the
 same exact run ID only when current continuation is `reply` or `task`; a live or
 idle pane alone is not permission to send another prompt.
 
-`recovery-required`, cancellation, uncertain delivery, or a held writer claim
-must follow their supported recovery boundary. Never clear locks, adopt a pane,
-or relaunch because an artifact exists or output looks quiet. A missing capture
-stays missing even if mutable source output looks successful. Inspect output or
-source only to resolve that discrepancy, not as a routine handoff step.
+`recovery-required`, cancellation and uncertain delivery retain their supported
+recovery boundary for that effect. Never clear locks, adopt a pane, or replay it
+because an artifact exists or output looks quiet. These states are not workspace
+write locks: advisors and foremen coordinate subsequent work using actual
+execution evidence. A missing capture stays missing even if mutable source
+output looks successful. Inspect output or source only to resolve that discrepancy,
+not as a routine handoff step.
 
 If a definite pre-effect rejection has a permitted correction, make at most one
 changed retry, not an identical new launch. If transport remains unavailable,

@@ -35,7 +35,7 @@ test("review admission keeps maker proof and High independence without automatic
   assert.match(policy.advisor, /High-risk boundaries receive independent review before completion/);
   assert.match(policy.advisor, /if a checker is unavailable, report the requirement as unsatisfied rather than relabeling maker review/);
   assert.match(policy.builder, /High still requires the parent advisor's designated independent checker/);
-  assert.match(policy.foreman, /independent checker remains the parent advisor's responsibility when justified and is required for High/);
+  assert.match(policy.foreman, /designated independent checker of your integrated outcome remains the parent advisor's responsibility when justified and is required for High/);
   assert.match(policy.advisor, /Low tier alone never earns a checker; explicit review requests still apply/);
 });
 
@@ -45,7 +45,10 @@ test("optional review capacity retains delegation boundaries and needs a distinc
   assert.match(policy.builder, /Forbid editing, further delegation, or messaging any session/);
   assert.match(policy.builder, /supplemental maker evidence, never an independent checker verdict/);
   assert.match(policy.builder, /model and effort by the review need and live guide/);
-  assert.match(policy.foreman, /Never launch a checker or present your own review as independent/);
+  assert.match(policy.foreman, /scoped review; builders are not excluded/);
+  assert.match(policy.foreman, /Internal scoped reviews may help your work, but do not replace that check or make your own review independent/);
+  assert.doesNotMatch(policy.foreman, /Never launch a checker/);
+  assert.match(policy.foreman, /Every subagent prompt must explicitly forbid launching another agent, graph, orchestrator, routine, or inter-session message/);
   assert.match(policy.contract, /Every granted subagent inherits the full prohibition/);
   for (const [name, source] of Object.entries(policy)) {
     assert.doesNotMatch(source, /one reasoning level below|with the same model family|launch exactly one read-only subagent|Makers run one fresh-context review|one maker with (?:maker-owned )?fresh review/i, name);

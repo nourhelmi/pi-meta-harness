@@ -20,7 +20,9 @@ substantial; otherwise read the bounded artifacts directly.
 Use `advisor_graph_plan` as a structural validator and coordination aid before
 any graph with three or more nodes or mixed parallel and dependent work. Its
 immutable manifest hard-checks IDs, configured or freeform roles, acceptance
-criteria, dependencies, cycles, concurrency, and builder worktree isolation.
+criteria, dependencies, cycles, and bounded `maxParallel`. Writer coordination
+belongs to the advisor and foreman, not graph or runtime admission. Legacy
+`allowParallelBuilders` metadata is accepted but never grants or vetoes a launch.
 Role-order and reducer-shape findings are advisory warnings: confirm the shape
 is intentional, then proceed without contorting valid baseline or audit work.
 The advisor still owns whether the graph is useful. Follow an accepted graph's
@@ -111,14 +113,19 @@ it reveals rather than starting a fresh full audit.
 
 ## Foreman detail
 
-The foreman remains an empowered maker: it may plan, implement, integrate,
-verify, and delegate useful subproblems. Direct and delegated work are both
-legitimate; it owns every acceptance criterion, not just a set of worker
-handoffs. Its subagents never delegate. Suitable delegates are scouts,
-conditional browser verifiers, and freeform helpers; `bg_run` covers test and
-build commands. It keeps one writer per checkout, including itself: it never
-edits alongside a writing helper and reclaims ownership after that helper
-settles. Read-only helpers may work alongside it when they do not need a
-frozen diff. Its helpers follow the same obstacle rule and the same
-repair-first review rule as any worker. Parallel foremen follow the same
-approval and distinct-worktree rules as parallel builders.
+The foreman is a mini-advisor for an owned sub-workstream: delegate its outcome
+and real constraints, not its execution strategy. It chooses decomposition,
+role/model choice, sequencing, direct implementation or useful delegation,
+integration and verification, and owns every acceptance criterion. Suitable leaf
+roles include builders, scouts, planners, reducers, browser verifiers and scoped
+checkers; there is no required role sequence. Its subagents never delegate. The
+parent still arranges the required independent check of the integrated outcome.
+
+Use `bg_run` for test and build commands. Keep one writer per checkout, including
+the foreman: never edit alongside a writing helper in the same checkout, and
+reclaim ownership after it settles before integrating. Read-only helpers can
+work alongside the foreman when they do not need a frozen diff. Its helpers
+follow the same obstacle rule and repair-first review rule as any worker. A
+repair-first checker is the exclusive writer for its frozen review surface.
+Parallel writers, including foremen, need distinct worktrees and explicit user
+approval for the added spend, within runtime permissions.

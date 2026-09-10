@@ -27,7 +27,7 @@ retains effect identity but refreshes the **current** handoff. Historical delive
 retain their original report and attempt alongside the current handoff. New attempts
 clear current proof/capture availability before dispatch. Late/duplicate callbacks
 cannot overwrite the next attempt's evidence. Cancellation, ownership, generation,
-recovery and writer fences still apply. Restarted kept workers require recovery;
+and recovery fences still apply. Restarted kept workers require recovery;
 reloading a client connected to the same live owner is not a runtime restart.
 
 ## Optional graph evidence
@@ -67,8 +67,8 @@ bind new `runId`/`attempt` with the exact old `replacesRunId`/`replacesAttempt`.
 Active, cancel-pending, recovery-required, stale, still-kept or multiply-bound prior
 ownership is refused. Exit-required handles need confirmed exit. Already-associated
 successors and arbitrary rebinding are refused. An exact retry is idempotent; a
-superseded run cannot admit another task. This never launches work or changes the
-writer guard. For kept workers use the existing same-worker continuation; do not
+superseded run cannot admit another task. This never launches work or coordinates
+workspace writes. For kept workers use the existing same-worker continuation; do not
 interpret an idle pane as permission to replace unresolved ownership.
 
 `node.history` exposes the latest eight historical captured reports with attributable

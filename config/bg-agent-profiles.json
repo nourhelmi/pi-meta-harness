@@ -55,7 +55,7 @@
       "requireAnchor": true
     },
     "foreman": {
-      "description": "Own a bounded outcome: choose direct implementation or useful depth-1 delegation, integrate, and verify.",
+      "description": "Own a bounded sub-workstream as a mini-advisor: choose execution strategy, direct work or depth-1 delegation, integrate, and verify.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "harness": "pi",

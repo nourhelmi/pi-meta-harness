@@ -700,7 +700,7 @@ export class AdvisorRuntime {
           if (link.runId === run.id) demand(this.#repairCount(link) < (graph.maxRepairLoops ?? 2), 'GRAPH_REPAIR_LIMIT');
         }
       }
-      this.#assertWriterAvailable(node.packet.role, this.#cwd(node.packet.cwd), c.scope);
+      this.#cwd(node.packet.cwd);
       this.#adapter('workers', node.packet.adapter, c.op);
       demand(node.snapshot.attempt < Number.MAX_SAFE_INTEGER && node.revision < Number.MAX_SAFE_INTEGER, 'COUNTER_EXHAUSTED');
       node.snapshot.attempt += 1; node.snapshot.revision += 1; node.revision = node.snapshot.revision;
@@ -727,20 +727,9 @@ export class AdvisorRuntime {
     }
     return decision.receipt;
   }
-  #assertWriterAvailable(role, cwd, exclude = null) {
-    if (['builder', 'foreman', 'checker'].includes(role)) {
-      for (const row of this.#all('SELECT data FROM runs')) {
-        for (const node of Object.values(decode(row.data).nodes)) {
-          if (node.snapshot.scope.run === exclude?.run && node.snapshot.scope.node === exclude?.node) continue;
-          demand(!(['builder', 'foreman', 'checker'].includes(node.packet.role) && (within(cwd, node.packet.cwd) || within(node.packet.cwd, cwd)) && (node.snapshot.state !== 'terminal' || ((node.handle?.pid || node.handle?.requiresExit) && node.processExited === undefined))), 'WRITER_CONCURRENCY');
-        }
-      }
-    }
-  }
   #launch(run, name, c, principal) {
     const packet = run.packets[name]; demand(packet && !run.nodes[name], 'NODE_ALREADY_RESERVED_OR_MISSING');
-    const cwd = this.#cwd(packet.cwd);
-    this.#assertWriterAvailable(packet.role, cwd);
+    this.#cwd(packet.cwd);
     const adapter = this.#adapter('workers', packet.adapter, 'node.launch');
     privateDirectory(this.#nodeDirectory(run.id, name));
     run.nodes[name] = { revision: 0, packet, launched: false, runtimeState: 'pending', status: 'running', verified: false, handle: null,
@@ -764,7 +753,6 @@ export class AdvisorRuntime {
         demand(!run.graph && Object.keys(run.nodes).length === 0, 'GRAPH_FROZEN');
         const nodes = p.waves.flat();
         demand(nodes.length === Object.keys(run.packets).length && nodes.every(node => run.packets[node]), 'PACKET_MISMATCH');
-        for (const wave of p.waves) demand(wave.filter(node => ['builder', 'foreman', 'checker'].includes(run.packets[node].role)).length <= 1, 'WRITER_CONCURRENCY');
         run.graph = p;
         this.#event(run, null, 'graph.planned', { graph: p.graph, waves: p.waves, maxParallel: p.maxParallel, maxRepairLoops: p.maxRepairLoops }); break;
       }

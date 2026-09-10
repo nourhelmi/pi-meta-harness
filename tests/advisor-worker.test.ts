@@ -29,14 +29,14 @@ test("worker runtime grants bounded delegation only when its launch flag allows 
   process.env.PI_DETACH_AGENT_PROFILES = rolesPath;
   process.env.ADVISOR_STATE_DIR = join(temp, "state");
   try {
-    const contractFor = async (role: "builder" | "foreman") => {
+    const contractFor = async (role: "builder" | "foreman", allowSubagents = role === "foreman") => {
       const hooks: HookMap = {};
       const pi = {
         appendEntry: () => undefined,
         events: { emit: () => undefined },
         getFlag: (name: string) => {
           if (name === "advisor-worker-role") return role;
-          if (name === "advisor-worker-allow-subagents") return role === "foreman";
+          if (name === "advisor-worker-allow-subagents") return allowSubagents;
           return undefined;
         },
         on: (name: keyof HookMap, handler: HookMap[keyof HookMap]) => {
@@ -59,11 +59,17 @@ test("worker runtime grants bounded delegation only when its launch flag allows 
     const builderContract = await contractFor("builder");
     assert.match(builderContract, /advisor_session_init, another agent, a graph/);
     assert.doesNotMatch(builderContract, /depth-1 visible subagents/);
+    assert.match(builderContract, /not an advisor or orchestrator/);
 
     const foremanContract = await contractFor("foreman");
     assert.match(foremanContract, /only depth-1 visible subagents through bg_agent/);
     assert.match(foremanContract, /each subagent that it must never launch another agent, graph, orchestrator/);
     assert.doesNotMatch(foremanContract, /advisor_session_init, another agent, a graph/);
+    assert.match(foremanContract, /mini-advisor owning the assigned sub-workstream's execution strategy/);
+    assert.doesNotMatch(foremanContract, /not an advisor or orchestrator/);
+    const ungrantedForemanContract = await contractFor("foreman", false);
+    assert.match(ungrantedForemanContract, /advisor_session_init, another agent, a graph/);
+    assert.doesNotMatch(ungrantedForemanContract, /only depth-1 visible subagents/);
   } finally {
     if (previousProfiles === undefined) delete process.env.PI_DETACH_AGENT_PROFILES;
     else process.env.PI_DETACH_AGENT_PROFILES = previousProfiles;
