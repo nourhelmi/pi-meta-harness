@@ -139,10 +139,11 @@ if (phase === 'restart') {
  process.exit(0);
 }
 const tools = new Map<string, any>(); const extensionEvents = new Map<string, (value: unknown) => void>();
-const pi = { registerTool(tool: any) { assert.ok(!tools.has(tool.name)); tools.set(tool.name, tool); }, events: { on(name: string, handler: (value: unknown) => void) { extensionEvents.set(name, handler); } } };
+const pi = { registerTool(tool: any) { assert.ok(!tools.has(tool.name)); tools.set(tool.name, tool); }, on(name: string, handler: (value: unknown) => void) { extensionEvents.set(name, handler); }, events: { on(name: string, handler: (value: unknown) => void) { extensionEvents.set(name, handler); } } };
 const registry = { start() { throw new Error('LEGACY_FALLBACK'); }, get() { return undefined; }, list() { return []; }, stop() { throw new Error('LEGACY_STOP'); } };
 for (const register of [registerBgAgentTool, registerBgStopTool, registerBgListTool, registerBgOutputTool]) register(pi, registry);
 registerManagedTeamTools(pi);
+extensionEvents.get('session_start')?.({ type: 'session_start', reason: 'startup' });
 extensionEvents.get('advisor:team-mode')?.({ enabled: true });
 const ctx = { cwd, sessionManager: { getSessionId() { return 'owning-pi-session'; } } };
 const invoke = (name: string, id: string, params: object, context = ctx) => tools.get(name).execute(id, params, undefined, undefined, context);
