@@ -79,6 +79,8 @@ const PORTABLE_COPY_ENTRIES = [
   ["extensions/unified-edit.ts", "extensions/unified-edit.ts"],
   ["extensions/unified-edit-fallback/upstream.ts", "extensions/unified-edit-fallback/upstream.ts"],
   ["skills/advisor", "skills/advisor"],
+  ["skills/cos", "skills/cos"],
+  ["skills/advisor-team", "skills/advisor-team"],
   ["skills/advisor-native", "skills/advisor-native"],
   ["skills/advisor-stock-entry", "skills/advisor-stock-entry"],
   ["skills/advisor-pi", "skills/advisor-pi"],

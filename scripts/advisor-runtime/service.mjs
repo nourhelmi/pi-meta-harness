@@ -47,7 +47,7 @@ export async function startService(runtime, { keepAlive = true, beforeShutdown =
           socket.end(encode({ ok: true, value: runtime.describe(request.token, request.audience) })); return;
         }
         const command = request.command;
-        demand(!closing || !(MUTATIONS.includes(command?.op) || command?.op === 'pi.detach' && ['call', 'cancel', 'shutdown', 'advisor.bind'].includes(command.action) || command?.op === 'family' && ['reserve', 'register', 'bind'].includes(command.action)), 'SHUTDOWN_BUSY');
+        demand(!closing || !(MUTATIONS.includes(command?.op) || command?.op === 'pi.detach' && (['call', 'cancel', 'shutdown', 'advisor.bind'].includes(command.action) || command.action?.startsWith('team.') && command.action !== 'team.status') || command?.op === 'family' && ['reserve', 'register', 'bind'].includes(command.action)), 'SHUTDOWN_BUSY');
         const resultPromise = request.command?.op === 'family' ? runtime.familyRequest(request.token, request.command, request.audience) : request.command?.op === "pi.detach" ? runtime.piDetachRequest(request.token, request.command, request.audience) : runtime.request(request.token, request.command, request.audience);
         if (request.command?.op === 'pi.detach' && request.command.action === 'shutdown') {
           const result = await resultPromise;

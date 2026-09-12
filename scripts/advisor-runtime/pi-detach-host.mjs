@@ -21,7 +21,7 @@ export async function hostPiDetach({ stateRoot, cwd, sessionId, credentialPath, 
   demand(['pi', 'codex', 'claude-code'].includes(rootHost), 'UNSUPPORTED_HOST');
   const prefix = createHash('sha256').update(sessionId).digest('hex').slice(0, 24);
   const scopes = Array.from({ length: managedIdentity ? 1 : slots }, (_, i) => ({ workstream: `pi-${prefix}`, run: `pib-${prefix}-${i}`, node: 'root', ownerEpoch: 1 }));
-  const principal = { id: `pi-${prefix}`, kind: 'advisor', scopes: scopes.flatMap(({ ownerEpoch: _ownerEpoch, ...scope }) => [scope, { ...scope, node: 'worker' }]), operations: ['workstream.create', 'packet.admit', 'node.launch', 'node.reply', 'node.task', 'node.cancel', 'progress', 'wait', 'delivery.ack', 'artifact.read', 'log.read'] };
+  const principal = { id: `pi-${prefix}`, kind: 'advisor', scopes: scopes.flatMap(({ ownerEpoch: _ownerEpoch, ...scope }) => [scope, { ...scope, node: 'worker' }]), operations: ['workstream.create', 'packet.admit', 'node.launch', 'node.reply', 'node.task', 'node.cancel', 'progress', 'wait', 'delivery.ack', 'artifact.read', 'log.read', 'team.status', 'team.enlist', 'team.rename', 'team.context', 'team.assign', 'team.message', 'team.retire'] };
   const adapter = createPiDetachAdapter(port);
   const canonicalCwd = realpathSync(cwd);
   const childGrant = existsSync(`${stateRoot}/child-grant.json`) ? readChildGrant(stateRoot, canonicalCwd) : null;

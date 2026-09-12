@@ -11,15 +11,27 @@ import { reportSummary, contentSurface, sameSurface } from './evidence.mjs';
 import { validateTrace } from '../advisor-trace.mjs';
 import { OPERATIONS, WORKER_OPERATIONS, LIMITS, fields, integer, parseEnvelope, text, validatePacket } from './contract.mjs';
 import { RuntimeError, acquireLock, atomicWrite, boundedRead, demand, disjointControlPath, id, privateDirectory, safeFile, within, withRunOwnership } from './security.mjs';
-import { childStatePath, familyCall, publicChildScope } from './child-scope.mjs';
+import { childStatePath, familyCall, parentRuntimeCall, publicChildScope } from './child-scope.mjs';
 import { newFamily, familyOperation } from './family.mjs';
-import { cancelChildService, childWorkSettled } from './pi-detach-bootstrap.mjs';
+import { cancelChildService, childWorkSettled, closeChildService } from './pi-detach-bootstrap.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
+const TEAM_STATE_BYTES = 16 * 1024 * 1024;
+const TEAM_STATUS_MESSAGE_WINDOW = 128;
+const TEAM_STATUS_MESSAGE_TEXT_BYTES = 1024;
 function decode(value) { try { return JSON.parse(value); } catch { throw new RuntimeError('STORE_CORRUPT'); } }
 const clone = value => decode(canonicalJson(value));
 const scopeMatches = (a, b) => a.workstream === b.workstream && a.run === b.run && a.node === b.node;
 const rejection = error => ({ ok: false, error: error instanceof RuntimeError ? error.code : ['ENVELOPE_TOO_LARGE', 'NON_JSON'].includes(error?.reason) ? error.reason : 'INTERNAL_ERROR' });
+function utf8Preview(value, maxBytes) {
+  const bytes = Buffer.from(value);
+  if (bytes.length <= maxBytes) return { text: value, truncated: false };
+  for (let end = maxBytes; end > 0; end--) {
+    try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, end)), truncated: true }; }
+    catch { /* Trim only the incomplete trailing code point. */ }
+  }
+  return { text: '', truncated: true };
+}
 
 /** Trusted host API. Never expose registration, ingestion, SQL, or adapters over transport. */
 export class AdvisorRuntime {
@@ -80,6 +92,7 @@ export class AdvisorRuntime {
         CREATE TABLE IF NOT EXISTS graph_evidence (principal TEXT NOT NULL, graph TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(principal,graph));
         CREATE TABLE IF NOT EXISTS input_snapshots (principal TEXT NOT NULL, token TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(principal,token));
         CREATE TABLE IF NOT EXISTS family_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), data TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS team_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), data TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS family_admissions (id TEXT PRIMARY KEY, digest TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS family_control (singleton INTEGER PRIMARY KEY CHECK(singleton=1), sealed INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS bootstrap (singleton INTEGER PRIMARY KEY CHECK(singleton=1), digest TEXT NOT NULL);`);
@@ -134,6 +147,249 @@ export class AdvisorRuntime {
     if (this.#piBridge?.childGrant?.v === 2) return this.#piBridge.childGrant.family;
     const row = this.#one('SELECT data FROM family_state WHERE singleton=1');
     return row ? decode(row.data).family : null;
+  }
+  #teamState(required = true) {
+    const row = this.#one('SELECT data FROM team_state WHERE singleton=1');
+    if (required) demand(row, 'TEAM_NOT_ACTIVE');
+    return row ? decode(row.data) : null;
+  }
+  #saveTeam(team) {
+    const data = canonicalJson(team, TEAM_STATE_BYTES);
+    this.#write('INSERT INTO team_state VALUES (1,?) ON CONFLICT(singleton) DO UPDATE SET data=excluded.data', data);
+  }
+  #isTeamRoot(principal) { return Boolean(this.#piBridge && !this.#piBridge.childGrant && principal.id === this.#piBridge.principalId); }
+  #teamActor(team, principal) {
+    if (this.#isTeamRoot(principal)) return { kind: 'root', id: 'root', name: 'root' };
+    const member = Object.values(team.members).find(value => value.principalId === principal.id);
+    demand(member && member.status === 'active', 'TEAM_SENDER_UNAUTHORIZED');
+    return { kind: 'member', id: member.id, name: member.name };
+  }
+  #teamMember(team, reference, active = true) {
+    id(reference);
+    const member = team.members[reference] ?? Object.values(team.members).find(value => value.name === reference);
+    demand(member, 'TEAM_TARGET_NOT_FOUND');
+    if (active) demand(member.status === 'active', 'TEAM_TARGET_RETIRED');
+    return member;
+  }
+  #nodeContract(node) {
+    if (node.activeContract) return clone(node.activeContract);
+    if (node.teamMemberId) {
+      const assignment = this.#teamState(false)?.members[node.teamMemberId]?.assignments.at(-1);
+      if (assignment) return { id: assignment.id, task: assignment.task, acceptance: clone(assignment.acceptance), riskTier: assignment.riskTier, startedAttempt: assignment.startedAttempt };
+    }
+    return { id: null, task: node.packet.task, acceptance: clone(node.packet.acceptance), riskTier: node.packet.riskTier, startedAttempt: 1 };
+  }
+  #evidenceContract(node) {
+    const contract = this.#nodeContract(node);
+    return { assignmentId: contract.id, startedAttempt: contract.startedAttempt, taskSha256: hash(contract.task), acceptance: clone(contract.acceptance), riskTier: contract.riskTier };
+  }
+  #sameContract(left, right) { return Boolean(left && right && canonicalJson(left) === canonicalJson(right)); }
+  #syncTeamAssignment(member, node) {
+    const contract = this.#nodeContract(node);
+    const assignment = contract.id ? member.assignments.find(value => value.id === contract.id) : member.assignments.at(-1);
+    if (!assignment) return;
+    assignment.latestAttempt = node.snapshot.attempt;
+    assignment.status = node.status;
+    const attempt = assignment.attempts.find(value => value.attempt === node.snapshot.attempt);
+    if (attempt) {
+      attempt.status = node.status;
+      attempt.consumedInputs = clone(node.consumedInputs ?? []);
+      if (node.result?.attempt === node.snapshot.attempt) attempt.result = {
+        path: node.result.path, file: node.result.file, sha256: node.result.sha256, status: node.result.status, valid: node.result.valid,
+        producer: clone(node.result.producer), contract: clone(node.result.contract ?? this.#evidenceContract(node)), historical: true, proof: 'unknown', tested: null,
+        ...(node.verification ? { verification: { evidencePath: node.verification.evidencePath, evidenceSha256: node.verification.evidenceSha256,
+          resultSha256: node.verification.resultSha256, outcome: node.verification.outcome, producer: node.verification.producer,
+          invocation: node.verification.invocation, limitations: clone(node.verification.limitations ?? []), contract: clone(node.verification.contract ?? this.#evidenceContract(node)) } } : {}),
+        ...(node.check ? { check: { path: node.check.path, sha256: node.check.sha256, outcome: node.check.outcome, invocation: node.check.invocation,
+          exitCode: node.check.exitCode, limitations: clone(node.check.limitations ?? []), contract: clone(node.check.contract ?? this.#evidenceContract(node)) } } : {}),
+      };
+    }
+  }
+  #teamView(principal) {
+    const stored = this.#teamState(false);
+    const family = this.#familyIdentity();
+    if (!stored) {
+      demand(this.#isTeamRoot(principal), 'TEAM_NOT_ACTIVE');
+      return { v: 1, active: false, mode: family?.teamMode === true ? 'managed-team' : 'ordinary', workstream: family?.workstream ?? null, familyId: family?.id ?? null, teamQuota: null,
+        storageLimits: { teamStateBytes: TEAM_STATE_BYTES, commandEnvelopeBytes: LIMITS.envelope, responseEnvelopeBytes: LIMITS.reply, messageTextBytes: LIMITS.text },
+        projectionLimits: { statusMessages: TEAM_STATUS_MESSAGE_WINDOW, statusMessageTextBytes: TEAM_STATUS_MESSAGE_TEXT_BYTES }, scheduler: 'existing-advisor-runtime-and-herdr' };
+    }
+    const team = clone(stored); const actor = this.#teamActor(team, principal);
+    const members = Object.values(team.members).map(member => {
+      const run = this.#load(member.scope.run); const node = run?.nodes[member.scope.node];
+      if (node) this.#syncTeamAssignment(member, node);
+      const assignment = member.assignments.at(-1) ?? null;
+      const generation = node?.transportObservation?.generation ?? node?.executionObservation?.generation ?? null;
+      return { ...member,
+        rosterStatus: member.status,
+        status: member.status === 'active' && node?.runtimeState === 'recovery-required' ? 'recovery-required' : member.status,
+        node: node ? { state: node.snapshot.state, status: node.status, runtimeState: node.runtimeState, attempt: node.snapshot.attempt, revision: node.revision,
+          contract: this.#evidenceContract(node), descendants: node.childService ?? null } : null,
+        transport: node?.handle && assignment ? { assignmentId: assignment.id, session: node.handle.session ?? null, handleId: node.handle.id, generation, state: node.snapshot.state,
+          messageable: member.status === 'active' && node.snapshot.state === 'running' && node.runtimeState !== 'recovery-required' && !node.snapshot.cancel && Boolean(node.handle.session && generation) } : null,
+        requested: { role: member.immutable.role, model: member.immutable.model, effort: member.immutable.effort, workerHarness: member.immutable.workerHarness },
+        observed: { transport: 'herdr', runtime: node?.transportObservation?.runtime ?? null, model: null, effort: null,
+          limitation: 'Herdr exposes occupant/session/generation but not a trustworthy effective model or effort setting.' },
+      };
+    });
+    const ledgerRow = this.#one('SELECT data FROM family_state WHERE singleton=1');
+    const ledger = ledgerRow ? decode(ledgerRow.data) : null;
+    const operations = ledger ? Object.values(ledger.admissions).reduce((counts, value) => ({ ...counts, [value.op]: (counts[value.op] ?? 0) + 1 }), {}) : {};
+    const messages = team.messages.slice(-TEAM_STATUS_MESSAGE_WINDOW).map(message => {
+      const preview = utf8Preview(message.text, TEAM_STATUS_MESSAGE_TEXT_BYTES);
+      return { ...message, text: preview.text, textTruncated: preview.truncated };
+    });
+    return { v: 1, active: true, mode: 'managed-team', workstream: team.workstream, familyId: team.familyId, root: team.root, context: team.context, actor,
+      scheduler: 'existing-advisor-runtime-and-herdr', teamQuota: null,
+      storageLimits: { teamStateBytes: TEAM_STATE_BYTES, commandEnvelopeBytes: LIMITS.envelope, responseEnvelopeBytes: LIMITS.reply, messageTextBytes: LIMITS.text },
+      projectionLimits: { statusMessages: TEAM_STATUS_MESSAGE_WINDOW, statusMessageTextBytes: TEAM_STATUS_MESSAGE_TEXT_BYTES },
+      accounting: ledger ? { existingFamilyMaximum: ledger.maxLaunches, used: Object.keys(ledger.admissions).length, operations } : null,
+      members, messages, messageCount: team.messages.length };
+  }
+  #teamCommand(run, c, principal) {
+    const node = run.nodes[c.scope.node]; demand(node?.launched, 'NODE_NOT_LAUNCHED');
+    const root = this.#isTeamRoot(principal); const p = c.payload;
+    let team = this.#teamState(false);
+    if (c.op === 'team.enlist') {
+      demand(root && !this.#piBridge.childGrant, 'TEAM_ROOT_REQUIRED');
+      demand(node.packet.adapter === 'pi-detach' && node.packet.role === 'advisor' && node.packet.execution?.keepAlive && node.childService && node.handle?.session, 'TEAM_MEMBER_INELIGIBLE');
+      demand(node.packet.execution.environment.ADVISOR_TEAM_MODE === '1', 'TEAM_MEMBER_INELIGIBLE');
+      demand(node.runtimeState !== 'recovery-required' && !node.teamMemberId, 'TEAM_MEMBER_INELIGIBLE');
+      const familyRow = this.#one('SELECT data FROM family_state WHERE singleton=1'); demand(familyRow, 'FAMILY_LEGACY_ACCOUNTING_REQUIRED');
+      const ledger = decode(familyRow.data); const child = ledger.services[node.childService.stateRoot];
+      demand(ledger.family.teamMode === true, 'TEAM_MODE_INACTIVE');
+      demand(child?.grant?.authority?.token && child.grant.parent.sessionId === this.#piBridge.sessionId, 'TEAM_MEMBER_AUTHORITY_MISSING');
+      if (!team) team = { v: 1, familyId: ledger.family.id, workstream: ledger.family.workstream,
+        root: { principalId: this.#piBridge.principalId, sessionId: this.#piBridge.sessionId, host: this.#piBridge.rootHost ?? 'pi' },
+        context: { revision: 0, text: null }, sequence: 0, members: {}, messages: [] };
+      demand(team.familyId === ledger.family.id && team.workstream === ledger.family.workstream && team.root.sessionId === this.#piBridge.sessionId, 'TEAM_WORKSTREAM_MISMATCH');
+      demand(p.name !== 'root' && !Object.values(team.members).some(member => member.name === p.name || member.id === p.name || member.name === run.id), 'TEAM_NAME_CONFLICT');
+      const memberId = run.id; const principalId = `team-${hash(canonicalJson([team.familyId, memberId])).slice(0, 48)}`;
+      const currentGeneration = node.transportObservation?.generation ?? node.executionObservation?.generation ?? (() => { try { return JSON.parse(node.handle.id)[3]; } catch { return null; } })();
+      integer(currentGeneration, 1);
+      const assignmentId = `initial-${hash(memberId).slice(0, 24)}`;
+      // Enlistment adds roster authority, not a new accepted outcome. Preserve the
+      // initial contract identity so pre-roster graph repair fences remain applicable.
+      node.activeContract = this.#nodeContract(node);
+      const member = { id: memberId, principalId, name: p.name, status: 'active', scope: clone(node.snapshot.scope), sequence: ++team.sequence,
+        immutable: { role: node.packet.role, model: node.packet.model, effort: node.packet.thinking, workerHarness: node.packet.execution.harness, cwd: node.packet.cwd,
+          rootHost: run.host, rootSession: this.#piBridge.sessionId, teammateSession: node.handle.session, handleId: node.handle.id, familyId: team.familyId, workstream: team.workstream },
+        assignments: [{ id: assignmentId, kind: 'initial', task: node.packet.task, acceptance: clone(node.packet.acceptance), riskTier: node.packet.riskTier,
+          startedAttempt: 1, latestAttempt: node.snapshot.attempt, status: node.status,
+          attempts: [{ attempt: node.snapshot.attempt, kind: 'initial', status: node.status }] }] };
+      this.#syncTeamAssignment(member, node); team.members[memberId] = member; node.teamMemberId = memberId;
+      const scope = Object.fromEntries(Object.entries(member.scope).filter(([key]) => key !== 'ownerEpoch'));
+      const registration = this.#principalInput({ id: principalId, kind: 'advisor', scopes: [scope], operations: ['team.status', 'team.message'] });
+      demand(!this.#one('SELECT id FROM principals WHERE id=? OR token=?', principalId, hash(child.grant.authority.token)), 'TEAM_MEMBER_AUTHORITY_CONFLICT');
+      this.#write('INSERT INTO principals(id,token,data) VALUES (?,?,?)', principalId, hash(child.grant.authority.token), canonicalJson(registration));
+      for (const peer of Object.values(team.members).filter(value => value.status === 'active')) {
+        const peerScope = Object.fromEntries(Object.entries(peer.scope).filter(([key]) => key !== 'ownerEpoch'));
+        this.#write('INSERT OR IGNORE INTO scope_grants VALUES (?,?)', principalId, canonicalJson(peerScope));
+        this.#write('INSERT OR IGNORE INTO scope_grants VALUES (?,?)', peer.principalId, canonicalJson(scope));
+      }
+      node.snapshot.revision += 1; node.revision = node.snapshot.revision; this.#saveTeam(team);
+      return { commandId: c.commandId, outcome: 'enlisted', memberId, assignmentId, revision: node.revision };
+    }
+    demand(team, 'TEAM_NOT_ACTIVE');
+    const actor = this.#teamActor(team, principal);
+    const scoped = Object.values(team.members).find(member => member.scope.run === run.id && member.scope.node === c.scope.node);
+    demand(scoped, 'TEAM_SCOPE_MISMATCH');
+    if (c.op === 'team.rename') {
+      demand(root && scoped.status === 'active', 'TEAM_ROOT_REQUIRED');
+      demand(p.name !== 'root' && !Object.values(team.members).some(member => member.id !== scoped.id && (member.name === p.name || member.id === p.name)), 'TEAM_NAME_CONFLICT');
+      scoped.name = p.name; scoped.sequence = ++team.sequence; node.snapshot.revision += 1; node.revision = node.snapshot.revision;
+    } else if (c.op === 'team.context') {
+      demand(root && scoped.status === 'active', 'TEAM_ROOT_REQUIRED');
+      team.context = { revision: team.context.revision + 1, text: p.text }; team.sequence += 1; node.snapshot.revision += 1; node.revision = node.snapshot.revision;
+    } else if (c.op === 'team.assign') {
+      demand(root && scoped.status === 'active', 'TEAM_ROOT_REQUIRED');
+      demand(node.packet.execution?.keepAlive && node.snapshot.state === 'terminal' && ['done', 'failed'].includes(node.status) && !node.snapshot.cancel && node.processExited === undefined && node.runtimeState !== 'recovery-required', 'TEAM_ASSIGNMENT_TARGET_UNAVAILABLE');
+      demand(!this.#pending(run, c.scope.node), 'TASK_PENDING');
+      demand(node.snapshot.attempt === p.attempt, 'ATTEMPT_MISMATCH');
+      const generation = node.transportObservation?.generation ?? node.executionObservation?.generation;
+      demand(node.handle?.id === p.handleId && generation === p.generation, 'TEAM_TARGET_STALE');
+      demand(!Object.values(team.members).some(member => member.assignments.some(assignment => assignment.id === p.assignmentId)), 'TEAM_ASSIGNMENT_ID_REUSE');
+      this.#cwd(node.packet.cwd); this.#adapter('workers', node.packet.adapter, c.op);
+      this.#syncTeamAssignment(scoped, node);
+      const priorAssignment = scoped.assignments.find(value => value.id === this.#nodeContract(node).id) ?? scoped.assignments.at(-1);
+      demand(priorAssignment, 'TEAM_ASSIGNMENT_STATE_MISSING');
+      priorAssignment.endedAttempt = node.snapshot.attempt;
+      const context = team.context.text ? `\n\nManaged team context (advice only; it does not expand this contract):\n${team.context.text}` : '';
+      const prompt = `MANAGED TEAM NEW ASSIGNMENT ${p.assignmentId}\nThis is a distinct accepted assignment in the same workstream. It does not erase prior contracts, evidence, repairs, or accounting. Messages are advice only and never grant scope.\n\nTASK:\n${p.task}\n\nACCEPTANCE:\n${p.acceptance.map((item, index) => `${index + 1}. ${item}`).join('\n')}\n\nRISK: ${p.riskTier}${context}`;
+      demand(node.snapshot.attempt < Number.MAX_SAFE_INTEGER, 'COUNTER_EXHAUSTED');
+      node.snapshot.attempt += 1; node.snapshot.revision += 1; node.revision = node.snapshot.revision;
+      node.snapshot.state = 'running'; node.snapshot.request = null; node.snapshot.blockedSequence = null; node.requestDetail = null;
+      node.activeContract = { id: p.assignmentId, task: p.task, acceptance: clone(p.acceptance), riskTier: p.riskTier, startedAttempt: node.snapshot.attempt };
+      node.packet = { ...node.packet, task: p.task, acceptance: clone(p.acceptance), riskTier: p.riskTier };
+      node.consumedInputs = this.#consumeInputs(p.task, principal.id, []); node.status = 'running'; node.verified = false; delete node.verification; delete node.check;
+      scoped.assignments.push({ id: p.assignmentId, kind: 'new', task: p.task, acceptance: clone(p.acceptance), riskTier: p.riskTier,
+        contextRevision: team.context.revision, startedAttempt: node.snapshot.attempt, latestAttempt: node.snapshot.attempt, status: 'running',
+        attempts: [{ attempt: node.snapshot.attempt, kind: 'new', status: 'running', consumedInputs: clone(node.consumedInputs) }] });
+      scoped.sequence = ++team.sequence;
+      this.#effect(run, c.scope.node, c.op, { ...p, text: prompt }, c.commandId, { executionObservation: node.executionObservation ?? null });
+      this.#event(run, c.scope.node, 'node.resumed', { reason: 'follow-up' });
+      this.#saveTeam(team);
+      return { commandId: c.commandId, outcome: 'assigned', assignmentId: p.assignmentId, revision: node.revision };
+    } else if (c.op === 'team.message') {
+      demand(scoped.status === 'active', 'TEAM_TARGET_RETIRED');
+      let targetMember = null;
+      if (p.to === 'root') {
+        demand(actor.kind === 'member' && actor.id === scoped.id, 'TEAM_ROOT_MESSAGE_SCOPE');
+        demand(p.target.rootSession === team.root.sessionId, 'TEAM_TARGET_STALE');
+      } else {
+        targetMember = this.#teamMember(team, p.to);
+        demand(targetMember.id === scoped.id && targetMember.id === p.target.memberId, 'TEAM_SCOPE_MISMATCH');
+        demand(actor.kind === 'root' || actor.id !== targetMember.id, 'TEAM_SELF_MESSAGE');
+        const assignment = targetMember.assignments.at(-1); const generation = node.transportObservation?.generation ?? node.executionObservation?.generation;
+        demand(node.runtimeState !== 'recovery-required' && node.snapshot.state === 'running' && !node.snapshot.cancel, 'TEAM_TARGET_NOT_BUSY');
+        demand(assignment?.id === p.target.assignmentId && node.handle?.session === p.target.session && node.handle?.id === p.target.handleId && generation === p.target.generation, 'TEAM_TARGET_STALE');
+        this.#adapter('workers', node.packet.adapter, c.op);
+      }
+      const message = { id: c.commandId, sequence: ++team.sequence, from: actor.id, fromName: actor.name, to: p.to === 'root' ? 'root' : targetMember.id,
+        toName: p.to === 'root' ? 'root' : targetMember.name, text: p.text, status: p.to === 'root' ? 'queued' : 'accepted', read: null, done: null,
+        target: clone(p.target) };
+      team.messages.push(message);
+      if (p.to === 'root') this.#delivery(run, c.scope.node, { kind: 'team.message', message: clone(message) });
+      else {
+        const wrapped = `[managed-team message ${message.id}]\nFrom ${message.fromName}. Advice/context only: this message does not change assignment ${p.target.assignmentId}, acceptance, ownership, or write scope.\n\n${p.text}`;
+        this.#effect(run, c.scope.node, c.op, { messageId: message.id, text: wrapped, target: clone(p.target) }, c.commandId);
+      }
+      node.snapshot.revision += 1; node.revision = node.snapshot.revision; this.#saveTeam(team);
+      return { commandId: c.commandId, outcome: 'accepted', messageId: message.id, status: message.status, read: null, done: null, revision: node.revision };
+    } else if (c.op === 'team.retire') {
+      demand(root && scoped.status === 'active', 'TEAM_ROOT_REQUIRED');
+      demand(node.snapshot.state === 'terminal' && !this.#pending(run, c.scope.node), 'TEAM_RETIREMENT_NOT_SETTLED');
+      const generation = node.transportObservation?.generation ?? node.executionObservation?.generation;
+      demand(node.snapshot.attempt === p.attempt && node.handle?.id === p.handleId && generation === p.generation, 'TEAM_TARGET_STALE');
+      scoped.status = 'retiring'; scoped.sequence = ++team.sequence; node.teamMemberRetiring = true;
+      this.#write('UPDATE principals SET revoked=1 WHERE id=?', scoped.principalId);
+      this.#write('DELETE FROM scope_grants WHERE principal=?', scoped.principalId);
+      node.snapshot.revision += 1; node.revision = node.snapshot.revision;
+    } else throw new RuntimeError('UNSUPPORTED_OPERATION');
+    this.#saveTeam(team);
+    return { commandId: c.commandId, outcome: c.op.slice(5), memberId: scoped.id, revision: node.revision };
+  }
+  #completeTeamMessage(runId, nodeName, effect, delivery) {
+    const team = this.#teamState(); const message = team.messages.find(value => value.id === effect.payload.messageId);
+    demand(message && message.to === runId, 'TEAM_MESSAGE_STATE_MISSING');
+    fields(delivery, ['status', 'session', 'generation', 'state']);
+    demand(['queued', 'rejected', 'unknown'].includes(delivery.status), 'TEAM_MESSAGE_TRANSPORT'); text(delivery.session, 1024); integer(delivery.generation, 1); text(delivery.state, 128);
+    message.status = delivery.status; message.transport = clone(delivery);
+    const run = this.#load(runId); const node = run.nodes[nodeName];
+    if (delivery.status === 'queued' && node.handle?.session === delivery.session && delivery.generation >= (node.transportObservation?.generation ?? 0)) {
+      node.transportObservation = { ...(node.transportObservation ?? {}), session: delivery.session, generation: delivery.generation, state: delivery.state };
+    }
+    node.snapshot.revision += 1; node.revision = node.snapshot.revision; this.#saveTeam(team); this.#save(run);
+  }
+  #finalizeTeamRetirement(memberId) {
+    return this.#transaction(() => {
+      const team = this.#teamState(); const member = team.members[memberId]; demand(member?.status === 'retiring', 'TEAM_RETIREMENT_STATE');
+      const run = this.#load(member.scope.run); const node = run?.nodes[member.scope.node];
+      demand(node?.snapshot.state === 'terminal' && !this.#pending(run, member.scope.node), 'TEAM_RETIREMENT_NOT_SETTLED');
+      member.status = 'retired'; member.sequence = ++team.sequence; node.teamMemberRetiring = false; node.teamMemberRetired = true;
+      node.snapshot.revision += 1; node.revision = node.snapshot.revision; this.#saveTeam(team); this.#save(run);
+      return this.#teamView({ id: this.#piBridge.principalId });
+    });
   }
   #one(sql, ...args) { return this.#db.prepare(sql).get(...args); }
   #all(sql, ...args) { return this.#db.prepare(sql).all(...args); }
@@ -265,26 +521,39 @@ export class AdvisorRuntime {
         return { ok: true, value: { ready: true, revision: config.revision ?? null } };
       }
       if (c.action === 'advisor.bind') {
-        fields(p, ['workstream', 'workerHarness']);
+        fields(p, ['workstream', 'workerHarness'], ['teamMode']);
         text(p.workstream, 128);
-        demand(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(p.workstream) && ['pi', 'native'].includes(p.workerHarness), 'FAMILY_BINDING_MISMATCH');
+        demand(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(p.workstream) && ['pi', 'native'].includes(p.workerHarness)
+          && (p.teamMode === undefined || typeof p.teamMode === 'boolean'), 'FAMILY_BINDING_MISMATCH');
         demand(!config.childGrant, 'FAMILY_SCOPE_FORBIDDEN');
         return this.#transaction(() => {
           this.#fence();
           const row = this.#one('SELECT data FROM family_state WHERE singleton=1'); demand(row, 'FAMILY_LEGACY_ACCOUNTING_REQUIRED');
           const ledger = decode(row.data); const family = ledger.family;
+          demand(!(family.teamMode && p.teamMode === false), 'FAMILY_BINDING_MISMATCH');
           const establishedWorkstream = ledger.advisorBinding?.workstream ?? config.managedIdentity?.workstream;
           const establishedHarness = ledger.advisorBinding?.workerHarness ?? config.managedIdentity?.workerHarness;
           // Matching provisional values are a first binding, not replay: freeze both fields below.
-          if (establishedWorkstream && establishedHarness && family.workstream === p.workstream && family.workerHarness === p.workerHarness) return { ok: true, value: { bound: true } };
+          if (establishedWorkstream && establishedHarness && family.workstream === p.workstream && family.workerHarness === p.workerHarness) {
+            if (p.teamMode === true && !family.teamMode) {
+              // Opting into roster capability does not mutate any existing worker grant or session.
+              // Earlier temporary helpers remain ordinary; future advisors may be enlisted.
+              demand(!ledger.services[this.#root].sealed, 'FAMILY_ADMISSION_SEALED');
+              family.teamMode = true; ledger.advisorBinding = { ...ledger.advisorBinding, teamMode: true };
+              this.#write('UPDATE family_state SET data=? WHERE singleton=1', canonicalJson(ledger, 1048576));
+            }
+            return { ok: true, value: { bound: true, teamMode: family.teamMode === true } };
+          }
           demand((!establishedWorkstream || family.workstream === p.workstream)
             && (!family.workerHarness || family.workerHarness === p.workerHarness), 'FAMILY_BINDING_MISMATCH');
           demand(!Object.keys(ledger.admissions).length && Object.keys(ledger.services).length === 1
             && !ledger.services[this.#root].sealed
             && !this.#all('SELECT data FROM pi_bindings').some(row => decode(row.data).action !== 'rejected'), 'FAMILY_BINDING_TOO_LATE');
-          family.workstream = p.workstream; family.workerHarness = p.workerHarness; ledger.advisorBinding = clone(p);
+          family.workstream = p.workstream; family.workerHarness = p.workerHarness;
+          if (p.teamMode === true) family.teamMode = true;
+          ledger.advisorBinding = { ...clone(p), ...(family.teamMode ? { teamMode: true } : {}) };
           this.#write('UPDATE family_state SET data=? WHERE singleton=1', canonicalJson(ledger, 1048576));
-          return { ok: true, value: { bound: true } };
+          return { ok: true, value: { bound: true, teamMode: family.teamMode === true } };
         });
       }
       const bindings = () => this.#all('SELECT data FROM pi_bindings WHERE principal=?', principal).map(row => decode(row.data));
@@ -296,6 +565,99 @@ export class AdvisorRuntime {
         demand(run.nodes.worker, 'BRIDGE_RECOVERY_REQUIRED');
         return { binding, run, node: run.nodes.worker };
       };
+      if (c.action.startsWith('team.')) {
+        const rootPrincipal = this.#authorize(token, { op: 'team.status', scope: scopes[0] });
+        const invoke = async command => config.childGrant
+          ? { ok: true, value: await parentRuntimeCall(config.childGrant, command) }
+          : this.request(token, command, audience);
+        const status = async () => config.childGrant
+          ? await parentRuntimeCall(config.childGrant, { v: 1, op: 'team.status', scope: config.childGrant.parent.scope, payload: {} })
+          : this.#teamView(rootPrincipal);
+        if (c.action === 'team.status') { fields(p, []); return { ok: true, value: await status() }; }
+        const actionFields = c.action === 'team.enlist' ? ['runId', 'name']
+          : c.action === 'team.context' ? ['text']
+          : c.action === 'team.assign' ? ['to', 'assignmentId', 'task', 'acceptance', 'riskTier']
+          : c.action === 'team.message' ? ['to', 'text'] : ['to', ...(c.action === 'team.rename' ? ['name'] : [])];
+        fields(p, ['toolCallId', ...actionFields]);
+        text(p.toolCallId, 512);
+        const key = `pi-team-${hash(canonicalJson({ session: c.sessionId, toolCallId: p.toolCallId, action: c.action }))}`;
+        const digest = hash(canonicalJson({ action: c.action, payload: p }));
+        const prior = this.#one('SELECT * FROM pi_bindings WHERE id=?', key);
+        if (prior) { demand(prior.principal === principal && prior.digest === digest, 'COMMAND_ID_REUSE'); }
+        if (config.childGrant && !['team.message'].includes(c.action)) demand(false, 'TEAM_ROOT_REQUIRED');
+        let view = await status();
+        const resolveMember = (reference, includeRetired = false) => {
+          id(reference);
+          const matches = view.members.filter(member => member.id === reference || member.name === reference);
+          demand(matches.length === 1, matches.length ? 'TEAM_TARGET_AMBIGUOUS' : 'TEAM_TARGET_NOT_FOUND');
+          if (!includeRetired) demand(matches[0].rosterStatus === 'active', 'TEAM_TARGET_RETIRED');
+          return matches[0];
+        };
+        const retirementMember = c.action === 'team.retire' ? resolveMember(p.to, true) : null;
+        if (retirementMember?.status === 'retired') {
+          const cached = prior ? decode(prior.data).response : null;
+          if (cached?.ok && cached.value?.status === 'retired') return clone(cached);
+          return { ok: true, value: { memberId: retirementMember.id, status: 'retired', descendants: 'settled' } };
+        }
+        let command;
+        if (prior) command = decode(prior.data).command;
+        else if (c.action === 'team.enlist') {
+          id(p.runId); id(p.name); const { binding, node } = owned(p.runId);
+          command = { v: 1, op: 'team.enlist', scope: { ...binding.scope, node: 'worker' }, commandId: key, expectedRevision: node.revision, payload: { name: p.name } };
+        } else if (c.action === 'team.context') {
+          text(p.text); const anchor = view.members.find(member => member.status === 'active'); demand(anchor, 'TEAM_NOT_ACTIVE');
+          command = { v: 1, op: 'team.context', scope: anchor.scope, commandId: key, expectedRevision: anchor.node.revision, payload: { text: p.text } };
+        } else if (c.action === 'team.rename') {
+          id(p.name); const member = resolveMember(p.to);
+          command = { v: 1, op: 'team.rename', scope: member.scope, commandId: key, expectedRevision: member.node.revision, payload: { name: p.name } };
+        } else if (c.action === 'team.assign') {
+          id(p.assignmentId); text(p.task); demand(Array.isArray(p.acceptance), 'INVALID_ACCEPTANCE');
+          const member = resolveMember(p.to); const target = member.transport; demand(target?.generation, 'TEAM_TARGET_STALE');
+          command = { v: 1, op: 'team.assign', scope: member.scope, commandId: key, expectedRevision: member.node.revision,
+            payload: { attempt: member.node.attempt, handleId: target.handleId, generation: target.generation, assignmentId: p.assignmentId, task: p.task, acceptance: p.acceptance, riskTier: p.riskTier } };
+        } else if (c.action === 'team.message') {
+          text(p.text); id(p.to);
+          if (p.to === 'root') {
+            demand(view.actor.kind === 'member', 'TEAM_ROOT_SELF_MESSAGE'); const sender = resolveMember(view.actor.id);
+            command = { v: 1, op: 'team.message', scope: sender.scope, commandId: key, expectedRevision: sender.node.revision, payload: { to: 'root', target: { rootSession: view.root.sessionId }, text: p.text } };
+          } else {
+            const member = resolveMember(p.to); const target = member.transport; demand(target?.messageable && target.generation, 'TEAM_TARGET_NOT_BUSY');
+            command = { v: 1, op: 'team.message', scope: member.scope, commandId: key, expectedRevision: member.node.revision,
+              payload: { to: p.to, target: { memberId: member.id, assignmentId: target.assignmentId, session: target.session, handleId: target.handleId, generation: target.generation }, text: p.text } };
+          }
+        } else if (c.action === 'team.retire') {
+          const member = retirementMember;
+          if (member.status === 'retiring') command = null;
+          else {
+            const target = member.transport; demand(target?.generation, 'TEAM_TARGET_STALE');
+            command = { v: 1, op: 'team.retire', scope: member.scope, commandId: key, expectedRevision: member.node.revision,
+              payload: { attempt: member.node.attempt, handleId: target.handleId, generation: target.generation } };
+          }
+        } else demand(false, 'BRIDGE_OPERATION');
+        if (!prior) this.#transaction(() => this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: c.action, command })));
+        let response = prior && c.action !== 'team.retire' ? decode(prior.data).response : null;
+        if (c.action === 'team.retire' && retirementMember.status === 'retiring') response = { ok: true, value: { memberId: retirementMember.id, status: 'retiring', descendants: 'unknown' } };
+        else if (!response) response = await invoke(command);
+        if (!response.ok) {
+          this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: c.action, command, response }), key));
+          return response;
+        }
+        if (c.action === 'team.retire') {
+          view = await status(); const member = resolveMember(p.to, true);
+          if (member.status === 'retiring') {
+            await this.familyOperation('seal', { scope: member.scope });
+            let descendants = 'unknown';
+            try { descendants = await closeChildService(member.node.descendants.stateRoot); }
+            catch (error) { descendants = error.code === 'SHUTDOWN_CHILD_ACTIVE' ? 'active' : 'unknown'; }
+            if (['closed', 'absent'].includes(descendants)) {
+              const settled = this.#finalizeTeamRetirement(member.id);
+              response = { ok: true, value: { memberId: member.id, status: 'retired', descendants: 'settled', team: settled } };
+            } else response = { ok: true, value: { memberId: member.id, status: 'retiring', descendants } };
+          }
+        }
+        this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: c.action, command, response }), key));
+        return response;
+      }
       if (c.action === 'graph.evidence') {
         fields(p, ['graph', 'node'], ['runId', 'attempt', 'replacesRunId', 'replacesAttempt']);
         if (p.replacesRunId !== undefined) { id(p.replacesRunId); integer(p.replacesAttempt, 1); demand(p.runId !== undefined && p.attempt !== undefined, 'GRAPH_SUCCESSOR_IDENTITY_REQUIRED'); }
@@ -335,6 +697,14 @@ export class AdvisorRuntime {
           };
           if (p.runId !== undefined) {
             const { node } = owned(p.runId); const prior = linked(p.node);
+            const contract = this.#evidenceContract(node);
+            if (prior?.runId === p.runId && prior.contract) demand(this.#sameContract(prior.contract, contract), 'GRAPH_NODE_ALREADY_BOUND');
+            if (prior?.runId === p.runId && !prior.contract && contract.assignmentId && prior.attempt < contract.startedAttempt) demand(false, 'GRAPH_NODE_ALREADY_BOUND');
+            if (contract.assignmentId) {
+              const duplicate = this.#all('SELECT graph,data FROM graph_evidence WHERE principal=?', principal).some(row => Object.entries(decode(row.data).links).some(([name, link]) =>
+                link.runId === p.runId && link.contract?.assignmentId === contract.assignmentId && (row.graph !== graph.graphId || name !== p.node)));
+              demand(!duplicate, 'GRAPH_OUTCOME_ALREADY_BOUND');
+            }
             const successor = prior && prior.runId !== p.runId;
             if (successor) {
               demand(p.replacesRunId === prior.runId && p.replacesAttempt === prior.attempt, 'GRAPH_NODE_ALREADY_BOUND');
@@ -358,7 +728,8 @@ export class AdvisorRuntime {
               if (node.consumedInputs?.length) demand(consumed, 'GRAPH_INPUT_MISATTRIBUTED');
               record.links[p.node] = {
                 runId: p.runId, attempt: node.snapshot.attempt,
-                firstAttempt: successor ? 1 : prior?.firstAttempt ?? prior?.attempt ?? node.snapshot.attempt,
+                firstAttempt: successor ? 1 : contract.assignmentId ? contract.startedAttempt : prior?.firstAttempt ?? prior?.attempt ?? node.snapshot.attempt,
+                contract,
                 inputs: consumed?.inputs ?? (target.dependsOn.length ? null : []),
                 captures: consumed?.captures ?? [],
                 previous: successor ? [...(prior.previous ?? []), Object.fromEntries(Object.entries(prior).filter(([key]) => key !== 'previous'))] : prior?.previous ?? [],
@@ -370,22 +741,30 @@ export class AdvisorRuntime {
           const evidence = (name, includeHistory = false) => {
             if (!includeHistory && checkedNodes.has(name)) return checkedNodes.get(name);
             const link = linked(name); if (!link) return { node: name, proof: 'unknown', reason: 'missing binding' };
-            const { run, node } = owned(link.runId); const handoff = this.#handoff(run, 'worker');
+            const { run, node } = owned(link.runId);
+            const currentContract = this.#evidenceContract(node);
+            const contractChanged = Boolean(link.contract && !this.#sameContract(link.contract, currentContract));
+            const handoff = node.snapshot.attempt === link.attempt && !contractChanged ? this.#handoff(run, 'worker') : this.#historicalHandoff(run, 'worker', link.attempt);
             const repairs = this.#repairCount(link);
-            const reason = node.snapshot.attempt !== link.attempt ? 'attempt changed' : repairs > maxRepairLoops ? 'repair budget exceeded'
+            const reason = contractChanged ? 'accepted contract changed' : node.snapshot.attempt !== link.attempt ? 'attempt changed' : repairs > maxRepairLoops ? 'repair budget exceeded'
               : !Array.isArray(link.inputs) ? 'consumed inputs unknown'
               : canonicalJson(link.inputs) !== canonicalJson(inputs(name)) ? 'dependency attempt or capture changed'
               : !this.#inputsIntact(link.captures ?? []) ? 'consumed evidence missing or changed'
               : graph.nodes.find(node => node.id === name).dependsOn.some(dep => evidence(dep).reason) ? 'upstream lineage stale or unknown' : null;
             const proof = !reason && handoff.status === 'done' && handoff.result?.valid && handoff.result.integrity === 'intact' ? handoff.result.proof : 'unknown';
-            const deliveries = includeHistory ? [...(link.previous ?? []), link].flatMap(owner => this.#all("SELECT data FROM deliveries WHERE run=? AND node='worker' ORDER BY id", owner.runId).map(row => ({ ...decode(row.data), runId: owner.runId }))) : [];
-            const captures = deliveries.filter(row => row.result && (row.runId !== run.id || row.attempt < node.snapshot.attempt));
+            const owners = [...(link.previous ?? []), link];
+            const deliveries = includeHistory ? owners.flatMap(owner => this.#all("SELECT data FROM deliveries WHERE run=? AND node='worker' ORDER BY id", owner.runId).map(row => ({ ...decode(row.data), runId: owner.runId }))) : [];
+            const captures = deliveries.filter(row => row.result && owners.some(owner => {
+              const window = this.#outcomeWindow(owner);
+              return owner.runId === row.runId && row.attempt >= window.firstAttempt && row.attempt < window.endAttempt
+                && (row.runId !== run.id || row.attempt < node.snapshot.attempt);
+            }));
             const history = captures.slice(-8).map(row => ({ runId: row.runId, attempt: row.attempt, status: row.status,
               result: { ...row.result, integrity: this.#captureIntegrity(this.#load(row.runId), 'worker', row.result), proof: 'unknown', tested: null },
               checks: deliveries.filter(check => check.kind === 'checked' && check.runId === row.runId && check.attempt === row.attempt).map(({ check }) => ({ ...check,
                 integrity: this.#captureIntegrity(this.#load(row.runId), 'worker', { file: `check-${check.sha256}.json`, sha256: check.sha256 }) })),
             }));
-            const value = { node: name, runId: link.runId, ...handoff, boundAttempt: link.attempt, consumedInputs: link.inputs ?? null, predecessors: link.previous ?? [], proof, ...(reason ? { reason } : {}),
+            const value = { node: name, runId: link.runId, ...handoff, boundAttempt: link.attempt, contract: clone(link.contract ?? currentContract), consumedInputs: link.inputs ?? null, predecessors: link.previous ?? [], proof, ...(reason ? { reason } : {}),
               result: handoff.result ? { ...handoff.result, proof, tested: proof === 'verified' ? handoff.result.tested : null } : null,
               budget: { maxRepairLoops, used: repairs, remaining: Math.max(0, maxRepairLoops - repairs) },
               ...(includeHistory ? { history, historyCount: captures.length } : {}) };
@@ -554,7 +933,7 @@ export class AdvisorRuntime {
         this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: 'launch', runId: scope.run, scope }));
       });
       let execution;
-      try { execution = await config.prepare(p.params, sourceDirectory, { childState: childStatePath(this.#familyIdentity()?.rootStateRoot ?? this.#root, this.#root, scope.run), workstream: this.#familyIdentity()?.workstream, workerHarness: this.#familyIdentity()?.workerHarness }); }
+      try { execution = await config.prepare(p.params, sourceDirectory, { childState: childStatePath(this.#familyIdentity()?.rootStateRoot ?? this.#root, this.#root, scope.run), workstream: this.#familyIdentity()?.workstream, workerHarness: this.#familyIdentity()?.workerHarness, teamMode: this.#familyIdentity()?.teamMode === true }); }
       catch (error) {
         // Only execution-port validation codes are safe to expose; never return arbitrary exception text.
         const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL'];
@@ -589,19 +968,24 @@ export class AdvisorRuntime {
     text(JSON.stringify([command, ...args]), 2048);
     const run = this.#scopeRun({ scope }); const node = run.nodes[scope.node];
     demand(node?.status === 'done' && node.result?.valid, 'VERIFICATION_NOT_READY');
+    const contract = this.#evidenceContract(node);
+    demand(this.#sameContract(node.result.contract ?? contract, contract), 'CONTRACT_CHANGED');
     this.#transaction(() => { node.verified = false; delete node.verification; delete node.check; this.#save(run); });
     const before = contentSurface(node.packet.cwd);
     demand(before, 'TESTED_SURFACE_UNKNOWN');
     const checked = spawnSync(command, args, { cwd: node.packet.cwd, encoding: 'utf8', timeout, maxBuffer: 1024 * 1024, shell: false });
     const after = contentSurface(node.packet.cwd);
-    const evidence = { producer, invocation: JSON.stringify([command, ...args]), outcome: checked.status === 0 && !checked.error ? 'PASS' : 'FAIL',
+    const baseEvidence = { producer, invocation: JSON.stringify([command, ...args]), outcome: checked.status === 0 && !checked.error ? 'PASS' : 'FAIL', contract,
       surface: before, unchanged: sameSurface(before, after), exitCode: checked.status, signal: checked.signal,
-      output: `${checked.stdout ?? ''}\n${checked.stderr ?? ''}`.slice(-32000), limitations: before.limitations };
+      limitations: before.limitations };
+    const availableOutputBytes = Math.max(0, 60 * 1024 - Buffer.byteLength(canonicalJson(baseEvidence)));
+    const evidence = { ...baseEvidence, output: utf8Preview(`${checked.stdout ?? ''}\n${checked.stderr ?? ''}`, Math.min(32000, availableOutputBytes)).text };
     const bytes = canonicalJson(evidence, 65536); const evidenceSha256 = hash(bytes);
     const path = join(this.#nodeDirectory(run.id, scope.node), `check-${evidenceSha256}.json`); atomicWrite(path, bytes);
     this.#transaction(() => {
       const { output: _output, ...summary } = evidence; node.check = { ...summary, path, sha256: evidenceSha256 };
       this.#delivery(run, scope.node, { kind: 'checked', attempt: node.snapshot.attempt, resultSha256: node.result.sha256, check: node.check });
+      if (node.teamMemberId) { const team = this.#teamState(); this.#syncTeamAssignment(team.members[node.teamMemberId], node); this.#saveTeam(team); }
       this.#save(run);
     });
     if (evidence.outcome === 'PASS' && evidence.unchanged) this.verifyNode({ scope, expectedRevision: node.revision,
@@ -617,10 +1001,13 @@ export class AdvisorRuntime {
       const result = boundedRead(this.#nodeDirectory(run.id, scope.node), 'result.md');
       demand(result.eof && hash(result.text) === resultSha256, 'RESULT_CHANGED');
       demand(node.result?.sha256 === resultSha256 && this.#captureIntegrity(run, scope.node, node.result) === 'intact', 'RESULT_CHANGED');
+      const contract = this.#evidenceContract(node);
+      demand(this.#sameContract(node.result.contract ?? contract, contract), 'CONTRACT_CHANGED');
       if (surface) demand(sameSurface(surface, contentSurface(node.packet.cwd)), 'TESTED_SURFACE_CHANGED');
       text(producer, 256); demand(invocation === null || typeof invocation === 'string' && invocation.length <= 2048, 'INVALID_VERIFICATION');
       demand(Array.isArray(limitations) && limitations.length <= 12 && limitations.every(value => typeof value === 'string' && value.length <= 1024), 'INVALID_VERIFICATION');
-      node.verified = true; node.verification = { owner: this.#owner, resultSha256, evidenceSha256, evidencePath: join(this.#nodeDirectory(run.id, scope.node), `check-${evidenceSha256}.json`), surface, producer, invocation, outcome: 'PASS', limitations };
+      node.verified = true; node.verification = { owner: this.#owner, resultSha256, evidenceSha256, evidencePath: join(this.#nodeDirectory(run.id, scope.node), `check-${evidenceSha256}.json`), surface, producer, invocation, outcome: 'PASS', limitations, contract };
+      if (node.teamMemberId) { const team = this.#teamState(); this.#syncTeamAssignment(team.members[node.teamMemberId], node); this.#saveTeam(team); }
       node.snapshot.revision += 1; node.revision = node.snapshot.revision; this.#save(run);
     });
   }
@@ -664,6 +1051,7 @@ export class AdvisorRuntime {
   }
   #handoff(run, name) {
     const node = run.nodes[name];
+    const contract = this.#evidenceContract(node);
     const status = node.runtimeState === 'recovery-required' ? 'recovery-required' : node.snapshot.cancel && node.snapshot.state !== 'terminal' ? 'cancel-pending' : node.status;
     const available = node.result?.attempt === node.snapshot.attempt && node.snapshot.state !== 'running';
     let result = available ? { ...clone(node.result), lastCheck: node.check ?? null } : null;
@@ -673,15 +1061,24 @@ export class AdvisorRuntime {
       if (result.integrity === 'intact') {
         let capturedCheck = false;
         try { const check = boundedRead(this.#nodeDirectory(run.id, name), `check-${node.verification?.evidenceSha256}.json`, 65536); capturedCheck = check.eof && hash(check.text) === node.verification?.evidenceSha256; } catch { /* Missing host proof is unknown. */ }
-        result.proof = status === 'done' && result.valid && capturedCheck && node.verification?.owner === this.#owner && node.verification?.surface && sameSurface(node.verification.surface, contentSurface(node.packet.cwd)) && node.verification.resultSha256 === result.sha256 ? 'verified' : 'unknown';
+        const resultContract = node.result.contract ?? contract; const verificationContract = node.verification?.contract ?? contract;
+        result.proof = status === 'done' && result.valid && capturedCheck && this.#sameContract(resultContract, contract) && this.#sameContract(verificationContract, contract)
+          && node.verification?.owner === this.#owner && node.verification?.surface && sameSurface(node.verification.surface, contentSurface(node.packet.cwd)) && node.verification.resultSha256 === result.sha256 ? 'verified' : 'unknown';
         result.tested = result.proof === 'verified' ? node.verification : null;
       }
     }
     const eligible = node.runtimeState !== 'recovery-required' && !node.snapshot.cancel && node.processExited === undefined && !this.#pending(run, name);
     const reusable = Boolean(eligible && node.packet.execution?.keepAlive && node.snapshot.state === 'terminal' && ['done', 'failed'].includes(node.status));
-    return { status, agentState: status, attempt: node.snapshot.attempt, result, reusable,
+    return { status, agentState: status, attempt: node.snapshot.attempt, contract, result, reusable,
       ...(run.parentOutcome ? { parentOutcome: run.parentOutcome } : {}), ...(node.childService ? { childService: node.childService } : {}), ...(run.family ? { family: run.family } : {}),
       continuation: eligible && node.snapshot.state === 'blocked' && !['credential', 'secret'].includes(node.requestDetail?.kind) ? 'reply' : reusable ? 'task' : 'none' };
+  }
+  #historicalHandoff(run, name, attempt) {
+    const deliveries = this.#all('SELECT data FROM deliveries WHERE run=? AND node=? ORDER BY id', run.id, name).map(row => decode(row.data));
+    const settled = deliveries.findLast(row => row.kind === 'settled' && row.attempt === attempt);
+    if (!settled) return { status: 'unknown', agentState: 'unknown', attempt, result: null, reusable: false, continuation: 'none', historical: true };
+    const result = settled.result ? { ...clone(settled.result), integrity: this.#captureIntegrity(run, name, settled.result), proof: 'unknown', tested: null, historical: true } : null;
+    return { status: settled.status, agentState: settled.status, attempt, result, reusable: false, continuation: 'none', historical: true };
   }
   #event(run, node, type, data) {
     const prior = this.#one('SELECT seq,data FROM events WHERE run=? ORDER BY seq DESC LIMIT 1', run.id);
@@ -723,7 +1120,7 @@ export class AdvisorRuntime {
           const replayRun = this.#scopeRun(c); this.#commandTargets(principal, c, replayRun);
           return { ok: true, receipt: decode(prior.data), replayed: true };
         }
-        if (this.#piBridge && ['node.launch', 'node.task', 'node.reply'].includes(c.op)) {
+        if (this.#piBridge && ['node.launch', 'node.task', 'node.reply', 'team.assign'].includes(c.op)) {
           demand(!this.#one('SELECT sealed FROM family_control WHERE singleton=1')?.sealed, 'FAMILY_ADMISSION_SEALED');
           demand(this.#one('SELECT digest FROM family_admissions WHERE id=?', c.commandId)?.digest === digest, 'FAMILY_ADMISSION_REQUIRED');
         }
@@ -731,7 +1128,8 @@ export class AdvisorRuntime {
         this.#commandTargets(principal, c, run);
         if (!mutation) return { ok: true, value: this.#read(principal, run, c) };
         demand(this.#one('SELECT COUNT(*) AS count FROM receipts').count < 100000, 'RECEIPT_LIMIT');
-        const nodeOp = c.op.startsWith('node.') && c.op !== 'node.launch';
+        const teamNodeOp = c.op.startsWith('team.') && c.op !== 'team.status';
+        const nodeOp = c.op.startsWith('node.') && c.op !== 'node.launch' || teamNodeOp;
         demand(nodeOp ? c.scope.node !== 'root' : ['delivery.ack'].includes(c.op) || c.scope.node === 'root', 'ROOT_SCOPE');
         const target = nodeOp || (c.op === 'delivery.ack' && c.scope.node !== 'root') ? run?.nodes[c.scope.node] : run;
         demand((target?.revision ?? 0) === c.expectedRevision, 'STALE_REVISION');
@@ -746,7 +1144,7 @@ export class AdvisorRuntime {
           this.#write('INSERT INTO runs VALUES (?,?,?)', run.id, 0, canonicalJson(run));
           this.#event(run, null, 'run.created', { workstream: run.workstream, root: { node: 'root', session: `runtime-${run.id}` } });
         } else if (nodeOp) {
-          receipt = this.#nodeCommand(run, c, principal);
+          receipt = teamNodeOp ? this.#teamCommand(run, c, principal) : this.#nodeCommand(run, c, principal);
         } else { this.#mutation(run, c, principal); }
         if (['root.create', 'root.message', 'root.reply', 'node.reply'].includes(c.op)) {
           this.#delivery(run, c.scope.node, { kind: 'user.message', source: principal.kind === 'operator' ? 'user' : 'advisor', op: c.op, commandId: c.commandId, text: c.payload.text, ...(c.payload.requestId ? { requestId: c.payload.requestId } : {}) });
@@ -784,9 +1182,28 @@ export class AdvisorRuntime {
     const { body: _body, ...input } = snapshot;
     return [...previous.filter(old => old.graph !== input.graph), { ...input, token }];
   }
+  #outcomeWindow(owner) {
+    let endAttempt = Number.POSITIVE_INFINITY;
+    const member = Object.values(this.#teamState(false)?.members ?? {}).find(value => value.scope.run === owner.runId);
+    if (member) {
+      const assignment = owner.contract?.assignmentId
+        ? member.assignments.find(value => value.id === owner.contract.assignmentId)
+        : member.assignments.find(value => value.kind === 'initial');
+      if (assignment?.endedAttempt) endAttempt = assignment.endedAttempt + 1;
+      else if (assignment) {
+        const index = member.assignments.indexOf(assignment);
+        endAttempt = member.assignments[index + 1]?.startedAttempt ?? endAttempt;
+      }
+    }
+    return { firstAttempt: owner.contract?.startedAttempt ?? owner.firstAttempt ?? owner.attempt, endAttempt };
+  }
   #repairCount(link) {
-    return (link.previous?.length ?? 0) + [...(link.previous ?? []), link].reduce((count, owner) => count + this.#all("SELECT data FROM effects WHERE run=? AND node='worker'", owner.runId)
-      .map(row => decode(row.data)).filter(effect => effect.op === 'node.task' && effect.attempt > (owner.firstAttempt ?? owner.attempt)).length, 0);
+    return (link.previous?.length ?? 0) + [...(link.previous ?? []), link].reduce((count, owner) => {
+      const { firstAttempt, endAttempt } = this.#outcomeWindow(owner);
+      const repairs = this.#all("SELECT data FROM effects WHERE run=? AND node='worker'", owner.runId).map(row => decode(row.data))
+        .filter(effect => effect.op === 'node.task' && effect.attempt > firstAttempt && effect.attempt < endAttempt).length;
+      return count + repairs;
+    }, 0);
   }
   #nodeCommand(run, c, principal) {
     demand(c.op !== 'node.resume', 'RESUME_UNSUPPORTED');
@@ -794,15 +1211,19 @@ export class AdvisorRuntime {
     if (['node.reply', 'node.task'].includes(c.op)) demand(!['credential', 'secret'].includes(node.requestDetail?.kind), 'CREDENTIAL_REPLY_FORBIDDEN');
     demand(node.runtimeState !== 'recovery-required', 'RECOVERY_REQUIRED');
     if (c.op === 'node.task') {
+      demand(!node.teamMemberRetired && !node.teamMemberRetiring, 'TEAM_TARGET_RETIRED');
       demand(node.packet.adapter === 'pi-detach' && node.packet.execution.keepAlive && node.snapshot.state === 'terminal' && ['done', 'failed'].includes(node.status) && !node.snapshot.cancel && node.processExited === undefined, 'TASK_TARGET_UNAVAILABLE');
       demand(node.snapshot.attempt === c.payload.attempt, 'ATTEMPT_MISMATCH');
       demand(node.handle?.id === c.payload.handleId && node.executionObservation?.generation === c.payload.generation, 'BRIDGE_HANDLE_MISMATCH');
       demand(!this.#pending(run, c.scope.node), 'TASK_PENDING');
+      const contract = this.#evidenceContract(node);
       for (const row of this.#all('SELECT data FROM graph_evidence')) {
         const graph = decode(row.data);
         for (const link of Object.values(graph.links)) {
           demand(!(link.previous ?? []).some(old => old.runId === run.id), 'GRAPH_RUN_SUPERSEDED');
-          if (link.runId === run.id) demand(this.#repairCount(link) < (graph.maxRepairLoops ?? 2), 'GRAPH_REPAIR_LIMIT');
+          if (link.runId === run.id && (!node.teamMemberId || !link.contract || this.#sameContract(link.contract, contract))) {
+            demand(this.#repairCount(link) < (graph.maxRepairLoops ?? 2), 'GRAPH_REPAIR_LIMIT');
+          }
         }
       }
       this.#cwd(node.packet.cwd);
@@ -812,6 +1233,12 @@ export class AdvisorRuntime {
       node.snapshot.state = 'running'; node.snapshot.request = null; node.snapshot.blockedSequence = null; node.requestDetail = null;
       node.consumedInputs = this.#consumeInputs(c.payload.text, principal.id, node.consumedInputs);
       node.status = 'running'; node.verified = false; delete node.verification; delete node.check;
+      if (node.teamMemberId) {
+        const team = this.#teamState(); const member = team.members[node.teamMemberId]; demand(member?.status === 'active', 'TEAM_TARGET_RETIRED');
+        this.#syncTeamAssignment(member, node);
+        const assignment = member.assignments.at(-1); assignment.attempts.push({ attempt: node.snapshot.attempt, kind: 'repair', status: 'running', prompt: c.payload.text, consumedInputs: clone(node.consumedInputs) });
+        assignment.latestAttempt = node.snapshot.attempt; assignment.status = 'running'; member.sequence = ++team.sequence; this.#saveTeam(team);
+      }
       this.#effect(run, c.scope.node, c.op, c.payload, c.commandId, { executionObservation: node.executionObservation });
       this.#event(run, c.scope.node, 'node.resumed', { reason: 'follow-up' });
       return { commandId: c.commandId, outcome: 'accepted', revision: node.revision };
@@ -919,6 +1346,7 @@ export class AdvisorRuntime {
     }
   }
   #read(principal, run, c) {
+    if (c.op === 'team.status') return this.#teamView(principal);
     if (c.scope.node === 'root' && ['progress', 'workstream.open', 'history', 'wait'].includes(c.op)) this.#requireTargets(principal, c.scope, [...Object.keys(run.packets), ...Object.keys(run.nodes)]);
     if (c.op === 'artifact.read' || c.op === 'log.read') {
       demand(c.scope.node !== 'root' || run.root, 'NODE_NOT_FOUND');
@@ -954,11 +1382,12 @@ export class AdvisorRuntime {
     return { ...clone(run), nodes: Object.fromEntries(Object.entries(run.nodes).map(([name, node]) => [name, { ...node, handoff: this.#handoff(run, name) }])), export: { committedSequence, exportedSequence, pending: committedSequence !== exportedSequence } };
   }
   async request(token, input, audience = 'operator') {
-    if (this.#piBridge && ['node.launch', 'node.task', 'node.reply'].includes(input?.op)) {
+    if (this.#piBridge && ['node.launch', 'node.task', 'node.reply', 'team.assign'].includes(input?.op)) {
       try {
         const { command: c, digest } = parseEnvelope(input);
         const principal = this.#authorize(token, c);
         demand(audience !== 'model' || principal.kind !== 'operator', 'MODEL_OPERATOR_FORBIDDEN');
+        if (c.op === 'team.assign') demand(this.#isTeamRoot(principal), 'TEAM_ROOT_REQUIRED');
         const run = this.#scopeRun(c); this.#commandTargets(principal, c, run);
         if (!this.#one('SELECT id FROM receipts WHERE id=?', c.commandId)) {
           const node = c.op === 'node.launch' ? null : run.nodes[c.scope.node];
@@ -986,9 +1415,15 @@ export class AdvisorRuntime {
   }
   #recover() {
     this.#transaction(() => {
-      const effects = this.#all("SELECT * FROM effects WHERE state IN ('claimed','done')");
+      const effects = this.#all("SELECT * FROM effects WHERE state IN ('claimed','done') ORDER BY seq");
       const marked = new Set();
       for (const effect of effects) {
+        const data = decode(effect.data);
+        if (effect.state === 'claimed' && data.op === 'team.message') {
+          this.#completeTeamMessage(effect.run, effect.node, data, { status: 'unknown', session: data.payload.target.session, generation: data.payload.target.generation, state: 'unknown' });
+          this.#write("UPDATE effects SET state='done' WHERE id=?", effect.id);
+          continue;
+        }
         const run = this.#load(effect.run);
         const active = effect.node === 'root' ? Boolean(run.root?.handle && run.root.processExited === undefined) || run.root?.state !== 'idle' : run.nodes[effect.node]?.snapshot.state !== 'terminal';
         const kept = effect.node !== 'root' && run.nodes[effect.node]?.packet.execution?.keepAlive && run.nodes[effect.node]?.processExited === undefined;
@@ -1067,18 +1502,35 @@ export class AdvisorRuntime {
             new Promise((_, reject) => { timer = setTimeout(() => reject(new RuntimeError('ADAPTER_TIMEOUT')), LIMITS.waitMs); }),
           ]);
         } finally { clearTimeout(timer); }
-        fields(output, ['accepted']); demand(output.accepted === true, 'ADAPTER_REJECTED');
+        fields(output, ['accepted'], effect.op === 'team.message' ? ['delivery'] : ['observation']); demand(output.accepted === true, 'ADAPTER_REJECTED');
+        if (effect.op === 'team.message') demand(output.delivery, 'TEAM_MESSAGE_TRANSPORT');
+        if (output.observation) {
+          fields(output.observation, ['session', 'generation', 'state'], ['runtime']); text(output.observation.session, 1024); integer(output.observation.generation, 1); text(output.observation.state, 128);
+          if (output.observation.runtime !== undefined) text(output.observation.runtime, 128);
+        }
         this.#transaction(() => {
           const current = this.#one('SELECT * FROM effects WHERE id=?', row.id);
           demand(current.state === 'claimed' && current.owner === this.#owner, 'OWNER_FENCE');
           if (effect.op === 'node.launch' || effect.op === 'root.create') demand(current.handle, 'HANDLE_REQUIRED');
+          if (effect.op === 'team.message') this.#completeTeamMessage(row.run, row.node, effect, output.delivery);
+          else if (!root && output.observation) {
+            const latest = this.#load(row.run); const worker = latest.nodes[row.node];
+            if (worker.handle?.session === output.observation.session && output.observation.generation >= (worker.transportObservation?.generation ?? 0)) {
+              worker.transportObservation = clone(output.observation); worker.snapshot.revision += 1; worker.revision = worker.snapshot.revision; this.#save(latest);
+            }
+          }
           this.#write("UPDATE effects SET state='done' WHERE id=?", row.id);
         });
         this.#fault('effect.afterDone');
       } catch {
         this.#transaction(() => {
           const current = this.#one('SELECT * FROM effects WHERE id=?', row.id);
-          if (current.state === 'claimed') this.#markRecovery(current, 'effect-unproven');
+          if (current.state !== 'claimed') return;
+          const effect = decode(current.data);
+          if (effect.op === 'team.message') {
+            this.#completeTeamMessage(row.run, row.node, effect, { status: 'unknown', session: effect.payload.target.session, generation: effect.payload.target.generation, state: 'unknown' });
+            this.#write("UPDATE effects SET state='done' WHERE id=?", row.id);
+          } else this.#markRecovery(current, 'effect-unproven');
         });
       }
     }
@@ -1156,6 +1608,7 @@ export class AdvisorRuntime {
         fields(p.observation, ['handleId', 'generation']); integer(p.observation.generation, 1);
         demand(p.observation.handleId === node.handle.id, 'OBSERVATION_HANDLE_MISMATCH');
         node.executionObservation = p.observation;
+        node.transportObservation = { ...(node.transportObservation ?? {}), session: node.handle.session, generation: p.observation.generation, state: p.status ?? event.kind };
       }
       demand(node.snapshot.state !== 'blocked' || p.status === 'cancelled', 'ALREADY_BLOCKED');
       if (p.status === 'cancelled') demand(node.snapshot.cancel, 'CANCEL_NOT_ACCEPTED');
@@ -1190,6 +1643,7 @@ export class AdvisorRuntime {
         const path = join(this.#nodeDirectory(run.id, name), file);
         if (!existsSync(path)) atomicWrite(path, artifact.text);
         node.result = { path, file, sha256, attempt: node.snapshot.attempt, producer: { run: run.id, node: name, role: node.packet.role, model: node.packet.model, handle: node.handle.id },
+          contract: this.#evidenceContract(node),
           ...reportSummary(artifact.text), integrity: 'intact', proof: 'unknown', tested: null,
           limitation: 'Captured worker report, not independent verification. Tested content is unknown unless host-attested.' };
       } else delete node.result;
@@ -1197,6 +1651,10 @@ export class AdvisorRuntime {
       const wave = run.graph?.waves[run.wave - 1];
       if (wave && run.completedWave < run.wave && wave.every(n => run.nodes[n]?.snapshot.state === 'terminal')) {
         this.#event(run, null, 'wave.completed', { wave: run.wave, nodes: wave }); run.completedWave = run.wave;
+      }
+      if (node.teamMemberId) {
+        const team = this.#teamState(); const member = team.members[node.teamMemberId]; demand(member, 'TEAM_MEMBER_STATE_MISSING');
+        this.#syncTeamAssignment(member, node); member.sequence = ++team.sequence; this.#saveTeam(team);
       }
     } else throw new RuntimeError('UNKNOWN_EVENT');
     demand(node.snapshot.revision < Number.MAX_SAFE_INTEGER, 'COUNTER_EXHAUSTED');
@@ -1233,6 +1691,8 @@ export class AdvisorRuntime {
         demand(!run.root || (run.root.state === 'idle' && (!(run.root.handle?.pid || run.root.handle?.requiresExit) || run.root.processExited !== undefined)), 'SHUTDOWN_ACTIVE');
         demand(Object.values(run.nodes).every(node => node.snapshot.state === 'terminal' && (!(node.handle?.pid || node.handle?.requiresExit) || node.processExited !== undefined)), 'SHUTDOWN_ACTIVE');
       }
+      const team = this.#teamState(false);
+      demand(!team || Object.values(team.members).every(member => member.status === 'retired'), 'SHUTDOWN_TEAM_ACTIVE');
       demand(!this.#one('SELECT d.id FROM deliveries d WHERE NOT EXISTS (SELECT 1 FROM acks a WHERE a.delivery=d.id) LIMIT 1'), 'SHUTDOWN_DELIVERY');
     });
   }

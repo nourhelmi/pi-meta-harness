@@ -13,6 +13,11 @@ the code-mode host; end-to-end native delegation is not proven. This does not
 change the existing Pi-root `/advisor-native` workflow. Stock-host MCP-plus-skills
 simplification and live native proof are deferred, not release claims.
 
+**[CoS teams and canonical state](docs/advisor-teams.md):** Pi `/cos` and
+`/advisor-team` reuse the advisor runtime with workstream-bound outcome teammates.
+[Native advisor skills](docs/native-advisor-skills.md) keep host-native orchestration
+and share the same canonical checkpoint helper, without activating managed execution.
+
 ```mermaid
 ---
 config:

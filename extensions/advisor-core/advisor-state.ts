@@ -1,95 +1,40 @@
-import { readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { advisorStateRoot } from "../../scripts/advisor-core/advisor-state.mjs";
-
+import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { advisorStateRoot, advisorIdentity, advisorPaths, readAdvisorCheckpoint, readAdvisorSession, type AdvisorMode } from '../../scripts/advisor-core/advisor-state.mjs';
 export { advisorStateRoot };
-
-const ENTRY_TYPE = "advisor-session";
-
-export type WorkerHarness = "pi" | "native";
-
+export type { AdvisorMode };
+export type WorkerHarness = 'pi' | 'native';
 export interface AdvisorSessionState {
-	workstream: string;
-	sessionId: string;
-	initializedAt: string;
-	workerHarness: WorkerHarness;
+  workstream: string;
+  sessionId: string;
+  initializedAt: string;
+  workerHarness: WorkerHarness;
+  mode?: AdvisorMode;
 }
-
-export function isWorkerHarness(value: unknown): value is WorkerHarness {
-	return value === "pi" || value === "native";
-}
-
+export function isWorkerHarness(value: unknown): value is WorkerHarness { return value === 'pi' || value === 'native'; }
 export function restoredEntryState(ctx: ExtensionContext): AdvisorSessionState | undefined {
-	for (const entry of ctx.sessionManager.getBranch().toReversed()) {
-		if (entry.type !== "custom" || entry.customType !== ENTRY_TYPE) continue;
-		const data = entry.data as Partial<AdvisorSessionState> | undefined;
-		if (
-      typeof data?.workstream === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.workstream) && data.workstream.length <= 48 &&
-      typeof data.sessionId === "string" && data.sessionId === ctx.sessionManager.getSessionId() &&
-			typeof data.initializedAt === "string"
-		) {
-			return {
-				workstream: data.workstream,
-				sessionId: data.sessionId,
-				initializedAt: data.initializedAt,
-				workerHarness: isWorkerHarness(data.workerHarness) ? data.workerHarness : "pi",
-			};
-		}
-	}
-	return undefined;
+  for (const entry of ctx.sessionManager.getBranch().toReversed()) {
+    if (entry.type !== 'custom' || entry.customType !== 'advisor-session') continue;
+    const data = entry.data as Partial<AdvisorSessionState> | undefined;
+    if (typeof data?.workstream === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.workstream) && data.workstream.length <= 48 && data.sessionId === ctx.sessionManager.getSessionId() && typeof data.initializedAt === 'string') {
+      return { workstream: data.workstream, sessionId: data.sessionId, initializedAt: data.initializedAt, workerHarness: isWorkerHarness(data.workerHarness) ? data.workerHarness : 'pi', ...(data.mode === 'cos' ? { mode: 'cos' as const } : {}) };
+    }
+  }
+  return undefined;
 }
-
-async function readIfPresent(path: string): Promise<string | undefined> {
-	try {
-		return await readFile(path, "utf8");
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-		throw error;
-	}
+export async function restoredState(ctx: ExtensionContext, sessionId = ctx.sessionManager.getSessionId()): Promise<AdvisorSessionState | undefined> {
+  return restoredEntryState(ctx) ?? readAdvisorSession({ root: await advisorStateRoot(ctx.cwd), identity: advisorIdentity('pi', sessionId) });
 }
-
-function workstreamFromSession(content: string): string | undefined {
-	return content.match(/^- Workstream: `([^`]+)`$/m)?.[1];
-}
-
-async function restoredDiskState(
-	ctx: ExtensionContext,
-	sessionId: string,
-): Promise<AdvisorSessionState | undefined> {
-	const root = await advisorStateRoot(ctx.cwd);
-	const candidates = [
-		join(root, "sessions", `${sessionId}.md`),
-		join(ctx.cwd, ".advisor", "sessions", `${sessionId}.md`),
-	];
-	for (const path of candidates) {
-		const content = await readIfPresent(path);
-		const workstream = content ? workstreamFromSession(content) : undefined;
-    if (workstream && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(workstream) && workstream.length <= 48) return { workstream, sessionId, initializedAt: "legacy-state", workerHarness: "pi" };
-	}
-	return undefined;
-}
-
-export async function restoredState(
-	ctx: ExtensionContext,
-	sessionId = ctx.sessionManager.getSessionId(),
-): Promise<AdvisorSessionState | undefined> {
-	return restoredEntryState(ctx) ?? (await restoredDiskState(ctx, sessionId));
-}
-
-/** Session metadata is only a pointer. Never treat missing, corrupt or transferred work as current. */
+/** Session metadata is a pointer, never proof of checkpoint ownership or liveness. */
 export async function advisorCheckpoint(ctx: ExtensionContext) {
   const state = await restoredState(ctx);
   if (!state) return undefined;
-  const path = join(await advisorStateRoot(ctx.cwd), "workstreams", `${state.workstream}.md`);
+  const root = await advisorStateRoot(ctx.cwd);
+  const identity = advisorIdentity('pi', state.sessionId);
+  const path = advisorPaths(root, state.workstream, identity).workstream;
   try {
-    if ((await stat(path)).size > 65536) throw new Error("Checkpoint too large");
-    const content = await readFile(path, "utf8");
-    if (content.length > 65536 || !content.startsWith(`# Workstream: ${state.workstream}\n`) || !content.includes("## Current state") || content.match(/^- Owner session: `([^`]+)`$/m)?.[1] !== state.sessionId) {
-      return { state, path, problem: "Checkpoint corrupt or owned by another session; do not resume effects or overwrite it. Reinitialize with explicit ownership resolution." };
-    }
-    return { state, path, content };
-  } catch {
-    return { state, path, problem: "Checkpoint missing or unreadable; operational state is unknown. Recover the workstream from accepted artifacts before resuming effects." };
+    const checkpoint = readAdvisorCheckpoint({ root, workstream: state.workstream, identity });
+    return { state: { ...state, ...(checkpoint.mode === 'cos' ? { mode: 'cos' as const } : {}) }, path, content: checkpoint.content, digest: checkpoint.digest };
+  } catch (error) {
+    return { state, path, problem: `Checkpoint missing, corrupt or foreign-owned; operational state is unknown. Recover explicitly before worker effects. ${String(error)}` };
   }
 }

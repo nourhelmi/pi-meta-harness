@@ -22,8 +22,9 @@ export function readChildGrant(stateRoot, cwd) {
   }
   fields(grant, ['v', 'cwd', 'stateRoot', 'allowedRoots', 'parent', 'family', 'issuedAttempt', 'authority']);
   fields(grant.parent, ['stateRoot', 'sessionId', 'scope']); scope(grant.parent.scope);
-  fields(grant.family, ['v', 'id', 'rootStateRoot', 'workstream'], ['workerHarness']);
+  fields(grant.family, ['v', 'id', 'rootStateRoot', 'workstream'], ['workerHarness', 'teamMode']);
   demand(grant.family.workerHarness === undefined || ['pi', 'native'].includes(grant.family.workerHarness), 'PI_DETACH_CHILD_GRANT_MISMATCH');
+  demand(grant.family.teamMode === undefined || grant.family.teamMode === true, 'PI_DETACH_CHILD_GRANT_MISMATCH');
   fields(grant.authority, ['token']);
   demand(grant.v === 2 && grant.family.v === 1 && /^[a-f0-9]{32}$/.test(grant.family.id) && /^[a-f0-9]{64}$/.test(grant.authority.token), 'PI_DETACH_CHILD_GRANT_MISMATCH');
   text(grant.parent.sessionId, 256); text(grant.family.workstream, 128); integer(grant.issuedAttempt, 1);
@@ -36,12 +37,24 @@ export function readChildGrant(stateRoot, cwd) {
 export const publicChildScope = ({ authority: _authority, ...grant }) => grant;
 export async function familyCall(grant, action, payload) {
   demand(grant?.v === 2, 'PI_DETACH_LEGACY_CHILD_REQUIRES_REISSUE');
-  const socketPath = join(grant.family.rootStateRoot, 'runtime.sock');
-  const socket = lstatSync(socketPath);
-  demand(socket.isSocket() && !socket.isSymbolicLink() && socket.uid === process.getuid() && (socket.mode & 0o777) === 0o600, 'FAMILY_UNSAFE_SOCKET');
+  const socketPath = familySocket(grant);
   const result = await callSocket({ socketPath, token: grant.authority.token }, { v: 1, op: 'family', action, payload }, 'model');
   demand(result?.ok, result?.error ?? 'FAMILY_UNAVAILABLE');
   return result.value;
+}
+function familySocket(grant) {
+  demand(grant?.v === 2, 'PI_DETACH_LEGACY_CHILD_REQUIRES_REISSUE');
+  const socketPath = join(grant.family.rootStateRoot, 'runtime.sock');
+  const socket = lstatSync(socketPath);
+  demand(socket.isSocket() && !socket.isSymbolicLink() && socket.uid === process.getuid() && (socket.mode & 0o777) === 0o600, 'FAMILY_UNSAFE_SOCKET');
+  return socketPath;
+}
+/** A child teammate uses its existing family authority against the root runtime.
+ * The generic runtime contract still performs scope, sender and replay checks. */
+export async function parentRuntimeCall(grant, command) {
+  const result = await callSocket({ socketPath: familySocket(grant), token: grant.authority.token }, command, 'model');
+  demand(result?.ok, result?.error ?? 'TEAM_RUNTIME_UNAVAILABLE');
+  return result.value ?? result.receipt;
 }
 /** Validated, non-secret extension API. Root sessions return null; old grants never gain authority. */
 export async function readChildScope({ cwd, env = process.env } = {}) {

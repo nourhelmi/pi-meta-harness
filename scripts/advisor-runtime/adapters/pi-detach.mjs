@@ -29,9 +29,16 @@ export function createPiDetachAdapter(port) {
       demand(!handle || live?.handle.id === handle.id, 'BRIDGE_HANDLE_MISMATCH');
       return live ? (await live.driver.readLive(400)).slice(-32768) : null;
     },
-    capabilities: { 'node.launch': true, 'node.reply': true, 'node.task': true, 'node.cancel': true },
+    capabilities: { 'node.launch': true, 'node.reply': true, 'node.task': true, 'node.cancel': true, 'team.assign': true, 'team.message': true },
     async execute({ effect, handle, context, recordHandle, emit }) {
       const key = `${effect.scope.run}/${effect.scope.node}`;
+      if (effect.op === 'team.message') {
+        const live = sessions.get(key);
+        demand(live && live.handle.id === handle.id && typeof live.driver.message === 'function', 'BRIDGE_HANDLE_MISMATCH');
+        context.assertActive();
+        const delivery = await live.driver.message({ text: effect.payload.text, target: effect.payload.target });
+        return { accepted: true, delivery };
+      }
       if (effect.op === 'node.cancel') {
         const live = sessions.get(key);
         demand(live && live.handle.id === handle.id, 'BRIDGE_HANDLE_MISMATCH');
@@ -114,7 +121,8 @@ export function createPiDetachAdapter(port) {
       });
       demand(boundHandle, 'HANDLE_REQUIRED');
       sessions.set(key, { intent, handle: boundHandle, driver });
-      return { accepted: true };
+      const observation = typeof driver.runtimeObservation === 'function' ? await driver.runtimeObservation() : null;
+      return { accepted: true, ...(observation ? { observation } : {}) };
     },
   };
 }

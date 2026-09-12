@@ -16,6 +16,7 @@ const { registerBgAgentTool, BgAgentParameters } = await import(pathToFileURL(jo
 const { registerBgStopTool } = await import(pathToFileURL(join(detach, 'src/tools/bg-stop.ts')).href);
 const { registerBgListTool } = await import(pathToFileURL(join(detach, 'src/tools/bg-list.ts')).href);
 const { registerBgOutputTool } = await import(pathToFileURL(join(detach, 'src/tools/bg-output.ts')).href);
+const { registerManagedTeamTools } = await import(pathToFileURL(join(detach, 'src/tools/team.ts')).href);
 const phase = process.env.BRIDGE_PHASE;
 if (!phase) {
  const root = realpathSync(mkdtempSync('/tmp/pibr-'));
@@ -34,10 +35,14 @@ if (!phase) {
  process.exit(0);
 }
 const root = process.env.BRIDGE_ROOT!;
+delete process.env.ADVISOR_RUNTIME_CANONICAL_OWNER;
+delete process.env.ADVISOR_BRIDGE_CHILD_STATE;
+delete process.env.PI_DETACH_WORKER_HARNESS;
+delete process.env.ADVISOR_WORKSTREAM;
 const stateRoot = join(root, phase === 'blocked-cancel' ? 'cancel-state' : 'state'); const cwd = join(root, 'work');
 const descriptor = join(root, phase === 'blocked-cancel' ? 'cancel-pi.json' : 'pi.json');
 const profile = join(root, 'profiles.json');
-writeFileSync(profile, JSON.stringify({ defaultAgent: 'pi', profiles: { foreman: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, reviewer: { agent: 'pi', skill: 'role-reviewer', maxTurns: 4, requireAnchor: true, resultDiscovery: 'advisor-worker' } } }));
+writeFileSync(profile, JSON.stringify({ defaultAgent: 'pi', profiles: { advisor: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, foreman: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, reviewer: { agent: 'pi', skill: 'role-reviewer', maxTurns: 4, requireAnchor: true, resultDiscovery: 'advisor-worker' } } }));
 process.env.PI_DETACH_AGENT_PROFILES = profile;
 process.env.PI_DETACH_RUNTIME_BRIDGE = resolve('scripts/advisor-runtime/pi-detach-client.mjs');
 process.env.ADVISOR_RUNTIME_DESCRIPTOR = descriptor;
@@ -86,8 +91,9 @@ const cli = {
     // Fresh Codex has no thread at startup. Its hook arrives on first submission.
     occupant.agent_session ??= { source: 'herdr:codex', agent: 'codex', kind: 'id', value: `thread-${occupant.pid}` };
    }
-   if (stallPrompt) { stallPrompt = false; return { ok: false, code: 1, stdout: '', stderr: '', errorCode: 'agent_prompt_stalled' }; }
-   if (failPrompt) { failPrompt = false; occupant.status = 'working'; occupant.state_change_seq += 1; return { ok: false, code: 1, stdout: '', stderr: '', errorCode: 'timeout' }; }
+	   if (stallPrompt) { stallPrompt = false; return { ok: false, code: 1, stdout: '', stderr: '', errorCode: 'agent_prompt_stalled' }; }
+	   if (failPrompt) { failPrompt = false; occupant.status = 'working'; occupant.state_change_seq += 1; return { ok: false, code: 1, stdout: '', stderr: '', errorCode: 'timeout' }; }
+	   if (!args.includes('--wait') && occupant.status === 'working') return ok(occupant);
    // Real Herdr without --wait only acknowledges submission: the old startup
    // idle snapshot can still satisfy an immediately registered settlement wait.
    const nextState = fastPrompt ? 'done' : 'working'; fastPrompt = false;
@@ -118,8 +124,10 @@ const cli = {
   return waiter;
  },
 };
-const port = portModule.createAgentExecutionPort({ cli, ctx: { paneId: 'w1:p1' }, panes: createPaneManager(cli, { paneId: 'w1:p1' }), env: { PI_DETACH_AGENT_PROFILES: profile, PATH: process.env.PATH } });
-const { runtime, service } = await hostPiDetach({ stateRoot, cwd, sessionId: 'owning-pi-session', credentialPath: descriptor, port, slots: 1, managedIdentity: { fixture: true }, maxLaunches: 64 });
+const port = portModule.createAgentExecutionPort({ cli, ctx: { paneId: 'w1:p1' }, panes: createPaneManager(cli, { paneId: 'w1:p1' }), env: { PI_DETACH_AGENT_PROFILES: profile, PATH: process.env.PATH, ADVISOR_TEAM_MODE: '1' } });
+// Primitive host fixture intentionally leaves specialist preference unbound so both transports
+// are exercised; real advisor binding freezes that preference in advisor-binding.test.ts.
+const { runtime, service } = await hostPiDetach({ stateRoot, cwd, sessionId: 'owning-pi-session', credentialPath: descriptor, port, slots: 1, managedIdentity: { fixture: true, workstream: 'product-team-workstream', teamMode: true }, maxLaunches: 64 });
 const client = createPiDetachClient(descriptor);
 const req = (action: string, payload: object) => client.request('owning-pi-session', action, payload);
 if (phase === 'restart') {
@@ -130,10 +138,12 @@ if (phase === 'restart') {
  console.log('PASS: restart recovery from prior process SQLite/lock boundary');
  process.exit(0);
 }
-const tools = new Map<string, any>();
-const pi = { registerTool(tool: any) { assert.ok(!tools.has(tool.name)); tools.set(tool.name, tool); } };
+const tools = new Map<string, any>(); const extensionEvents = new Map<string, (value: unknown) => void>();
+const pi = { registerTool(tool: any) { assert.ok(!tools.has(tool.name)); tools.set(tool.name, tool); }, events: { on(name: string, handler: (value: unknown) => void) { extensionEvents.set(name, handler); } } };
 const registry = { start() { throw new Error('LEGACY_FALLBACK'); }, get() { return undefined; }, list() { return []; }, stop() { throw new Error('LEGACY_STOP'); } };
 for (const register of [registerBgAgentTool, registerBgStopTool, registerBgListTool, registerBgOutputTool]) register(pi, registry);
+registerManagedTeamTools(pi);
+extensionEvents.get('advisor:team-mode')?.({ enabled: true });
 const ctx = { cwd, sessionManager: { getSessionId() { return 'owning-pi-session'; } } };
 const invoke = (name: string, id: string, params: object, context = ctx) => tools.get(name).execute(id, params, undefined, undefined, context);
 const params = { role: 'reviewer', prompt: 'Bounded deterministic task', model: 'openai/example', thinking: 'high', maxTurns: 7, requiredSkills: ['pi-lens-lsp-navigation'], acceptance: ['one prompt'], keepAlive: true, promoteAfterMs: 0 };
@@ -277,6 +287,106 @@ assert.deepEqual(followup.handle, handleBeforeTask);
 assert.equal(followup.snapshot.attempt, done.snapshot.attempt + 1);
 assert.equal(readFileSync(join(intent.sourceDirectory, 'result.md'), 'utf8'), '');
 assert.equal((await settle(runId, '# Status\nPASS\nFresh bounded repair.')).status, 'done');
+
+const teammate = await invoke('bg_agent', 'team-advisor-launch', { role: 'advisor', prompt: 'Own the first team assignment.', keepAlive: true, promoteAfterMs: 0 });
+await runtime.dispatch(); await new Promise(resolve => setImmediate(resolve));
+const teamRun = teammate.details.runId;
+await assert.rejects(invoke('bg_agent', 'team-raw-busy', { name: teamRun, prompt: 'raw steer' }), /BRIDGE_RESUME_OR_STEER_UNSUPPORTED/);
+await invoke('team_manage', 'team-enlist', { action: 'enlist', runId: teamRun, name: 'transport' });
+let teamStatus = await invoke('team_status', 'team-status-1', {});
+let teamMember: any = teamStatus.details.members.find((member: any) => member.id === teamRun);
+const immutable = teamMember.immutable;
+assert.equal(teamStatus.details.scheduler, 'existing-advisor-runtime-and-herdr'); assert.equal(teamStatus.details.teamQuota, null);
+assert.equal(teamMember.transport.messageable, true); assert.equal(teamMember.observed.runtime, 'pi'); assert.equal(teamMember.observed.model, null); assert.equal(teamMember.observed.effort, null);
+const teamNode: any = await req('get', { runId: teamRun });
+assert.equal(teamNode.packet.execution.environment.ADVISOR_TEAM_MODE, '1');
+const teamChildState = teamNode.childService.stateRoot;
+const teamChildHost = await hostPiDetach({ stateRoot: teamChildState, cwd, sessionId: 'team-child-session', credentialPath: join(teamChildState, 'pi.json'),
+ port: { version: 1, async prepare() { throw new Error('unused'); }, async launch() { throw new Error('unused'); } }, slots: 1, keepAlive: false });
+writeFileSync(join(teamChildState, 'startup.json'), JSON.stringify({ identity: { sessionId: 'team-child-session' } }), { mode: 0o600 });
+const teamChildClient = createPiDetachClient(join(teamChildState, 'pi.json'));
+const peerTeammate = await invoke('bg_agent', 'team-peer-launch', { role: 'advisor', prompt: 'Own the peer team assignment.', keepAlive: true, promoteAfterMs: 0 });
+await runtime.dispatch(); await new Promise(resolve => setImmediate(resolve));
+const peerRun = peerTeammate.details.runId;
+await invoke('team_manage', 'team-peer-enlist', { action: 'enlist', runId: peerRun, name: 'peer' });
+const peerNode: any = await req('get', { runId: peerRun });
+const peerChildState = peerNode.childService.stateRoot;
+const peerChildHost = await hostPiDetach({ stateRoot: peerChildState, cwd, sessionId: 'team-peer-child-session', credentialPath: join(peerChildState, 'pi.json'),
+ port: { version: 1, async prepare() { throw new Error('unused'); }, async launch() { throw new Error('unused'); } }, slots: 1, keepAlive: false });
+writeFileSync(join(peerChildState, 'startup.json'), JSON.stringify({ identity: { sessionId: 'team-peer-child-session' } }), { mode: 0o600 });
+const peerChildClient = createPiDetachClient(join(peerChildState, 'pi.json'));
+const promptsBeforeMessage = calls.filter(args => args[1] === 'prompt').length;
+const teamMessage = await invoke('team_message', 'team-message-1', { to: 'transport', text: 'Inspect the actual transport.' });
+assert.equal(teamMessage.details.status, 'accepted'); assert.equal(teamMessage.details.read, null); assert.equal(teamMessage.details.done, null);
+await runtime.dispatch();
+const messageCalls = calls.filter(args => args[1] === 'prompt').slice(promptsBeforeMessage);
+assert.equal(messageCalls.length, 1); assert.equal(messageCalls[0].includes('--wait'), false); assert.match(messageCalls[0][3], /Advice\/context only/);
+await invoke('team_message', 'team-message-1', { to: 'transport', text: 'Inspect the actual transport.' }); await runtime.dispatch();
+assert.equal(calls.filter(args => args[1] === 'prompt').length, promptsBeforeMessage + 1, 'message replay never requeues');
+await assert.rejects(invoke('team_message', 'team-message-1', { to: 'transport', text: 'changed retry' }), /COMMAND_ID_REUSE/);
+teamStatus = await invoke('team_status', 'team-status-2', {}); teamMember = teamStatus.details.members.find((member: any) => member.id === teamRun);
+assert.equal(teamStatus.details.messages.at(-1).status, 'queued'); assert.equal(teamStatus.details.messages.at(-1).read, null); assert.equal(teamStatus.details.messages.at(-1).done, null);
+const rootward: any = await teamChildClient.request('team-child-session', 'team.message', { toolCallId: 'team-child-rootward', to: 'root', text: 'Child advisor context for root.' });
+assert.equal(rootward.status, 'queued');
+const rootwardDeliveries = await req('wait', { runId: teamRun }) as any[];
+assert.equal(rootwardDeliveries.filter(delivery => delivery.kind === 'team.message').length, 1);
+for (const delivery of rootwardDeliveries) await req('ack', { runId: teamRun, deliveryId: delivery.id });
+const promptsBeforePeerMessage = calls.filter(args => args[1] === 'prompt').length;
+const peerMessage: any = await peerChildClient.request('team-peer-child-session', 'team.message', { toolCallId: 'team-peer-to-transport', to: 'transport', text: 'Authorized peer transport context.' });
+assert.equal(peerMessage.status, 'accepted'); assert.equal(peerMessage.read, null); assert.equal(peerMessage.done, null);
+await runtime.dispatch();
+const peerMessageCalls = calls.filter(args => args[1] === 'prompt').slice(promptsBeforePeerMessage);
+assert.equal(peerMessageCalls.length, 1); assert.equal(peerMessageCalls[0].includes('--wait'), false); assert.match(peerMessageCalls[0][3], /From peer/);
+teamStatus = await invoke('team_status', 'team-status-target-fences', {}); teamMember = teamStatus.details.members.find((member: any) => member.id === teamRun);
+const staleTarget = teamMember.transport;
+for (const [commandId, target] of [
+ ['team-stale-assignment', { ...staleTarget, assignmentId: 'old-assignment' }],
+ ['team-stale-session', { ...staleTarget, session: 'foreign-session' }],
+ ['team-stale-generation', { ...staleTarget, generation: staleTarget.generation + 1 }],
+] as const) {
+ const response: any = await callSocket(readCredential(descriptor), { v: 1, op: 'team.message', scope: teamMember.scope, commandId, expectedRevision: teamMember.node.revision,
+  payload: { to: teamMember.id, target: { memberId: teamMember.id, assignmentId: target.assignmentId, session: target.session, handleId: target.handleId, generation: target.generation }, text: 'stale target' } }, 'model');
+ assert.equal(response.error, 'TEAM_TARGET_STALE');
+}
+stallPrompt = true;
+await invoke('team_message', 'team-message-unknown', { to: 'transport', text: 'Ambiguous ACK must stay unknown.' }); await runtime.dispatch();
+teamStatus = await invoke('team_status', 'team-status-unknown', {});
+assert.equal(teamStatus.details.messages.at(-1).status, 'unknown');
+const promptsAfterUnknown = calls.filter(args => args[1] === 'prompt').length;
+await invoke('team_message', 'team-message-unknown', { to: 'transport', text: 'Ambiguous ACK must stay unknown.' }); await runtime.dispatch();
+assert.equal(calls.filter(args => args[1] === 'prompt').length, promptsAfterUnknown, 'ambiguous transport retry never resubmits');
+const teamSettled = await settle(teamRun, '# Status\nPASS\nFirst managed assignment.');
+await invoke('team_manage', 'team-context', { action: 'context', text: 'Shared workstream context.' });
+await invoke('team_manage', 'team-rename', { action: 'rename', to: 'transport', name: 'runtime' });
+const beforeAssignmentDispatch = calls.length;
+await invoke('team_manage', 'team-assign-2', { action: 'assign', to: 'runtime', assignmentId: 'transport-contract-2', task: 'Own the second transport contract.', acceptance: ['real Herdr prompt path'], riskTier: 'high' });
+await runtime.dispatch();
+assert.ok(calls.slice(beforeAssignmentDispatch).some(args => args[1] === 'prompt' && args.includes('--wait') && args[3].includes('MANAGED TEAM NEW ASSIGNMENT transport-contract-2')));
+const secondTeamResult = await settle(teamRun, '# Status\nPASS\nSecond managed assignment.');
+await settle(peerRun, '# Status\nPASS\nPeer managed assignment.');
+teamStatus = await invoke('team_status', 'team-status-3', {}); teamMember = teamStatus.details.members.find((member: any) => member.id === teamRun);
+const currentTeamNode: any = await req('get', { runId: teamRun });
+assert.deepEqual(teamMember.immutable, immutable); assert.equal(teamMember.assignments.length, 2); assert.equal(teamMember.assignments[0].status, 'done'); assert.equal(teamMember.assignments[1].status, 'done');
+assert.equal(teamMember.observed.runtime, 'pi'); assert.equal(teamMember.observed.model, null); assert.equal(teamMember.observed.effort, null);
+assert.equal(teamMember.node.contract.assignmentId, 'transport-contract-2'); assert.equal(currentTeamNode.packet.task, 'Own the second transport contract.');
+assert.deepEqual(currentTeamNode.packet.acceptance, ['real Herdr prompt path']); assert.equal(currentTeamNode.packet.riskTier, 'high');
+assert.equal(currentTeamNode.result.contract.assignmentId, 'transport-contract-2');
+assert.deepEqual(teamStatus.details.storageLimits, { teamStateBytes: 16 * 1024 * 1024, commandEnvelopeBytes: 32 * 1024, responseEnvelopeBytes: 1024 * 1024, messageTextBytes: 16 * 1024 });
+assert.deepEqual(teamStatus.details.projectionLimits, { statusMessages: 128, statusMessageTextBytes: 1024 });
+assert.equal(Object.hasOwn(teamStatus.details.storageLimits, 'members'), false); assert.equal(Object.hasOwn(teamStatus.details.storageLimits, 'messages'), false);
+assert.equal(teamMember.assignments[0].attempts[0].result.path, teamSettled.result.path); assert.equal(teamMember.assignments[0].attempts[0].result.sha256, teamSettled.result.sha256);
+assert.equal(teamMember.assignments[0].attempts[0].result.proof, 'unknown'); assert.equal(teamMember.assignments[0].attempts[0].result.historical, true);
+for (const delivery of await req('wait', { runId: teamRun }) as any[]) await req('ack', { runId: teamRun, deliveryId: delivery.id });
+const retirement = await invoke('team_manage', 'team-retire', { action: 'retire', to: 'runtime' });
+assert.equal(retirement.details.status, 'retired');
+await assert.rejects(teamChildHost.service.close(), /CLOSED|SHUTDOWN/, 'retirement already closed the child service after descendant settlement');
+for (const delivery of await req('wait', { runId: peerRun }) as any[]) await req('ack', { runId: peerRun, deliveryId: delivery.id });
+const peerRetirement = await invoke('team_manage', 'team-peer-retire', { action: 'retire', to: 'peer' });
+assert.equal(peerRetirement.details.status, 'retired');
+await assert.rejects(peerChildHost.service.close(), /CLOSED|SHUTDOWN/, 'peer retirement already closed the child service');
+assert.equal((await invoke('team_status', 'team-status-retired', {})).details.members.find((member: any) => member.id === teamRun).status, 'retired');
+assert.equal(secondTeamResult.handle.id, teamSettled.handle.id);
+console.log('PASS: managed public team API uses exact busy Herdr transport, honest ACK state, retained assignments and descendant-aware retirement');
 
 for (const [status, artifact] of [['stalled', null], ['stalled', ''], ['stalled', '# Status\nIN PROGRESS'], ['failed', '# Status\nFAIL']] as const) {
  const result = await invoke('bg_agent', `artifact-${status}-${String(artifact).length}`, params); await runtime.dispatch();

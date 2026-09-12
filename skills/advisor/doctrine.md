@@ -57,9 +57,9 @@ harness and formatting failures belong to the same maker.
    workstream; transfer with an explicit handoff event. A child owns its assigned
    outcome and result checkpoint without claiming or editing the root checkpoint.
 4. **One maker per write surface at a time, including you.** Never edit a
-   checkout while a worker owns its implementation or repair surface. Reclaim
-   ownership explicitly after settlement. Parallel makers need distinct
-   worktrees and explicit user approval for the added spend.
+   worker-owned checkout. Reclaim ownership explicitly after settlement.
+   Parallel makers need distinct worktrees.
+   The advisor chooses staffing within explicit user limits and runtime constraints.
 5. **Criteria are frozen within a loop and revised deliberately.** "Done"
    means every criterion in the packet was verified by the named checks, not
    asserted. Never weaken a criterion to finish a loop. **Deliberate criteria
@@ -383,8 +383,9 @@ Details: `references/transport-and-settlement.md`.
 
 ## Isolated state
 
-Root advisor state lives under `~/.advisor/<repo-key>/`, shared by every worktree
-of one repository; `advisor_session_init` reports the exact paths. A scoped
+Advisor state lives under `~/.advisor/<repo-key>/`, shared by every worktree
+of one repository. Use `advisor_checkpoint` for fenced updates; native hosts
+use the shared state helper without changing lanes. A scoped
 child instead uses its assigned `result.md` as its operational checkpoint and
 its runtime-provided child state root for local `graphs/`. References here to
 the current Scope ledger, findings or next action mean that child's checkpoint

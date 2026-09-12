@@ -58,8 +58,9 @@ waves:
    and disclose only non-blocking residuals. Otherwise report incomplete work
    and a bounded next step or user decision. Never silently reset a cap by
    renaming the slice or launching another planner.
-8. Parallel writers, including child advisors, require explicit user approval
-   and distinct worktrees.
+8. Parallel writers, including child advisors, need distinct worktrees. The
+   advisor chooses staffing within explicit user limits and actual runtime
+   constraints; graphing adds no routine extra-spend approval step.
 
 ## Carry evidence with the outcome
 

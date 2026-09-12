@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
+import { advisorIdentity, advisorCheckpointOwner, claimAdvisorCheckpoint, updateAdvisorCheckpoint, type AdvisorMode } from "../scripts/advisor-core/advisor-state.mjs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -169,7 +170,8 @@ interface AdvisorPromptParts {
 	guide?: string;
 	workerHarness?: WorkerHarness;
 	hotSection?: string;
-	workstreamPath?: string;
+  workstreamPath?: string;
+  teamPolicy?: string;
 }
 
 /** The advisor's standing context: doctrine core, live guide, harness policy, and (when pending) the hot section. */
@@ -180,7 +182,8 @@ export function withAdvisorSystemPrompt(systemPrompt: string, parts: AdvisorProm
 			`# Current Advisor Doctrine\n\nThis installed doctrine is authoritative for the active advisor session. Any advisor skill snapshot or summary in conversation history is archival and must not override it.\n\n${parts.doctrine}`,
 		);
 	}
-	if (parts.guide) sections.push(`# Active Intelligence Guide\n\n${parts.guide}`);
+  if (parts.guide) sections.push(`# Active Intelligence Guide\n\n${parts.guide}`);
+  if (parts.teamPolicy) sections.push(`# CoS team mode\n\n${parts.teamPolicy}`);
 	sections.push(workerHarnessDoctrine(parts.workerHarness));
 	if (parts.hotSection !== undefined) {
 		const location = parts.workstreamPath ? ` of ${parts.workstreamPath}` : "";
@@ -212,13 +215,6 @@ interface AdvisorPaths {
 	lock: string;
 }
 
-interface WorkstreamClaimOptions {
-	paths: AdvisorPaths;
-	workstream: string;
-	sessionId: string;
-	firstOwner: string | undefined;
-	transferApproved: boolean;
-}
 
 function slugify(value: string): string {
 	return value
@@ -305,161 +301,52 @@ async function delay(milliseconds: number): Promise<void> {
 	await new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 }
 
-function ownerFromWorkstream(content: string): string | undefined {
-	return content.match(/^- Owner session: `([^`]+)`$/m)?.[1];
-}
-
 async function readIfPresent(path: string): Promise<string | undefined> {
-	try {
-		return await readFile(path, "utf8");
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-		throw error;
-	}
+  try { return await readFile(path, 'utf8'); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined; throw error; }
 }
 
-function pathsFor(root: string, workstream: string, sessionId: string): AdvisorPaths {
-	return {
-		root,
-		workstream: join(root, "workstreams", `${workstream}.md`),
-		session: join(root, "sessions", `${sessionId}.md`),
-		events: join(root, "events"),
-		lock: join(root, "locks", `workstream-${workstream}`),
-	};
-}
-
-async function ensureAdvisorDirectories(root: string): Promise<void> {
-	await Promise.all(
-		["workstreams", "sessions", "events", "locks", "runs", "graphs"].map((directory) =>
-			mkdir(join(root, directory), { recursive: true }),
-		),
-	);
-}
-
-async function acquireLock(path: string): Promise<void> {
-	try {
-		await mkdir(path);
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-			throw new Error("This workstream is being initialized by another advisor. Retry once it finishes.");
-		}
-		throw error;
-	}
-}
-
-function timestampForPath(now = new Date()): string {
-	return now.toISOString().replaceAll(":", "-");
-}
-
-async function writeAtomically(path: string, content: string): Promise<void> {
-	const temp = `${path}.tmp-${process.pid}-${Date.now()}`;
-	await writeFile(temp, content, "utf8");
-	await rename(temp, path);
-}
-
-async function requestTransfer(
-	ctx: ExtensionContext,
-	workstream: string,
-	owner: string | undefined,
-	sessionId: string,
-): Promise<boolean> {
-	if (!owner || owner === sessionId) return false;
-	if (!ctx.hasUI) throw new Error(`Workstream ${workstream} is owned by session ${owner}.`);
-	const approved = await ctx.ui.confirm(
-		"Transfer advisor workstream?",
-		`${workstream} is owned by ${owner.slice(0, 8)}. Transfer it to this session?`,
-	);
-	if (!approved) throw new Error("Workstream transfer cancelled.");
-	return true;
-}
-
-async function recordHandoff(
-	paths: AdvisorPaths,
-	workstream: string,
-	previousOwner: string,
-	sessionId: string,
-): Promise<void> {
-	const eventPath = join(
-		paths.events,
-		`${timestampForPath()}-${sessionId.slice(0, 8)}-${workstream}-handoff.md`,
-	);
-	await writeFile(
-		eventPath,
-		`# Advisor workstream handoff\n\n- Workstream: \`${workstream}\`\n- Previous owner: \`${previousOwner}\`\n- New owner: \`${sessionId}\`\n`,
-		{ encoding: "utf8", flag: "wx" },
-	);
-}
-
-async function writeWorkstreamClaim(options: WorkstreamClaimOptions): Promise<void> {
-	const { paths, workstream, sessionId, firstOwner, transferApproved } = options;
-	const current = await readIfPresent(paths.workstream);
-	const currentOwner = current ? ownerFromWorkstream(current) : undefined;
-	if (!current) {
-		await writeFile(
-			paths.workstream,
-			`# Workstream: ${workstream}\n\n- Owner session: \`${sessionId}\`\n- Status: active\n\n## Goal\n\nTo be defined from the advisor conversation.\n\n## Current state\n\nInitialized by \`/advisor\`.\n\n## Scope ledger\n\nRecord material scope decisions and why: accepted outcome, ownership and safety boundaries, necessary in-scope work, and unresolved product choices. The maker owns remaining diagnosis, implementation and verification; suggested files are orientation, not a partial-fix fence. Update when a material decision changes, not for every edit.\n`,
-			{ encoding: "utf8", flag: "wx" },
-		);
-		return;
-	}
-  if (!currentOwner) throw new Error("Existing workstream has no valid owner; recover it explicitly instead of adopting corrupt state.");
-	if (currentOwner === sessionId) return;
-	if (!transferApproved || currentOwner !== firstOwner) {
-		throw new Error(`Workstream ownership changed to ${currentOwner}; initialize again.`);
-	}
-	const updated = current.replace(
-		/^- Owner session: `[^`]+`$/m,
-		`- Owner session: \`${sessionId}\``,
-	);
-	await writeAtomically(paths.workstream, updated);
-	await recordHandoff(paths, workstream, currentOwner, sessionId);
-}
-
-async function ensurePrivateSession(
-	path: string,
-	workstream: string,
-	sessionId: string,
-): Promise<void> {
-	const current = await readIfPresent(path);
-	if (current) {
-		if (!current.includes(`- Workstream: \`${workstream}\``)) {
-			throw new Error("This Pi session already owns a different advisor workstream.");
-		}
-    if (current.includes(`- Checkpoint: \`../workstreams/${workstream}.md\``)) return;
-    // Preserve pre-integration notes once, without keeping a second operational diary.
-    const archive = `${path}.legacy`;
-    const archived = await readIfPresent(archive);
-    if (archived !== undefined && archived !== current) throw new Error("Legacy session archive differs; resolve it without overwriting history.");
-    if (archived === undefined) await writeFile(archive, current, { encoding: "utf8", flag: "wx" });
+async function claimWorkstream(ctx: ExtensionContext, workstream: string, sessionId: string, workerHarness: WorkerHarness, mode?: AdvisorMode) {
+  const root = await advisorStateRoot(ctx.cwd);
+  const identity = advisorIdentity('pi', sessionId);
+  const owner = advisorCheckpointOwner({ root, workstream, identity });
+  let transferFrom;
+  if (owner && (owner.host !== identity.host || owner.sessionId !== sessionId)) {
+    if (!ctx.hasUI || !await ctx.ui.confirm('Transfer advisor workstream?', `${workstream} is owned by ${owner.host}/${owner.sessionId}. Transfer checkpoint ownership only? Existing teammates and runtime ownership are not adopted.`)) {
+      throw new Error(`Workstream ${workstream} is owned by ${owner.host} session ${owner.sessionId}.`);
+    }
+    transferFrom = owner;
   }
-  const pointer = `# Advisor Session ${sessionId.slice(0, 8)}\n\n- Workstream: \`${workstream}\`\n- Checkpoint: \`../workstreams/${workstream}.md\`\n\nOperational state lives only in the workstream current section. This file is an identity pointer, not a diary.\n${current ? "Legacy notes were preserved in the adjacent .md.legacy archive.\n" : ""}`;
-  if (current) await writeAtomically(path, pointer);
-  else await writeFile(path, pointer, { encoding: "utf8", flag: "wx" });
+  return claimAdvisorCheckpoint({ root, workstream, identity, workerHarness, mode, transferFrom });
 }
 
-async function claimWorkstream(
-	ctx: ExtensionContext,
-	workstream: string,
-	sessionId: string,
-): Promise<AdvisorPaths> {
-	const root = await advisorStateRoot(ctx.cwd);
-	await ensureAdvisorDirectories(root);
-	const paths = pathsFor(root, workstream, sessionId);
-	const firstRead = await readIfPresent(paths.workstream);
-	const firstOwner = firstRead ? ownerFromWorkstream(firstRead) : undefined;
-	const transferApproved = await requestTransfer(ctx, workstream, firstOwner, sessionId);
-
-	await acquireLock(paths.lock);
-	try {
-		await writeWorkstreamClaim({ paths, workstream, sessionId, firstOwner, transferApproved });
-	} catch (error) {
-		throw new Error(`Could not claim advisor workstream: ${(error as Error).message}`);
-	} finally {
-		await rm(paths.lock, { recursive: true, force: true });
-	}
-	return paths;
+interface TeamProjection {
+  workstream: string; familyId: string; active: boolean;
+  members?: Array<{ id: string; name: string; status: string; scope: { run: string }; immutable: { role: string; cwd: string; teammateSession: unknown }; requested: unknown; observed: unknown; node: unknown; assignments: Array<{ id: string; attempts: Array<{ result?: unknown }> }> }>;
 }
-
+async function refreshTeamCheckpoint(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
+  const checkpoint = await advisorCheckpoint(ctx);
+  if (!checkpoint?.content || checkpoint.state.mode !== 'cos') return;
+  const request: { sessionId: string; action: string; context: ExtensionContext; payload: object; response?: Promise<unknown> } = {
+    sessionId: ctx.sessionManager.getSessionId(), action: 'team.status', context: ctx, payload: {},
+  };
+  pi.events?.emit('pi-detach:request', request);
+  if (!request.response) throw new Error('Team projection unavailable; paired managed bridge required.');
+  const view = await request.response as TeamProjection;
+  if (view.workstream !== checkpoint.state.workstream) throw new Error('Foreign workstream team projection refused.');
+  const members = view.members ?? [];
+  const lines = members.slice(0, 32).map(member => {
+    const assignment = member.assignments.at(-1);
+    return JSON.stringify({ name: member.name, run: member.scope.run, session: member.immutable.teammateSession, assignment: assignment?.id,
+      role: member.immutable.role, writeSurface: member.immutable.cwd, requested: member.requested, observed: member.observed,
+      status: member.status, node: member.node, evidence: assignment?.attempts.at(-1)?.result ?? null, next: 'Inspect current outcome evidence and choose the next action.' });
+  });
+  const projection = `## Team projection\n\nRuntime snapshot ${new Date().toISOString()} — family ${view.familyId}; ${members.length} members. Not a second scheduler; use team_status for current liveness.\n${members.length > 32 ? 'First 32 members shown; team_status has the full roster.\n' : ''}\n${lines.join('\n')}\n\n`;
+  const content = /^## Team projection\n/m.test(checkpoint.content)
+    ? checkpoint.content.replace(/^## Team projection\n[\s\S]*?(?=^## |$(?![\s\S]))/m, projection)
+    : checkpoint.content.replace(/(?=^## Log\b)/m, projection) + (!/^## Log\b/m.test(checkpoint.content) ? `\n${projection}` : '');
+  updateAdvisorCheckpoint({ root: await advisorStateRoot(ctx.cwd), workstream: checkpoint.state.workstream, identity: advisorIdentity('pi', ctx.sessionManager.getSessionId()), expectedDigest: checkpoint.digest!, content });
+}
 
 function requireHerdrEnvironment(): void {
 	if (process.env.HERDR_ENV !== "1") {
@@ -580,11 +467,14 @@ async function renameHerdrAgent(
 	return fallback;
 }
 
-async function bindAdvisorFamily(pi: ExtensionAPI, ctx: ExtensionContext, state: Pick<AdvisorSessionState, "workstream" | "workerHarness">): Promise<void> {
-	if (process.env.PI_DETACH_BACKEND === "legacy" || !managedBridgeEnabled() && !process.env.PI_DETACH_RUNTIME_BRIDGE) return;
+async function bindAdvisorFamily(pi: ExtensionAPI, ctx: ExtensionContext, state: Pick<AdvisorSessionState, "workstream" | "workerHarness" | "mode">): Promise<void> {
+  if (process.env.PI_DETACH_BACKEND === 'legacy' || !managedBridgeEnabled() && !process.env.PI_DETACH_RUNTIME_BRIDGE) {
+    if (state.mode === 'cos') throw new Error('CoS requires the paired managed bridge; no legacy team fallback.');
+    return;
+  }
 	const request: { sessionId: string; action: string; context: ExtensionContext; payload: object; response?: Promise<unknown> } = {
 		sessionId: ctx.sessionManager.getSessionId(), action: "advisor.bind", context: ctx,
-		payload: { workstream: state.workstream, workerHarness: state.workerHarness },
+    payload: { workstream: state.workstream, workerHarness: state.workerHarness, ...(state.mode === 'cos' ? { teamMode: true } : {}) },
 	};
 	pi.events?.emit("pi-detach:request", request);
 	if (!request.response) throw new Error("Advisor family binding unavailable; load the paired pi-detach extension before initializing.");
@@ -633,7 +523,8 @@ function bgAgentGuardReason(input: unknown, workerHarness?: WorkerHarness): stri
 		return "The prompt contains an unexpanded paste placeholder such as [paste #1 +12 lines]; include the pasted content in the prompt or reference it by path.";
 	}
 	if (typeof params.name === "string" && params.name) return undefined;
-	const expectedHarness = params.role === "advisor" ? "pi" : workerHarness;
+  // Advisor hosting is Pi; explicit native is compatible with inherited native specialists.
+  const expectedHarness = params.role === 'advisor' && params.harness === 'pi' ? 'pi' : workerHarness;
 	if (expectedHarness && isWorkerHarness(params.harness) && params.harness !== expectedHarness) {
 		return `Advisor session worker harness is ${expectedHarness}; per-launch ${params.harness} is not allowed.`;
 	}
@@ -680,11 +571,12 @@ function registerVisibilityGuard(
 	getBindingError: () => string | undefined,
 ): void {
 	pi.on("tool_call", async (event, ctx) => {
-		const bindingError = getBindingError();
-		if (bindingError && ["bg_agent", "advisor_graph_evidence"].includes(event.toolName)) return { block: true, reason: bindingError };
+    const bindingError = getBindingError();
+    const effect = ['bg_agent', 'advisor_graph_evidence', 'team_message'].includes(event.toolName) || event.toolName === 'team_manage' && (event.input as { action?: string }).action !== 'retire';
+    if (bindingError && effect) return { block: true, reason: bindingError };
 		const state = getState();
 		if (!state) return;
-		if (["bg_agent", "advisor_graph_evidence"].includes(event.toolName)) {
+    if (effect) {
 			const checkpoint = await advisorCheckpoint(ctx);
 			if (!checkpoint?.content) return { block: true, reason: checkpoint?.problem ?? "Advisor checkpoint unavailable; reinitialize before worker effects." };
 		}
@@ -727,7 +619,8 @@ async function initializeAdvisor(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	workstreamValue: string | undefined,
-	workerHarnessValue: string | undefined,
+  workerHarnessValue: string | undefined,
+  mode?: AdvisorMode,
 ): Promise<{
 	state: AdvisorSessionState;
 	herdrName: string;
@@ -744,32 +637,38 @@ async function initializeAdvisor(
 		ctx,
 		workerHarnessValue ?? restored?.workerHarness,
 	);
-	const usedStoredWorkstream = Boolean(restored && restored.workstream !== requested);
+  if ((mode === 'cos' || restored?.mode === 'cos') && restored && requested !== restored.workstream) throw new Error('A CoS session cannot move to another workstream; start a fresh session.');
+  if ((mode === 'cos' || restored?.mode === 'cos') && restored && workerHarnessValue && requestedHarness !== restored.workerHarness) throw new Error('Existing specialist preference is immutable; start a fresh session.');
+  const usedStoredWorkstream = Boolean(restored && restored.workstream !== requested);
 	const usedStoredWorkerHarness = Boolean(restored && restored.workerHarness !== requestedHarness);
 	const workstream = restored?.workstream ?? requested;
 	const workerHarness = restored?.workerHarness ?? requestedHarness;
-	const paneId = await verifyHerdr(pi);
-	const paths = await claimWorkstream(ctx, workstream, sessionId);
-	const herdrName = await renameHerdrAgent(pi, paneId, workstream, sessionId);
+  const paneId = await verifyHerdr(pi);
+  // A rejected family binding publishes no checkpoint pointer or selected environment.
+  await bindAdvisorFamily(pi, ctx, { workstream, workerHarness, mode: mode ?? restored?.mode });
+  const herdrName = await renameHerdrAgent(pi, paneId, workstream, sessionId);
+  const claimed = await claimWorkstream(ctx, workstream, sessionId, workerHarness, mode ?? restored?.mode);
+  const paths = claimed.paths;
 	try {
 		await renameHerdrPane(pi, paneId, advisorPaneLabel(workstream));
 	} catch {
 		// Pane labels are presentational; the Herdr agent identity remains authoritative.
 	}
-	// A failed initialization may reserve a retryable claim, but publishes no session identity.
-	await bindAdvisorFamily(pi, ctx, { workstream, workerHarness });
-	await ensurePrivateSession(paths.session, workstream, sessionId);
-	const state: AdvisorSessionState = {
-		workstream,
-		sessionId,
-		initializedAt: restored?.initializedAt ?? new Date().toISOString(),
-		workerHarness,
-	};
+  // Publish only after binding, host identity and canonical ownership are confirmed.
+  const state: AdvisorSessionState = {
+    workstream,
+    sessionId,
+    initializedAt: restored?.initializedAt ?? claimed.state.initializedAt,
+    workerHarness,
+    ...(claimed.mode === 'cos' ? { mode: 'cos' as const } : {}),
+  };
+  await bindAdvisorFamily(pi, ctx, state);
 	process.env.ADVISOR_WORKSTREAM = workstream;
 	process.env.ADVISOR_STATE_ROOT = paths.root;
 	process.env.PI_DETACH_WORKER_HARNESS = workerHarness;
 	pi.setSessionName(`advisor-${workstream}`);
-	if (!restoredEntryState(ctx)) pi.appendEntry(ENTRY_TYPE, state);
+  if (!restoredEntryState(ctx) || restored?.mode !== state.mode) pi.appendEntry(ENTRY_TYPE, state);
+  pi.events?.emit('advisor:team-mode', { enabled: state.mode === 'cos' });
 	return { state, herdrName, usedStoredWorkstream, usedStoredWorkerHarness, paths };
 }
 
@@ -798,15 +697,16 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		if (!activeState) return;
     const checkpoint = await advisorCheckpoint(ctx);
     if (checkpoint?.content) {
-      const root = await advisorStateRoot(ctx.cwd);
-      await ensureAdvisorDirectories(root);
-      await ensurePrivateSession(pathsFor(root, activeState.workstream, activeState.sessionId).session, activeState.workstream, activeState.sessionId);
+      const claimed = await claimWorkstream(ctx, activeState.workstream, activeState.sessionId, activeState.workerHarness, checkpoint.state.mode);
+      activeState = { ...activeState, ...(claimed.mode === 'cos' ? { mode: 'cos' as const } : {}) };
+      pi.events?.emit('advisor:team-mode', { enabled: activeState.mode === 'cos' });
     }
 		await loadDoctrine(ctx);
 		hotSectionPending = true;
 		applyAdvisorToolSet(pi);
 	});
   pi.on("session_shutdown", () => {
+    pi.events?.emit('advisor:team-mode', { enabled: false });
     activeState = undefined; doctrine = undefined; hotSectionPending = false;
     for (const [key, value] of Object.entries(previousEnvironment)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
   });
@@ -834,11 +734,17 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 				guide,
 				workerHarness: activeState.workerHarness,
 				hotSection,
-				workstreamPath,
+        workstreamPath,
+        teamPolicy: activeState.mode === 'cos' ? await readFile(new URL('../skills/advisor/references/team.md', import.meta.url), 'utf8') : undefined,
 			}),
 		};
 	});
-	registerVisibilityGuard(pi, () => activeState, () => bindingError);
+  pi.on('tool_result', async (event, ctx) => {
+    if (pi.getFlag?.('advisor-worker-role') || activeState?.mode !== 'cos' || !['bg_agent', 'bg_stop', 'team_manage', 'team_message'].includes(event.toolName)) return;
+    try { await refreshTeamCheckpoint(pi, ctx); }
+    catch (error) { ctx.ui.notify(`Team checkpoint projection is unknown: ${String(error)}`, 'warning'); }
+  });
+  registerVisibilityGuard(pi, () => activeState, () => bindingError);
 
 	pi.registerTool({
 		name: "advisor_launch",
@@ -905,10 +811,12 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 					description: "Use Pi workers or route selected OpenAI/Anthropic models through native harnesses. Omit to ask in the Pi UI.",
 				}),
 			),
-		}),
+      mode: Type.Optional(Type.Union([Type.Literal('advisor'), Type.Literal('cos')], { description: 'Explicit CoS opt-in. Ordinary init restores an already selected mode.' })),
+    }),
 		async execute(...args) {
 			const [, params, , , ctx] = args;
-			const initialized = await initializeAdvisor(pi, ctx, params.workstream, params.workerHarness).catch(error => { bindingError = String(error); throw error; });
+      if (pi.getFlag?.('advisor-worker-role')) throw new Error('Scoped helpers cannot initialize a root workstream.');
+      const initialized = await initializeAdvisor(pi, ctx, params.workstream, params.workerHarness, params.mode).catch(error => { bindingError = String(error); throw error; });
 			bindingError = undefined;
 			activeState = initialized.state;
 			await loadDoctrine(ctx);
@@ -943,4 +851,34 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 			};
 		},
 	});
+
+  // Both literal commands use the exact same initialization and persisted mode as the skill/tool.
+  const enterTeam = async (args: string, ctx: ExtensionContext) => {
+    if (pi.getFlag?.('advisor-worker-role')) throw new Error('Scoped helpers cannot initialize a root workstream.');
+    const [head, ...task] = args.split(/(?:^|\s+)--(?:\s+|$)/);
+    const words = head.trim().split(/\s+/).filter(Boolean);
+    if (words.length > 2 || words[1] && !isWorkerHarness(words[1])) throw new Error('Usage: /cos [workstream] [pi|native] [-- task]');
+    const initialized = await initializeAdvisor(pi, ctx, words[0], words[1], 'cos').catch(error => { bindingError = String(error); throw error; });
+    activeState = initialized.state; bindingError = undefined;
+    await loadDoctrine(ctx); hotSectionPending = true; applyAdvisorToolSet(pi);
+    pi.sendUserMessage(`CoS mode is initialized for owned workstream ${activeState.workstream}; do not initialize again. Use the injected advisor doctrine and team policy. ${task.join(' -- ') || 'Continue the accepted workstream, or ask for the accepted outcome if it is not yet known.'}`, { deliverAs: 'followUp' });
+  };
+  for (const name of ['cos', 'advisor-team']) pi.registerCommand?.(name, { description: 'Enter the same owned advisor workstream in CoS team mode: [workstream] [pi|native] [-- task]', handler: enterTeam });
+
+  pi.registerTool({
+    name: 'advisor_checkpoint', label: 'Advisor Checkpoint',
+    description: 'Read the canonical owned checkpoint and its digest, or replace it using that digest. Root-only, collision-safe; preserves host/workstream ownership. Helper evidence belongs in assigned artifacts.',
+    parameters: Type.Object({ content: Type.Optional(Type.String({ maxLength: 65536 })), expectedDigest: Type.Optional(Type.String()) }),
+    async execute(_id, params, _signal, _update, ctx) {
+      if (pi.getFlag?.('advisor-worker-role')) throw new Error('Scoped helpers must use assigned evidence artifacts.');
+      if (params.content === undefined) await refreshTeamCheckpoint(pi, ctx);
+      const checkpoint = await advisorCheckpoint(ctx);
+      if (!checkpoint?.content) throw new Error(checkpoint?.problem ?? 'Initialize the advisor workstream first.');
+      const root = await advisorStateRoot(ctx.cwd);
+      const identity = advisorIdentity('pi', ctx.sessionManager.getSessionId());
+      const current = params.content === undefined ? checkpoint : updateAdvisorCheckpoint({ root, workstream: checkpoint.state.workstream, identity, content: params.content, expectedDigest: params.expectedDigest ?? '' });
+      const digest = current.digest;
+      return { content: [{ type: 'text', text: `${checkpoint.path}\nDigest: ${digest}\n\n${current.content}` }], details: { path: checkpoint.path, digest, mode: checkpoint.state.mode ?? 'advisor' } };
+    },
+  });
 }

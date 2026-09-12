@@ -11,7 +11,7 @@ import { createPiDetachClient } from "../scripts/advisor-runtime/pi-detach-clien
 
 // Actual extension callers, bootstrap reconnect, SQLite, paired port and Herdr driver.
 // Only Herdr observations are deterministic fixtures; no real provider is launched.
-test("eager root init and resume bind a Pi advisor's native specialist inheritance", { skip: !process.env.PI_DETACH_TEST_PACKAGE, timeout: 30000 }, async () => {
+for (const [entry, harness] of [['tool', undefined], ['cos', 'native'], ['advisor-team', 'pi']] as const) test(`${entry}: real entry/bridge hosts child advisor in Pi with native specialists (${harness ?? 'omitted'} harness)`, { skip: !process.env.PI_DETACH_TEST_PACKAGE, timeout: 30000 }, async () => {
   const saved = { ...process.env };
   const base = realpathSync(mkdtempSync("/tmp/bind-")); const cwd = join(base, "work"); mkdirSync(cwd);
   const detach = process.env.PI_DETACH_TEST_PACKAGE!;
@@ -21,6 +21,7 @@ test("eager root init and resume bind a Pi advisor's native specialist inheritan
   const { registerBridgeDelivery, resetBridgeClients } = await import(pathToFileURL(join(detach, "src/runtime-bridge.ts")).href);
   const { registerBgAgentTool } = await import(pathToFileURL(join(detach, "src/tools/bg-agent.ts")).href);
   const { bootstrapIdentity, ensurePiDetach, installedRevision } = await import(pathToFileURL(resolve("scripts/advisor-runtime/pi-detach-bootstrap.mjs")).href);
+  writeFileSync(join(base, 'advisor-intelligence.json'), readFileSync('config/intelligence-profiles/codex-lean.json'));
   const profile = join(base, "profiles.json");
   writeFileSync(profile, JSON.stringify({ defaultAgent: "pi", profiles: {
     advisor: { agent: "pi", harness: "pi", skill: "advisor-role-advisor", cliArgs: ["--advisor-worker-role", "advisor", "--advisor-worker-allow-subagents"] },
@@ -62,11 +63,13 @@ test("eager root init and resume bind a Pi advisor's native specialist inheritan
     return { host, stateRoot, request: (action: string, payload: object = {}) => client.request(sessionId, action, payload) as Promise<any> };
   }
   function session(sessionId: string, child = false, branch: any[] = []) {
+    const commands = new Map<string, any>(); const messages: string[] = [];
     const hooks = new Map<string, any[]>(), tools = new Map<string, any>(), notices: string[] = [], entries: any[] = [...branch];
-    const pi: any = { events: new EventEmitter(), on(n: string, h: any) { hooks.set(n, [...(hooks.get(n) ?? []), h]); }, getFlag(n: string) { return child ? n === "advisor-worker-role" ? "advisor" : n === "advisor-worker-allow-subagents" ? true : undefined : undefined; }, registerFlag() {}, registerTool(t: any) { tools.set(t.name, t); }, registerCommand() {}, async exec() { return { code: 0, stdout: "", stderr: "" }; }, getActiveTools() { return ["bg_agent", "edit"]; }, setActiveTools() {}, setSessionName() {}, getSessionName() {}, appendEntry(customType: string, data: any) { entries.push({ type: "custom", customType, data }); }, sendMessage() {} };
+    const pi: any = { events: new EventEmitter(), on(n: string, h: any) { hooks.set(n, [...(hooks.get(n) ?? []), h]); }, getFlag(n: string) { return child ? n === 'advisor-worker-role' ? 'advisor' : n === 'advisor-worker-allow-subagents' ? true : undefined : undefined; }, registerFlag() {}, registerTool(t: any) { tools.set(t.name, t); }, registerCommand(name: string, value: any) { commands.set(name, value); }, async exec() { return { code: 0, stdout: '', stderr: '' }; }, getActiveTools() { return ['bg_agent', 'edit']; }, setActiveTools() {}, setSessionName() {}, getSessionName() {}, appendEntry(customType: string, data: any) { entries.push({ type: 'custom', customType, data }); }, sendMessage() {}, sendUserMessage(message: string) { messages.push(message); } };
     const ctx: any = { cwd, sessionManager: { getSessionId: () => sessionId, getBranch: () => entries, getEntries: () => entries }, ui: { notify(message: string) { notices.push(message); }, setStatus() {} }, isIdle: () => false };
     sessionExtension(pi); if (child) workerExtension(pi); registerBridgeDelivery(pi); registerBgAgentTool(pi, { list: () => [], start() { throw new Error("legacy path forbidden"); } });
-    const result = { entries, notices, emit: async (n: string, e: any = {}) => { const values = []; for (const h of hooks.get(n) ?? []) values.push(await h(e, ctx)); return values; }, invoke: (name: string, id: string, p: object) => tools.get(name).execute(id, p, undefined, undefined, ctx) };
+    const result = { entries, notices, messages, command: (name: string, args = '') => commands.get(name).handler(args, ctx), emit: async (n: string, e: any = {}) => { const values = []; for (const h of hooks.get(n) ?? []) values.push(await h(e, ctx)); return values; }, invoke: (name: string, id: string, p: object) => tools.get(name).execute(id, p, undefined, undefined, ctx) };
+    assert.equal(commands.get('cos').handler, commands.get('advisor-team').handler, 'literal aliases share one entry');
     sessions.push(result); return result;
   }
   async function finish(owner: any, node: any) {
@@ -80,10 +83,35 @@ test("eager root init and resume bind a Pi advisor's native specialist inheritan
     // Eager bootstrap has no chosen advisor metadata yet. Reconnect through actual sibling hooks.
     const root = await start("root-session"), rootSession = session("root-session"); await rootSession.emit("session_start");
     const startup = readFileSync(join(root.stateRoot, "startup.json"));
-    await rootSession.invoke("advisor_session_init", "init", { workstream: "chosen-outcome", workerHarness: "native" });
-    const a = await rootSession.invoke("bg_agent", "advisor", { role: "advisor", harness: "pi", prompt: "Own outcome", anchor: "prove", promoteAfterMs: 0, keepAlive: true }); await root.host.runtime.dispatch();
+    process.env.PI_DETACH_BACKEND = 'legacy';
+    await assert.rejects(entry === 'tool'
+      ? rootSession.invoke('advisor_session_init', 'no-legacy', { workstream: 'chosen-outcome', workerHarness: 'native', mode: 'cos' })
+      : rootSession.command(entry, 'chosen-outcome native'), /CoS requires the paired managed bridge/);
+    assert.equal(existsSync(join(base, 'checkpoint/workstreams/chosen-outcome.md')), false);
+    delete process.env.PI_DETACH_BACKEND;
+    if (entry === 'tool') await rootSession.invoke('advisor_session_init', 'init', { workstream: 'chosen-outcome', workerHarness: 'native' });
+    else {
+      await rootSession.command(entry, 'chosen-outcome native -- Own the accepted outcome');
+      assert.match(rootSession.messages[0], /initialized.*do not initialize again/);
+      await rootSession.command(entry === 'cos' ? 'advisor-team' : 'cos', '-- Continue the same outcome');
+      assert.match(rootSession.messages.at(-1)!, /Continue the same outcome/);
+      assert.equal(rootSession.entries.length, 1, 'alias restore does not duplicate initialization');
+      const disk = readFileSync(join(base, 'checkpoint/workstreams/chosen-outcome.md'), 'utf8');
+      assert.match(disk, /Advisor mode: `cos`/);
+    }
+    const advisorParams = { role: 'advisor', ...(harness ? { harness } : {}), prompt: 'Own outcome', anchor: 'prove', promoteAfterMs: 0, keepAlive: true };
+    assert.ok((await rootSession.emit('tool_call', { toolName: 'bg_agent', input: advisorParams })).every(v => !v?.block));
+    assert.ok((await rootSession.emit('tool_call', { toolName: 'bg_agent', input: { role: 'builder', harness: 'pi', prompt: 'Forbidden', anchor: 'prove' } })).some(v => v?.block));
+    const a = await rootSession.invoke('bg_agent', 'advisor', advisorParams); await root.host.runtime.dispatch();
     const advisor = await root.request("get", { runId: a.details.runId }); assert.ok(advisor.handle, JSON.stringify(advisor));
     assert.equal(advisor.packet.execution.harness, "pi"); assert.equal(advisor.childService.family.workstream, "chosen-outcome"); assert.equal(advisor.childService.family.workerHarness, "native");
+    if (entry !== 'tool') {
+      await root.request('team.enlist', { toolCallId: 'enlist', runId: a.details.runId, name: 'outcome-owner' });
+      const checkpoint = await rootSession.invoke('advisor_checkpoint', 'checkpoint-read', {});
+      assert.match(JSON.stringify(checkpoint), /Team projection[\s\S]*outcome-owner[\s\S]*writeSurface/);
+      await assert.rejects(rootSession.command('cos', 'foreign-workstream'), /cannot move/);
+      await assert.rejects(rootSession.command('cos', 'chosen-outcome pi'), /preference is immutable/);
+    }
     process.env.ADVISOR_BRIDGE_CHILD_STATE = advisor.childService.stateRoot; process.env.ADVISOR_BRIDGE_WORKER_DIR = advisor.packet.execution.sourceDirectory;
     const child = await start("child-session", advisor.childService.stateRoot), childSession = session("child-session", true); await childSession.emit("session_start");
     assert.equal(childSession.notices.some(n => /unavailable|Could not initialize/.test(n)), false, childSession.notices.join("\n"));
@@ -98,7 +126,11 @@ test("eager root init and resume bind a Pi advisor's native specialist inheritan
     const resumed = session("root-session", false, rootSession.entries); await resumed.emit("session_start");
     assert.equal(process.env.PI_DETACH_WORKER_HARNESS, "native"); assert.equal(resumed.notices.some(n => /refused|unavailable/.test(n)), false, resumed.notices.join("\n"));
     await ensurePiDetach({ cwd, sessionId: "root-session", detachPath: detach, herdr: detectHerdrContext() });
-    assert.deepEqual(readFileSync(join(root.stateRoot, "startup.json")), startup);
+    assert.deepEqual(readFileSync(join(root.stateRoot, 'startup.json')), startup);
+    const prompt = await resumed.emit('before_agent_start', { systemPrompt: 'base' });
+    assert.ok(prompt.some(v => /Profile: codex-lean/.test(v?.systemPrompt ?? '')));
+    if (entry !== 'tool') assert.ok(prompt.some(v => /CoS team mode/.test(v?.systemPrompt ?? '')));
+    else assert.ok(prompt.every(v => !/CoS team mode/.test(v?.systemPrompt ?? '')));
     assert.equal((await root.request("family.budget")).used, 2);
     await resumed.emit("session_shutdown"); resetBridgeClients();
     // A conflicting init publishes no session pointer, entry or selected environment, and fences workers.
@@ -110,6 +142,11 @@ test("eager root init and resume bind a Pi advisor's native specialist inheritan
     assert.equal(existsSync(join(base, "checkpoint", "sessions", "foreign-session.md")), false);
     assert.ok((await failed.emit("tool_call", { toolName: "bg_agent", input: {} })).some(v => v?.block));
     for (const owner of [root, child]) for (const row of await owner.request("list")) for (const d of await owner.request("wait", { runId: row.runId, timeoutMs: 0 })) await owner.request("ack", { runId: row.runId, deliveryId: d.id });
+    if (entry !== 'tool') {
+      await child.host.service.close();
+      const retired = await root.request('team.retire', { toolCallId: 'retire', to: 'outcome-owner' });
+      assert.equal(retired.status, 'retired', JSON.stringify(retired));
+    }
     await root.host.service.close(); await foreign.host.service.close();
   } finally {
     for (const s of sessions) await s.emit("session_shutdown"); resetBridgeClients();

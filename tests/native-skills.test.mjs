@@ -11,14 +11,14 @@ function home(t) {
   return dir;
 }
 
-test('native bundle installs ten distinct skills, resolves references and preserves profiles/settings', t => {
+test('native bundle installs advisor and CoS skills, resolves references and preserves profiles/settings', t => {
   const dir = home(t);
   fs.mkdirSync(path.join(dir, '.claude'), { recursive: true });
   const settings = path.join(dir, '.claude/settings.json');
   fs.writeFileSync(settings, '{"untouched":true}');
   const installed = installNativeSkills(dir);
-  assert.equal(installed.names.length, 10);
-  assert.equal(installed.links.length, 20);
+  assert.equal(installed.names.length, 12);
+  assert.equal(installed.links.length, 24);
   assert.ok(installed.names.includes('advisor-role-advisor'));
   assert.match(fs.readFileSync(path.join(installed.bundle, 'advisor-role-foreman/SKILL.md'), 'utf8'), /compatibility link/);
   for (const link of installed.links) {

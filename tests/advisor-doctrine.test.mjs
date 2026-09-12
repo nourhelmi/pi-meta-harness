@@ -147,8 +147,8 @@ test("packets freeze the contract and never the procedure, and are sized after d
   assert.doesNotMatch(sizing, /minimal fix first|separate, costed option|file-count threshold/);
   assert.doesNotMatch(sizing, /\d+\s*(?:files?|lines?|minutes?)/i);
 
-  const extension = await text("extensions/advisor-session.ts");
-  assert.match(extension, /## Scope ledger/);
+  const state = await text("scripts/advisor-core/advisor-state.mjs");
+  assert.match(state, /## Scope ledger/);
   assert.match(section(core, "## Isolated state", "## Session start"), /Scope ledger \(see Bound after\s+diagnosis\)/);
 });
 
@@ -543,4 +543,19 @@ test("makers explore freely and deliver narrowly while the packet stays a floor"
   assert.match(runtime, /mechanical findings \(formatter output, lint autofix, generated-file drift, result formatting\) are repaired inline by whoever finds them and never bind a verdict/);
   assert.match(runtime, /formatter or lint pass is never an acceptance criterion on its own/);
   assert(JSON.parse(roles).profiles.builder.cliArgs.includes("--advisor-worker-allow-subagents"));
+});
+
+test("staffing judgment does not inherit a routine parallel-spend approval gate", async () => {
+  for (const path of [
+    "skills/advisor/doctrine.md",
+    "skills/advisor/references/graphs.md",
+    "native-skills/advisor/SKILL.md",
+  ]) {
+    const source = (await text(path)).replace(/\s+/g, " ");
+    assert.doesNotMatch(source, /explicit user approval for the added spend|authorization for extra spend|Parallel writers[^.]*require explicit user approval/, path);
+    assert.match(source, /advisor chooses staffing/i, path);
+    assert.match(source, /explicit user limits/, path);
+    assert.match(source, /(?:distinct|separate) worktrees/, path);
+    assert.match(source, /one (?:maker per write surface|writer per checkout)/i, path);
+  }
 });

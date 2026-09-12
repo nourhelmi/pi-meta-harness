@@ -31,6 +31,10 @@ export function installNativeSkills(home = os.homedir()) {
   let moved = false;
   try {
     fs.cpSync(path.join(source, 'native-skills'), stage, { recursive: true });
+    const stateScripts = path.join(stage, 'advisor/scripts');
+    fs.mkdirSync(stateScripts, { recursive: true });
+    for (const name of ['advisor-state.mjs', 'advisor-state-cli.mjs']) fs.copyFileSync(path.join(source, 'scripts/advisor-core', name), path.join(stateScripts, name));
+    fs.copyFileSync(path.join(source, 'skills/advisor/references/team.md'), path.join(stage, 'advisor/references/team.md'));
     const profiles = path.join(stage, 'advisor-intelligence/profiles');
     fs.mkdirSync(profiles);
     for (const name of fs.readdirSync(path.join(source, 'config/intelligence-profiles')).filter(n => n.endsWith('.json'))) {

@@ -9,8 +9,9 @@ import { childStatePath, publicChildScope } from './child-scope.mjs';
 export function newFamily(stateRoot, config) {
   const workerHarness = config.managedIdentity?.workerHarness;
   demand(workerHarness === undefined || ['pi', 'native'].includes(workerHarness), 'FAMILY_BINDING_MISMATCH');
-  const family = { v: 1, id: randomBytes(16).toString('hex'), rootStateRoot: stateRoot, workstream: config.managedIdentity?.workstream ?? config.scopes[0].workstream, ...(workerHarness ? { workerHarness } : {}) };
-  return { family, ...(config.managedIdentity?.workstream || workerHarness ? { advisorBinding: { ...(config.managedIdentity?.workstream ? { workstream: config.managedIdentity.workstream } : {}), ...(workerHarness ? { workerHarness } : {}) } } : {}), maxLaunches: config.maxLaunches, admissions: {}, services: { [stateRoot]: { token: randomBytes(32).toString('hex'), sessionId: config.sessionId, workstream: config.scopes[0].workstream, allowedRoots: config.allowedRoots, parent: null, sealed: false } } };
+  const teamMode = config.managedIdentity?.teamMode === true;
+  const family = { v: 1, id: randomBytes(16).toString('hex'), rootStateRoot: stateRoot, workstream: config.managedIdentity?.workstream ?? config.scopes[0].workstream, ...(workerHarness ? { workerHarness } : {}), ...(teamMode ? { teamMode: true } : {}) };
+  return { family, ...(config.managedIdentity?.workstream || workerHarness || teamMode ? { advisorBinding: { ...(config.managedIdentity?.workstream ? { workstream: config.managedIdentity.workstream } : {}), ...(workerHarness ? { workerHarness } : {}), ...(teamMode ? { teamMode: true } : {}) } } : {}), maxLaunches: config.maxLaunches, admissions: {}, services: { [stateRoot]: { token: randomBytes(32).toString('hex'), sessionId: config.sessionId, workstream: config.scopes[0].workstream, allowedRoots: config.allowedRoots, parent: null, sealed: false } } };
 }
 export function familyOperation(ledger, token, action, p) {
   const entry = Object.entries(ledger.services).find(([, service]) => service.token === token);
@@ -37,7 +38,7 @@ export function familyOperation(ledger, token, action, p) {
   if (action === 'check') { fields(p, []); active(); return { active: true }; }
   if (action === 'reserve') {
     fields(p, ['commandId', 'digest', 'scope', 'op', 'attempt']); text(p.commandId, 128); scopeCheck(p.scope); integer(p.attempt, 1);
-    demand(/^[a-f0-9]{64}$/.test(p.digest) && ['node.launch', 'node.task', 'node.reply'].includes(p.op), 'FAMILY_ADMISSION_INVALID');
+    demand(/^[a-f0-9]{64}$/.test(p.digest) && ['node.launch', 'node.task', 'node.reply', 'team.assign'].includes(p.op), 'FAMILY_ADMISSION_INVALID');
     const key = canonicalJson([stateRoot, p.commandId]);
     const old = ledger.admissions[key];
     if (old) { demand(canonicalJson(old) === canonicalJson(p), 'COMMAND_ID_REUSE'); return { reserved: true }; }

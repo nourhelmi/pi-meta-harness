@@ -19,6 +19,18 @@
       "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }],
       "description": "Logical parent of `node` (the advisor root or a foreman). Null for the root node and run-level events."
     },
+    "lineage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["family", "runtime", "parentRuntime", "parentSession", "workstream", "run", "node", "ownerEpoch", "issuedAttempt"],
+      "properties": {
+        "family": { "type": "string", "pattern": "^[a-f0-9]{32}$" },
+        "runtime": { "type": "string", "minLength": 1 },
+        "parentRuntime": { "type": "string", "minLength": 1 },
+        "parentSession": { "type": "string", "minLength": 1 },
+        "workstream": { "$ref": "#/$defs/id" }, "run": { "$ref": "#/$defs/id" }, "node": { "$ref": "#/$defs/id" },
+        "ownerEpoch": { "type": "integer", "minimum": 1 }, "issuedAttempt": { "type": "integer", "minimum": 1 }
+      }
+    },
     "host": { "$ref": "#/$defs/host", "description": "Execution host that emitted the event." },
     "type": {
       "enum": [

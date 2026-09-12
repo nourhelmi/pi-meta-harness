@@ -38,15 +38,20 @@ async function start(stateRoot: string, sessionId: string, limit = 32) {
         assert.ok(effects.every(row => rows('receipts').some(receipt => receipt.id === JSON.parse(row.data).commandId)));
         return ok({ pane_id: `w1:p${++paneNumber}` });
       }
-      if (args[1] === 'process-info') return ok({ result: { process_info: { foreground_processes: [{ name: 'zsh', argv0: 'zsh' }] } } });
+      if (args[1] === 'process-info') {
+        const a = occupants.get(args[args.indexOf('--pane') + 1]);
+        return ok({ result: { process_info: a?.agent === 'codex' ? { pane_id: a.pane_id, shell_pid: 10, foreground_process_group_id: 20, foreground_processes: [{ name: 'codex', argv0: 'codex', pid: a.pid }] } : { foreground_processes: [{ name: 'zsh', argv0: 'zsh' }] } } });
+      }
       if (args[1] === 'start') {
         const pane = args[args.indexOf('--pane') + 1];
-        occupants.set(pane, { pane_id: pane, name: args[2], agent: 'pi', status: 'idle', state_change_seq: 1, agent_session: { source: 'fixture', agent: 'pi', kind: 'id', value: `session-${pane}` } });
+        const kind = args[args.indexOf('--kind') + 1];
+        occupants.set(pane, { pane_id: pane, name: args[2], agent: kind, terminal_id: `terminal-${pane}`, pid: paneNumber + 100, status: 'idle', state_change_seq: 1, ...(kind === 'codex' ? {} : { agent_session: { source: 'fixture', agent: 'pi', kind: 'id', value: `session-${pane}` } }) });
         return ok({ result: { agent: occupants.get(pane) } });
       }
       if (args[1] === 'get') return ok({ result: { agent: occupants.get(args[2]) } });
       if (args[1] === 'prompt') {
         const occupant = occupants.get(args[2]);
+        occupant.agent_session ??= { source: 'herdr:codex', agent: 'codex', kind: 'id', value: `thread-${occupant.pid}` };
         assert.ok(rows('effects').some(row => row.handle && JSON.parse(JSON.parse(row.handle).id)[0] === occupant.pane_id), 'handle committed before prompt');
         occupant.status = 'working'; occupant.state_change_seq++;
         return ok(occupant);
@@ -68,7 +73,7 @@ async function start(stateRoot: string, sessionId: string, limit = 32) {
   const client = createPiDetachClient(join(stateRoot, 'pi.json'));
   const request = (action: string, payload: any = {}) => client.request(sessionId, action, payload) as Promise<any>;
   const launched = async (key: string, role: string = 'advisor', prompt = 'Bounded visible work') => {
-    const value = await request('call', { tool: 'bg_agent', toolCallId: key, cwd, params: { role, prompt, keepAlive: true } });
+    const value = await request('call', { tool: 'bg_agent', toolCallId: key, cwd, params: { role, prompt, ...(role === 'specialist' ? { model: 'openai-codex/example', thinking: 'high' } : {}), keepAlive: true } });
     await host.runtime.dispatch();
     const node = await request('get', { runId: value.runId });
     assert.notEqual(node.runtimeState, 'recovery-required', JSON.stringify({ calls, effects: rows('effects') })); assert.ok(node.handle);
@@ -96,6 +101,7 @@ const bState = b.packet.execution.environment.ADVISOR_BRIDGE_CHILD_STATE;
 const grandchild = await start(bState, 'grandchild', 1);
 const leaf = await grandchild.launched('leaf', 'specialist');
 assert.equal(leaf.packet.execution.environment.ADVISOR_BRIDGE_CHILD_STATE, '');
+assert.equal(leaf.packet.execution.harness, 'native');
 assert.equal(dirname(aState), dirname(bState), 'flat family control storage at every depth');
 for (const service of services) assert.ok(Buffer.byteLength(join(service.stateRoot, 'runtime.sock')) <= 100);
 for (const [parent, node, childState] of [[root, a, aState], [child, b, bState]] as const) {
