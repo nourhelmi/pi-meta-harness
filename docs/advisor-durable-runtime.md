@@ -306,11 +306,16 @@ only a typed refusal. OS crashes/SIGKILL are handled on restart, not presented a
 clean shutdown.
 
 Bounds: 32 simultaneous socket connections, one request per connection, 32 KiB
-command envelope, <=12-second socket request lifetime, <=1 MiB response, 128 MCP
+public command envelope, <=12-second socket request lifetime, <=1 MiB response, 128 MCP
 requests per stdio connection, 10-second bounded waits/adapter acceptance,
 24 graph nodes, 10,000 canonical rows and 16 MiB canonical/delivery data per run,
 100,000 admitted command receipts per store. No eviction/reuse of command IDs;
 capacity exhaustion requires a new explicitly scoped store, not silent deletion.
+Runtime-prepared Pi launch packets have a separate 128 KiB internal admission budget:
+role instructions, execution metadata and the duplicated task must not exhaust the
+client's envelope allowance. Only the private preparation path selects that budget;
+public commands stay at 32 KiB, and task/field validation, authorization, intent binding,
+replay and ownership checks are unchanged. Task content is never truncated to fit.
 
 ## Deterministic verification
 

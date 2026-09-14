@@ -6,7 +6,7 @@ export const READS = ['workstream.open', 'progress', 'wait', 'history', 'artifac
 export const MUTATIONS = ['workstream.create', 'packet.admit', 'graph.admit', 'wave.launch', 'node.launch', 'root.create', 'root.message', 'root.reply', 'root.cancel', 'root.stop', 'root.resume', 'node.reply', 'node.task', 'node.cancel', 'node.resume', 'team.enlist', 'team.rename', 'team.context', 'team.assign', 'team.message', 'team.retire', 'delivery.ack'];
 export const OPERATIONS = [...READS, ...MUTATIONS];
 export const WORKER_OPERATIONS = ['progress', 'wait', 'history', 'artifact.read', 'log.read', 'delivery.ack'];
-export const LIMITS = Object.freeze({ envelope: 32768, text: 16384, reply: 1048576, connections: 32, requests: 128, waitMs: 10000, events: 128, artifact: 65536 });
+export const LIMITS = Object.freeze({ envelope: 32768, preparedPacket: 131072, text: 16384, reply: 1048576, connections: 32, requests: 128, waitMs: 10000, events: 128, artifact: 65536 });
 export function fields(value, required, optional = []) {
   demand(value && typeof value === 'object' && !Array.isArray(value), 'INVALID_SHAPE');
   demand(Object.keys(value).every(key => [...required, ...optional].includes(key)), 'EXTRA_FIELD');
@@ -15,8 +15,8 @@ export function fields(value, required, optional = []) {
 export function integer(value, min = 0, max = Number.MAX_SAFE_INTEGER) { demand(Number.isSafeInteger(value) && value >= min && value <= max, 'INVALID_INTEGER'); }
 export function text(value, max = LIMITS.text) { demand(typeof value === 'string' && value.trim() && Buffer.byteLength(value) <= max, 'INVALID_TEXT'); }
 export function scope(value) { fields(value, ['workstream', 'run', 'node', 'ownerEpoch']); ['workstream', 'run', 'node'].forEach(key => id(value[key])); integer(value.ownerEpoch, 1); }
-export function parseEnvelope(input) {
-  const encoded = canonicalJson(input, LIMITS.envelope);
+export function parseEnvelope(input, maxBytes = LIMITS.envelope) {
+  const encoded = canonicalJson(input, maxBytes);
   let command;
   try { command = JSON.parse(encoded); } catch { demand(false, 'NON_JSON'); }
   const mutation = MUTATIONS.includes(command.op);

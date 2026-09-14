@@ -952,7 +952,8 @@ export class AdvisorRuntime {
         this.#write('UPDATE pi_bindings SET data=? WHERE id=? AND principal=? AND digest=?', canonicalJson({ action: 'launch', runId: scope.run, scope, packet }), key, principal, digest);
       });
       let result = await call(scope, 'workstream.create', { cwd, host: config.rootHost ?? 'pi' }, `${key}-create`, 0);
-      if (result.ok) result = await call(scope, 'packet.admit', { node: 'worker', packet }, `${key}-packet`, 1);
+      // Host preparation duplicates/enriches the prompt; this is not a second public request.
+      if (result.ok) result = this.#execute(token, { v: 1, op: 'packet.admit', scope, payload: { node: 'worker', packet }, commandId: `${key}-packet`, expectedRevision: 1 }, audience, LIMITS.preparedPacket);
       if (result.ok) result = await call(scope, 'node.launch', { node: 'worker' }, `${key}-launch`, 2);
       const response = result.ok ? { ok: true, value: { runId: scope.run, status: 'admitted', receipt: result.receipt } } : result;
       this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: result.ok ? 'launch' : 'rejected', runId: scope.run, scope, packet, response }), key));
@@ -1107,8 +1108,11 @@ export class AdvisorRuntime {
     return adapter;
   }
   execute(token, input, audience = 'operator') {
+    return this.#execute(token, input, audience, LIMITS.envelope);
+  }
+  #execute(token, input, audience, maxBytes) {
     try {
-      const parsed = parseEnvelope(input);
+      const parsed = parseEnvelope(input, maxBytes);
       const response = this.#transaction(() => {
         const { command: c, mutation, digest } = parsed;
         const principal = this.#authorize(token, c);

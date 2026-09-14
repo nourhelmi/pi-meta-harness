@@ -41,6 +41,30 @@ function fixture(t) {
   return { base, cwd, start };
 }
 
+for (const prompt of ['x'.repeat(16384), '🚀'.repeat(4096), '\u0001'.repeat(5000)]) {
+  test(`prepared launch packets may expand beyond the public envelope (${Buffer.byteLength(prompt)} task bytes)`, async t => {
+    const f = fixture(t); const root = await f.start('root');
+    const params = { role: 'planner', prompt, acceptance: ['Preserve every task byte'] };
+    const runId = await root.launch('large', params);
+    const node = await root.request('get', { runId });
+    const command = { v: 1, op: 'packet.admit', scope: { ...node.snapshot.scope, node: 'root' },
+      commandId: 'public-packet', expectedRevision: 1, payload: { node: 'worker', packet: node.packet } };
+    assert.ok(Buffer.byteLength(JSON.stringify(command)) > 32768, 'reproduces generated envelope expansion');
+    assert.equal(root.launches.length, 1);
+    assert.equal(root.launches[0].intent.prompt, prompt, 'no truncation or loss during launch');
+    assert.equal(node.packet.task, prompt);
+    assert.deepEqual(node.packet.acceptance, params.acceptance);
+    await root.launch('large', params);
+    assert.equal(root.launches.length, 1, 'exact replay does not launch twice');
+    const credential = JSON.parse(readFileSync(root.opts.credentialPath, 'utf8'));
+    assert.deepEqual(root.host.runtime.execute(credential.token, command, 'model'), { ok: false, error: 'ENVELOPE_TOO_LARGE' }, 'public admission retains its original bound');
+    await assert.rejects(callSocket(credential, command, 'model'), /ENVELOPE_TOO_LARGE/, 'wire admission retains its original bound');
+    await assert.rejects(root.launch('oversized-task', { prompt: 'x'.repeat(16385) }), /BRIDGE_INTENT_REJECTED/, 'prepared task fields remain bounded');
+    assert.equal(root.launches.length, 1);
+    root.settle(); await root.ack(runId); await root.host.service.close();
+  });
+}
+
 test('root persistent family ledger counts launches, replies and tasks and survives a typed restart', async t => {
   const f = fixture(t); const root = await f.start('root');
   const runId = await root.launch('one'); root.settle('BLOCKED');
