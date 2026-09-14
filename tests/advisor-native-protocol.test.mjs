@@ -4,13 +4,21 @@ import { mkdtempSync, realpathSync, mkdirSync, rmSync, readFileSync, symlinkSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NativeSession, environment } from '../scripts/advisor-runtime/adapters/common.mjs';
-import { createCodexAdapter, codexThreadOptions, codexTurnOptions, decodeCodex, CodexWire, codexIsolatedConfig } from '../scripts/advisor-runtime/adapters/codex.mjs';
+import { createCodexAdapter, codexThreadOptions, codexTurnOptions, decodeCodex, CodexWire, codexIsolatedConfig, codexVersion, codexUserAgentVersion } from '../scripts/advisor-runtime/adapters/codex.mjs';
 import { createClaudeAdapter, claudeOptions, decodeClaude, claudePermission } from '../scripts/advisor-runtime/adapters/claude.mjs';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { claudeResult, codexStart } from './native-fixture-shapes.mjs';
 import { READ_PROFILE, WRITE_PROFILE } from '../scripts/advisor-runtime/native-boundary.mjs';
 
+test('Codex accepts the installed CLI version and parses the matching App Server identity', () => {
+  assert.equal(codexVersion({}, () => ({ status: 0, stdout: 'codex-cli 9.8.7\n' })), '9.8.7');
+  assert.equal(codexUserAgentVersion('portable-advisor/9.8.7 (test)', 'portable-advisor'), '9.8.7');
+  assert.equal(codexUserAgentVersion('codex-cli/9.8.7', 'portable-advisor'), '9.8.7');
+  assert.throws(() => codexVersion({}, () => ({ status: 0, stdout: 'something else' })), /CODEX_VERSION_UNSUPPORTED/);
+  assert.throws(() => codexUserAgentVersion('foreign/9.8.7', 'portable-advisor'), /CODEX_HANDSHAKE_VERSION/);
+  assert.throws(() => codexUserAgentVersion('something else'), /CODEX_HANDSHAKE_VERSION/);
+});
 function session(t, provider = 'codex', root = false, limits) {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'pn-'))); const cwd = join(base, 'work'); const artifacts = join(base, 'artifacts'); mkdirSync(cwd); mkdirSync(artifacts, { mode: 0o700 });
   const events = []; const sent = []; let recovery = 0;

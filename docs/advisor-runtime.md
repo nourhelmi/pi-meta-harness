@@ -24,14 +24,14 @@ native agent process.
 
 ## 📏 Runtime rules
 
-1. Launch every separate advisor with `advisor_launch`; it creates a new Herdr tab with `--no-focus`, never a pane split. A manually opened advisor may still invoke `/advisor` in its own fresh tab.
+1. Start every independent root advisor from an ordinary Pi session with `advisor_launch`; it creates a new Herdr tab with `--no-focus`, never a pane split, and is removed after advisor initialization. A manually opened advisor may still invoke `/advisor` in its own fresh tab.
 2. `advisor_session_init` creates or claims one isolated workstream, persists one worker mode (`pi` or `native`), trims the session's active tool set, and returns the workstream hot section. The root advisor remains Pi in both modes.
 3. The advisor session extension injects the doctrine core (`skills/advisor/doctrine.md`) and a compact rendering of the live intelligence guide into the system prompt on every turn, and re-sends the workstream hot section after every compaction. The advisor reuses the injected doctrine and guide; other skill and contract reads follow the decision-driven policy under Roles and intelligence, and situational references under `skills/advisor/references/` are read only when needed.
-4. Each live root advisor must use a different workstream. A child owns a bounded outcome under its parent instead.
+4. Each live root advisor must use a different workstream. A child owns a bounded outcome under its parent and launches only through `bg_agent` with `role: "advisor"`; its normal settlement is the parent completion channel.
 5. Within advisor state, an advisor writes only its own session record, its owned workstream record, new immutable events, and unique run output. Product edits follow the assigned checkout boundary, not this state-only restriction.
 6. Treat legacy in-repo `.advisor/` directories as read-only history.
 7. Transfer ownership with an immutable handoff event.
-8. Use Intercom for short conclusions and paths, not transcripts or raw logs.
+8. Intercom is only for coordination between independent peer sessions: never use it for parent-child progress or completion, which belongs to tracked `bg_agent` settlement.
 9. Launch delegated LLM work only through `bg_agent` — usually a configured semantic role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi. A launch whose prompt still contains an unexpanded paste placeholder is rejected.
 10. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. The quick packet is the default: goal, write surface, criteria phrased as failure probes, evidence linked by path, one risk-tier line, and stop conditions, in ten to twenty lines. A packet may freeze criteria, safety boundaries, the write surface, and locked decisions; it may never freeze tool versions the repository does not pin, directory modes, hash manifests outside a release gate, or literal command order, and never declares every severity terminal. Makers explore freely and deliver narrowly: they may propose criteria and report adjacent defects, and the advisor accepts proposals through a recorded packet revision.
 11. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work, but create a graph only for real independent ownership or dependency boundaries.
@@ -363,13 +363,16 @@ even when not editing.
 
 ## 🚦 Start
 
-From any Pi session running inside Herdr, call `advisor_launch` with the target
-`cwd` and, when known, a concise `workstream`, `purpose`, and `workerHarness`.
+From an ordinary, non-advisor Pi session running inside Herdr, call
+`advisor_launch` with the target `cwd` and, when known, a concise `workstream`,
+`purpose`, and `workerHarness`.
 The tool creates an unfocused Herdr tab, labels its root pane
 `advisor · <purpose>`, starts Pi there, and sends `/skill:advisor-pi` or
 `/skill:advisor-native` when the mode is explicit. If it is omitted, the new Pi
 advisor uses `/skill:advisor` and asks in the UI. The new advisor still calls
-`advisor_session_init` as its first action.
+`advisor_session_init` as its first action. Once initialized, it delegates any
+child advisor through tracked `bg_agent` settlement rather than launching another
+independent root.
 
 For a tab opened manually, invoke `/advisor` or `/skill:advisor` to choose the
 mode interactively, or invoke `/skill:advisor-pi` / `/skill:advisor-native` to

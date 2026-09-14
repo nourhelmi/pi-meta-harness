@@ -4,14 +4,14 @@
 standalone `advisor-native` binary is separate from the existing Pi-root
 `/advisor-native` skill, which keeps Pi and Herdr as the normal advisor setup.
 
-**Known live failure:** with Codex CLI 0.153.4, the current launcher disables
+**Historical live failure:** with Codex CLI 0.153.4, the launcher disabled
 `code_mode_host`; the tested model turn could not load the advisor skill or use
 the runtime tools. A real root → maker → result → synthesis workflow is **not
 proven**. Prefer the existing Pi/Herdr setup; stock-host MCP-plus-skills
 simplification and live native proof are deferred. The procedures below document
 the experimental implementation, not a working production recommendation.
 
-Native read boundaries have bounded deterministic/no-model evidence using pinned
+Native read boundaries have bounded deterministic/no-model evidence using named
 Codex profiles and Claude all-tool hooks. Independent implementation review passed,
 but it does not certify model usability. This package owns new runtime runs only,
 does not attach to arbitrary chats or certify Codex App, and has no mandatory
@@ -19,15 +19,15 @@ Pi/Herdr/BB dependency.
 
 ## Supported surface and exact evidence
 
-| Component | Implemented interface | Limitations / source pin |
+| Component | Implemented interface | Limitations / evidence |
 | --- | --- | --- |
-| Codex CLI | App Server stdio initialize/initialized, thread/start, turn/start, turn/interrupt; owned thread and item correlation; streamed output, user questions and explicit permission denial | Exact `codex-cli 0.153.4`; experimental v2 generated TS/JSON schema. Unknown methods/items/statuses fail recovery-required. No arbitrary executable, profile, App endpoint or thread resume input. |
+| Codex CLI | App Server stdio initialize/initialized, thread/start, turn/start, turn/interrupt; owned thread and item correlation; streamed output, user questions and explicit permission denial | The installed CLI version must match its App Server handshake; experimental v2 generated TS/JSON schema remains the protocol fixture. Unknown methods/items/statuses fail recovery-required. No arbitrary executable, profile, App endpoint or thread resume input. |
 | Claude Code | `@anthropic-ai/claude-agent-sdk` streaming `query`, `initializationResult().hooks_applied`, all-invocation `PreToolUse`, `canUseTool`, result + session idle, interrupt receipt and observed process exit | Exact SDK `0.3.263`, bundled CLI `2.1.263`. Ordinary `enter claude-code` requires standalone `2.1.263`; older `2.1.261` is rejected. No fallback to another host/binary. |
 | Native root | Ordinary CLI root loads project skill + scoped service MCP; client-mode root is service-owned via root.create/message/reply/cancel/stop | These are alternative roots. Never launch both for the same task. MCP wait/ack is explicit; no unsolicited model-wake claim. |
 | Recovery | Reconnect clients to the same live private Unix service, redeliver unacked outcomes | Stored-session resume / service-restart reconciliation deliberately return unsupported or recovery-required. No blind model/effect replay. |
 | Permissions | Named Codex filesystem profiles on both thread and turn, no legacy sandbox fields; read-only root/reader, task-local write maker, minimal runtime reads, denied controls, network disabled. Claude all-invocation hooks + explicit tools/default permissions/strict MCP | Codex App Server uses supported `untrusted` enum; ordinary CLI uses supported `never`, so expansions cannot be approved. Claude one-shot Write/Edit approval binds the exact input and rechecks paths; no session grants. Bash/Agent/Task/Web and unknown tools are denied. |
 
-The protocol scout generated 0.153.4 `ThreadStartParams`, `TurnStartParams`, `TurnCompletedNotification`, `ThreadItem`, approval/user-input unions and checked strict-config parsing of both `features.multi_agent=false` and `agents.enabled=false`. `multiAgentMode` is deprecated/ignored and not used. SDK declarations establish `Options`, `SDKMessage`, `CanUseTool`, `SpawnOptions`/`SpawnedProcess`, `sessionId`, `settingSources`, MCP config and interrupt_receipt_v1. Repository deterministic fixtures are synthetic, not captured live-model transcripts. Exact local source locators/hashes and executable probes belong in the builder/parent evidence bundle, not hardcoded machine paths in shipped assets.
+The checked-in Codex protocol fixture was originally scouted from 0.153.4 `ThreadStartParams`, `TurnStartParams`, `TurnCompletedNotification`, `ThreadItem`, approval/user-input unions and strict-config parsing of both `features.multi_agent=false` and `agents.enabled=false`. `multiAgentMode` is deprecated/ignored and not used. SDK declarations establish `Options`, `SDKMessage`, `CanUseTool`, `SpawnOptions`/`SpawnedProcess`, `sessionId`, `settingSources`, MCP config and interrupt_receipt_v1. Repository deterministic fixtures are synthetic, not captured live-model transcripts. Exact local source locators/hashes and executable probes belong in the builder/parent evidence bundle, not hardcoded machine paths in shipped assets.
 
 Native identity is persisted in `runs/RUN/NODE/native.json`: requested model/thinking and observed host/version/model/thinking/session are distinct. Codex thread/start reasoningEffort is the initial thread observation; requested turn effort has no independent completion receipt. Claude init effort can be absent, hence null. Model aliases may resolve differently. Never infer a served model/effort or live reliability from requested settings. No token/cost claims when absent.
 
@@ -47,7 +47,7 @@ Limits: six conversation submissions, 180 seconds per native session, 1 MiB cumu
 
 ### Security and capability limits
 
-Use separate canonical private service and workspace paths. `init` explicitly inventories both provider homes under `STATE/providers/`; a trusted bootstrap may supply other canonical `providerHomes` outside every task/artifact grant. Startup checks declared and persisted controls before writes, rejects changed directory inventory, and binds the provider-to-home mapping to exact bootstrap identity. Authenticate those homes through supported explicit login; **never copy credentials**. Environment forwarding is allowlisted. No global HOME fallback is allowed at native launch.
+Use separate canonical private service and workspace paths. `init` explicitly inventories both provider homes under `STATE/providers/`; a trusted bootstrap may supply other canonical `providerHomes` outside every task/artifact grant. Startup checks declared and persisted controls before writes, rejects changed directory inventory, and binds the provider-to-home mapping to exact bootstrap identity. Authenticate those homes through supported explicit login; **never copy credentials**. Environment forwarding is allowlisted. No global HOME fallback is allowed at native launch. Effective feature attestation requires every requested setting and accepts additional provider flags only when they are false; enabled or structured unknown flags fail closed.
 
 The ordinary CLI entry project is separate from all task roots and service state, but its read-only profile/hook includes the bootstrap's exact authorized task roots so the root can verify work. Only the owned MCP fragment/skill is accepted. The wrapper derives all config, accepts no extra native arguments, and never grants home/service/auth trees as read roots. Both entry and service may use the same inventoried provider home; root MCP is supplied per process, not written into that home. Runtime Codex rejects a home config.toml and every workspace/ancestor .codex directory. Entry explicitly trusts only its inspected entry project through supported per-process `projects` config, then attests effective config; unrelated legacy permission overrides, extra profiles/features/MCP servers and drift reject before a model prompt.
 
@@ -75,7 +75,7 @@ export PATH="$PREFIX/node_modules/.bin:$PATH"
 advisor-native doctor
 ```
 
-`doctor` makes no model calls. It reports Node/platform, exact Codex version if present, optional SDK+bundled CLI if present, and actionable gaps. To enable Claude, the operator installs the exact optional SDK in this isolated prefix and explicitly authenticates its isolated configuration directory. Do not run query just to probe a version. Node >=24 is the native package minimum; the optional Pi package engine is unchanged.
+`doctor` makes no model calls. It reports Node/platform, the installed Codex version if present, optional SDK+bundled CLI if present, and actionable gaps. To enable Claude, the operator installs the exact optional SDK in this isolated prefix and explicitly authenticates its isolated configuration directory. Do not run query just to probe a version. Node >=24 is the native package minimum; the optional Pi package engine is unchanged.
 
 `advisor-native install codex ENTRY_PROJECT DESCRIPTOR` owns only its marked `.codex/config.toml` MCP section, `.agents/skills/advisor-runtime/SKILL.md`, and its private manifest. For Claude use `claude-code`: it owns only `.mcp.json`'s `mcpServers.advisor_runtime` member and `.claude/skills/advisor-runtime/SKILL.md`. Unrelated configuration survives install/uninstall/restore. Uninstall and restore take HOST PROJECT, use stored owned fragments, and refuse edited/foreign owned sections or symlink paths rather than overwrite them. The manifest records only owned fragment backups; a crash leaves `pending` and fails closed for operator investigation. An existing foreign advisor_runtime entry/skill is not adopted. Descriptor contents are never copied into config/skills; only its path is installed, outside the entry project. Moving the package after project installation requires uninstall with the old install then reinstall from the new prefix; the tarball itself has no machine-specific paths.
 

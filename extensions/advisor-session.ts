@@ -36,6 +36,7 @@ const PASTE_PLACEHOLDER = /\[paste #\d+ \+\d+ lines\]/i;
 // Tools that add schema weight without advisor value: routines are forbidden in advisor sessions,
 // goal mode is a different workflow, and most memory tools duplicate the workstream file.
 const ADVISOR_INACTIVE_TOOLS = new Set([
+	"advisor_launch",
 	"RoutineCreate",
 	"RoutineDelete",
 	"RoutineList",
@@ -194,7 +195,7 @@ export function withAdvisorSystemPrompt(systemPrompt: string, parts: AdvisorProm
 	return sections.join("\n\n");
 }
 
-/** Drop tools that only add prompt weight in an advisor session; editing, shell, and launch tools stay. */
+/** Drop tools that only add schema weight or enable untracked child work in an advisor session. */
 export function advisorActiveTools(active: readonly string[]): string[] {
 	return active.filter((name) => !ADVISOR_INACTIVE_TOOLS.has(name));
 }
@@ -554,6 +555,7 @@ function bgAgentGuardReason(input: unknown, workerHarness?: WorkerHarness): stri
 
 /** Shared visibility/packet rules; a child uses its own checkpoint, not the root workstream file. */
 export function advisorToolGuardReason(toolName: string, input: unknown, workerHarness?: WorkerHarness): string | undefined {
+	if (toolName === "advisor_launch") return "Active advisors must launch dependent advisors through bg_agent with role: advisor so settlement wakes the parent; advisor_launch is only for independent top-level workstreams.";
 	if (INVISIBLE_AGENT_TOOLS.has(toolName)) return "Advisor agents must use bg_agent so each helper is visible in Herdr.";
 	if (toolName === "bg_agent") return bgAgentGuardReason(input, workerHarness);
 	if (toolName === "bg_run") {
@@ -750,8 +752,8 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		name: "advisor_launch",
 		label: "Launch Advisor",
 		description:
-			"Launch a separate advisor Pi session in a new visible Herdr tab without changing caller focus. " +
-			"Never creates a pane split.",
+			"Launch an independent top-level advisor Pi session in a new visible Herdr tab. " +
+			"Dependent advisor work must use bg_agent with role: advisor so completion is tracked. Never creates a pane split.",
 		parameters: Type.Object({
 			cwd: Type.String({ description: "Existing directory for the new advisor session.", minLength: 1 }),
 			workstream: Type.Optional(

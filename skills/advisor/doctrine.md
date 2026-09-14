@@ -302,9 +302,9 @@ freeform prompt to escape its guardrails.
 
 ## Child advisors
 
-Launch another advisor with `bg_agent` and `role: "advisor"` when a bounded
-outcome benefits from its own working context and execution judgment. Delegate
-the outcome and constraints, not the execution strategy: decomposition,
+Launch child advisors with `bg_agent` and `role: "advisor"`; settlement wakes
+the parent like any worker. Never use `advisor_launch` or Intercom for status.
+Delegate the outcome and constraints, not the execution strategy: decomposition,
 roles/models, sequencing and delegation are its decisions. Do not prescribe
 read-only helpers, forbid builders, or lock role order as management preferences;
 pass only real user, authority, ownership and safety constraints. Direct work

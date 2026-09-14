@@ -7,7 +7,7 @@ import { inspectInstallation } from './install.mjs';
 import { fields } from './contract.mjs';
 import { demand, safeFile, disjointControlPath, RuntimeError } from './security.mjs';
 import { permissionConfig, configArgs, managedProviderHomes, assertPermissionConfig, providerEnvironment } from './native-boundary.mjs';
-import { codexIsolatedConfig, codexVersion, CodexWire } from './adapters/codex.mjs';
+import { codexIsolatedConfig, codexVersion, codexUserAgentVersion, CodexWire } from './adapters/codex.mjs';
 import { NATIVE_LIMITS, ROOT_DOCTRINE, environment } from './adapters/common.mjs';
 import { CLAUDE_CLI_VERSION } from './adapters/claude.mjs';
 
@@ -37,7 +37,7 @@ export function entryPlan(host, project, bootstrapPath) {
 
 /** Public initialize/config/read only. This function never opens a thread/turn. */
 export async function verifyCodexConfiguration(config, { cwd, env, spawnProcess = spawn }) {
-  codexVersion(env);
+  const expectedVersion = codexVersion(env);
   const child = spawnProcess('codex', ['app-server', '--stdio', '--strict-config', ...configArgs(config)], { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
   let bytes = 0;
   const session = { limits: NATIVE_LIMITS, failed: false,
@@ -49,9 +49,9 @@ export async function verifyCodexConfiguration(config, { cwd, env, spawnProcess 
   };
   try {
     const init = await wire.request('initialize', { clientInfo: { name: 'advisor-entry-preflight', version: '1.0.0' }, capabilities: { experimentalApi: true } });
-    demand(init.userAgent?.includes('0.153.4'), 'CODEX_HANDSHAKE_VERSION'); wire.send({ method: 'initialized' });
+    const version = codexUserAgentVersion(init.userAgent, 'advisor-entry-preflight'); demand(version === expectedVersion, 'CODEX_HANDSHAKE_VERSION'); wire.send({ method: 'initialized' });
     const response = await wire.request('config/read', { includeLayers: false, cwd }); assertPermissionConfig(response.config, config);
-    demand(!session.failed, 'CODEX_PREFLIGHT_FAILED'); return { permissions: config.default_permissions, checked: true };
+    demand(!session.failed, 'CODEX_PREFLIGHT_FAILED'); return { permissions: config.default_permissions, checked: true, version };
   } finally {
     child.stdin.end();
     if (child.exitCode === null && child.signalCode === null) {

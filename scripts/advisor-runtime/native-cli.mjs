@@ -3,7 +3,7 @@ import { existsSync, realpathSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { projectInstall } from './install.mjs';
-import { codexVersion, CODEX_VERSION } from './adapters/codex.mjs';
+import { codexVersion } from './adapters/codex.mjs';
 import { loadClaude, CLAUDE_SDK_VERSION, CLAUDE_CLI_VERSION } from './adapters/claude.mjs';
 import { environment } from './adapters/common.mjs';
 import { demand, disjointControlPath, privateDirectory, RuntimeError, within } from './security.mjs';
@@ -14,11 +14,11 @@ import { entryPlan, enter } from './native-entry.mjs';
 export async function doctor() {
   const issues = []; let codex = null; let claude = null;
   if (Number(process.versions.node.split('.')[0]) < 24) issues.push('Install Node >=24 (tested: 24.18.0).');
-  try { codex = codexVersion(environment()); } catch { issues.push(`Install Codex CLI ${CODEX_VERSION} on PATH; Codex App attachment is unsupported.`); }
+  try { codex = codexVersion(environment()); } catch { issues.push('Install Codex CLI on PATH; Codex App attachment is unsupported.'); }
   try { const sdk = await loadClaude(); claude = { sdk: sdk.version, bundledCli: sdk.cliVersion }; } catch { issues.push(`Install optional @anthropic-ai/claude-agent-sdk@${CLAUDE_SDK_VERSION} in this package prefix; it uses bundled CLI ${CLAUDE_CLI_VERSION}, not a standalone claude binary.`); }
   issues.push('Use explicit managed provider homes from bootstrap.json; authenticate them out of band without copying credentials. Live host certification is separate from configured boundaries.');
   return { node: process.versions.node, platform: process.platform, arch: process.arch, codex, claude,
-    capabilities: { liveCertified: false, codexReadBoundary: 'pinned named filesystem profiles; effective-config preflight', claudeReadBoundary: 'all-invocation PreToolUse over explicit file tools',
+    capabilities: { liveCertified: false, codexReadBoundary: 'named filesystem profiles; effective-config preflight', claudeReadBoundary: 'all-invocation PreToolUse over explicit file tools',
       codexAppAttachment: false, storedSessionResume: false, liveServiceReconnect: true, permissionExpansion: false, nodeLaunch: true }, issues };
 }
 export function bootstrap(state, workspace, host) {

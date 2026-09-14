@@ -5,7 +5,6 @@ import { demand, privateDirectory, RuntimeError } from '../security.mjs';
 import { NativeSession, environment, nativeId, digest, ROOT_DOCTRINE, MAKER_DOCTRINE } from './common.mjs';
 import { permissionConfig, configArgs, READ_PROFILE, WRITE_PROFILE, providerEnvironment, assertPermissionConfig } from '../native-boundary.mjs';
 
-export const CODEX_VERSION = '0.153.4';
 export function codexIsolatedConfig(home, cwd, { ownedEntryProject = false } = {}) {
   const absent = path => { try { lstatSync(path); return false; } catch (error) { if (error.code === 'ENOENT') return true; throw error; } };
   demand(absent(join(home, 'config.toml')), 'CODEX_CONFIG_NOT_ISOLATED');
@@ -14,10 +13,16 @@ export function codexIsolatedConfig(home, cwd, { ownedEntryProject = false } = {
     if (dirname(path) === path) break;
   }
 }
-export function codexVersion(env = environment()) {
-  const probe = spawnSync('codex', ['--version'], { env, encoding: 'utf8', timeout: 5000, maxBuffer: 4096 });
-  demand(probe.status === 0 && probe.stdout.trim() === `codex-cli ${CODEX_VERSION}`, 'CODEX_VERSION_UNSUPPORTED');
-  return CODEX_VERSION;
+export function codexVersion(env = environment(), run = spawnSync) {
+  const probe = run('codex', ['--version'], { env, encoding: 'utf8', timeout: 5000, maxBuffer: 4096 });
+  const match = probe.status === 0 && /^codex-cli\s+(\S+)$/.exec(probe.stdout.trim());
+  demand(match, 'CODEX_VERSION_UNSUPPORTED');
+  return match[1];
+}
+export function codexUserAgentVersion(userAgent, clientName) {
+  const match = typeof userAgent === 'string' && /^([^/\s]+)\/(\S+)(?:\s|$)/.exec(userAgent);
+  demand(match && (!clientName || match[1] === clientName || match[1] === 'codex-cli'), 'CODEX_HANDSHAKE_VERSION');
+  return match[2];
 }
 export function codexThreadOptions(s, mcp) {
   return { model: s.requested.model, allowProviderModelFallback: false, cwd: s.input.context.cwd,
@@ -153,7 +158,7 @@ export function createCodexAdapter({ spawnProcess = spawn, probe = codexVersion,
       const create = ['node.launch', 'root.create'].includes(input.effect.op); let s;
       try {
         if (create) {
-          demand(!input.handle, 'SESSION_ALREADY_EXISTS'); probe(env);
+          demand(!input.handle, 'SESSION_ALREADY_EXISTS'); const expectedVersion = probe(env);
           const boundary = providerEnvironment('codex', env, input.context.cwd, input.context.artifactDirectory, input.context.controlPaths ?? []);
           codexIsolatedConfig(boundary.env.CODEX_HOME, input.context.cwd);
           s = new NativeSession(input, 'codex', limits); s.controls = boundary.controls;
@@ -164,7 +169,7 @@ export function createCodexAdapter({ spawnProcess = spawn, probe = codexVersion,
           s.stop = () => { child.stdin.end(); child.kill('SIGTERM'); };
           s.wire = new CodexWire(child, s); s.wire.onMessage = message => decodeCodex(s, message);
           const init = await s.wire.request('initialize', { clientInfo: { name: 'portable-advisor', title: null, version: '1.0.0' }, capabilities: { experimentalApi: true, requestAttestation: false } });
-          demand(typeof init.userAgent === 'string' && init.userAgent.includes(CODEX_VERSION), 'CODEX_HANDSHAKE_VERSION'); s.wire.send({ method: 'initialized' });
+          const version = codexUserAgentVersion(init.userAgent, 'portable-advisor'); demand(expectedVersion === undefined || version === expectedVersion, 'CODEX_HANDSHAKE_VERSION'); s.wire.send({ method: 'initialized' });
           const checked = await s.wire.request('config/read', { includeLayers: false, cwd: input.context.cwd });
           assertPermissionConfig(checked.config, config);
           const opened = await s.wire.request('thread/start', codexThreadOptions(s, mcp));
@@ -173,7 +178,7 @@ export function createCodexAdapter({ spawnProcess = spawn, probe = codexVersion,
           demand(opened.cwd === input.context.cwd && opened.runtimeWorkspaceRoots?.length === 1 && opened.runtimeWorkspaceRoots[0] === input.context.cwd, 'CODEX_WORKSPACE_DRIFT');
           demand(opened.thread.parentThreadId === null && opened.thread.agentRole === null && opened.thread.canAcceptDirectInput === true && ['appServer', 'cli'].includes(opened.thread.source), 'NESTED_OR_UNOWNED_THREAD');
           demand(opened.activePermissionProfile?.id === (s.writer ? WRITE_PROFILE : READ_PROFILE) && opened.activePermissionProfile.extends === null, 'CODEX_PERMISSION_PROFILE_DRIFT');
-          s.observed = { host: 'codex', version: CODEX_VERSION, model: opened.model ?? null, thinking: opened.reasoningEffort ?? null, session: s.thread };
+          s.observed = { host: 'codex', version, model: opened.model ?? null, thinking: opened.reasoningEffort ?? null, session: s.thread };
           input.recordHandle({ id: s.id, session: s.thread, pid: child.pid }); s.identity(); sessions.set(s.id, s);
         } else { s = sessions.get(input.handle?.id); demand(s, 'SESSION_NOT_OWNED'); s.bind(input); }
         const op = input.effect.op;

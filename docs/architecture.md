@@ -94,8 +94,11 @@ role-only configuration.
 `advisor_launch` is the canonical boundary for a separate advisor: it creates
 an unfocused Herdr tab at the requested cwd, labels the root pane
 `advisor · <purpose>`, starts Pi, and submits the advisor bootstrap. It never
-falls back to splitting the caller's tab. `advisor_session_init` also restores
-that root-pane label from workstream words.
+falls back to splitting the caller's tab. It is an independent-root entrypoint,
+not a delegation primitive, and is removed from the active tool set after
+`advisor_session_init` restores that root-pane label from workstream words.
+Dependent advisors use `bg_agent` with `role: "advisor"`, so their ordinary
+settlement wakes the parent without a separate messaging channel.
 
 Configured `bg_agent` workers follow the opposite rule: they stay visible as
 panes in their owning advisor tab. Their labels are concise `role · <purpose>`

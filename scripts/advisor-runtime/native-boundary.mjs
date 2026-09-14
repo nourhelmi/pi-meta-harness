@@ -24,8 +24,8 @@ export function permissionConfig(cwd, controls = [], readRoots = []) {
   const denied = Object.fromEntries(controls.map(path => [disjointControlPath(path, roots), 'deny']));
   const extraReads = Object.fromEntries(readRoots.map(path => [path, 'read']));
   const protectedPaths = Object.fromEntries(roots.flatMap(path => [[join(path, '.git'), 'read'], [join(path, '.codex'), 'deny'], [join(path, '.claude'), 'deny'], [join(path, '.agents'), 'read']]));
-  // Node 24's macOS OpenSSL runtime loads this root-owned system file; :minimal
-  // in Codex 0.153.4 omits it. Grant only the file, never an auth/home tree.
+  // Node 24's macOS OpenSSL runtime loads this root-owned system file; Codex's
+  // :minimal profile may omit it. Grant only the file, never an auth/home tree.
   const runtimeReads = process.platform === 'darwin' ? { '/System/Library/OpenSSL/openssl.cnf': 'read' } : {};
   const profile = write => ({ filesystem: { ':minimal': 'read', ...runtimeReads, ...extraReads, [cwd]: write ? 'write' : 'read', ...denied, ...protectedPaths }, network: { enabled: false } });
   return { default_permissions: READ_PROFILE, permissions: { [READ_PROFILE]: profile(false), [WRITE_PROFILE]: profile(true) },
@@ -47,7 +47,10 @@ function withoutNulls(value) {
 }
 export function assertPermissionConfig(actual, expected) {
   demand(actual && actual.sandbox_mode == null && actual.sandbox_workspace_write == null, 'CODEX_LEGACY_PERMISSION_OVERRIDE');
-  for (const key of ['permissions', 'default_permissions', 'features', 'agents', 'projects', 'mcp_servers', 'web_search', 'allow_login_shell', 'project_doc_max_bytes', 'shell_environment_policy']) {
+  const features = withoutNulls(actual.features ?? null);
+  demand(features && Object.entries(expected.features).every(([key, value]) => features[key] === value)
+    && Object.entries(features).every(([key, value]) => Object.hasOwn(expected.features, key) || value === false), 'CODEX_CONFIG_DRIFT');
+  for (const key of ['permissions', 'default_permissions', 'agents', 'projects', 'mcp_servers', 'web_search', 'allow_login_shell', 'project_doc_max_bytes', 'shell_environment_policy']) {
     demand(canonicalJson(withoutNulls(actual[key] ?? null)) === canonicalJson(withoutNulls(expected[key] ?? null)), 'CODEX_CONFIG_DRIFT');
   }
 }

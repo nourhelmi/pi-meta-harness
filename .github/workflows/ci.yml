@@ -27,9 +27,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install pinned Codex for no-model native boundary tests
+      - name: Install current Codex for no-model native boundary tests
         run: |
-          npm install --global --ignore-scripts @openai/codex@0.153.4
+          npm install --global --ignore-scripts @openai/codex
           codex --version
 
       - name: Install dependencies

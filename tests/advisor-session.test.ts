@@ -6,9 +6,13 @@ import test from "node:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import advisorSessionExtension, {
   advisorActiveTools,
+  advisorToolGuardReason,
   renderIntelligenceGuide,
   workstreamHotSection,
 } from "../extensions/advisor-session.ts";
+
+// Session-extension units intentionally run without the separately tested managed bridge.
+process.env.PI_DETACH_BACKEND = "legacy";
 
 interface ExecResult {
   code: number;
@@ -175,6 +179,8 @@ test("advisor doctrine routes locked execution without weakening decision bounda
   assert.match(source, /no graph, delegation depth, role sequence or launch quota is\s+required/);
   assert.match(source, /Managed advisors are Pi-hosted, including in native specialist mode/);
   assert.match(source, /Arrange required independent checking of the integrated outcome/);
+  assert.match(source, /settlement wakes\s+the parent like any worker/);
+  assert.match(source, /Never use `advisor_launch` or Intercom for status/);
   assert.match(source, /Deliberate criteria\s+revision[\s\S]+new packet\s+revision/);
   assert.match(source, /criteria serve the advisor's\s+judgment, not the reverse/);
   assert.match(source, /## Worker transport recovery/);
@@ -387,8 +393,9 @@ test("advisor prompt helpers bound the hot section, render the guide, and trim t
   assert.equal(workstreamHotSection("# Workstream: x\n\n## Goal\n\nShip.\n\n## Log\n\n- history"), "# Workstream: x\n\n## Goal\n\nShip.");
   assert.equal(renderIntelligenceGuide("not json"), undefined);
   assert.match(renderIntelligenceGuide(JSON.stringify({ name: "g", recommendations: { scout: [{ model: "m", thinking: "low" }] } })) ?? "", /- scout: m low$/);
+  assert.match(advisorToolGuardReason("advisor_launch", {}, "pi") ?? "", /bg_agent with role: advisor.*settlement wakes the parent/);
   assert.deepEqual(
-    advisorActiveTools(["read", "mem_context", "RoutineCreate", "bg_agent", "mem_search", "goal_wait", "mem_save", "edit"]),
+    advisorActiveTools(["read", "advisor_launch", "mem_context", "RoutineCreate", "bg_agent", "mem_search", "goal_wait", "mem_save", "edit"]),
     ["read", "bg_agent", "mem_search", "mem_save", "edit"],
   );
 });

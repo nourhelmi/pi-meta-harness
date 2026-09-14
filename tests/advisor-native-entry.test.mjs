@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { CodexWire } from '../scripts/advisor-runtime/adapters/codex.mjs';
+import { CodexWire, codexVersion, codexUserAgentVersion } from '../scripts/advisor-runtime/adapters/codex.mjs';
 import { NATIVE_LIMITS } from '../scripts/advisor-runtime/adapters/common.mjs';
 import { bootstrap, main } from '../scripts/advisor-runtime/native-cli.mjs';
 import { entryPlan, verifyCodexConfiguration, verifyClaudeEntryVersion } from '../scripts/advisor-runtime/native-entry.mjs';
@@ -59,7 +59,7 @@ async function selectedDefaultProfile(plan, h) {
   const request = (method, params) => { methods.push(method); return wire.request(method, params); };
   try {
     const init = await request('initialize', { clientInfo: { name: 'advisor-default-profile-test', version: '1.0.0' }, capabilities: { experimentalApi: true } });
-    assert.match(init.userAgent, /0\.153\.4/); wire.send({ method: 'initialized' });
+    assert.equal(codexUserAgentVersion(init.userAgent, 'advisor-default-profile-test'), codexVersion(plan.env)); wire.send({ method: 'initialized' });
     const thread = await request('thread/start', { cwd: h.cwd, ephemeral: true, approvalPolicy: 'never' });
     assert.deepEqual(failures, []); assert.deepEqual(methods, ['initialize', 'thread/start']);
     assert.equal(thread.activePermissionProfile?.id, plan.config.default_permissions);
@@ -129,6 +129,8 @@ test('N1/N4 installed entry reads explicit task roots without widening controls,
     const drift = structuredClone(plan.config); drift[key].foreign = true;
     assert.throws(() => assertPermissionConfig(drift, plan.config), /CODEX_CONFIG_DRIFT/);
   }
+  const compatible = structuredClone(plan.config); compatible.features.future_disabled = false;
+  assert.doesNotThrow(() => assertPermissionConfig(compatible, plan.config));
   await assert.rejects(main(['entry-plan', 'codex', h.cwd, h.bootstrapPath, '--sandbox']), /ENTRY_HOST_PROJECT_BOOTSTRAP/);
 });
 
@@ -177,7 +179,8 @@ test('N3 provider inventory rejects prewrite workspace/artifact aliases, restart
 test('N1 preflight escalates shutdown of an uncooperative dummy child, without thread or turn', { timeout: 15000 }, async t => {
   const h = await installed(t); const plan = entryPlan('codex', h.cwd, h.bootstrapPath); let child;
   const fixturePath = join(h.base, 'dummy-preflight.mjs');
-  writeFileSync(fixturePath, `import{createInterface}from'node:readline';process.on('SIGTERM',()=>{});setInterval(()=>{},1000);const config=JSON.parse(process.env.DUMMY_CONFIG);createInterface({input:process.stdin}).on('line',line=>{const r=JSON.parse(line);if(r.method==='initialized')return;if(!['initialize','config/read'].includes(r.method))process.exit(4);console.log(JSON.stringify({id:r.id,result:r.method==='initialize'?{userAgent:'codex-cli/0.153.4'}:{config}}));});`);
+  const userAgent = `codex-cli/${codexVersion(plan.env)}`;
+  writeFileSync(fixturePath, `import{createInterface}from'node:readline';process.on('SIGTERM',()=>{});setInterval(()=>{},1000);const config=JSON.parse(process.env.DUMMY_CONFIG);createInterface({input:process.stdin}).on('line',line=>{const r=JSON.parse(line);if(r.method==='initialized')return;if(!['initialize','config/read'].includes(r.method))process.exit(4);console.log(JSON.stringify({id:r.id,result:r.method==='initialize'?{userAgent:${JSON.stringify(userAgent)}}:{config}}));});`);
   assert.equal((await verifyCodexConfiguration(plan.config, { ...plan, spawnProcess: (_cmd, _args, options) => child = spawn(process.execPath, [fixturePath], { ...options, env: { ...options.env, DUMMY_CONFIG: JSON.stringify(plan.config) } }) })).checked, true);
   assert.equal(child.signalCode, 'SIGKILL');
 });

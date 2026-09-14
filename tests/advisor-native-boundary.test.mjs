@@ -23,9 +23,9 @@ const run = (command, args, options) => new Promise((resolve, reject) => {
   child.on('exit', (code, signal) => { clearTimeout(timer); resolve({ command, args, code, signal, out, err }); });
 });
 
-test('N1 actual pinned Codex sandbox allows task read/write and denies sibling, alias, readonly writes and network', { skip: process.platform !== 'darwin' }, async t => {
+test('N1 current Codex sandbox allows task read/write and denies sibling, alias, readonly writes and network', { skip: process.platform !== 'darwin' }, async t => {
   const h = setup(t); const env = { HOME: h.home, CODEX_HOME: h.home, PATH: process.env.PATH, LANG: 'en_US.UTF-8' };
-  const version = await run('codex', ['--version'], { env }); assert.equal(version.out.trim(), 'codex-cli 0.153.4');
+  const version = await run('codex', ['--version'], { env }); assert.equal(version.code, 0, version.err); assert.match(version.out.trim(), /^codex-cli\s+\S+$/);
   const config = permissionConfig(h.cwd, h.controls); const evidence = [version];
   const sandbox = async (profile, args) => { const result = await run('codex', ['sandbox', ...configArgs(config), '-P', profile, '-C', h.cwd, '--', ...args], { env, cwd: h.cwd }); evidence.push(result); return result; };
   const allowed = await sandbox(READ_PROFILE, ['/bin/cat', join(h.cwd, 'input.txt')]); assert.equal(allowed.code, 0, allowed.err); assert.equal(allowed.out, 'TASK_ONLY\n');

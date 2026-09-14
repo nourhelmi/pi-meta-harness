@@ -161,7 +161,7 @@ boundary, not permission to adopt a handle or replay a launch. Source installati
 does not mutate already-running sessions. Native skills should be reloaded in a fresh
 host conversation after installation. No migration grants new scope to historical workers.
 
-Runnable proof (use an isolated HOME/PI_CODING_AGENT_DIR and the CI-pinned Codex CLI):
+Runnable proof (use an isolated HOME/PI_CODING_AGENT_DIR and the CI-installed Codex CLI):
 
 ```sh
 PI_DETACH_TEST_PACKAGE=/path/to/pi-detach npm test

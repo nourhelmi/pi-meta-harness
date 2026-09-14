@@ -23,7 +23,8 @@ workstream hot section. Do not read the doctrine or the guide with a tool.
 Situational references live under `references/` in this directory and are
 read only when their situation arises.
 
-Separate advisor sessions launch through `advisor_launch` into a new Herdr
-tab, never a pane split. Workers stay panes in their owning advisor tab. Root
-panes use `advisor · <purpose>` labels; worker panes use `role · <purpose>`
-labels.
+Independent root advisor sessions launch from an ordinary Pi session through
+`advisor_launch` into a new Herdr tab, never a pane split. After initialization,
+dependent child advisors launch only through `bg_agent` with `role: "advisor"`;
+their normal settlement wakes the parent without Intercom. Root panes use
+`advisor · <purpose>` labels; worker panes use `role · <purpose>` labels.
