@@ -11,12 +11,17 @@ binding. A title never changes a worker's role, model, permissions or write owne
 In a **root Pi session in Herdr**, with the paired managed pi-detach bridge installed:
 
 ```text
-/cos accepted-workstream native -- Own the accepted outcome
+/cos accepted-workstream native Own the accepted outcome
+/cos Help me investigate the failing tests
 /advisor-team
 ```
 
-`/advisor-team` is the same command handler as `/cos`. Syntax is
-`[workstream] [pi|native] [-- task]`; omitted arguments restore the current session.
+`/advisor-team` is the same command handler as `/cos`. After `workstream pi|native`,
+write the task directly; `--` is optional. Plain multiword input is the whole task,
+not a guessed workstream name. A single word still selects a workstream. To name a
+workstream without selecting a harness, use `workstream -- task`; `-- task` also
+works. Omitted settings restore the current session or prompt in a new one.
+Task paragraphs, spacing and later `--` tokens are preserved.
 `advisor_session_init {workstream, workerHarness, mode:"cos"}` is the tool equivalent.
 It uses the normal advisor initializer and records mode on the same owned workstream.
 Ordinary `/advisor` remains ordinary unless that session already opted into CoS.

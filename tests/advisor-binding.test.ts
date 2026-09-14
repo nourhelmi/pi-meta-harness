@@ -91,10 +91,15 @@ for (const [entry, harness] of [['tool', undefined], ['cos', 'native'], ['adviso
     delete process.env.PI_DETACH_BACKEND;
     if (entry === 'tool') await rootSession.invoke('advisor_session_init', 'init', { workstream: 'chosen-outcome', workerHarness: 'native' });
     else {
-      await rootSession.command(entry, 'chosen-outcome native -- Own the accepted outcome');
+      const task = 'Own the accepted outcome.\n\nKeep  spacing -- and -- separators.';
+      await rootSession.command(entry, `chosen-outcome native ${entry === 'cos' ? '' : '-- '}${task}`);
       assert.match(rootSession.messages[0], /initialized.*do not initialize again/);
-      await rootSession.command(entry === 'cos' ? 'advisor-team' : 'cos', '-- Continue the same outcome');
-      assert.match(rootSession.messages.at(-1)!, /Continue the same outcome/);
+      assert.ok(rootSession.messages[0].endsWith(task), 'task reaches the model unchanged');
+      const alias = entry === 'cos' ? 'advisor-team' : 'cos';
+      for (const args of ['-- Continue the same outcome', 'Continue the same outcome', 'chosen-outcome native Continue the same outcome']) {
+        await rootSession.command(alias, args);
+        assert.ok(rootSession.messages.at(-1)!.endsWith('Continue the same outcome'));
+      }
       assert.equal(rootSession.entries.length, 1, 'alias restore does not duplicate initialization');
       const disk = readFileSync(join(base, 'checkpoint/workstreams/chosen-outcome.md'), 'utf8');
       assert.match(disk, /Advisor mode: `cos`/);

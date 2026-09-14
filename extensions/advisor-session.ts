@@ -674,6 +674,21 @@ async function initializeAdvisor(
 	return { state, herdrName, usedStoredWorkstream, usedStoredWorkerHarness, paths };
 }
 
+export function parseTeamCommand(args: string): { workstream?: string; workerHarness?: WorkerHarness; task: string } {
+  const input = args.trim();
+  // Only consume an explicit header; ordinary prose remains the complete task.
+  const header = /^--(?:\s+|$)/.exec(input)
+    ?? /^(\S+)(?:\s+(pi|native))?\s+--(?:\s+|$)/.exec(input)
+    ?? /^(\S+)\s+(pi|native)(?:\s+|$)/.exec(input);
+  if (header) return {
+    workstream: header[1],
+    workerHarness: isWorkerHarness(header[2]) ? header[2] : undefined,
+    task: input.slice(header[0].length),
+  };
+  const workstream = input && !/\s/.test(input) ? input : undefined;
+  return { workstream, workerHarness: undefined, task: workstream ? "" : input };
+}
+
 export default function advisorSessionExtension(pi: ExtensionAPI): void {
   const previousEnvironment = Object.fromEntries(["ADVISOR_WORKSTREAM", "ADVISOR_STATE_ROOT", "PI_DETACH_WORKER_HARNESS"].map(key => [key, process.env[key]]));
 	let activeState: AdvisorSessionState | undefined;
@@ -857,15 +872,13 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
   // Both literal commands use the exact same initialization and persisted mode as the skill/tool.
   const enterTeam = async (args: string, ctx: ExtensionContext) => {
     if (pi.getFlag?.('advisor-worker-role')) throw new Error('Scoped helpers cannot initialize a root workstream.');
-    const [head, ...task] = args.split(/(?:^|\s+)--(?:\s+|$)/);
-    const words = head.trim().split(/\s+/).filter(Boolean);
-    if (words.length > 2 || words[1] && !isWorkerHarness(words[1])) throw new Error('Usage: /cos [workstream] [pi|native] [-- task]');
-    const initialized = await initializeAdvisor(pi, ctx, words[0], words[1], 'cos').catch(error => { bindingError = String(error); throw error; });
+    const { workstream, workerHarness, task } = parseTeamCommand(args);
+    const initialized = await initializeAdvisor(pi, ctx, workstream, workerHarness, 'cos').catch(error => { bindingError = String(error); throw error; });
     activeState = initialized.state; bindingError = undefined;
     await loadDoctrine(ctx); hotSectionPending = true; applyAdvisorToolSet(pi);
-    pi.sendUserMessage(`CoS mode is initialized for owned workstream ${activeState.workstream}; do not initialize again. Use the injected advisor doctrine and team policy. ${task.join(' -- ') || 'Continue the accepted workstream, or ask for the accepted outcome if it is not yet known.'}`, { deliverAs: 'followUp' });
+    pi.sendUserMessage(`CoS mode is initialized for owned workstream ${activeState.workstream}; do not initialize again. Use the injected advisor doctrine and team policy. ${task || 'Continue the accepted workstream, or ask for the accepted outcome if it is not yet known.'}`, { deliverAs: 'followUp' });
   };
-  for (const name of ['cos', 'advisor-team']) pi.registerCommand?.(name, { description: 'Enter the same owned advisor workstream in CoS team mode: [workstream] [pi|native] [-- task]', handler: enterTeam });
+  for (const name of ['cos', 'advisor-team']) pi.registerCommand?.(name, { description: 'Enter CoS team mode: [workstream pi|native] [task], or workstream -- task', handler: enterTeam });
 
   pi.registerTool({
     name: 'advisor_checkpoint', label: 'Advisor Checkpoint',

@@ -8,11 +8,37 @@ import advisorSessionExtension, {
   advisorActiveTools,
   advisorToolGuardReason,
   renderIntelligenceGuide,
+  parseTeamCommand,
   workstreamHotSection,
 } from "../extensions/advisor-session.ts";
 
 // Session-extension units intentionally run without the separately tested managed bridge.
 process.env.PI_DETACH_BACKEND = "legacy";
+
+const migrationTask = "ok so i wanna convert from convex to Cloudflare's primitives.\n\nCheck `little-elsewhere` first; keep  spacing -- and -- flags.";
+for (const [args, workstream, workerHarness, task] of [
+  ["", undefined, undefined, ""],
+  [" \n\t ", undefined, undefined, ""],
+  ["migration", "migration", undefined, ""],
+  ["migration pi", "migration", "pi", ""],
+  ["migration native", "migration", "native", ""],
+  [`cloudflare-migration pi ${migrationTask}`, "cloudflare-migration", "pi", migrationTask],
+  [`cloudflare-migration native\n\n${migrationTask}`, "cloudflare-migration", "native", migrationTask],
+  [`  migration\tpi\t--\n${migrationTask}  `, "migration", "pi", migrationTask],
+  [`migration -- ${migrationTask}`, "migration", undefined, migrationTask],
+  [`-- ${migrationTask}`, undefined, undefined, migrationTask],
+  ["migration native --", "migration", "native", ""],
+  ["--", undefined, undefined, ""],
+  ["-- -- keep this separator", undefined, undefined, "-- keep this separator"],
+  ["migration pi -- -- keep this separator", "migration", "pi", "-- keep this separator"],
+  [migrationTask, undefined, undefined, migrationTask],
+  ["Please fix this bug", undefined, undefined, "Please fix this bug"],
+  ["Review the pi integration", undefined, undefined, "Review the pi integration"],
+] as const) {
+  test(`CoS command preserves task text: ${JSON.stringify(args)}`, () => {
+    assert.deepEqual(parseTeamCommand(args), { workstream, workerHarness, task });
+  });
+}
 
 interface ExecResult {
   code: number;
