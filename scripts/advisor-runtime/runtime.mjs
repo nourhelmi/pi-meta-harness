@@ -9,7 +9,7 @@ import { canonicalJson } from '../advisor-core/command-contract.mjs';
 import { validateResultArtifact, resultStatusBody } from '../advisor-core/result-artifact.mjs';
 import { reportSummary, contentSurface, sameSurface } from './evidence.mjs';
 import { validateTrace } from '../advisor-trace.mjs';
-import { OPERATIONS, WORKER_OPERATIONS, LIMITS, fields, integer, parseEnvelope, text, validatePacket } from './contract.mjs';
+import { OPERATIONS, WORKER_OPERATIONS, LIMITS, fields, integer, parseEnvelope, text } from './contract.mjs';
 import { RuntimeError, acquireLock, atomicWrite, boundedRead, demand, disjointControlPath, id, privateDirectory, safeFile, within, withRunOwnership } from './security.mjs';
 import { childStatePath, familyCall, parentRuntimeCall, publicChildScope } from './child-scope.mjs';
 import { newFamily, familyOperation } from './family.mjs';
@@ -950,11 +950,6 @@ export class AdvisorRuntime {
       }
       const packet = { role: execution.role, task: execution.prompt, acceptance: [...(p.params.acceptance ?? []), ...(p.params.anchor ? [p.params.anchor] : [])], riskTier: 'high', cwd, adapter: 'pi-detach', model: execution.model, thinking: execution.thinking, execution };
       if (!packet.acceptance.length) packet.acceptance.push('Return the requested bounded result with direct evidence.');
-      try { validatePacket(packet); } catch {
-        const response = { ok: false, error: 'BRIDGE_INTENT_REJECTED' };
-        this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: 'rejected', scope, response }), key));
-        return response;
-      }
       this.#transaction(() => {
         this.#write('UPDATE pi_bindings SET data=? WHERE id=? AND principal=? AND digest=?', canonicalJson({ action: 'launch', runId: scope.run, scope, packet }), key, principal, digest);
       });

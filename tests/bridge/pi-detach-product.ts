@@ -229,7 +229,7 @@ if (phase === 'blank-recovery') {
  console.log('PASS: real port completed blank-result worker permits explicit successor and captured planner lineage');
  process.exit(0);
 }
-const largeParams = { ...params, prompt: 'Plan the migration without losing any requirements.\n'.repeat(230),
+const largeParams = { ...params, prompt: 'Plan the migration without losing any requirements.\n'.repeat(400),
  acceptance: Array.from({ length: 6 }, (_, i) => `Criterion ${i}: ${'Verify the persistence and API mapping. '.repeat(8)}`) };
 const launched = await invoke('bg_agent', 'actual-tool-call', largeParams);
 const runId = launched.details.runId;
@@ -255,7 +255,7 @@ await assert.rejects(invoke('bg_agent', 'busy', { name: runId, prompt: 'steer' }
 const node: any = await req('get', { runId });
 const intent = node.packet.execution;
 assert.ok(Buffer.byteLength(JSON.stringify(node.packet)) > 32768, 'prepared packet exceeds the public command budget');
-assert.ok(Buffer.byteLength(intent.prompt) <= 16384, 'enriched task is within the field limit');
+assert.ok(Buffer.byteLength(intent.prompt) > 16384, 'generated task is not capped by the ordinary scalar text limit');
 assert.ok(intent.prompt.includes(largeParams.prompt), 'stored prompt preserves the complete supplied task');
 assert.ok(calls.find(args => args[1] === 'prompt')!.includes(intent.prompt), 'real driver receives every enriched task byte');
 assert.deepEqual(node.packet.acceptance, largeParams.acceptance);

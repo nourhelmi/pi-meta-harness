@@ -17,7 +17,7 @@ function fixture(t) {
   async function start(name, options = {}) {
     const stateRoot = options.stateRoot ?? join(base, name); const launches = []; const messages = [];
     const port = { version: 1,
-      async prepare(params, sourceDirectory, scope) { if (options.prepareGate) await options.prepareGate; return { v: 1, command: 'fixture', prompt: params.prompt, role: params.role ?? 'foreman', runtime: 'pi', model: 'fixture', thinking: 'none', maxTurns: null, requiredSkills: [], harness: 'pi', keepAlive: true, label: 'fixture', resultDiscovery: null, resultPolicy: 'runtime-capture', sourceDirectory,
+      async prepare(params, sourceDirectory, scope) { if (options.prepareGate) await options.prepareGate; return { v: 1, command: 'fixture', prompt: (options.promptPrefix ?? '') + params.prompt, role: params.role ?? 'foreman', runtime: 'pi', model: 'fixture', thinking: 'none', maxTurns: null, requiredSkills: [], harness: 'pi', keepAlive: true, label: 'fixture', resultDiscovery: null, resultPolicy: 'runtime-capture', sourceDirectory,
         environment: { ADVISOR_RUNTIME_DESCRIPTOR: '', PI_DETACH_RUNTIME_BRIDGE: '', ADVISOR_BRIDGE_WORKER_DIR: sourceDirectory, ADVISOR_RUNTIME_CANONICAL_OWNER: '1', ADVISOR_BRIDGE_CHILD_STATE: params.delegate ? scope.childState : '', ...(scope.teamMode && params.role === 'advisor' ? { ADVISOR_TEAM_MODE: '1' } : {}) } }; },
       async launch({ hooks, intent, reply }) {
         const generation = launches.length * 2 + 1; const handle = { id: `fixture-${intent.sourceDirectory}`, session: `fixture-session-${intent.sourceDirectory}` };
@@ -41,7 +41,7 @@ function fixture(t) {
   return { base, cwd, start };
 }
 
-for (const prompt of ['x'.repeat(16384), '🚀'.repeat(4096), '\u0001'.repeat(5000)]) {
+for (const prompt of ['x'.repeat(16384), 'x'.repeat(20053), '🚀'.repeat(6000), '\u0001'.repeat(5000)]) {
   test(`prepared launch packets may expand beyond the public envelope (${Buffer.byteLength(prompt)} task bytes)`, async t => {
     const f = fixture(t); const root = await f.start('root');
     const params = { role: 'planner', prompt, acceptance: ['Preserve every task byte'] };
@@ -59,11 +59,22 @@ for (const prompt of ['x'.repeat(16384), '🚀'.repeat(4096), '\u0001'.repeat(50
     const credential = JSON.parse(readFileSync(root.opts.credentialPath, 'utf8'));
     assert.deepEqual(root.host.runtime.execute(credential.token, command, 'model'), { ok: false, error: 'ENVELOPE_TOO_LARGE' }, 'public admission retains its original bound');
     await assert.rejects(callSocket(credential, command, 'model'), /ENVELOPE_TOO_LARGE/, 'wire admission retains its original bound');
-    await assert.rejects(root.launch('oversized-task', { prompt: 'x'.repeat(16385) }), /BRIDGE_INTENT_REJECTED/, 'prepared task fields remain bounded');
+    const scalarPacket = { ...node.packet, task: 'x'.repeat(16385) }; delete scalarPacket.execution;
+    assert.deepEqual(root.host.runtime.execute(credential.token, { ...command, payload: { node: 'worker', packet: scalarPacket } }, 'model'), { ok: false, error: 'INVALID_TEXT' }, 'public packet task bound is unchanged');
+    await assert.rejects(root.launch('oversized-task', { prompt: 'x'.repeat(32769) }), /PI_DETACH_BRIDGE_UNAVAILABLE/, 'oversized incoming frames still reject before admission');
     assert.equal(root.launches.length, 1);
     root.settle(); await root.ack(runId); await root.host.service.close();
   });
 }
+
+test('host expansion stays bounded and ordinary admission reports errors without an intent preflight', async t => {
+  const f = fixture(t); const root = await f.start('root', { promptPrefix: 'x'.repeat(65536) });
+  await assert.rejects(root.launch('expanded-too-large'), /ENVELOPE_TOO_LARGE/);
+  assert.equal(root.launches.length, 0, 'oversized internal packet never executes');
+  const invalid = await f.start('invalid');
+  await assert.rejects(invalid.launch('bad-acceptance', { acceptance: ['x'.repeat(2049)] }), /^Error: INVALID_TEXT$/);
+  assert.equal(invalid.launches.length, 0);
+});
 
 test('root persistent family ledger counts launches, replies and tasks and survives a typed restart', async t => {
   const f = fixture(t); const root = await f.start('root');

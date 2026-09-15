@@ -325,9 +325,13 @@ requests per stdio connection, 10-second bounded waits/adapter acceptance,
 capacity exhaustion requires a new explicitly scoped store, not silent deletion.
 Runtime-prepared Pi launch packets have a separate 128 KiB internal admission budget:
 role instructions, execution metadata and the duplicated task must not exhaust the
-client's envelope allowance. Only the private preparation path selects that budget;
-public commands stay at 32 KiB, and task/field validation, authorization, intent binding,
-replay and ownership checks are unchanged. Task content is never truncated to fit.
+client's envelope allowance. Prepared task/prompt text uses that enclosing packet
+budget, not the smaller scalar-text limit. There is no separate intent-validation
+preflight: prepared launches go through normal packet admission once, retaining
+concrete admission errors. Only the private preparation path selects the expanded
+budget; public commands stay at 32 KiB. Non-prompt field validation, authorization,
+exact execution binding, replay and ownership checks remain. Task content is never
+truncated to fit.
 
 ## Deterministic verification
 

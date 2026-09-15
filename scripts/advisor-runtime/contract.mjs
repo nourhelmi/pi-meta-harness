@@ -30,7 +30,7 @@ export function parseEnvelope(input, maxBytes = LIMITS.envelope) {
     case 'workstream.create': fields(p, ['cwd', 'host']); text(p.cwd, 4096); demand(['codex', 'claude-code', 'pi'].includes(p.host), 'UNSUPPORTED_HOST'); break;
     case 'workstream.open': case 'progress': case 'root.stop': case 'root.resume': case 'node.resume': case 'team.status': fields(p, []); break;
     case 'node.launch': fields(p, ['node']); id(p.node); demand(p.node !== 'root', 'ROOT_SCOPE'); break;
-    case 'packet.admit': fields(p, ['node', 'packet']); id(p.node); validatePacket(p.packet); demand(p.node !== 'root', 'ROOT_SCOPE'); break;
+    case 'packet.admit': fields(p, ['node', 'packet']); id(p.node); validatePacket(p.packet, maxBytes === LIMITS.preparedPacket ? maxBytes : LIMITS.text); demand(p.node !== 'root', 'ROOT_SCOPE'); break;
     case 'graph.admit': validateGraph(p); break;
     case 'wave.launch': fields(p, ['wave']); integer(p.wave, 1, 24); break;
     case 'root.create': fields(p, ['adapter', 'model', 'thinking', 'text']); id(p.adapter); text(p.model, 256); text(p.thinking, 128); text(p.text); break;
@@ -60,7 +60,9 @@ export function parseEnvelope(input, maxBytes = LIMITS.envelope) {
   }
   return { command, mutation, digest: createHash('sha256').update(encoded).digest('hex') };
 }
-export function validatePacket(p) {
+// Trusted preparation may expand prompt/task within the enclosing packet budget.
+// Public commands and every other text field retain their ordinary bounds.
+export function validatePacket(p, maxTaskBytes = LIMITS.text) {
   fields(p, ['role', 'task', 'acceptance', 'riskTier', 'cwd', 'adapter', 'model', 'thinking'], ['execution']);
   if (p.execution !== undefined) {
     demand(p.adapter === 'pi-detach', 'EXECUTION_ADAPTER');
@@ -70,13 +72,15 @@ export function validatePacket(p) {
     demand(e.environment.ADVISOR_RUNTIME_DESCRIPTOR === '' && e.environment.PI_DETACH_RUNTIME_BRIDGE === '' && e.environment.ADVISOR_RUNTIME_CANONICAL_OWNER === '1' && e.environment.ADVISOR_BRIDGE_WORKER_DIR === e.sourceDirectory, 'EXECUTION_ENVIRONMENT');
     for (const value of Object.values(e.environment)) demand(typeof value === 'string' && Buffer.byteLength(value) <= 4096, 'EXECUTION_ENVIRONMENT');
     demand(e.v === 1 && e.resultPolicy === 'runtime-capture' && typeof e.keepAlive === 'boolean', 'EXECUTION_VERSION');
-    for (const key of ['command', 'prompt', 'role', 'runtime', 'model', 'thinking', 'harness', 'label', 'sourceDirectory']) text(e[key]);
+    text(e.prompt, maxTaskBytes);
+    for (const key of ['command', 'role', 'runtime', 'model', 'thinking', 'harness', 'label', 'sourceDirectory']) text(e[key]);
     demand(e.maxTurns === null || Number.isSafeInteger(e.maxTurns) && e.maxTurns > 0, 'EXECUTION_TURNS');
     demand(Array.isArray(e.requiredSkills) && e.requiredSkills.length <= 12, 'EXECUTION_SKILLS'); e.requiredSkills.forEach(skill => text(skill, 128));
     demand(e.resultDiscovery === null || typeof e.resultDiscovery === 'string', 'EXECUTION_DISCOVERY');
     demand(e.role === p.role && e.prompt === p.task && e.model === p.model && e.thinking === p.thinking, 'EXECUTION_MISMATCH');
   }
-  ['role', 'adapter'].forEach(key => id(p[key])); ['task', 'cwd', 'model', 'thinking'].forEach(key => text(p[key]));
+  text(p.task, maxTaskBytes);
+  ['role', 'adapter'].forEach(key => id(p[key])); ['cwd', 'model', 'thinking'].forEach(key => text(p[key]));
   demand(['low', 'standard', 'high'].includes(p.riskTier), 'INVALID_RISK');
   demand(Array.isArray(p.acceptance) && p.acceptance.length > 0 && p.acceptance.length <= 12, 'INVALID_ACCEPTANCE');
   p.acceptance.forEach(item => text(item, 2048));
