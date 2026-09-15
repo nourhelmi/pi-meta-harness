@@ -139,8 +139,11 @@ state file.
 - Read/search the recorded transcript directly when it helps answer a question.
   Delegate log reduction only when independent work or specialization earns the
   handoff; a screenshot or image the user shares is read directly.
-- Compaction is automatic. Keep the workstream hot section current so nothing
-  is lost when it happens; do not write session summaries to a memory system
-  as a substitute for the workstream file.
+- Compaction is automatic. It also runs the moment you go idle with detached
+  work still outstanding and a large context, so the wake-up does not re-bill
+  the whole conversation; the hot section is re-sent afterwards. Keep the
+  workstream hot section current so nothing is lost when it happens; do not
+  write session summaries to a memory system as a substitute for the
+  workstream file.
 - Start a fresh Pi session and invoke `/advisor` after a completed workstream.
   Do not reuse one long advisor conversation for unrelated tasks.

@@ -305,7 +305,7 @@ Launch packet fields come from the `Agent` prompt and documented hook fields:
 
 - `riskTier` parses `RISK TIER` followed by low, standard, or high,
   case-insensitively, and defaults to `high`;
-- `acceptance` is the `- ` bullets or numbered lines under an
+- `acceptance` is the `-` bullets or numbered lines under an
   `ACCEPTANCE CRITERIA` block, or
   `result.md validates with the six required headings` when absent;
 - `model` is `tool_input.model` when present. When it is absent at launch the

@@ -15,6 +15,7 @@ import {
 	type AdvisorSessionState,
 	type WorkerHarness,
 } from "./advisor-core/advisor-state.ts";
+import { registerWaitCompaction } from "./advisor-core/wait-compaction.ts";
 
 const ENTRY_TYPE = "advisor-session";
 const MAX_WORKSTREAM_LENGTH = 48;
@@ -762,6 +763,8 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
     catch (error) { ctx.ui.notify(`Team checkpoint projection is unknown: ${String(error)}`, 'warning'); }
   });
   registerVisibilityGuard(pi, () => activeState, () => bindingError);
+  // Idle with detached work outstanding: compact now, while the prompt cache is hot, so the wake-up is cheap.
+  registerWaitCompaction(pi, { isAdvisorRoot: () => activeState !== undefined && !pi.getFlag?.("advisor-worker-role") });
 
 	pi.registerTool({
 		name: "advisor_launch",
