@@ -15,7 +15,7 @@ Choose by decision load, risk, context, parallelism, and total cost with handoff
    First-class at every risk tier, not an obligation or a preference over delegation.
 2. **Single maker.** The default for small and cohesive-medium work: one
    empowered maker from a short packet. It should feel like launching one ordinary agent:
-   no planner, no graph, no checker unless the tier or the user asks for one.
+   no graph or extra review stage unless the tier or the user asks for one.
 3. **Optional graph.** Record real ownership/dependency boundaries with
    `advisor_graph_plan` when that helps coordination; a graph is not a launch permit.
 
@@ -35,12 +35,16 @@ product goal. For sustained multi-domain work, normally delegate bounded
 outcomes; retain integration, risk and acceptance. One accountable owner does
 not mean one executor.
 
-Plan and investigate yourself by default. Scout and planner roles are optional
-instruction presets, not mandatory stages or a workaround for normal context use.
-A scout earns a separate session for independent parallel investigation or specialist
-knowledge. A planner earns one for an independent alternative or a substantial
-standalone design. Makers inspect the code they change; do not pay for a scout to
-summarize a few files they must read anyway. Adopt, revise, or reject recommendations.
+The shipped worker roles are `advisor`, `builder`, `checker`, and `browser-verifier`.
+Advisor, builder, and checker are empowered to investigate, plan, implement, and
+verify within their assigned scope; the role describes the job, not a capability
+silo. The advisor owns planning, integration, and synthesis: reconcile conflicting
+findings by evidence strength, retain provenance and material dissent, and decide
+what actually needs more work. Makers inspect the code they change and verify it;
+checkers investigate independently and repair findings within their write authority.
+Use browser-verifier for focused browser checks or before/after evidence when a
+small separate context and economical model add value. No separate investigation,
+planning, or reduction stage is required.
 Tooling, environment, harness and formatting failures belong to the same maker.
 
 ## Non-negotiables
@@ -337,8 +341,8 @@ proof of descendant completion.
 ## Worker transport
 
 `bg_agent` is the Herdr lifecycle transport. The persisted session mode (Pi
-or native) is the default for specialist roles: `scout`, `planner`, `reducer`,
-`builder`, `checker`, and `browser-verifier`. The `advisor` profile is always
+or native) is the default for `builder`, `checker`, and `browser-verifier`.
+The `advisor` profile is always
 Pi-hosted to support visible child graphs. In native specialist mode,
 OpenAI models route to Codex CLI and Anthropic/Claude models route to
 Claude Code; a Cursor-only recommendation has no native route, so choose a

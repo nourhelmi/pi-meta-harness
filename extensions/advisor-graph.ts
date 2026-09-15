@@ -41,7 +41,7 @@ interface GraphDetails {
 }
 
 interface GraphWarning {
-	code: "checker-without-builder" | "browser-without-builder" | "reducer-low-fan-in";
+	code: "checker-without-builder" | "browser-without-builder";
 	nodeId: string;
 	message: string;
 }
@@ -205,13 +205,6 @@ function roleOrderWarnings(nodes: GraphNode[], byId: Map<string, GraphNode>): Gr
 				});
 			}
 		}
-		if (node.role === "reducer" && (node.dependsOn?.length ?? 0) < 2) {
-			warnings.push({
-				code: "reducer-low-fan-in",
-				nodeId: node.id,
-				message: `Reducer ${node.id} has fewer than two upstream nodes; confirm reduction adds value.`,
-			});
-		}
 	}
 	return warnings;
 }
@@ -364,7 +357,7 @@ export default function advisorGraphExtension(pi: ExtensionAPI): void {
 		name: "advisor_graph_plan",
 		label: "Advisor Graph",
 		description:
-			"Structurally validate, lint, and persist a DAG of visible Pi role agents. Malformed structure is rejected; role-order and reducer-shape concerns are non-blocking warnings. Writer coordination belongs to the advisor, not graph admission. It never launches agents.",
+			"Structurally validate, lint, and persist a DAG of visible Pi role agents. Malformed structure is rejected; review-order concerns are non-blocking warnings. Writer coordination belongs to the advisor, not graph admission. It never launches agents.",
 		parameters: GraphParameters,
 		async execute(...args) {
 			const [, params, , , ctx] = args;

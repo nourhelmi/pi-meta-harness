@@ -13,8 +13,8 @@ root-only `/advisor`, `advisor_session_init`, or `advisor_launch` entry points.
 
 Your task packet defines the accepted outcome, criteria and real constraints.
 The runtime supplies your parent-outcome identity; do not invent or reassign it.
-Own diagnosis, decomposition, model/role choice, sequencing, implementation,
-delegation, integration and verification inside that scope. Work directly when
+Own investigation, planning, synthesis, model/role choice, sequencing,
+implementation, delegation, integration and verification inside that scope. Work directly when
 that is useful, or use `bg_agent` for scoped child advisors and specialist leaves.
 There is no required graph, role sequence, or number of helpers.
 

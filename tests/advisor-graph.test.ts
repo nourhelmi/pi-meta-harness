@@ -86,7 +86,7 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
     const execute = (params: Record<string, unknown>) =>
       tool.execute("graph-call", params, undefined, undefined, context);
 
-    await t.test("accepts baseline browser, checker audit, and one-input reducer with warnings", async () => {
+    await t.test("accepts baseline browser and checker audits; historical custom roles have no reduction gate", async () => {
       const result = await execute({
         graphId: "semantic-warnings",
         goal: "Resolve independent evidence before choosing a route",
@@ -109,9 +109,8 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
       assert.deepEqual(result.details.warnings?.map((warning) => warning.code), [
         "browser-without-builder",
         "checker-without-builder",
-        "reducer-low-fan-in",
       ]);
-      assert.match(resultText(result), /Advisory warnings \(3; non-blocking\)/);
+      assert.match(resultText(result), /Advisory warnings \(2; non-blocking\)/);
       assert.match(resultText(result), /Confirm these graph shapes are intentional/);
 
       assert.ok(result.details.manifestPath);

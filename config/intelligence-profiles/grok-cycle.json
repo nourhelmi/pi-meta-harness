@@ -2,55 +2,19 @@
   "name": "grok-cycle",
   "models": {
     "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Grok at high and the advisor session switches to Grok.",
+      "character": "Advisory: The advisor's own session model, including planning and synthesis, at medium reasoning. Shares the Anthropic session allowance; delegate implementation and checking when useful to conserve capacity, not because the advisor cannot do them. At Anthropic capacity, the advisor session falls back to Grok at high.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: Luna replacement and preferred cheap executor for a locked execution packet, plus scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and browser verification. The packet fixes material decisions, bounds the surface, and names deterministic anchors. Sonnet owns ordinary local code choices, resolves environment and tooling obstacles locally and records them under Deviations, and stops and escalates rather than deciding product, architecture, schema, migration, auth, product-fallback, destructive, or external-effect behavior. Default reasoning is medium. Generally avoid adversarial-tier checking, final whole-diff review, reduction, planning, or decision-bearing substantial implementation. Grok is the hefty-cycle model.",
+      "character": "Advisory: Preferred economical executor for a locked execution packet, mechanical chores, routine checks, repair verification, test-harness findings, and focused browser verification. Default reasoning is medium. Own investigation, local planning, code choices, and verification within the assignment. For locked packets, use fixed material decisions and deterministic anchors; resolve tooling obstacles locally and escalate material ambiguity outside the assignment. Prefer Grok for adversarial checking, final whole-diff review, and decision-bearing substantial implementation.",
       "defaultThinking": "medium"
     },
     "cursor/grok-4.6": {
-      "character": "Advisory: The hefty decision-bearing cycle: implementation workhorse and adversarial-tier reviewer. Backend, data, mixed-stack, substantial existing-UX, greenfield UX (load frontend-design), research, schema/auth/security/money checks, final whole-diff review before PR, rechecks after an overturned pass, and reduction. Prefer Sonnet medium when an execution packet has already locked material decisions. Grok is also the planning/advisor fallback when Fable is at Anthropic capacity. 200K window — keep packets bounded and split oversized reviews per package or phase. A Grok review of a Grok build is expected in this profile; deterministic anchors are the independence backstop, not a second model. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
+      "character": "Advisory: The hefty decision-bearing cycle: implementation workhorse and adversarial-tier checker. Backend, data, mixed-stack, substantial existing-UX, greenfield UX (load frontend-design), research, schema/auth/security/money checks, final whole-diff review, and rechecks after an overturned pass. Own investigation, planning, implementation or repair, and verification within the assignment. Prefer Sonnet medium when material decisions are already locked. Grok is also the advisor fallback when Fable is at capacity, including planning and synthesis. 200K window — keep packets task-shaped and split oversized reviews per package or phase. Review a Grok build in a fresh Grok context when useful; independence means a nonauthor assessment, not a different model. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
       "defaultThinking": "high"
     }
   },
   "recommendations": {
-    "scout": [
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "medium",
-        "fit": "Preferred for bounded investigation in this profile."
-      },
-      {
-        "model": "cursor/grok-4.6",
-        "thinking": "high",
-        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
-      }
-    ],
-    "planner": [
-      {
-        "model": "claude-bridge/claude-fable-5-1",
-        "thinking": "high",
-        "fit": "Preferred for planning in this profile."
-      },
-      {
-        "model": "cursor/grok-4.6",
-        "thinking": "high",
-        "fit": "Planning fallback when the preferred choice is unavailable or a different fit is justified."
-      }
-    ],
-    "reducer": [
-      {
-        "model": "cursor/grok-4.6",
-        "thinking": "high",
-        "fit": "Preferred for synthesis and conflict reduction in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "medium",
-        "fit": "Native-harness fallback for bounded synthesis and conflict reduction when Cursor/Grok transport is unavailable."
-      }
-    ],
     "builder": [
       {
         "model": "cursor/grok-4.6",

@@ -1,47 +1,8 @@
 {
   "defaultAgent": "pi",
   "profiles": {
-    "scout": {
-      "description": "Read-only investigation with bounded, source-linked findings.",
-      "agent": "pi",
-      "resultDiscovery": "advisor-worker",
-      "skill": "advisor-role-scout",
-      "skillPath": "skills/advisor-worker/roles/scout/SKILL.md",
-      "cliArgs": [
-        "--advisor-worker-role",
-        "scout"
-      ],
-      "maxTurns": 3,
-      "requireAnchor": true
-    },
-    "planner": {
-      "description": "Recommend a plan from verified facts; the advisor retains planning authority.",
-      "agent": "pi",
-      "resultDiscovery": "advisor-worker",
-      "skill": "advisor-role-planner",
-      "skillPath": "skills/advisor-worker/roles/planner/SKILL.md",
-      "cliArgs": [
-        "--advisor-worker-role",
-        "planner"
-      ],
-      "maxTurns": 3,
-      "requireAnchor": true
-    },
-    "reducer": {
-      "description": "Reduce independent worker artifacts into bounded decisions and conflicts.",
-      "agent": "pi",
-      "resultDiscovery": "advisor-worker",
-      "skill": "advisor-role-reducer",
-      "skillPath": "skills/advisor-worker/roles/reducer/SKILL.md",
-      "cliArgs": [
-        "--advisor-worker-role",
-        "reducer"
-      ],
-      "maxTurns": 2,
-      "requireAnchor": true
-    },
     "builder": {
-      "description": "Own cohesive diagnosis, implementation choices, obstacle resolution, and verification within fixed criteria; may launch one fresh-review subagent.",
+      "description": "Own investigation, planning, implementation, obstacle resolution, and verification within fixed criteria; may launch a fresh-review subagent.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-builder",
@@ -55,7 +16,7 @@
       "requireAnchor": true
     },
     "advisor": {
-      "description": "Own a bounded outcome as a child advisor: use the shared advisor doctrine, choose direct work or a child subgraph, integrate, and verify.",
+      "description": "Own an outcome end to end: investigate, plan, synthesize findings, implement or delegate, integrate, and verify using the shared advisor doctrine.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "harness": "pi",
@@ -70,7 +31,7 @@
       "requireAnchor": true
     },
     "checker": {
-      "description": "Fresh-context review of completed work that repairs every finding it can inside the reviewed surface and reports the post-repair state.",
+      "description": "Independently investigate and check completed work, repair findings within the reviewed surface, and verify repairs without calling self-review independent.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-checker",
@@ -83,7 +44,7 @@
       "requireAnchor": true
     },
     "browser-verifier": {
-      "description": "Integrated browser verification and safe evidence capture.",
+      "description": "Focused browser checks and before/after evidence capture; use an economical model when the task is explicit and bounded.",
       "agent": "pi",
       "resultDiscovery": "advisor-worker",
       "skill": "advisor-role-browser-verifier",

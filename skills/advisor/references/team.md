@@ -4,8 +4,8 @@ The advisor and teammates are empowered technical owners. Choose direct work,
 reusable teammates, temporary specialists, and combinations by task, context and
 evidence value. The team is a resource, not a routing constraint. Prefer full-stack
 outcome ownership; specialize when useful. Root and teammates may implement or use
-fitting temporary roles at any point, including parallel scouts before any team
-exists. Teammates use child-advisor authority, not leaf-only builder rules or a
+fitting temporary roles at any point, including parallel investigation before any
+team exists. Teammates use child-advisor authority, not leaf-only builder rules or a
 mandatory management role. One maker per checkout/write surface still applies.
 
 Use the active intelligence profile as guidance, not a CoS staffing quota or routine

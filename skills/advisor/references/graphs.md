@@ -9,9 +9,10 @@ and visibility aid, not a permit to launch, repair or finish an agent.
 Every node should earn its place through parallelism, specialization, an independent
 judgment or a substantial deliverable. A dependency means the downstream task
 actually needs upstream output; do not add edges for conventional role order.
-The advisor normally plans and investigates directly. A builder inspects its own
-code. Scout, planner, reducer and checker presets are optional tools for useful
-work, not required stages.
+The advisor plans, investigates, and synthesizes findings directly. Builders and
+checkers own investigation, local planning, implementation or repair, and verification
+within their assigned scope. Add a browser-verifier for focused browser evidence
+when useful; do not turn any of these capabilities into mandatory graph stages.
 
 `advisor_graph_plan` records the plan and checks structural consistency. Positive
 parallelism and a valid DAG describe a schedule; there is no runtime node or repair

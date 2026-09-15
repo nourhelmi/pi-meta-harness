@@ -68,7 +68,7 @@ the packet names is not an obstacle.
 Three routes exist: direct work, a single maker, and a graph. For small and
 cohesive-medium work with one decision set, presume **one empowered maker** —
 the advisor itself, a builder, or a child advisor — from a short packet, and let it
-feel like launching one ordinary agent: no planner, no graph, no checker
+feel like launching one ordinary agent: no graph or extra review stage
 unless the tier or the user asks for one. Choose direct, delegated, or hybrid
 execution by context, decision load, specialization, evidence value, and total
 delivery cost. This is a presumption against ceremony, not a target worker
@@ -76,12 +76,12 @@ count or an advisor-first bias. Direct implementation is available at every
 risk tier with the same maker proof and review duties; self-verification is
 never independent review.
 
-The advisor plans by default. Planner output is an advisory recommendation, not
-a binding script: inspect its assumptions and adopt, revise, or reject the plan.
-A planner is launched only when product or architecture direction has been
-invalidated, never after a tooling, environment, harness, or formatting
-failure. Preserve accepted criteria and safety boundaries; record a packet
-revision when those change, not for every ordinary implementation decision.
+The advisor owns planning and synthesis. Advisors, builders, and checkers all
+investigate, plan, implement or repair, and verify within their assigned scope;
+there are no separate scout, planner, or reducer presets. Inspect assumptions
+and adopt, revise, or reject suggestions. Preserve accepted criteria and safety
+boundaries; record a packet revision when those change, not for every ordinary
+implementation decision or tooling, environment, harness, or formatting failure.
 
 ```mermaid
 ---
@@ -92,10 +92,10 @@ flowchart TD
   Task["task packet"] --> Q{"small or cohesive-medium\nwith one decision set?"}
   Q -->|yes| Maker["advisor / builder / child advisor\n(diagnose · implement · verify)"]
   Q -->|no| Gate{"would another launch\nmaterially…"}
-  Gate -->|"resolve uncertainty"| Scout["+ scout"]
+  Gate -->|"resolve uncertainty"| Investigate["advisor / maker investigates"]
   Gate -->|"parallelize real work"| Graph["+ child advisor / validated graph"]
   Gate -->|"add independent confidence\n(risk or info-value rationale)"| Check["+ checker / browser-verifier"]
-  Scout --> Stop
+  Investigate --> Stop
   Graph --> Stop
   Check --> Stop
   Maker --> Stop{"another launch would mostly\nreplay existing evidence?"}
@@ -106,7 +106,7 @@ flowchart TD
   classDef w fill:#0f3460,stroke:#16c79a,color:#e8fff7
   classDef t fill:#16213e,stroke:#533483,color:#eee
   class Q,Gate,Stop q
-  class Maker,Scout,Graph,Check w
+  class Maker,Investigate,Graph,Check w
   class Task,Done t
 ```
 
@@ -157,18 +157,16 @@ both; each claim cites that same proof. A checker's independent rerun is a
 separate execution with its own provenance and outcome, not a second copy of the
 maker's proof. A failing claim stays explicit even when its detailed log is linked.
 
-The planner rejects malformed structure, cycles, and invalid `maxParallel` bounds.
+The graph tool rejects malformed structure, cycles, and invalid `maxParallel` bounds.
 Writer coordination is parent/child advisor policy, not a runtime admission gate:
 roles, shared checkouts and unresolved prior runs do not create workspace locks.
 Real permissions and each worker's lifecycle/replay boundaries still apply.
-Checker or browser nodes without
-builder ancestors and reducers with low fan-in produce non-blocking warnings
-instead: baseline browser investigation, checker audits, and small reduction
-shapes can be intentional. Warnings are stored in the immutable graph manifest
-and tool details so the advisor can confirm intent without manufacturing
-dependencies or relabeling work. Execution waves remain deterministic DAG
-output; deciding whether each node has enough information value remains the
-advisor's job.
+Checker or browser nodes without maker ancestors produce non-blocking warnings:
+baseline browser investigation and checker audits can be intentional. Warnings
+are stored with the versioned graph manifest and tool details so the advisor can
+confirm the shape without manufacturing dependencies or relabeling work. Execution
+waves remain deterministic DAG output; deciding whether each node has enough
+information value remains the advisor's job.
 
 ## 🎚️ Risk tiers
 
@@ -251,9 +249,9 @@ Examples, not fixed routes:
 
 ## 🎭 Roles and intelligence
 
-Configured roles are `scout`, `planner`, `reducer`, `builder`, `advisor`,
-`checker`, and `browser-verifier`. A child advisor uses the same installed
-advisor doctrine and intelligence guide as the root, scoped to one parent
+Configured roles are `advisor`, `builder`, `checker`, and `browser-verifier`.
+A child advisor uses the same installed advisor doctrine and intelligence guide
+as the root, scoped to one parent
 outcome. It may implement directly, use specialists, or delegate further to
 child advisors; an optional local graph belongs to its parent outcome. The
 runtime supplies validated ancestry and a separate graph namespace, not a new
@@ -273,9 +271,10 @@ Every role has agency over methods, evidence, and ordinary local choices within
 its mandate, including resolving environment and tooling obstacles. Packets
 include the broader goal, why the contribution matters, upstream evidence,
 downstream consumers, and locked versus suggested decisions. Builders own
-in-scope diagnosis, technical choices, tests, and repairs without routine
-permission round-trips; scouts, reducers, and browser verifiers retain product
-read-only boundaries. Checker repairs stay inside the reviewed surface with
+in-scope investigation, planning, technical choices, implementation and tests
+without routine permission round-trips. Browser-verifiers retain product-code
+read-only boundaries and focus on explicit flows and before/after evidence with
+an economical model and small task-shaped context. Checker repairs stay inside the reviewed surface with
 exclusive write ownership. Classify by behavioral effect: acceptance oracles and
 security gates are enforcement work even in `tests/` or `evals/`, not harmless
 test-only changes. Mechanical fixes preserve behavior and the acceptance

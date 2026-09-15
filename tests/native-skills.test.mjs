@@ -17,8 +17,9 @@ test('native bundle installs advisor and CoS skills, resolves references and pre
   const settings = path.join(dir, '.claude/settings.json');
   fs.writeFileSync(settings, '{"untouched":true}');
   const installed = installNativeSkills(dir);
-  assert.equal(installed.names.length, 12);
-  assert.equal(installed.links.length, 24);
+  assert.equal(installed.names.length, 9);
+  assert.equal(installed.links.length, 18);
+  for (const role of ['scout', 'planner', 'reducer']) assert.ok(!installed.names.includes(`advisor-role-${role}`));
   assert.ok(installed.names.includes('advisor-role-advisor'));
   assert.match(fs.readFileSync(path.join(installed.bundle, 'advisor-role-foreman/SKILL.md'), 'utf8'), /compatibility link/);
   for (const link of installed.links) {
@@ -75,4 +76,36 @@ test('native guidance separates schedulers and retains independent review withou
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   assert.deepEqual(pkg.pi.skills, ['./skills']);
   assert.ok(pkg.files.includes('native-skills/'));
+});
+
+for (const fail of [false, true]) test(`retired native links ${fail ? 'roll back on failure' : 'are removed without touching user replacements'}`, t => {
+  const dir = home(t);
+  const installed = installNativeSkills(dir);
+  for (const role of ['scout', 'planner', 'reducer']) {
+    const target = path.join(installed.bundle, `advisor-role-${role}`);
+    fs.mkdirSync(target); fs.writeFileSync(path.join(target, 'SKILL.md'), `old ${role}`);
+  }
+  const oldLinks = ['scout', 'planner'].map(role => {
+    const link = path.join(dir, '.codex/skills', `advisor-role-${role}`);
+    const target = path.join(installed.bundle, `advisor-role-${role}`);
+    fs.symlinkSync(target, link, 'dir'); return { link, target };
+  });
+  const user = path.join(dir, '.claude/skills/advisor-role-scout');
+  fs.mkdirSync(user); fs.writeFileSync(path.join(user, 'SKILL.md'), 'user replacement');
+  const foreign = path.join(dir, '.claude/skills/advisor-role-reducer');
+  fs.symlinkSync(user, foreign, 'dir');
+  const unlink = fs.unlinkSync;
+  if (fail) fs.unlinkSync = file => { if (file === oldLinks[1].link) throw new Error('retirement failure'); return unlink(file); };
+  try {
+    if (fail) assert.throws(() => installNativeSkills(dir), /retirement failure/);
+    else installNativeSkills(dir);
+  } finally { fs.unlinkSync = unlink; }
+  for (const { link, target } of oldLinks) {
+    if (fail) {
+      assert.equal(fs.readlinkSync(link), target);
+      assert.match(fs.readFileSync(path.join(link, 'SKILL.md'), 'utf8'), /^old /);
+    } else assert.throws(() => fs.lstatSync(link), { code: 'ENOENT' });
+  }
+  assert.equal(fs.readFileSync(path.join(user, 'SKILL.md'), 'utf8'), 'user replacement');
+  assert.equal(fs.readlinkSync(foreign), user);
 });

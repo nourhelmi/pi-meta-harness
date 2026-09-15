@@ -44,7 +44,7 @@ Choose worker transport separately. `/advisor` asks once and persists the answer
 `/skill:advisor-pi` and `/skill:advisor-native` select it directly. The active
 guide still chooses model and reasoning in either mode. Pi mode forwards that
 identity to Pi. Native mode maps OpenAI providers to Codex CLI and Anthropic
-providers to Claude Code while retaining the same seven semantic roles and skills.
+providers to Claude Code while retaining the same four semantic roles and skills.
 Cursor/Grok recommendations are not directly routable in native mode, so the
 advisor uses a task-fit OpenAI/Anthropic alternative from the same guide or
 reports the mismatch.
@@ -173,105 +173,90 @@ not transport enforcement.
 ## 🃏 Profile cards
 
 The tables summarize preferred order. The JSON `character` and `fit` fields hold
-the detailed task and capacity guidance.
+the detailed task and capacity guidance. The shipped roles are advisor, builder,
+checker, and browser-verifier. Advisors own planning and synthesis; builders and
+checkers investigate, plan, implement or repair, and verify within their assignment.
+Browser-verifier is a focused evidence worker: prefer an economical model and small
+task-shaped context for explicit flows and before/after captures, escalating when
+ambiguity or risk needs it. A different model is not required for independent review;
+a nonauthor assessment is.
 
 ### `codex-max` — healthy Codex
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Astra xhigh (session guidance) |
-| planner | Astra xhigh |
+| advisor | Astra xhigh (root session and child advisor) |
 | builder | Astra xhigh (all decision-bearing work), Sol high (locked packet), Grok high |
-| child advisor | Astra xhigh |
 | checker | Sol xhigh, Sol high |
-| reducer | Sol xhigh |
-| scout | Luna max |
 | browser-verifier | Luna max |
 
-Astra (GPT-6) is the advisor, planner, child advisor, and primary builder at
+Astra owns advisor planning and synthesis and primary decision-bearing builds at
 xhigh, including substantial implementation and every kind of UX work.
-Greenfield and existing UX both load `frontend-design`. Sol xhigh is the
-fresh-context reviewer and reducer, including adversarial checks. Sol high is
-the procedural tier for routine checks and locked execution packets; it stops
-instead of making material product or architecture decisions. Luna max handles
-scouting and browser verification. Grok stays as the capacity alternate for
-bounded backend work. This profile recommends no Anthropic model.
-
-This split concentrates deeper reasoning on decisions that shape downstream
-work; lower total task cost is a hypothesis, not a measured guarantee.
-Changing the guide does not change an already-running advisor's reasoning
+Greenfield and existing UX both load `frontend-design`. Sol xhigh handles
+fresh-context review, including adversarial checks; Sol high handles routine
+checks and locked execution packets. Luna max handles focused browser evidence.
+Grok stays as the capacity alternate for bounded backend work. This profile
+recommends no Anthropic model. Lower total task cost is a hypothesis, not a measured
+guarantee. Changing the guide does not change an already-running advisor's reasoning
 level or a worker's launch identity.
 
 ### `codex-lean` — Codex-only, effort-lean
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Astra xhigh (session guidance) |
-| planner | Astra xhigh |
+| advisor | Astra xhigh (root session and child advisor) |
 | builder | Sol medium; Sol max (ambiguous or wide breadth) |
-| child advisor | Astra xhigh |
 | checker | Sol medium |
-| reducer | Sol medium |
-| scout | Luna max |
 | browser-verifier | Luna max |
 
-Astra runs at xhigh wherever it is used in this profile: advisor-session
-guidance, planner, and wide-breadth child advisor nodes. Sol medium is the regular
-builder, locked-packet executor, checker, and reducer; Sol max handles materially
-ambiguous or wide-breadth implementation. Luna max handles scouting and browser verification. Every mapped
-model is an OpenAI Codex model; the guide remains advisory rather than a runtime
-allowlist.
+Astra runs at xhigh wherever it is used, including advisor planning and synthesis.
+Sol medium is the regular builder, locked-packet executor, and checker; Sol max
+handles materially ambiguous or wide-breadth implementation. Luna max handles
+focused browser evidence. Every mapped model is an OpenAI Codex model; the guide
+remains advisory rather than a runtime allowlist.
 
 ### `anthropic-heavy` — spend the 5-hour window deliberately
 
 | Role | Ordered recommendations |
 | --- | --- |
-| planner | Fable high, Grok high |
+| advisor | Fable medium (root session); Sonnet high (child) |
 | builder | Sonnet high, Opus medium, Grok high, Sol high (locked packet) |
 | checker | Sonnet high, Opus medium, Sol high, Grok high |
-| reducer | Sonnet high, Opus medium |
-| scout | Sol high, Grok high, Sonnet high |
 | browser-verifier | Sol high, Grok high |
 
 Sonnet is the decision-bearing implementation and review workhorse, Opus is the
 greenfield UX or extreme-risk option, Sol high uses remaining Codex for locked
-execution packets and procedural work, and Grok remains the profile's existing
-capacity fallback.
+execution packets and procedural work, and Grok remains the capacity fallback,
+including for the root advisor when Fable reaches capacity.
 
 ### `balanced` — Codex builds hard, Anthropic builds/checks the rest
 
 | Role | Ordered recommendations |
 | --- | --- |
-| planner | Fable high, Astra high |
+| advisor | Fable medium (root session); Sonnet high (child) |
 | builder | Sonnet high, Astra high (hard backend), Opus medium, Sol high (locked packet) |
 | checker | Sonnet high, Opus medium, Sol xhigh |
-| reducer | Sonnet high, Opus medium, Sol xhigh |
-| scout | Sol high, Sonnet high |
 | browser-verifier | Sol high, Sonnet high |
 
-Sonnet is the default decision-bearing maker and checker; Astra high
-takes hard backend work; Opus takes greenfield UX; Sol high executes locked
-packets and procedural work and Sol xhigh is the Codex review and reduction
-alternate. Grok is intentionally absent from
-the recommendations but is still not blocked at runtime.
+Sonnet is the default decision-bearing maker and checker; Astra high takes hard
+backend work and root advisor capacity fallback. Opus takes greenfield UX; Sol high
+executes locked packets and procedural work and Sol xhigh is the Codex review
+alternate. Grok is absent from the recommendations but is not blocked at runtime.
 
 ### `grok-cycle` — no Codex recommendations
 
 | Role | Ordered recommendations |
 | --- | --- |
-| planner | Fable high, Grok high |
+| advisor | Fable medium (root session); Grok high, Sonnet medium (child) |
 | builder | Grok high, Sonnet medium (locked packet) |
 | checker | Grok high, Sonnet medium |
-| reducer | Grok high, Sonnet medium (native fallback) |
-| scout | Sonnet medium, Grok high |
 | browser-verifier | Sonnet medium, Grok high |
 
-Grok is the preferred model for hefty decision-bearing implementation, review,
-and reduction when those roles are justified. Sonnet medium handles locked
-execution packets, short-leash procedural work, and reduction when the session
-uses native harnesses without a Cursor route. When risk warrants independent
-review of a Grok build, use a fresh invocation and preserve deterministic anchors
-as the independence backstop.
+Grok is preferred for decision-bearing implementation and review, and is the root
+advisor fallback when Fable reaches capacity. Sonnet medium handles locked execution
+packets, procedural work, and native-harness assignments without a Cursor route.
+When risk warrants independent review of a Grok build, use a fresh nonauthor
+assessment and preserve deterministic evidence.
 
 ## 📁 Files on disk
 

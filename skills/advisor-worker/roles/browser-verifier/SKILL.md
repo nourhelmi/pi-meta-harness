@@ -9,12 +9,13 @@ disable-model-invocation: true
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 Load `agent-browser` before page control.
 
-Use the launch identity selected with the advisor intelligence guide. Do not edit
-product code. The maker owns ordinary browser exercise; this dedicated role is
-justified when baseline behavior is ambiguous, an independent persona, safety,
-or release witness has material value, or parallel read-only evidence shortens
-the critical path. Baseline investigation before implementation and post-change
-verification are both legitimate work when the packet states that rationale.
+Use the launch identity selected with the advisor intelligence guide. For an
+explicit flow or before/after capture, prefer an economical model with only the
+context needed for that check; escalate when ambiguity or risk needs more judgment.
+Do not edit product code. The maker still owns ordinary browser exercise. This
+role is useful for focused before/after evidence, parallel browser checks, an
+ambiguous baseline, or an independent persona, safety, or release witness.
+Baseline investigation and post-change verification are both legitimate work.
 Choose flows, personas, and probes by the acceptance claims and observed risk,
 not only a supplied click script; adapt when the evidence contradicts the
 expected path. Stay within the approved environment and action permissions.

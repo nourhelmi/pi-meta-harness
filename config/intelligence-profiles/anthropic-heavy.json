@@ -2,19 +2,19 @@
   "name": "anthropic-heavy",
   "models": {
     "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic Fable capacity is reached, planning falls back to Grok at high and the advisor session switches to Grok.",
+      "character": "Advisory: The advisor's own session model, including planning and synthesis, at medium reasoning. Shares the Anthropic session allowance; delegate implementation and checking when useful to conserve capacity, not because the advisor cannot do them. At Anthropic capacity, the advisor session falls back to Grok at high.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Use leftover Codex quota here first: the procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices, resolves environment and tooling obstacles locally and records them under Deviations, and stops and escalates rather than deciding product, architecture, schema, migration, auth, product-fallback, destructive, or external-effect behavior. Generally avoid decision-bearing implementation at high. Recommended reasoning is high. If Codex is fully exhausted, existing profile fallback guidance still applies.",
+      "character": "Advisory: Use leftover Codex quota here first: the procedural-tier workhorse at high reasoning for mechanical chores, routine checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is a fresh-context checker for schema, auth, security, money, and data boundaries. Own investigation, local planning, implementation or repair, and verification within the assignment. For locked packets, fix material decisions and deterministic anchors; resolve tooling obstacles locally and escalate material ambiguity outside the assignment. If Codex is fully exhausted, existing profile fallback guidance still applies.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-opus-5": {
-      "character": "Advisory: Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, preferably with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or the risk is extreme. Runs at medium. Generally avoid using as the default builder — that is Sonnet. Grok is the UX fallback after a capacity limit. Not recommended for planning or routine existing-UX tweaks.",
+      "character": "Advisory: Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, preferably with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or risk is extreme. Runs at medium. Sonnet is the default builder; Grok is the UX fallback after a capacity limit. Own local planning and verification, but prefer cheaper choices for routine existing-UX tweaks.",
       "defaultThinking": "medium"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: The decision-bearing implementation workhorse and the default adversarial-tier reviewer. Backend, mixed-stack, substantial existing-UX, tests, reduction, schema/auth/security/money checks, and final whole-diff review. Prefer Sol for a locked execution packet while Codex capacity is available. Prefer a fresh Sonnet context for review of a Sonnet build. Load frontend-design for UX work. 1M window. Not recommended for planning. Opus takes greenfield UX while the 5-hour window is fresh.",
+      "character": "Advisory: The decision-bearing implementation workhorse and default adversarial-tier checker. Backend, mixed-stack, substantial existing-UX, tests, schema/auth/security/money checks, and final whole-diff review. Own investigation, planning, implementation or repair, and verification within the assignment. Prefer Sol for a locked execution packet while Codex capacity is available. Prefer a fresh Sonnet context for review of a Sonnet build. Load frontend-design for UX work. 1M window. Opus takes greenfield UX while the 5-hour window is fresh.",
       "defaultThinking": "high"
     },
     "cursor/grok-4.6": {
@@ -23,47 +23,6 @@
     }
   },
   "recommendations": {
-    "scout": [
-      {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
-        "fit": "Preferred for bounded investigation in this profile."
-      },
-      {
-        "model": "cursor/grok-4.6",
-        "thinking": "high",
-        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
-      },
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
-      }
-    ],
-    "planner": [
-      {
-        "model": "claude-bridge/claude-fable-5-1",
-        "thinking": "high",
-        "fit": "Preferred for planning in this profile."
-      },
-      {
-        "model": "cursor/grok-4.6",
-        "thinking": "high",
-        "fit": "Planning fallback when the preferred choice is unavailable or a different fit is justified."
-      }
-    ],
-    "reducer": [
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Preferred for synthesis and conflict reduction in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-opus-5",
-        "thinking": "medium",
-        "fit": "Alternate for reduction when scope, risk, or capacity warrants."
-      }
-    ],
     "builder": [
       {
         "model": "claude-bridge/claude-sonnet-5",

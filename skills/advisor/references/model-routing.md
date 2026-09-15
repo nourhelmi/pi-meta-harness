@@ -53,19 +53,19 @@ come from the live guide:
 In guides that map Fable, treat its shared Anthropic session allowance as an
 important cost and quota input: reserve Opus for the greenfield UX or
 extreme-risk work named in the live character notes, and reserve Fable for the
-advisor session (at medium) or guide-recommended planning (at high); if Fable
+advisor session (at medium), including its planning and synthesis; if Fable
 reaches capacity, prefer the fallback in its character note (Astra at high in
 `balanced`, Grok in `grok-cycle` and `anthropic-heavy`). In `codex-lean`, the
-advisor uses Astra xhigh, and planner and child advisor nodes also use Astra xhigh. In
-`codex-max` the advisor session, planner, child advisor, and primary builder run on
-Astra at xhigh. These are strong defaults, not role allowlists;
+advisor and child advisor nodes use Astra xhigh. In `codex-max` the advisor
+session, child advisor, and primary builder run on Astra at xhigh.
+These are strong defaults, not role allowlists;
 depart when capability and task risk justify it and record the rationale when
 material. Workers still cannot silently change the advisor's active model.
 
 For non-UX work, normally pick the implementation workhorse from the live
 characters: Astra xhigh for all decision-bearing builders in `codex-max`, with Sol high for
-locked packets and Sol xhigh for review and reduction; Sol medium for regular
-builders, locked packets, checking, and reduction in `codex-lean`, reserving
+locked packets and Sol xhigh for review; Sol medium for regular
+builders, locked packets, and checking in `codex-lean`, reserving
 Sol max for materially ambiguous or wide-breadth implementation;
 Sonnet default with Astra high for hard backend in `balanced`; Grok in
 `grok-cycle`; Sonnet in `anthropic-heavy`. The shipped

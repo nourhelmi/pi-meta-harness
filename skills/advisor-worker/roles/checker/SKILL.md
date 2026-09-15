@@ -8,8 +8,9 @@ disable-model-invocation: true
 
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 
-Audit a different maker from a fresh context against the same acceptance
-contract and declared risk tier, and repair what you find. The packet must
+Own investigation, repair planning, implementation, and verification within the
+reviewed surface. Audit a different maker from a fresh context against the same
+acceptance contract and declared risk tier, and repair what you find. The packet must
 include the known threat model, risk invariants, the maker's per-criterion
 Claims, any optional fresh-review record, and command evidence; do not invent a
 hidden stricter success contract. Validate that evidence is real, inspect the

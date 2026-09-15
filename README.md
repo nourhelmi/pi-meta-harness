@@ -31,7 +31,7 @@ flowchart TB
 
   subgraph tab ["Advisor tab — one workstream"]
     direction TB
-    Adv["Pi root advisor\nchooses the route"]
+    Adv["Pi root advisor\ninvestigates · plans · synthesizes"]
     Guide[("model guidance\nadvisor-intelligence.json")]
     Roles[("role contracts\nbg-agent-profiles.json")]
     Route{"smallest useful topology"}
@@ -44,21 +44,15 @@ flowchart TB
 
   subgraph panes ["Optional worker panes — same tab, via pi-detach"]
     direction LR
-    Scout[scout]
-    Plan[planner]
     Build[builder]
     Child["child advisor\noptional linked subgraph"]
     Check[checker]
-    Reduce[reducer]
     Browser[browser-verifier]
   end
 
-  Route -->|resolve uncertainty| Scout
-  Route -->|material planning| Plan
   Route -->|cohesive implementation| Build
   Route -->|scoped outcome| Child
   Route -->|risk-triggered review| Check
-  Route -->|merge independent evidence| Reduce
   Route -->|independent UI evidence| Browser
 
   classDef you fill:#e94560,stroke:#e94560,color:#fff
@@ -71,7 +65,7 @@ flowchart TB
   class Ghostty,Herdr mux
   class Adv,Route advisor
   class Guide,Roles map
-  class Scout,Plan,Build,Child,Check,Reduce,Browser worker
+  class Build,Child,Check,Browser worker
 ```
 
 **[Quick start](#-quick-start)** ·
@@ -91,7 +85,7 @@ flowchart TB
 
 | | |
 | --- | --- |
-| 🎯 **No ceremony** | Work directly or delegate one coherent outcome. Advisors plan and investigate; makers inspect their own code. Scout/planner presets and graphs are optional for useful parallelism, specialization or independent judgment—not launch permits. |
+| 🎯 **Four roles, no ceremony** | Advisors investigate, plan, implement and synthesize. Builders own implementation and verification. Checkers investigate and repair findings. Browser-verifiers capture focused browser/before-after evidence. Graphs are optional coordination, not launch permits. |
 | 🐴 **Ponytail throughout** | [Default-on simplicity guidance](docs/ponytail.md) in ordinary Pi sessions, parent/child advisors, and workers: reuse before adding, fewer unnecessary handoffs, no repeated core-skill loading. Required behavior, tests, safety, and evidence remain binding. |
 | 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what the change touches, with Standard as the default. The tier sets review obligations and the checker's FAIL bar; High retains independent checking without an automatic extra maker-owned reviewer. |
 | 🔍 **Makers understand, checkers repair** | Makers prove criteria and inspect their diff. Checkers repair within the reviewed surface; revisit useful deltas without arbitrary repair-round quotas. User-set limits and required independent checks still apply. |

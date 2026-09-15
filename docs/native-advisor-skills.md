@@ -8,7 +8,7 @@ node scripts/install-native-skills.mjs
 
 Start a fresh native conversation and ask: **“Use the advisor skill for this task: …”**. Claude Code also exposes `/advisor`; Codex supports explicit skill invocation with `$advisor`. Native host feature availability and permissions still apply.
 
-The installer copies twelve skills (advisor, CoS and alias, intelligence, and eight role entries including the legacy foreman alias) into `~/.local/share/pi-meta-harness/native-skills`, copies the canonical intelligence presets plus the shared checkpoint helper/team reference, and links them into `~/.codex/skills` and `~/.claude/skills`. Rerun to update. It refuses conflicting user-owned skill paths. Caught installation failures restore the previous bundle; this is not crash-atomic or concurrent-installer support. Do not run two installers together.
+The installer copies nine skills (advisor, CoS and alias, intelligence, four worker roles and the legacy foreman compatibility alias) into `~/.local/share/pi-meta-harness/native-skills`, copies the canonical intelligence presets plus the shared checkpoint helper/team reference, and links them into `~/.codex/skills` and `~/.claude/skills`. Rerun to update. It removes only owned retired role links and preserves unrelated user skills. It refuses conflicting user-owned active skill paths. Caught installation failures restore the previous bundle; this is not crash-atomic or concurrent-installer support. Do not run two installers together.
 
 | Entry | Execution |
 | --- | --- |

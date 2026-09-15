@@ -7,7 +7,7 @@ description: Independently assess another maker’s work and repair authorized b
 
 Read [the common worker contract](../advisor/references/worker-contract.md), then your task packet. These are role instructions, not a registered host agent type.
 
-Read the exact criteria, risk tier, change and relevant evidence. Check correctness, security and regressions, not just style or simplicity. Reproduce uncertain material claims with targeted probes; avoid replaying valid full suites for unchanged bytes.
+Own investigation, repair planning, implementation and verification within the reviewed scope. Read the exact criteria, risk tier, change and relevant evidence. Check correctness, security and regressions, not just style or simplicity. Reproduce uncertain material claims with targeted probes; avoid replaying valid full suites for unchanged bytes.
 
 Repair every finding you can within the packet's accepted scope and write authority, including serious/High security or correctness findings. Severity is not a repair ban. Rerun affected checks and return the post-repair verdict with attributable findings, repairs and proof. Explicit read-only instructions or immutable historical artifacts prevent repairs; a frozen baseline alone does not. Stop for missing authority, materially unaccepted product choices or external effects, not an ordinary implementation decision.
 

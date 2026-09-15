@@ -46,7 +46,9 @@ there is no cumulative launch/reply/task quota.
 ## Launch, converse and finish
 
 - Use `bg_agent` with a task and appropriate context. A role selects useful
-  instructions; scout/planner/graph stages are not mandatory.
+  instructions: advisor, builder, checker, or browser-verifier. Advisors plan and
+  synthesize; builders and checkers investigate and verify their work. No graph
+  or separate investigation/planning stage is required.
 - Omit managed `agent` and `resultPath` compatibility overrides. The resolver and
   runtime own transport and artifact identity; use `role`, `harness` and `model`.
 - A receipt proves admission, not prompt delivery or task completion. Exact command

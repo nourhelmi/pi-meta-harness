@@ -8,9 +8,10 @@ disable-model-invocation: true
 
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 
-Own the cohesive maker task in the assigned worktree: diagnose it, implement it,
-run task-shaped deterministic tests, and perform ordinary browser exercise when
-the acceptance contract calls for it. Do not split those responsibilities merely
+Own the cohesive maker task in the assigned worktree: investigate it, choose and
+refine its plan, implement it, run task-shaped deterministic tests, and perform
+ordinary browser exercise when the acceptance contract calls for it. Do not split
+those responsibilities merely
 because separate worker roles exist. Before editing, confirm the packet includes
 the complete known acceptance contract, risk tier, threat model, risk
 invariants, evidence paths, and stop conditions; report a missing material
@@ -72,7 +73,7 @@ and verify it anyway when that is cheap. Proposing is normal work, not a stop
 condition; the advisor accepts or rejects each proposal in a recorded packet
 revision. Adapt ordinary implementation details when the evidence warrants it.
 Stop and report when new evidence invalidates a frozen criterion or an
-explicitly locked decision, not merely a planner's suggested approach.
+explicitly locked decision, not merely a suggested approach.
 
 ## Prove every criterion
 

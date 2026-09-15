@@ -6,9 +6,6 @@ import { dirname, join } from "node:path";
 
 export const DEFAULT_PROFILE = "codex-max";
 export const REQUIRED_ROLES = [
-  "scout",
-  "planner",
-  "reducer",
   "builder",
   "advisor",
   "checker",

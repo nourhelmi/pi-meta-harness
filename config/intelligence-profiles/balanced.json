@@ -2,68 +2,27 @@
   "name": "balanced",
   "models": {
     "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model and the default planner. The advisor session runs at medium; planner nodes run at high. Shares the Anthropic session allowance — generally avoid assigning checking, review, reduction, browser verification, or implementation. When Anthropic capacity is reached, planning falls back to Astra at high and the advisor session switches to Astra. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
+      "character": "Advisory: The advisor's own session model, including planning and synthesis, at medium reasoning. Shares the Anthropic session allowance; delegate implementation and checking when useful to conserve capacity, not because the advisor cannot do them. At Anthropic capacity, the advisor session falls back to Astra at high. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
       "defaultThinking": "high"
     },
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: Hard-implementation workhorse for long or difficult backend, data, service, mixed-stack, and genuinely hard debugging, and the planning fallback when Fable is unavailable because Anthropic session capacity is reached. Use as the advisor model in the same capacity fallback. Use high for planning, substantial builds, and bounded hard implementation that still needs material judgment, escalating to xhigh only for genuinely difficult debugging. Prefer Sol high when the approach and material decisions are already locked. Frontend routes elsewhere: greenfield UX is Opus, all other UX is Sonnet. Checking, review, and reduction are Sonnet-tier first, with Sol xhigh as the Codex alternate.",
+      "character": "Advisory: Hard-implementation workhorse for long or difficult backend, data, service, mixed-stack, and genuinely hard debugging; also the advisor fallback when Fable reaches capacity, including planning and synthesis. Use high for substantial builds and bounded hard implementation needing material judgment, escalating to xhigh for genuinely difficult debugging. Prefer Sol high when material decisions are already locked. Frontend routes elsewhere: greenfield UX is Opus, other UX is Sonnet. Fresh-context checking is Sonnet-tier first, with Sol xhigh as the Codex alternate.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: The default decision-bearing builder and the default adversarial-tier reviewer. Medium and well-known implementation that still needs material judgment, all existing-UX work, tests, reduction, schema/auth/security/money checks, and final whole-diff review before PR. Prefer Sol high for a locked execution packet. Prefer a fresh Sonnet context for review of a Sonnet build; escalate to Opus when the risk is extreme. Load frontend-design for UX work. 1M window. Not recommended for planning; genuinely hard backend goes to Astra high; greenfield UX goes to Opus.",
+      "character": "Advisory: The default decision-bearing builder and adversarial-tier checker. Medium and well-known implementation needing material judgment, existing-UX work, tests, schema/auth/security/money checks, and final whole-diff review. Own investigation, planning, implementation or repair, and verification within the assignment. Prefer Sol high for a locked execution packet. Prefer a fresh Sonnet context for review of a Sonnet build; escalate to Opus for extreme risk. Load frontend-design for UX work. 1M window. Genuinely hard backend goes to Astra high; greenfield UX goes to Opus.",
       "defaultThinking": "high"
     },
     "claude-bridge/claude-opus-5": {
-      "character": "Advisory: Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, preferably with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or the risk is extreme. Runs at medium. Generally avoid using as the default builder — that is Sonnet. If an Opus launch hits a capacity limit, the UX fallback is Sonnet with frontend-design, not Grok. Not recommended for planning or routine existing-UX tweaks.",
+      "character": "Advisory: Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, preferably with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or risk is extreme. Runs at medium. Sonnet is the default builder and the UX capacity fallback with frontend-design, not Grok. Own local planning and verification, but prefer cheaper choices for routine existing-UX tweaks.",
       "defaultThinking": "medium"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The procedural-tier workhorse at high reasoning for scouting, mechanical chores, routine mid-phase checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is the fresh-context reviewer and reducer, including adversarial checks on schema, auth, security, money, and data boundaries. The packet must fix the material approach, bound the surface, and name deterministic anchors. Sol owns ordinary local code choices, resolves environment and tooling obstacles locally and records them under Deviations, and stops and escalates rather than deciding product, architecture, schema, migration, auth, product-fallback, destructive, or external-effect behavior. Generally avoid decision-bearing implementation at high. Recommended reasoning is high for procedural work and xhigh when Sol takes review or reduction.",
+      "character": "Advisory: The procedural-tier workhorse at high reasoning for mechanical chores, routine checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is a fresh-context checker for schema, auth, security, money, and data boundaries. Own investigation, local planning, implementation or repair, and verification within the assignment. For locked packets, fix material decisions and deterministic anchors; resolve tooling obstacles locally and escalate material ambiguity outside the assignment. Prefer high for procedural work and xhigh for review or material ambiguity.",
       "defaultThinking": "high"
     }
   },
   "recommendations": {
-    "scout": [
-      {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
-        "fit": "Preferred for bounded investigation in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Alternate for bounded investigation when task fit or capacity warrants."
-      }
-    ],
-    "planner": [
-      {
-        "model": "claude-bridge/claude-fable-5-1",
-        "thinking": "high",
-        "fit": "Preferred for planning in this profile."
-      },
-      {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
-        "fit": "Planning fallback when the preferred choice is unavailable or a different fit is justified."
-      }
-    ],
-    "reducer": [
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Preferred for synthesis and conflict reduction in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-opus-5",
-        "thinking": "medium",
-        "fit": "Alternate for reduction when scope, risk, or capacity warrants."
-      },
-      {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "xhigh",
-        "fit": "Codex alternate for reduction when scope, risk, or capacity warrants."
-      }
-    ],
     "builder": [
       {
         "model": "claude-bridge/claude-sonnet-5",

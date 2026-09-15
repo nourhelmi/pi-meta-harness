@@ -1,7 +1,7 @@
 # CoS teams and portable checkpoints
 
 CoS is an opt-in advisor style, not another scheduler or a fixed organization chart.
-Direct implementation, temporary roles, parallel scouts before a team, and full-stack
+Direct implementation, temporary helpers, parallel investigation, and full-stack
 outcome teammates remain choices at any point. The selected intelligence profile guides
 judgment; it is not a staffing quota. Explicit user limits and actual runtime limits remain
 binding. A title never changes a worker's role, model, permissions or write ownership.
@@ -26,8 +26,8 @@ Task paragraphs, spacing and later `--` tokens are preserved.
 It uses the normal advisor initializer and records mode on the same owned workstream.
 Ordinary `/advisor` remains ordinary unless that session already opted into CoS.
 A CoS session cannot switch workstream or specialist preference; start a fresh session.
-An existing ordinary advisor may opt in after temporary scouts without retroactively
-granting those scouts membership or resetting accounting.
+An existing ordinary advisor may opt in after temporary helpers without retroactively
+granting those helpers membership or resetting accounting.
 
 Managed `advisor` workers are **Pi-hosted**, even when specialist preference is `native`.
 Under a native-specialist parent, omitted `harness`, explicit `native` (inherited preference),
@@ -152,7 +152,7 @@ unpublished local changes need a deliberate local-source selection or the normal
 publishing workflow. Do not load both local and Git copies of the same extension.
 Rerun gates invalidated by any integration or package-selection changes. The native
 installer copies the shared helper and
-team reference into the native advisor bundle along with the twelve skills and preserves
+team reference into the native advisor bundle along with the nine skills and preserves
 its conflict/rollback behavior. Pi portable install copies both entry skills and shared
 state modules. Neither installer is concurrent/crash-atomic unless already documented.
 

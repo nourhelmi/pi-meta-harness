@@ -23,10 +23,18 @@ export function installNativeSkills(home = os.homedir()) {
   if (prior && (!prior.isDirectory() || fs.readFileSync(path.join(bundle, '.owner'), 'utf8') !== 'pi-meta-harness-native-v1\n')) {
     throw new Error(`Unowned bundle: ${bundle}`);
   }
+  // Remove only our retired links, never user replacements at the old names.
+  const retired = prior ? ['.codex', '.claude'].flatMap(host => ['scout', 'planner', 'reducer'].map(role => {
+    const name = `advisor-role-${role}`;
+    const link = path.join(home, host, 'skills', name);
+    const target = exists(link)?.isSymbolicLink() ? fs.readlinkSync(link) : null;
+    return target && path.resolve(path.dirname(link), target) === path.join(bundle, name) ? { link, target } : null;
+  })).filter(Boolean) : [];
   fs.mkdirSync(path.dirname(bundle), { recursive: true });
   const stage = fs.mkdtempSync(path.join(path.dirname(bundle), '.native-stage-'));
   const backup = `${stage}-previous`;
   const created = [];
+  const removed = [];
   let promoted = false;
   let moved = false;
   try {
@@ -52,10 +60,15 @@ export function installNativeSkills(home = os.homedir()) {
       fs.symlinkSync(target, link, 'dir');
       created.push(link);
     }
+    for (const entry of retired) {
+      fs.unlinkSync(entry.link);
+      removed.push(entry);
+    }
   } catch (error) {
     for (const link of created.reverse()) fs.unlinkSync(link);
     if (promoted) fs.rmSync(bundle, { recursive: true });
     if (moved) fs.renameSync(backup, bundle);
+    for (const { link, target } of removed) fs.symlinkSync(target, link, 'dir');
     throw error;
   } finally {
     if (exists(stage)) fs.rmSync(stage, { recursive: true });

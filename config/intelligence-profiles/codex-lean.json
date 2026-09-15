@@ -2,40 +2,19 @@
   "name": "codex-lean",
   "models": {
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: Astra runs at xhigh wherever it is used in this profile: the advisor session, planner nodes, and wide-breadth child advisors. Regular bounded builders use Sol medium, including fully locked execution packets. This profile recommends Codex models only.",
+      "character": "Advisory: Astra runs at xhigh wherever it is used in this profile: the advisor session and wide-breadth child advisors, including their planning and synthesis. Regular bounded builders use Sol medium, including fully locked execution packets. This profile recommends Codex models only.",
       "defaultThinking": "xhigh"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The regular workhorse at medium reasoning for bounded implementation, fully locked execution packets, fresh-context checking, and reduction. For locked packets, it resolves environment and tooling obstacles locally, uses deterministic anchors, and stops and escalates on material ambiguity. Use Sol max for materially ambiguous or wide-breadth implementation.",
+      "character": "Advisory: The regular workhorse at medium reasoning for bounded implementation, fully locked execution packets, and fresh-context checking. Own investigation, local planning, implementation or repair, and verification within the assignment. For locked packets, resolve environment and tooling obstacles locally, use deterministic anchors, and escalate material ambiguity outside the assignment. Use Sol max for materially ambiguous or wide-breadth implementation.",
       "defaultThinking": "medium"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: The scouting and browser-verification model at max reasoning. Use it for source-linked investigation, integrated browser exercise, and bounded evidence capture. Other semantic roles use Astra or Sol in this profile.",
+      "character": "Advisory: The focused browser-verification model at max reasoning for explicit flows and before/after evidence in a small task-shaped context. Other semantic roles use Astra or Sol in this profile.",
       "defaultThinking": "max"
     }
   },
   "recommendations": {
-    "scout": [
-      {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
-        "fit": "Preferred for bounded source-linked investigation in this profile."
-      }
-    ],
-    "planner": [
-      {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "xhigh",
-        "fit": "Preferred for planning in this profile."
-      }
-    ],
-    "reducer": [
-      {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
-        "fit": "Preferred for review-family synthesis and conflict reduction in this profile."
-      }
-    ],
     "builder": [
       {
         "model": "openai-codex/gpt-5.6-sol",

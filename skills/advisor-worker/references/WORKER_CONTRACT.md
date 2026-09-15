@@ -130,11 +130,11 @@ choose useful work, not to expand your scope or another role's write authority.
 
 ## Ponytail by default
 
-Every role uses Ponytail in its own work: scouts seek the smallest relevant
-surface, planners question unnecessary mechanisms, makers reuse before adding,
-checkers look for avoidable complexity while repairing, reducers discard
-redundant evidence, and browser verifiers choose task-shaped probes. Child advisors
-apply it to implementation and delegation alike; direct completion and the
+Every role uses Ponytail in its own work: investigate the smallest relevant
+surface, question unnecessary mechanisms, reuse before adding, and discard
+redundant evidence. Checkers repair avoidable complexity; browser verifiers choose
+task-shaped probes. Advisors apply it to planning, synthesis, implementation,
+and delegation alike; direct completion and the
 single-maker fast path remain first-class. Do not add a Ponytail worker, extra
 review stage, or whole-repo audit merely to demonstrate use.
 

@@ -169,7 +169,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
 
   const roles = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
   assert.deepEqual(Object.keys(roles).sort(), ["defaultAgent", "profiles"]);
-  assert.equal(roles.profiles.planner.skill, "advisor-role-planner");
+  assert.deepEqual(Object.keys(roles.profiles), ["builder", "advisor", "checker", "browser-verifier"]);
   assert.equal(roles.profiles.builder.maxTurns, 6);
   assert.equal(roles.profiles.advisor.skill, "advisor-role-advisor");
   assert.equal(roles.profiles.advisor.harness, "pi");
@@ -178,7 +178,10 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal("excludeTools" in roles.profiles.advisor, false);
   assert.equal(roles.profiles.foreman, undefined);
   assert.equal(roles.profiles.checker.requireAnchor, true);
-  assert.equal(roles.profiles.scout.skillPath, "skills/advisor-worker/roles/scout/SKILL.md");
+  for (const role of ["scout", "planner", "reducer"]) {
+    assert.equal(roles.profiles[role], undefined);
+    await assert.rejects(readFile(join(target, "skills/advisor-worker/roles", role, "SKILL.md")), { code: "ENOENT" });
+  }
   assert.equal(roles.profiles["browser-verifier"].skillPath, "skills/advisor-worker/roles/browser-verifier/SKILL.md");
 
   assert.equal("models" in roles, false);
@@ -187,14 +190,11 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.match(await readFile(join(target, "skills", "advisor-pi", "SKILL.md"), "utf8"), /workerHarness: "pi"/);
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-max");
-  assert.equal(guide.recommendations.planner[0].model, "openai-codex/gpt-6-astra");
   assert.equal(guide.models["openai-codex/gpt-6-astra"].defaultThinking, "xhigh");
-  assert.equal(guide.recommendations.planner[0].thinking, "xhigh");
   assert.equal(guide.recommendations.advisor[0].model, "openai-codex/gpt-6-astra");
   assert.equal(guide.recommendations.advisor[0].thinking, "xhigh");
   assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-5.6-sol");
   assert.equal(guide.recommendations.checker[0].thinking, "xhigh");
-  assert.equal(guide.recommendations.reducer[0].thinking, "xhigh");
   assert(!JSON.stringify(guide).includes("claude-bridge/"), "codex-max recommends no Anthropic model");
   assert.equal(guide.recommendations.builder[0].model, "openai-codex/gpt-6-astra");
   assert.equal(guide.recommendations.builder[0].thinking, "xhigh");
@@ -1036,15 +1036,28 @@ test("reinstall keeps a switched intelligence profile", async () => {
   ], { encoding: "utf8" });
   assert.equal(switched.status, 0, switched.stderr);
   const fixedRoles = await readFile(join(target, "bg-agent-profiles.json"));
+  // Simulate the previous seven-role install, including its selected live guide.
+  const oldRoles = JSON.parse(fixedRoles);
+  const oldGuide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
+  for (const role of ["scout", "planner", "reducer"]) {
+    oldRoles.profiles[role] = { ...oldRoles.profiles.builder, skill: `advisor-role-${role}`, skillPath: `skills/advisor-worker/roles/${role}/SKILL.md` };
+    oldGuide.recommendations[role] = oldGuide.recommendations.builder;
+    const skill = join(target, "skills/advisor-worker/roles", role);
+    await mkdir(skill, { recursive: true });
+    await writeFile(join(skill, "SKILL.md"), `retired ${role}`);
+  }
+  await writeFile(join(target, "bg-agent-profiles.json"), JSON.stringify(oldRoles));
+  for (const file of ["advisor-intelligence.json", "intelligence-profiles/codex-lean.json"]) await writeFile(join(target, file), JSON.stringify(oldGuide));
   const second = run("install", "--target", target);
   assert.equal(second.status, 0, second.stderr);
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-lean\n");
   assert.deepEqual(await readFile(join(target, "bg-agent-profiles.json")), fixedRoles);
+  for (const role of ["scout", "planner", "reducer"]) await assert.rejects(readFile(join(target, "skills/advisor-worker/roles", role, "SKILL.md")), { code: "ENOENT" });
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-lean");
-  assert.equal(guide.recommendations.planner[0].model, "openai-codex/gpt-6-astra");
+  assert.equal(guide.recommendations.advisor[0].model, "openai-codex/gpt-6-astra");
   assert.deepEqual(
-    guide.recommendations.scout.map(({ model, thinking }) => [model, thinking]),
+    guide.recommendations["browser-verifier"].map(({ model, thinking }) => [model, thinking]),
     [["openai-codex/gpt-5.6-luna", "max"]],
   );
   assert.deepEqual(
