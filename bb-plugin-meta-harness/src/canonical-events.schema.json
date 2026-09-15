@@ -122,7 +122,7 @@
     "riskTier": { "enum": ["low", "standard", "high"] },
     "settledStatus": {
       "enum": ["done", "blocked", "failed", "stalled", "cancelled"],
-      "description": "done and blocked require a prior valid node.result.validated; failed, stalled, and cancelled do not."
+      "description": "Execution settlement is independent of report availability or validity. A blocked settlement requires its preceding typed blocking request."
     },
     "blockedKind": { "enum": ["question", "decision", "permission", "credential", "external-action"] },
     "run.created": {

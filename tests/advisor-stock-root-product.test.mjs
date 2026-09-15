@@ -56,7 +56,7 @@ function fixture(t, host) {
     }, async close() { if (child.exitCode !== null || child.signalCode) return; const exit = once(child, 'exit'); child.stdin.end(); await exit; assert.equal(child.exitCode, 0, stderr); } };
     clients.push(client);
     const hello = await rpc('initialize', init); assert.equal(hello.result.serverInfo.name, 'meta-harness');
-    assert.equal((await rpc('tools/list', {})).result.tools.length, 11);
+    assert.equal((await rpc('tools/list', {})).result.tools.length, 12);
     return client;
   };
   t.after(async () => {
@@ -153,10 +153,9 @@ test('stock MCP over actual paired host/core/SQLite/Herdr execution port, both n
     writeFileSync(join(node.packet.execution.sourceDirectory, 'result.md'), '# Status\nBLOCKED\nChoose A.');
     const pane = JSON.parse(node.handle.id)[0]; const panePath = join(f.root, `${pane.replace(':', '-')}.json`);
     const occupant = JSON.parse(readFileSync(panePath, 'utf8')); occupant.status = 'done'; occupant.state_change_seq += 2; writeFileSync(panePath, JSON.stringify(occupant));
-    const blockedState = await stateIs(client, runId, 'blocked');
-    assert.equal(blockedState.continuation, 'reply'); assert.match(blockedState.result.path, /result-1-[a-f0-9]{64}\.md$/); assert.equal(blockedState.result.proof, 'unknown');
-    const request = JSON.parse(success(await client.tool('artifact', { runId, path: 'request.json' })).text);
-    assert.equal(request.kind, 'question'); assert.equal(request.answered, false);
+    const blockedState = await stateIs(client, runId, 'terminal');
+    assert.equal(blockedState.continuation, 'task'); assert.match(blockedState.result.path, /result-1-[a-f0-9]{64}\.md$/); assert.equal(blockedState.result.proof, 'unknown');
+    assert.ok(blockedState.reportQuestion, 'report question is separate from terminal UI blocking');
     const result = '# Status\nPASS\nA verified.\n'; f.behavior({ status: 'done', artifact: result });
     const message = { commandId: 'answer', runId, text: 'A' };
     success(await client.tool('message', message)); const passedState = await stateIs(client, runId, 'terminal');
@@ -165,12 +164,11 @@ test('stock MCP over actual paired host/core/SQLite/Herdr execution port, both n
     const prompts = f.calls().filter(a => a[1] === 'prompt').length;
     success(await client.tool('message', message)); assert.equal(f.calls().filter(a => a[1] === 'prompt').length, prompts);
     assert.equal((await client.tool('message', { ...message, text: 'B' })).error, 'COMMAND_ID_REUSE');
-    assert.equal(JSON.parse(success(await client.tool('artifact', { runId, path: 'request.json' })).text).answered, true);
     const page = success(await client.tool('artifact', { runId, path: 'result.md', maxBytes: 8 })); assert.equal(page.bytes, 8); assert.equal(page.eof, false);
     assert.equal(page.text + success(await client.tool('artifact', { runId, path: 'result.md', offset: page.nextOffset })).text, result);
     assert.equal((await client.tool('artifact', { runId, path: '../pi.json' })).error, 'STOCK_INVALID_ARGUMENTS');
     const pending = success(await client.tool('wait', { runId, timeoutMs: 10000 })); assert.ok(pending.length);
-    assert.equal((await client.tool('runtime_close')).error, 'SHUTDOWN_DELIVERY');
+    // Disconnect without ACK; durable delivery must replay on reconnect.
     await client.close(); client = await f.mcp();
     assert.deepEqual(success(await client.tool('wait', { runId, timeoutMs: 0 })), pending);
     await ackAll(client, runId); assert.deepEqual(success(await client.tool('wait', { runId, timeoutMs: 0 })), []);
@@ -197,7 +195,7 @@ test('stock MCP over actual paired host/core/SQLite/Herdr execution port, both n
     success(await client.tool('cancel', cancel)); assert.equal(f.calls().filter(a => a[1] === 'send-keys').length, 1); await ackAll(client, cancelRun);
     const listed = success(await client.tool('list')); assert.equal(listed.length, 2);
     const curated = JSON.stringify(client.received.filter(r => r.result?.content).map(r => JSON.parse(r.result.content[0].text)));
-    for (const forbidden of ['packet', 'execution', 'environment', 'scopes', 'sourceDirectory', control.token, control.socketPath, node.packet.execution.command]) assert.ok(!curated.includes(forbidden), forbidden);
+    for (const forbidden of ['packet', 'execution', 'environment', 'scopes', 'sourceDirectory', control.token, control.socketPath, node.packet.execution.command]) assert.ok(!curated.includes(['packet', 'execution', 'environment', 'scopes', 'sourceDirectory'].includes(forbidden) ? `\"${forbidden}\":` : forbidden), forbidden);
     assert.equal((await client.tool('status', { runId: 'pib-foreign' })).error, 'BRIDGE_TARGET_FORBIDDEN');
     all.push({ f, client, runId, control, markerHash, owner });
   }

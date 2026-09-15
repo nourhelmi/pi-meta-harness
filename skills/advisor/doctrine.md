@@ -16,7 +16,8 @@ Choose by decision load, risk, context, parallelism, and total cost with handoff
 2. **Single maker.** The default for small and cohesive-medium work: one
    empowered maker from a short packet. It should feel like launching one ordinary agent:
    no planner, no graph, no checker unless the tier or the user asks for one.
-3. **Graph.** Real ownership/dependency boundaries, validated by `advisor_graph_plan`.
+3. **Optional graph.** Record real ownership/dependency boundaries with
+   `advisor_graph_plan` when that helps coordination; a graph is not a launch permit.
 
 For small and cohesive-medium
 implementation with one decision set, default to one empowered maker: you, a
@@ -34,10 +35,13 @@ product goal. For sustained multi-domain work, normally delegate bounded
 outcomes; retain integration, risk and acceptance. One accountable owner does
 not mean one executor.
 
-Plan the work yourself by default. A planner offers an optional second opinion
-for product or architecture uncertainty or context isolation, not a prerequisite.
-Adopt, revise, or reject its proposed roles and sequence. Tooling, environment,
-harness and formatting failures belong to the same maker.
+Plan and investigate yourself by default. Scout and planner roles are optional
+instruction presets, not mandatory stages or a workaround for normal context use.
+A scout earns a separate session for independent parallel investigation or specialist
+knowledge. A planner earns one for an independent alternative or a substantial
+standalone design. Makers inspect the code they change; do not pay for a scout to
+summarize a few files they must read anyway. Adopt, revise, or reject recommendations.
+Tooling, environment, harness and formatting failures belong to the same maker.
 
 ## Non-negotiables
 
@@ -67,8 +71,9 @@ harness and formatting failures belong to the same maker.
    revision and record the change and reason; criteria serve the advisor's
    judgment, not the reverse. The packet is a floor, not a ceiling: makers may
    propose sharper criteria under `Proposed criteria`.
-6. **Bound delegated work.** Caps and budgets are ceilings for bounded
-   attempts, not targets. Ask before exceeding a user-set spend limit.
+6. **Respect explicit limits.** Bound the outcome and avoid repeated work without
+   new information. Honor user-set spend or concurrency limits; runtime lifetime
+   counters and graph repair counts are history, not staffing quotas.
 7. **Lock material boundaries before implementation.** Inspect the repository
    and evidence first. Ask only about product or architecture choices the
    evidence cannot settle and that would materially change the work; ask
@@ -76,8 +81,10 @@ harness and formatting failures belong to the same maker.
    answer does not gate. Stop only for credentials, permissions, external
    actions only the user can perform, irreversible effects, or evidence that
    invalidates the agreed direction. Record assumptions with confidence.
-8. **Keep large raw evidence out of advisor context.** Workers reduce logs
-   and traces to bounded claims and paths. Read what the user shares directly.
+8. **Keep evidence accessible, not duplicated.** Summaries are convenient indexes,
+   not the only memory or proof. Search a worker's recorded transcript and open
+   relevant artifacts when useful; page large output instead of dumping it into
+   context. Read what the user shares directly.
 9. **Every helper is visible.** All delegated LLM work uses `bg_agent`, which
    creates a visible Herdr worker. Never use a headless
    agent path, `codex exec`, `claude --print`, or an explicit `agent`
@@ -154,14 +161,14 @@ or "no install or alternate runtime". Do not open a packet with "execute
 exactly"; state the goal, the invariants, and the evidence paths. Every
 prohibition a packet adds is a block the worker will honor to the letter.
 
-Set `keepAlive: true` on a maker expected to receive a repair or cohesive
-follow-up and on a checker expected to revisit its findings. Use the exact
-returned run ID and current continuation eligibility; `reply` answers the
-specific blocked request and `task` starts a fresh attempt on a kept worker.
-Liveness alone grants neither action. If state is unclear, check `bg_list` once;
-absence or an empty artifact never proves a prior launch had no effect.
-Graph nodes represent outcomes across repair attempts; refresh their evidence
-association without resetting the review budget (see `references/graphs.md`).
+Set `keepAlive: true` when retaining the worker's session is useful for follow-up;
+it is a cleanup preference, not proof or an immutable capability. Use the exact
+returned run ID and supported current continuation/message operation. Only send
+input through identity-checked transport; never type into permission dialogs or
+replay an uncertain launch. If state is unclear, check `bg_list` once. An empty
+report does not mean the worker failed to run. Graph associations record context
+and history; stale or absent graph evidence does not forbid ordinary work
+(see `references/graphs.md`).
 Locked execution packets are described in `references/model-routing.md`.
 
 ### Bound after diagnosis
@@ -279,15 +286,12 @@ information or a changed strategy. Resume the same checker for a delta review
 of a maker's repair; fresh review is justified when prior reasoning is
 invalidated or material independent risk remains.
 
-Two serial review rounds per slice is the default budget. At that budget or
-a binding user, graph, or runtime cap, stop the loop and reassess; a budget is
-not evidence of completion. Deliver only when all acceptance criteria,
-required checks, and safety obligations are satisfied, disclosing only
-non-blocking residuals. Otherwise report the work as incomplete and choose a
-changed approach within remaining authority and limits, or ask the user with
-a recommended next step. Further work needs an explicit, authorized bounded
-plan; never silently reset a cap by renaming the slice or launching another
-planner. User-set limits or requirements need user approval to change.
+Reassess a loop when another attempt would repeat the same strategy without new
+information, not after an arbitrary number of turns. Continue useful authorized
+repairs until all acceptance criteria, required checks and safety obligations are
+satisfied. If the next step needs a product decision, permission or increased
+user-set spend, report what remains and ask with a recommendation. Never claim
+completion because a counter ran out; user-set limits need user approval to change.
 Update the workstream's current findings, evidence links, ownership and next action
 when a review materially changes them. Preserve historical proof at its existing
 locator; do not create an extra cycle diary or copy reports into the checkpoint.
@@ -315,18 +319,20 @@ separately; a child advisor's self-review is still maker evidence.
 A child receives the same doctrine and intelligence guide plus a runtime-issued
 parent scope. Its optional graph belongs to that parent outcome; sibling graphs
 have separate namespaces. A graphless parent or child is valid. Child advisors
-may delegate further within the root family's remaining cumulative allowance;
-creating a child, graph or repair attempt never creates a fresh budget. Ordinary
-specialists remain leaves except for their explicitly granted scoped helpers.
+may delegate further within their authority and explicit user limits; accounting
+is not a cumulative launch/reply/task allowance. Ordinary specialists remain leaves
+except for their explicitly granted scoped helpers.
 
 Managed advisors are Pi-hosted, including in native specialist mode. All helpers
 stay visible through `bg_agent`. Children inherit the specialist harness choice
 when supplied, not the advisor's transport. Never initialize a top-level
 workstream with `/advisor`, `advisor_session_init` or `advisor_launch` inside a
-child. Keep the child's assigned `result.md` checkpoint current and return
-attributed component evidence plus integration proof. Settle descendants before
-returning, including after cancellation; silence, process exit or an old PASS is
-not current settlement proof. Never stop for a turn cap with live helpers.
+child. Keep the child's decisions, evidence and next action discoverable in its
+assigned handoff and recorded session. Report outstanding descendants explicitly:
+a settled parent turn is not proof its children finished. Before delivering the
+integrated outcome or tearing down its workspace, account for every relevant child
+using current execution evidence. Cancellation acceptance and an old PASS are not
+proof of descendant completion.
 
 ## Worker transport
 
@@ -366,30 +372,33 @@ CI gates once for the delivered revision, with one owner. Details:
 
 ## Settlement and recovery
 
-A launch receipt proves admission, not delivery. Begin with the current runtime
-handoff and its captured result locator, status, attempt and continuation state.
-Inspect relevant proof to decide completion; a worker PASS is not independent
-verification. Do not routinely fetch pane output, scan directories, inspect mtimes,
-or crawl transcripts after a useful handoff.
+A launch receipt proves admission, not delivery. Execution completion, report
+availability, verification, session availability and descendants are separate facts.
+Start with the current handoff; use its summary when useful, not as an obligatory
+report-reading stage. Search the run's recorded transcript for omitted decisions,
+commands or tool results and inspect relevant source/artifacts. A worker PASS is
+not independent verification, and a transcript records what happened rather than
+proving the current checkout still passes.
 
-Use `bg_output` or source/commit inspection only for a concrete missing-evidence
-or transport discrepancy. Mutable worktree artifacts can explain what happened,
-but cannot replace a missing or rejected canonical capture or prove settlement.
-Never resume, replay, or adopt an effect merely because a worker
-looks idle or a file exists; honor current reply/task eligibility and recovery
-fences. A `paused` worker remains supervised while its own helpers run. Coalesce
-routine settlement and the already-decided next action into one user update.
-Details: `references/transport-and-settlement.md`.
+A missing, blank or poorly formatted summary never establishes that the worker
+failed to run or requires repeating its work. An explicitly requested deliverable
+can still be incomplete after execution stops: explain that distinction. Use the
+supported identity-checked follow-up or recovery operation. Never clear locks,
+blindly resend an uncertain effect, or adopt an unrelated pane. Retained reports
+and session history remain available after completion. Coalesce routine settlement
+and the already-decided next action into one user update. Details:
+`references/transport-and-settlement.md`.
 
 ## Isolated state
 
 Advisor state lives under `~/.advisor/<repo-key>/`, shared by every worktree
 of one repository. Use `advisor_checkpoint` for fenced updates; native hosts
-use the shared state helper without changing lanes. A scoped
-child instead uses its assigned `result.md` as its operational checkpoint and
-its runtime-provided child state root for local `graphs/`. References here to
-the current Scope ledger, findings or next action mean that child's checkpoint
-when running as a child; never write the parent's workstream file.
+use the shared state helper without changing lanes. A scoped child uses its
+recorded session or assigned handoff/checkpoint for decisions and evidence; use
+`result.md` when a file is useful or explicitly requested. Local `graphs/` belong
+under its runtime-provided child state root. References here to the current Scope
+ledger, findings or next action mean that child's records when running as a child;
+never write the parent's workstream file.
 
 - `sessions/<PI_SESSION_ID>.md`: identity pointer to the workstream, not a private checkpoint or diary.
 - `workstreams/<slug>.md`: source of truth; only the owner session edits it.
@@ -400,10 +409,10 @@ when running as a child; never write the parent's workstream file.
   The hot section returns at start and compaction; read history only as needed.
 - `events/<timestamp>-<session-short>-<slug>.md`: immutable handoffs,
   decisions, findings, alerts. Never edit another session's event.
-- `graphs/<graphId>.json`: immutable manifests written by `advisor_graph_plan`.
-  `advisor_graph_evidence` binds owned runs/attempts to nodes and supplies current
-  dependency evidence to the existing launch tool. Repair retains its outcome node
-  and budget; refresh the association, preserve history and invalidate stale proof.
+- `graphs/<graphId>.json`: optional plans recorded by `advisor_graph_plan`.
+  `advisor_graph_evidence` associates owned runs/attempts and evidence references.
+  Revise the plan when work changes; preserve historical attribution, surface stale
+  proof and continue authorized work without treating graph metadata as authority.
   A copied PASS never creates verification. See `references/graphs.md`.
 - `runs/<worktree-slug>/<run-id>/`: worker output; workers write only there
   within advisor state.

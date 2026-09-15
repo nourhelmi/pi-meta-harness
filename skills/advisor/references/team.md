@@ -9,9 +9,9 @@ exists. Teammates use child-advisor authority, not leaf-only builder rules or a
 mandatory management role. One maker per checkout/write surface still applies.
 
 Use the active intelligence profile as guidance, not a CoS staffing quota or routine
-budget ceremony. Respect explicit user limits and actual platform/family limits;
-retaining or renaming a member never resets cumulative accounting. Requested model
-and effort are not observed settings. Report unavailable controls and unknown
+budget ceremony. Respect explicit user limits and real platform capacity;
+retaining or renaming a member preserves accounting, not a lifetime quota. Requested
+model and effort are not observed settings. Report unavailable controls and unknown
 observations honestly; never silently change an existing session's role, model,
 host, specialist preference or workstream.
 
@@ -26,9 +26,9 @@ and bounded factual handoffs, not another workstream's conversation.
 The roster records continuity; the existing outcome DAG records accepted work and
 consumed evidence. Neither a team nor a graph is mandatory. Retained teammates may
 receive distinct new accepted assignments inside their workstream. Same-outcome
-repair retains its prior acceptance, input lineage and repair history; do not label
-a repair as new work to evade exhaustion. New assignments preserve all prior proof
-and contracts and start with no unrelated current inputs. Advice cannot assign work,
+repair retains its prior acceptance and evidence history. New assignments preserve
+prior proof and contracts without inheriting unrelated current inputs. Graph changes
+are planning updates, not execution permission. Advice cannot assign work,
 grant write scope, certify completion or substitute for independent checking.
 
 ## Conversation and settlement

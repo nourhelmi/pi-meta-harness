@@ -210,8 +210,9 @@ test("advisor doctrine routes locked execution without weakening decision bounda
   assert.match(source, /Deliberate criteria\s+revision[\s\S]+new packet\s+revision/);
   assert.match(source, /criteria serve the advisor's\s+judgment, not the reverse/);
   assert.match(source, /## Worker transport recovery/);
-  assert.match(source, /make at most one\s+changed retry, not an identical new launch/);
-  assert.match(source, /perform the cohesive work directly only when ownership and authority are clear/);
+  assert.match(source, /Do not repeat identical failed requests or relaunch an uncertain effect/);
+  assert.match(source, /identity-checked reconciliation when available/);
+  assert.match(source, /perform cohesive work directly only when ownership and authority\s+are clear/);
   assert.match(source, /required independent review remains unsatisfied until actually obtained/);
   assert.match(source, /explicit acceptance requirement for a particular transport or worker stays\s+unsatisfied if bypassed by direct work/);
 });

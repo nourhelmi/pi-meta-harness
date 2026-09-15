@@ -6,7 +6,7 @@ import { RuntimeError, atomicWrite, demand, privateDirectory, safeFile, within }
 
 function decode(text) { try { return JSON.parse(text); } catch { throw new RuntimeError('INVALID_JSON'); } }
 const failure = error => ({ ok: false, error: error instanceof RuntimeError ? error.code : 'TRANSPORT_ERROR' });
-function encode(value) { const text = JSON.stringify(value); demand(Buffer.byteLength(text) <= LIMITS.reply, 'RESPONSE_TOO_LARGE'); return text + '\n'; }
+function encode(value) { const text = JSON.stringify(value); return text + '\n'; }
 
 /** Foreground service host. Caller already owns the runtime's exclusive service lock. */
 export async function startService(runtime, { keepAlive = true, beforeShutdown = async () => {} } = {}) {
@@ -31,12 +31,13 @@ export async function startService(runtime, { keepAlive = true, beforeShutdown =
     const deadline = setTimeout(() => socket.destroy(), LIMITS.waitMs + 2000);
     connections.add(socket); socket.on('close', () => { clearTimeout(deadline); connections.delete(socket); }); socket.on('error', () => {});
     socket.setTimeout(LIMITS.waitMs + 2000, () => socket.destroy());
-    let bytes = Buffer.alloc(0); let submitted = false;
+    let chunks = []; let submitted = false;
     socket.on('data', async chunk => {
       if (submitted) { socket.destroy(); return; }
-      bytes = Buffer.concat([bytes, chunk]);
-      if (bytes.length > LIMITS.envelope + 256) { socket.end(encode({ ok: false, error: 'ENVELOPE_TOO_LARGE' })); submitted = true; return; }
-      const newline = bytes.indexOf(10); if (newline < 0) return;
+      chunks.push(chunk);
+      const end = chunk.indexOf(10); if (end < 0) return;
+      const bytes = Buffer.concat(chunks); chunks = [];
+      const newline = bytes.length - chunk.length + end;
       submitted = true; // Exactly one request per connection. Reconnect is not cancellation.
       try {
         demand(newline === bytes.length - 1, 'REQUEST_COUNT');
@@ -100,17 +101,19 @@ export function readCredential(path) {
 }
 export async function callSocket(credential, command, audience = 'operator') {
   demand(typeof credential.socketPath === 'string' && credential.socketPath.startsWith('/'), 'UNIX_SOCKET_REQUIRED');
-  const wire = JSON.stringify({ v: 1, token: credential.token, command, audience }); demand(Buffer.byteLength(wire) <= LIMITS.envelope + 256, 'ENVELOPE_TOO_LARGE');
+  const wire = JSON.stringify({ v: 1, token: credential.token, command, audience });
   return new Promise((resolve, reject) => {
-    const socket = createConnection({ path: credential.socketPath }); let bytes = Buffer.alloc(0); let finished = false;
+    const socket = createConnection({ path: credential.socketPath }); let chunks = []; let finished = false;
     const fail = error => { if (!finished) { finished = true; socket.destroy(); reject(error); } };
     socket.setTimeout(LIMITS.waitMs + 3000, () => fail(new RuntimeError('TRANSPORT_TIMEOUT')));
     socket.on('error', () => fail(new RuntimeError('TRANSPORT_ERROR')));
     socket.on('connect', () => socket.write(wire + '\n'));
     socket.on('data', chunk => {
-      bytes = Buffer.concat([bytes, chunk]);
-      if (bytes.length > LIMITS.reply) { fail(new RuntimeError('RESPONSE_TOO_LARGE')); return; }
-      const newline = bytes.indexOf(10); if (newline < 0) return;
+      chunks.push(chunk);
+      const end = chunk.indexOf(10); if (end < 0) return;
+      const bytes = Buffer.concat(chunks); chunks = [];
+      const newline = bytes.length - chunk.length + end;
+      if (newline !== bytes.length - 1) { fail(new RuntimeError('RESPONSE_COUNT')); return; }
       try { const value = decode(bytes.subarray(0, newline).toString('utf8')); finished = true; socket.destroy(); resolve(value); } catch (error) { fail(error); }
     });
     socket.on('end', () => { if (!finished) fail(new RuntimeError('TRUNCATED_RESPONSE')); });

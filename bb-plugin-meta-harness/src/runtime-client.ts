@@ -1,4 +1,4 @@
-// Version-1 bounded Unix transport only. Admission, persistence and effects remain
+// Version-1 Unix transport with a per-request deadline. Admission, persistence and effects remain
 // in @nourhelmi/advisor-native. This client needs no repository-relative imports.
 import { constants } from "node:fs";
 import { lstat, open, realpath } from "node:fs/promises";
@@ -39,7 +39,7 @@ export async function runtimeCall(descriptorPath: string, input: RuntimeCommand,
   if (signal?.aborted) return { ok: false, error: "TRANSPORT_UNCERTAIN" };
   return new Promise(resolveResponse => {
     const socket = createConnection({ path: secret.socketPath });
-    let bytes = Buffer.alloc(0);
+    let chunks: Buffer[] = [];
     let finished = false;
     const finish = (value: RuntimeResponse) => {
       if (finished) return;
@@ -56,10 +56,12 @@ export async function runtimeCall(descriptorPath: string, input: RuntimeCommand,
     socket.on("end", abort);
     socket.on("connect", () => socket.write(JSON.stringify({ v: 1, token: secret.token, command: parsed.data, audience: "operator" }) + "\n"));
     socket.on("data", chunk => {
-      bytes = Buffer.concat([bytes, chunk]);
-      if (bytes.length > 1048576) { abort(); return; }
-      const newline = bytes.indexOf(10);
-      if (newline < 0) return;
+      chunks.push(chunk);
+      const end = chunk.indexOf(10);
+      if (end < 0) return;
+      const bytes = Buffer.concat(chunks); chunks = [];
+      const newline = bytes.length - chunk.length + end;
+      if (newline !== bytes.length - 1) { abort(); return; }
       try {
         const result = responseSchema.safeParse(JSON.parse(bytes.subarray(0, newline).toString("utf8")));
         finish(result.success ? result.data : { ok: false, error: "TRANSPORT_UNCERTAIN" });

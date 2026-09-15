@@ -22,7 +22,7 @@ function fixture(t) {
       async launch({ hooks, intent, reply }) {
         const generation = launches.length * 2 + 1; const handle = { id: `fixture-${intent.sourceDirectory}`, session: `fixture-session-${intent.sourceDirectory}` };
         const launch = { hooks, intent, reply, generation, handle }; launches.push(launch); hooks.recordHandle(handle);
-        return { async interrupt(observer) { launch.observer = observer; }, async readLive() { return 'fixture'; },
+        return { async interrupt(observer) { await observer.beforeInterrupt?.(); launch.observer = observer; }, async readLive() { return 'fixture'; },
           async runtimeObservation() { return { session: handle.session, generation, state: 'working', runtime: 'pi' }; },
           async message(input) { messages.push({ input, launch }); return { status: 'queued', session: handle.session, generation, state: 'working' }; } };
       },
@@ -57,23 +57,26 @@ for (const prompt of ['x'.repeat(16384), 'x'.repeat(20053), '🚀'.repeat(6000),
     await root.launch('large', params);
     assert.equal(root.launches.length, 1, 'exact replay does not launch twice');
     const credential = JSON.parse(readFileSync(root.opts.credentialPath, 'utf8'));
-    assert.deepEqual(root.host.runtime.execute(credential.token, command, 'model'), { ok: false, error: 'ENVELOPE_TOO_LARGE' }, 'public admission retains its original bound');
-    await assert.rejects(callSocket(credential, command, 'model'), /ENVELOPE_TOO_LARGE/, 'wire admission retains its original bound');
+    assert.deepEqual(root.host.runtime.execute(credential.token, command, 'model'), { ok: false, error: 'STALE_REVISION' }, 'oversized data reaches ordinary revision validation');
+    assert.equal((await callSocket(credential, command, 'model')).error, 'STALE_REVISION');
     const scalarPacket = { ...node.packet, task: 'x'.repeat(16385) }; delete scalarPacket.execution;
-    assert.deepEqual(root.host.runtime.execute(credential.token, { ...command, payload: { node: 'worker', packet: scalarPacket } }, 'model'), { ok: false, error: 'INVALID_TEXT' }, 'public packet task bound is unchanged');
-    await assert.rejects(root.launch('oversized-task', { prompt: 'x'.repeat(32769) }), /PI_DETACH_BRIDGE_UNAVAILABLE/, 'oversized incoming frames still reject before admission');
-    assert.equal(root.launches.length, 1);
-    root.settle(); await root.ack(runId); await root.host.service.close();
+    assert.deepEqual(root.host.runtime.execute(credential.token, { ...command, payload: { node: 'worker', packet: scalarPacket } }, 'model'), { ok: false, error: 'STALE_REVISION' }, 'large tasks retain revision fencing');
+    root.settle(); await root.ack(runId);
+    const large = await root.launch('oversized-task', { prompt: 'x'.repeat(200000) });
+    assert.equal(root.launches.length, 2); assert.equal(root.launches[1].intent.prompt.length, 200000);
+    root.settle(); await root.ack(large);
+    await root.host.service.close();
   });
 }
 
 test('host expansion stays bounded and ordinary admission reports errors without an intent preflight', async t => {
   const f = fixture(t); const root = await f.start('root', { promptPrefix: 'x'.repeat(65536) });
-  await assert.rejects(root.launch('expanded-too-large'), /ENVELOPE_TOO_LARGE/);
-  assert.equal(root.launches.length, 0, 'oversized internal packet never executes');
+  const expanded = await root.launch('expanded-too-large');
+  assert.equal(root.launches[0].intent.prompt.length, 65540); root.settle(); await root.ack(expanded);
   const invalid = await f.start('invalid');
-  await assert.rejects(invalid.launch('bad-acceptance', { acceptance: ['x'.repeat(2049)] }), /^Error: INVALID_TEXT$/);
-  assert.equal(invalid.launches.length, 0);
+  const large = await invalid.launch('large-acceptance', { acceptance: ['x'.repeat(100000)] }); invalid.settle(); await invalid.ack(large);
+  await assert.rejects(invalid.launch('bad-acceptance', { acceptance: [1] }), /^Error: INVALID_TEXT$/);
+  assert.equal(invalid.launches.length, 1);
 });
 
 test('root persistent family ledger counts launches, replies and tasks and survives a typed restart', async t => {
@@ -91,9 +94,9 @@ test('root persistent family ledger counts launches, replies and tasks and survi
   assert.equal((await restarted.request('get', { runId })).runtimeState, 'recovery-required');
   assert.equal((await restarted.request('family.budget')).used, 3);
   const next = await restarted.launch('new'); restarted.settle(); await restarted.ack(next);
-  await assert.rejects(restarted.launch('over'), /BRIDGE_LAUNCH_LIMIT/);
-  assert.equal((await restarted.request('family.budget')).used, 4);
-  assert.deepEqual(restarted.rows('effects').filter(row => row.run === runId).map(row => JSON.parse(row.data).op), ['node.launch', 'node.reply', 'node.task']);
+  const over = await restarted.launch('over'); restarted.settle(); await restarted.ack(over);
+  assert.equal((await restarted.request('family.budget')).used, 5);
+  assert.deepEqual(restarted.rows('effects').filter(row => row.run === runId).map(row => JSON.parse(row.data).op), ['node.launch', 'node.task', 'node.task']);
 });
 
 test('v1 grants are readable but never gain recursive or fresh budget authority; stored foreman evidence remains unchanged', async t => {
@@ -198,21 +201,21 @@ test('cancellation seals in-flight preparation before it can commit a worker exe
   assert.equal((await root.request('family.budget')).used, 1);
 });
 
-test('root and child concurrent admissions share the same final allowance, with exact replay and no refunds', async t => {
+test('root and child concurrent admissions share accounting without a lifetime quota, with exact replay', async t => {
   const f = fixture(t); const root = await f.start('root', { maxLaunches: 3 }); const advisor = await root.launch('advisor', { delegate: true });
   const parent = await root.request('get', { runId: advisor }); const child = await f.start('child', { stateRoot: parent.childService.stateRoot, maxLaunches: 1 });
   const results = await Promise.allSettled([root.launch('root-leaf'), child.launch('child-one'), child.launch('child-two')]);
-  assert.equal(results.filter(result => result.status === 'fulfilled').length, 2);
-  assert.equal(results.filter(result => result.status === 'rejected').length, 1);
-  assert.equal((await root.request('family.budget')).used, 3); assert.equal((await child.request('family.budget')).remaining, 0);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 3);
+  assert.equal(results.filter(result => result.status === 'rejected').length, 0);
+  assert.equal((await root.request('family.budget')).used, 4); assert.equal((await child.request('family.budget')).remaining, null);
   const accepted = results.findIndex((result, index) => index > 0 && result.status === 'fulfilled');
   await child.launch(accepted === 1 ? 'child-one' : 'child-two');
-  assert.equal((await root.request('family.budget')).used, 3);
+  assert.equal((await root.request('family.budget')).used, 4);
   const command = JSON.parse(child.rows('effects')[0].data);
   const forged = { v: 1, op: 'node.task', scope: { ...command.scope, ownerEpoch: 99 }, commandId: 'foreign-epoch', expectedRevision: 0, payload: { attempt: 1, handleId: 'wrong', generation: 1, text: 'invalid' } };
   const credential = JSON.parse(readFileSync(join(child.stateRoot, 'pi.json')));
   assert.equal((await callSocket(credential, forged, 'model')).error, 'OWNER_EPOCH_MISMATCH');
-  assert.equal((await root.request('family.budget')).used, 3, 'authority rejection does not charge');
+  assert.equal((await root.request('family.budget')).used, 4, 'authority rejection does not charge');
 });
 
 test('typed recursive shutdown refuses new admissions during its asynchronous child-close window', async t => {
@@ -361,7 +364,7 @@ test('managed roster keeps immutable identity and history while public peer tran
   await assert.rejects(root.request('team.rename', { toolCallId: 'member-id-name', to: 'beta', name: alpha }), /TEAM_NAME_CONFLICT/);
   const initial = await root.request('team.status');
   assert.equal(initial.mode, 'managed-team'); assert.equal(initial.scheduler, 'existing-advisor-runtime-and-herdr'); assert.equal(initial.teamQuota, null);
-  assert.deepEqual(initial.storageLimits, { teamStateBytes: 16 * 1024 * 1024, commandEnvelopeBytes: 32768, responseEnvelopeBytes: 1048576, messageTextBytes: 16384 });
+  assert.deepEqual(initial.storageLimits, { teamStateBytes: null, commandEnvelopeBytes: null, responseEnvelopeBytes: null, messageTextBytes: null });
   assert.deepEqual(initial.projectionLimits, { statusMessages: 128, statusMessageTextBytes: 1024 });
   assert.equal(Object.hasOwn(initial.storageLimits, 'members'), false); assert.equal(Object.hasOwn(initial.storageLimits, 'messages'), false);
   assert.equal(initial.accounting.used, 5); assert.equal(initial.members.length, 2);
@@ -462,7 +465,7 @@ test('retained teammate keeps independent graph contracts, repair budgets, check
   const firstCheck = root.host.runtime.checkNode({ scope: firstNode.snapshot.scope, command: process.execPath, args: ['check.mjs'], producer: 'contract-checker' });
   assert.deepEqual(firstCheck.contract.acceptance, ['first accepted result']); assert.equal(firstCheck.contract.riskTier, 'high');
   const firstBound = await evidence('first-outcome');
-  assert.deepEqual(firstBound.node.budget, { maxRepairLoops: 1, used: 1, remaining: 0 });
+  assert.deepEqual(firstBound.node.budget, { maxRepairLoops: null, used: 1, remaining: null });
   assert.equal(firstBound.node.proof, 'verified');
   const firstContract = firstBound.node.contract; const firstResult = firstBound.node.result;
 
@@ -494,9 +497,9 @@ test('retained teammate keeps independent graph contracts, repair budgets, check
   root.host.runtime.checkNode({ scope: secondNode.snapshot.scope, command: process.execPath, args: ['check.mjs'], producer: 'contract-checker' });
   const historicalFirst = await evidence('first-outcome'); const currentSecond = await evidence('second-outcome');
   assert.equal(historicalFirst.node.reason, 'accepted contract changed'); assert.deepEqual(historicalFirst.node.contract, firstContract);
-  assert.deepEqual(historicalFirst.node.budget, { maxRepairLoops: 1, used: 1, remaining: 0 });
+  assert.deepEqual(historicalFirst.node.budget, { maxRepairLoops: null, used: 1, remaining: null });
   assert.equal(historicalFirst.node.result.path, firstResult.path); assert.ok(historicalFirst.node.history.every(item => item.attempt <= 2));
-  assert.deepEqual(currentSecond.node.budget, { maxRepairLoops: 1, used: 1, remaining: 0 });
+  assert.deepEqual(currentSecond.node.budget, { maxRepairLoops: null, used: 1, remaining: null });
   assert.equal(currentSecond.node.contract.assignmentId, 'second-contract'); assert.ok(currentSecond.node.history.every(item => item.attempt >= 3));
   status = await root.request('team.status'); teamMember = status.members.find(value => value.id === member);
   assert.deepEqual(teamMember.assignments.map(assignment => assignment.attempts.map(attempt => attempt.kind)), [['initial', 'repair'], ['new', 'repair']]);
@@ -537,14 +540,14 @@ test('enlistment preserves pre-roster checker evidence instead of relabelling it
   assert.equal(roster.assignments[0].attempts[0].result.check.contract.assignmentId, null);
   assert.equal(roster.assignments[0].attempts[0].result.verification.contract.assignmentId, null);
 
-  await assert.rejects(root.request('call', { tool: 'bg_agent', toolCallId: 'enlist-cannot-reset-budget', cwd: f.cwd, params: { name: member, prompt: 'same outcome repair' } }), /GRAPH_REPAIR_LIMIT/);
+  await root.request('call', { tool: 'bg_agent', toolCallId: 'enlist-repair', cwd: f.cwd, params: { name: member, prompt: 'same outcome repair' } }); await root.host.runtime.dispatch(); root.settle();
   await root.request('team.assign', { toolCallId: 'distinct-after-pre-roster', to: 'prechecked', assignmentId: 'distinct-contract', task: 'New accepted outcome', acceptance: ['new proof'], riskTier: 'standard' });
   await root.host.runtime.dispatch(); root.settle();
   const nextGraph = { graphId: 'post-roster-outcome', advisorSessionId: 'root', maxRepairLoops: 1, nodes: [{ id: 'next', task: 'new contract', dependsOn: [] }] };
   await root.request('graph.evidence', { graph: nextGraph, node: 'next', runId: member });
   await root.request('call', { tool: 'bg_agent', toolCallId: 'new-contract-repair', cwd: f.cwd, params: { name: member, prompt: 'repair new accepted outcome' } });
   await root.host.runtime.dispatch(); root.settle();
-  assert.equal((await root.request('graph.evidence', { graph, node: 'original' })).node.budget.used, 0, 'new repairs never charge the pre-roster outcome');
+  assert.equal((await root.request('graph.evidence', { graph, node: 'original' })).node.budget.used, 1, 'only its own accepted repair charges the pre-roster outcome');
   assert.equal((await root.request('graph.evidence', { graph: nextGraph, node: 'next' })).node.budget.used, 1);
   assert.deepEqual(readFileSync(checked.path), checkBytes);
 
@@ -553,7 +556,7 @@ test('enlistment preserves pre-roster checker evidence instead of relabelling it
   await root.host.service.close();
 });
 
-test('managed team storage is byte-bounded without a roster or conversation cardinal quota', async t => {
+test('managed team storage retains full messages while status uses bounded projections', async t => {
   const f = fixture(t); const root = await f.start('root', { maxLaunches: 4 });
   await root.request('advisor.bind', { workstream: 'byte-bounded-team', workerHarness: 'pi', teamMode: true });
   const member = await root.launch('member', { role: 'advisor', delegate: true });
@@ -568,9 +571,9 @@ test('managed team storage is byte-bounded without a roster or conversation card
   assert.equal(status.teamQuota, null); assert.equal(status.messageCount, 260, 'conversation history exceeds the removed 256-entry cap');
   assert.equal(status.messages.length, 128, 'status projection is bounded independently from durable history');
   assert.equal(status.messages.at(-1).textTruncated, true); assert.ok(Buffer.byteLength(status.messages.at(-1).text) <= 1024); assert.doesNotMatch(status.messages.at(-1).text, /�/);
-  assert.deepEqual(status.storageLimits, { teamStateBytes: 16 * 1024 * 1024, commandEnvelopeBytes: 32768, responseEnvelopeBytes: 1048576, messageTextBytes: 16384 });
+  assert.deepEqual(status.storageLimits, { teamStateBytes: null, commandEnvelopeBytes: null, responseEnvelopeBytes: null, messageTextBytes: null });
   assert.deepEqual(status.projectionLimits, { statusMessages: 128, statusMessageTextBytes: 1024 });
-  assert.ok(Buffer.byteLength(root.rows('team_state')[0].data) < status.storageLimits.teamStateBytes);
+  assert.equal(JSON.parse(root.rows('team_state')[0].data).messages.length, 260, 'full messages remain durable beyond the projection');
   root.settle();
   for (;;) {
     const deliveries = await root.request('wait', { runId: member });
@@ -627,4 +630,32 @@ test('real recursive product fixture exercises both runtime and sibling executio
   const result = spawnSync(process.execPath, ['--import', 'tsx', 'tests/bridge/pi-detach-recursive.ts'], { cwd: process.cwd(), env: process.env, encoding: 'utf8', timeout: 55000 });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /PASS downward cancellation/); assert.match(result.stdout, /PASS root atomic accounting/);
+});
+
+test('actual host upgrades only its exact old preset and grants durable busy messages', async t => {
+  const { AdvisorRuntime } = await import('../scripts/advisor-runtime/runtime.mjs');
+  const bootstrap = AdvisorRuntime.prototype.bootstrapPrincipals;
+  const f = fixture(t); let root;
+  try {
+    AdvisorRuntime.prototype.bootstrapPrincipals = function(registrations, ...rest) {
+      return bootstrap.call(this, registrations.map(input => ({ ...input, principal: { ...input.principal, operations: input.principal.operations.filter(op => op !== 'node.message') } })), ...rest);
+    };
+    root = await f.start('host-upgrade');
+  } finally { AdvisorRuntime.prototype.bootstrapPrincipals = bootstrap; }
+  await root.host.service.close();
+  const upgraded = await f.start('host-upgrade');
+  const runId = await upgraded.launch('busy');
+  await upgraded.launch('advice', { name: runId, prompt: 'advice '.repeat(5000) });
+  await upgraded.launch('advice', { name: runId, prompt: 'advice '.repeat(5000) });
+  assert.equal(upgraded.messages.length, 1); assert.equal(upgraded.launches.length, 1);
+  assert.equal((await upgraded.request('wait', { runId })).find(d => d.kind === 'message.delivery').delivery.status, 'queued');
+  const row = upgraded.rows('principals')[0]; const data = JSON.parse(row.data);
+  assert.ok(data.operations.includes('node.message'));
+  const db = new DatabaseSync(join(upgraded.stateRoot, 'runtime.sqlite'));
+  try { data.operations = data.operations.filter(op => !['node.message', 'node.task'].includes(op)); db.prepare('UPDATE principals SET data=? WHERE id=?').run(JSON.stringify(data), row.id); } finally { db.close(); }
+  await assert.rejects(upgraded.launch('narrowed-advice', { name: runId, prompt: 'forbidden' }), /OPERATION_FORBIDDEN/);
+  await assert.rejects(upgraded.request('reconcile', { runId }), /OPERATION_FORBIDDEN/);
+  assert.equal(upgraded.messages.length, 1);
+  upgraded.settle(); upgraded.host.runtime.revokePrincipal(row.id);
+  await assert.rejects(upgraded.request('get', { runId }), /UNAUTHORIZED/);
 });

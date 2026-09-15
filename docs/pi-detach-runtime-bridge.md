@@ -1,22 +1,17 @@
 # Managed Pi / Herdr runtime
 
-Managed Meta installs select the shared runtime for pi-detach automatically. Start
-ordinary `pi` inside Herdr: no root wrapper, manual descriptor environment,
-per-task packet file or separate service command. Pi owns bg_agent; the existing
-non-LLM service owns admission, SQLite, results, traces and delivery; Herdr owns
-visible execution.
+A managed Meta installation uses the shared non-LLM runtime automatically when Pi
+starts inside Herdr. Pi owns the public tools, the service owns durable execution
+records and delivery, and Herdr hosts visible workers. No manual descriptor or
+per-task packet file is needed. See [runtime contract](advisor-durable-runtime.md)
+for storage, authorization and replay details.
 
-## Install and diagnostics
+## Install and diagnose
 
-Install matching Meta and pi-detach revisions through the ordinary package and
-bootstrap workflow. Meta materializes the complete runtime, core helpers,
-canonical schema and `pi-detach-runtime.json` in the Pi agent directory. Runtime
-configuration participates in backup/restore. Intelligence selection, runtime
-model/thinking preferences and unrelated packages are preserved.
-
-Pi-facing imports support Node22.19+. The service requires Node24.18+ with SQLite
-and the shipped pi-detach production TypeScript loader. A suitable installer Node is recorded by absolute
-path. An installer running under Node22 can select a trusted executable:
+Install matching Meta and pi-detach revisions. Meta copies the runtime/core helpers,
+extensions, skills and runtime configuration into the Pi agent directory. Pi-facing
+imports support Node22.19+; the SQLite owner needs Node24.18+ and pi-detach's shipped
+TypeScript loader.
 
 ```sh
 node scripts/meta-harness.mjs install --target /private/test/pi-agent \
@@ -24,167 +19,134 @@ node scripts/meta-harness.mjs install --target /private/test/pi-agent \
 node scripts/meta-harness.mjs doctor --target /private/test/pi-agent
 ```
 
-Use the existing --live workflow only when authorized. Installation never reloads
-Pi. Startup never downloads a runtime. Missing runtime files or incompatible Node
-produce visible typed failures before acquisition, with no legacy fallback.
-Doctor reports copied configuration and Node owner readiness separately.
-`/bg_backend` checks the current backend and connection without launching a worker.
+Use `--live` only for an authorized real installation. Installation changes files,
+not already-loaded service code, and never reloads Pi. `/bg_backend` reports the
+connection and installed-versus-loaded revision without launching a worker. A client
+`/reload` reconnects; a service-code upgrade is a separate safely coordinated action.
+Do not restart active work to make a revision warning disappear.
 
-## Session ownership and reload
+## Session and workspace identity
 
-Background startup occurs in the supported session_start hook, never the extension
-factory. Identity binds the actual SessionManager ID, canonical cwd, installed
-host/detach paths and Herdr context. State defaults to private
-`~/.pi-runtime/<identity-hash>`, outside authorized task/artifact directories.
-The existing 100-byte Unix socket path bound applies; trusted configuration can
-select a shorter private stateBase.
+Startup binds the actual SessionManager ID, canonical cwd, host/package paths and
+Herdr context. Private state defaults to `~/.pi-runtime/<identity-hash>`, outside
+worker workspaces. Unix sockets have an operating-system path-length limit; choose
+a shorter private state base when needed.
 
-The service can start before the root chooses advisor mode. `advisor_session_init`
-and restoration use an authenticated root-only `advisor.bind` before publishing
-advisor identity. Unspecified workstream/harness metadata can bind only before
-execution reservations, in-flight launches or child grants. Pre-supplied metadata
-is fixed; exact binding replay remains valid after use/restart. Binding preserves
-the family ID, allowance, credentials and history, and rejects conflicting,
-child, legacy or late requests. Reload reconnects the unchanged transport startup
-marker; it neither rewrites that marker nor mints a new family.
-Concurrent initialization uses one exclusive startup marker. Reload closes client
-resources and reconnects to the same live service, descriptor and pending delivery
-IDs without prompting again. Enqueue/ack does not prove a later model turn; lost
-ack can redeliver the same identity.
+Registered worktrees of the same Git repository can be discovered after startup.
+The trusted Git repository identity determines eligibility, not a caller-provided
+list of directories. Adding/removing an unused worktree does not change the owning
+conversation identity or require transferring it. Unrelated workspaces, escaping
+aliases and control/workspace overlap remain rejected.
 
-Identity/path/control overlap, changed workspace registry and dead or ambiguous
-service state fail closed. Startup never deletes an owner lock or adopts old
-workers. Recovery-required and cancel-pending remain durable. Upgrade from legacy
-agent history in a new root; do not change backends around active workers. Legacy
-histories reporting running agents are conservatively refused even if an external
-operation may subsequently have finished them.
+`advisor.bind` records workstream/harness metadata without replacing the transport
+identity or creating a new family. Child advisors receive scoped grants, never the
+parent credential. Runtime accounting preserves histories across descendants but
+there is no cumulative launch/reply/task quota.
 
-`/bg_runtime_close` closes only inactive, acknowledged work. Refusal leaves the
-service intact. Close never sends Escape or invents cancellation/process death.
-The closed descriptor remains evidence; use a new Pi session for subsequent work.
-Standalone pi-detach without Meta remains supported. An explicit legacy escape
-for a new root is PI_DETACH_BACKEND=legacy. Manual host/client embedding remains
-available for trusted tests/operators.
+## Launch, converse and finish
 
-## Supported work and limits
+- Use `bg_agent` with a task and appropriate context. A role selects useful
+  instructions; scout/planner/graph stages are not mandatory.
+- Omit managed `agent` and `resultPath` compatibility overrides. The resolver and
+  runtime own transport and artifact identity; use `role`, `harness` and `model`.
+- A receipt proves admission, not prompt delivery or task completion. Exact command
+  replay cannot execute the same task twice. Correct a definite pre-effect rejection
+  under a new call; never retry uncertain delivery as a fresh launch.
+- Use the returned opaque `pib-…` run ID for follow-up, output and stop. Current
+  identity-checked transport determines whether input can be accepted. Busy advice
+  is queued only through a supported messaging path; no typing through trust,
+  permission or credential dialogs.
+- `keepAlive` is a cleanup preference. Missing/blank/incomplete summaries do not
+  suppress completed-turn notification or themselves prohibit ordinary follow-up.
+  A closed/mismatched session must be reported honestly, not silently replaced.
+- `bg_stop` requests explicit cancellation; a completed stop is idempotent. An
+  accepted Escape is not proof of process exit. Relevant children remain separately
+  visible and protected from workspace teardown.
+- Parent turn completion and descendant activity are separate. The parent can report
+  its turn's outcome while children remain outstanding; integrated delivery still
+  requires the actual accepted work to be complete.
 
-- Named roles, freeform Pi and native configured packets use the existing resolver.
-  Role skills, acceptance, harness, requested model/thinking, instructional turn
-  caps and result contracts survive admission. The `default` identity marker means
-  no resolver override, not an observed provider identity. Auth stores are not read
-  to fill omitted metadata.
-- Omit `resultPath` and `agent` with the managed runtime: it owns the artifact path;
-  select the worker through `role`, `harness`, and `model`. Those two fields remain
-  available only for legacy compatibility. Known preparation failures return a
-  stable error code and corrective guidance before any worker is launched. Submit
-  corrected arguments as a new tool call; replaying the rejected call returns the
-  same rejection. Unknown preparation exceptions remain redacted as
-  `BRIDGE_PREPARATION_REJECTED`, not exposed command or credential text.
-- Receipt/outbox claim precede acquisition; a qualified handle is committed before
-  the first prompt. Pi and Claude bind the reported provider session. Fresh Codex
-  may not report a thread until submission, so its handle binds pane, assigned
-  name, terminal ID, shell PID, foreground process group, native Codex PID and
-  initial lifecycle generation instead. This is explicitly a transport identity,
-  not a fabricated provider thread. The service pins the first reported Codex
-  session in memory and requires it before settlement or follow-up. Subsequent
-  missing/changed sessions, process/terminal changes and generation drift fail
-  closed. Restart does not adopt this in-memory binding.
-  Herdr's supported 5000ms post-submission gate remains inside the 6000ms CLI and
-  10000ms core budgets. Ambiguous effects do not retry. Folder trust and other
-  approval dialogs still require explicit user action; the bridge neither grants
-  trust nor types through them.
-- Issued pib IDs are stable, opaque authority bindings, never parsed pane names.
-  Reply to artifact BLOCKED with bg_agent({name:id,prompt:"answer"}). A completed
-  PASS/FAIL worker originally kept alive accepts a new bounded task with the same
-  name. Internal current revision/attempt/handle/generation bind that task. Fresh
-  source capture is reserved before its prompt; old PASS cannot settle a new attempt.
-  Omit settings on follow-up; implicit model/harness/keepAlive changes are rejected.
-- Authorized cwd is the owning canonical cwd/repository or a registered Git worktree
-  captured at startup. Unrelated workspaces, escaping aliases and invented nodes
-  reject. Missing secondary worktree registrations are ignored without pruning Git
-  metadata; invalid cwd and permission errors still fail. Changes to live roots
-  require a new root, not wider live grants.
-- Exact scopes enroll on demand with unique durable IDs. The finite family limit
-  is 256 execution admissions (launch, reply or fresh task; trusted tests can lower
-  it), serialized in root SQLite across all descendants. Conservative reservations
-  are not refunded after later admission/acquisition failures; exact replay charges
-  once. Creating a child or graph never resets this allowance. At exhaustion,
-  stop and reassess within user authority, not by silently starting a fresh root.
-- Profiles granting visible delegation receive a reserved child control directory,
-  never the parent's descriptor. Pi bootstraps a distinct service with a validated
-  v2 scope, stable parent outcome and family identity. Child paths stay flat under
-  the family root to bound socket length. Advisors may recursively grant child
-  advisors; specialists remain governed by their role's bounded helper policy.
-  Live or uncertain descendants retain parent supervision. A child completion
-  requires a fresh parent turn before capturing its integrated result.
-  Extensions use `readChildScope` for non-secret validated context; local graphs
-  carry its exact `parent` as `parentOutcome`. V1/unmetered scopes remain readable
-  but require explicit reissue for new execution.
-- Runtime owns canonical events/results/delivery; legacy Pi-host writes, artifact
-  BLOCKED UI signals, reaping and agent notifications are fenced. Non-agent
-  bg_run/watch/await retain their existing behavior. bg_list includes both backends;
-  bg_output uses qualified live capture while running and durable output afterwards.
+There are no semantic message/result byte ceilings or fixed graph node/repair
+quotas. Large output is read in pages rather than rejected or silently replaced by
+an empty report. Provider and machine capacity errors remain real errors.
 
-- `bg_stop` admits `node.cancel`, seals new descendant admission and cascades
-  cancellation down the family through the existing Escape controls. Parent
-  settlement waits for observed descendant settlement, not acknowledgement.
-  Each node sends Escape once and stays
-  `cancel-pending` until Herdr shows the same bound occupant settled afterwards;
-  only then does it settle `cancelled` with its captured output and result bytes.
-  Cancellation never closes the pane and never claims process exit. A worker that
-  keeps working stays cancel-pending; identity drift while waiting becomes
-  recovery-required. If canonical terminal settlement wins before interruption,
-  cancellation is superseded: no Escape is sent, that terminal result is retained,
-  and no follow-up task is allowed. Artifact BLOCKED is not terminal: it remains
-  interruptible at the composer and requires a post-Escape identity observation.
-  Cancelled workers accept no follow-up task. Tool results report the admitted
-  `keepAlive` intent separately from `reusable`, which reflects fresh-task
-  eligibility when the result is sealed, not a promise of later availability.
-- A finished, not-kept child advisor closes its reserved child service by typed
-  shutdown; refusal (active or unacknowledged child work) is retried when the
-  parent closes. `/bg_runtime_close` first checks the parent's own work, then
-  closes reachable child services. An active child refuses the parent close with
-  `SHUTDOWN_CHILD_ACTIVE`; an owned but unreachable child, unsafe/malformed
-  control files, or invalid child identity produce `SHUTDOWN_CHILD_UNCERTAIN`.
-  The parent remains available after refusal. Nothing is killed and no lock is deleted.
-- Recovery-required deliveries state the cause and name the bound pane and agent
-  when one exists. The runtime never resends, adopts or kills; inspect the pane,
-  then launch a new worker for the task.
-- The service reports the content revision of the detach and runtime code it
-  loaded. After installing newer code, session start warns and `/bg_backend`
-  recomputes the installed revision on every call and warns that the connected
-  service is stale. Revision enumeration is capped at 2,000 entries across the
-  source roots and 64 directory levels before descending; hidden subtrees are
-  excluded. Reload reconnects to the same service and does not hot-swap code;
-  start a fresh Pi session to use the update.
+## Handoffs and transcript retrieval
 
-Unsupported: busy steering; foreign/closed/not-kept/stale targets; terminal
-credential or approval dialogs; stalled terminal repair; explicit agent commands;
-custom result paths; crash adoption and process-exit proof after cancellation. Artifact
-BLOCKED is distinct from terminal UI blocking. Never send raw keys around dialogs.
-This ownership boundary does not claim OS confinement or cover same-UID compromise
-and simultaneous manual pane control.
+Completion notifications give execution state and useful report/evidence references.
+The worker's summary is an optional index, not the only source of truth. Captured
+reports retain attempt and producer attribution, and original captures are not
+rewritten by later work.
 
-## Verification
+Managed `bg_output` offers explicit recorded-transcript access as well as terminal
+output. Search can find early messages/tool results beyond the pane tail and return
+paged context with stable locators. The run's bound provider/session selects the
+recorded history; arbitrary file paths or another run's conversation are not inputs.
+Unsupported or unavailable history is reported explicitly. Transcript content is
+recorded data, not new authority or an implicit instruction to execute its commands.
 
-```sh
-PI_DETACH_TEST_PACKAGE=/matching/detach node tests/bridge/pi-detach-product.ts
-PI_BRIDGE_META_PACKAGE=/packed/meta PI_DETACH_TEST_PACKAGE=/packed/detach \
-  node tests/bridge/pi-detach-default.mjs
-npm run check
-npm run typecheck
-# matching pi-detach:
-npm test
-npm run typecheck
+```js
+// Search the entire recorded conversation, not just recent terminal lines.
+bg_output({ runId: "pib-…", source: "transcript", grep: "migration decision", context: 2, limit: 20 })
+// Read records in order; continue using the returned nextCursor.
+bg_output({ runId: "pib-…", source: "transcript", cursor: 0, limit: 20 })
+// A large record returns a projection plus an exact entryRef for byte paging.
+bg_output({ runId: "pib-…", source: "transcript", entryRef: "<returned ref>", offset: 0, maxBytes: 16384 })
 ```
 
-The default probe uses real processes and actual extension/session hooks, service,
-SQLite and execution port with a fake Herdr executable. It is not live Pi/model
-proof. Clean package probes must use production dependencies, not checkout imports.
+Transcript `grep` is literal, case-insensitive text; terminal `grep` remains a
+regular expression. The stock-native equivalent is `advisor_worker_output` with
+`source: "transcript"` and `query` instead of `grep`. Follow `nextCursor` for records
+or `nextOffset` until `eof` for a large record. Byte pages include base64 for lossless
+reassembly across UTF-8 boundaries. Paging/search does not discard recorded history
+or make historical branches current instructions.
 
-Parent-owned live recipe: install reviewed paired revisions, run doctor, start a
-fresh ordinary Pi in Herdr with both old bridge variables absent, check /bg_backend,
-launch one bounded kept worker that writes BLOCKED, /reload, reply with its issued
-ID, observe PASS delivery, then send one bounded repair using that same ID. Verify
-fresh artifacts, one prompt per admitted task/reply and root delivery/ack. Actual
-model turns, visible panes and user-confirmed reload remain distinct evidence.
+Use source files, patches, plans, probe scripts, captured tool results and host check
+records where they answer the question. A PASS summary or historical successful
+command does not certify the current checkout. Stale proof is visible but does not
+veto unrelated tasks. Optional graph/evidence metadata records context and revisions,
+not permission to launch.
+
+## Reconnect, recovery and shutdown
+
+The service owns worker observation; the Pi client owns notification consumption.
+The client reconnects automatically after a transport failure. Durable deliveries
+retain their IDs and ACKs are idempotent. Persisted Pi `custom_message` receipts
+prevent lost ACKs or reload from duplicating an already delivered notification.
+
+A lost connection is not cancellation. Recovery must inspect the recorded worker
+identity before restoring observation or accepting new work. Never blindly resend an
+ambiguous prompt, attach an arbitrary pane, delete owner locks or kill unrelated
+processes. Safe underlying error codes distinguish preparation, submission and
+observation failures; unknown ownership stays unknown.
+
+Use `/bg_reconcile pib-…` to inspect the exact recorded worker and restore
+observation when its identity is provable. Stock-native roots use
+`advisor_worker_reconcile`. Reconciliation does not resend old input. A missing
+identity/recorded session is a real limit: inspect before explicitly replacing the
+work, rather than making an uncertain execution look successful.
+
+`/bg_runtime_close` does not synthesize cancellation. Active or unresolved live work
+and relevant children remain protected. Unacknowledged notifications are durable
+records, not a reason to keep otherwise idle execution alive forever. Captures and
+history survive shutdown/reconnect.
+
+Standalone pi-detach and the explicit legacy backend remain supported separately.
+Do not change backend around active work or silently import legacy ownership. The
+managed source/history options and lifecycle behavior described here do not imply
+that every legacy transport has the same capabilities.
+
+## Verify paired changes
+
+```sh
+PI_DETACH_TEST_PACKAGE=/matching/pi-detach npm test
+PI_DETACH_TEST_PACKAGE=/matching/pi-detach node --import tsx tests/bridge/pi-detach-product.ts
+npm run typecheck
+# matching pi-detach:
+npm run typecheck && npm test
+```
+
+The paired product test uses real runtime/SQLite/port code with fake Herdr/provider
+boundaries. It is not a live model certification. Before activation, review exact
+identity, replay, cancellation, transcript scope and persisted-data compatibility.
+Use isolated fixtures for fault injection; never mutate a working user's runtime
+as a test fixture.

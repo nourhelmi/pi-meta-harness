@@ -1,9 +1,10 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, readFile, stat, writeFile, rename, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import type { AgentToolResult, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Static, Type } from "typebox";
+import { artifactRead, canonicalLocation } from "../scripts/advisor-runtime/security.mjs";
 import { isDeepStrictEqual } from "node:util";
 import { readChildScope, type ChildScope } from "../scripts/advisor-runtime/pi-detach-bootstrap.mjs";
 
@@ -14,18 +15,18 @@ const GraphNodeSchema = Type.Object({
 	role: Type.String({ pattern: "^[a-z][a-z0-9-]{0,47}$" }),
 	task: Type.String({ minLength: 1 }),
 	anchor: Type.Optional(Type.String({ minLength: 1 })),
-	acceptance: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { maxItems: 12 })),
-	requiredSkills: Type.Optional(Type.Array(Type.String(), { maxItems: 12 })),
-	dependsOn: Type.Optional(Type.Array(Type.String(), { maxItems: 12 })),
+	acceptance: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+	requiredSkills: Type.Optional(Type.Array(Type.String())),
+	dependsOn: Type.Optional(Type.Array(Type.String())),
 	worktree: Type.Optional(Type.String()),
 	keepAlive: Type.Optional(Type.Boolean()),
 });
 const GraphParameters = Type.Object({
 	graphId: Type.String({ pattern: "^[a-z][a-z0-9-]{0,47}$" }),
 	goal: Type.String({ minLength: 1 }),
-	nodes: Type.Array(GraphNodeSchema, { minItems: 1, maxItems: 24 }),
-	maxParallel: Type.Optional(Type.Integer({ minimum: 1, maximum: 6, default: 3 })),
-	maxRepairLoops: Type.Optional(Type.Integer({ minimum: 0, maximum: 3, default: 2 })),
+	nodes: Type.Array(GraphNodeSchema, { minItems: 1 }),
+	maxParallel: Type.Optional(Type.Integer({ minimum: 1, default: 3 })),
+	maxRepairLoops: Type.Optional(Type.Integer({ minimum: 0, description: "Legacy repair accounting metadata; never limits execution." })),
 	allowParallelBuilders: Type.Optional(Type.Boolean({ description: "Legacy metadata only; writer coordination belongs to the advisor.", default: false })),
 });
 
@@ -118,16 +119,16 @@ async function configuredRoles(): Promise<Set<string>> {
 
 function validateStructuralParameters(params: GraphParams): void {
 	if (!GRAPH_IDENTIFIER.test(params.graphId)) throw new Error(`Malformed graph id: ${params.graphId}`);
-	if (params.nodes.length < 1 || params.nodes.length > 24) {
-		throw new Error("Graph must contain between 1 and 24 nodes");
+	if (params.nodes.length < 1) {
+		throw new Error("Graph must contain at least one node");
 	}
 	const maxParallel = params.maxParallel ?? 3;
-	if (!Number.isInteger(maxParallel) || maxParallel < 1 || maxParallel > 6) {
-		throw new Error("maxParallel must be an integer between 1 and 6");
+	if (!Number.isInteger(maxParallel) || maxParallel < 1) {
+		throw new Error("maxParallel must be a positive integer");
 	}
-	const maxRepairLoops = params.maxRepairLoops ?? 2;
-	if (!Number.isInteger(maxRepairLoops) || maxRepairLoops < 0 || maxRepairLoops > 3) {
-		throw new Error("maxRepairLoops must be an integer between 0 and 3");
+	const maxRepairLoops = params.maxRepairLoops ?? 0;
+	if (!Number.isInteger(maxRepairLoops) || maxRepairLoops < 0) {
+		throw new Error("maxRepairLoops must be a non-negative integer");
 	}
 	for (const node of params.nodes) {
 		if (!GRAPH_IDENTIFIER.test(node.id)) throw new Error(`Malformed graph node id: ${node.id}`);
@@ -258,7 +259,7 @@ function manifest(
 		workstream: childScope?.family.workstream ?? process.env.ADVISOR_WORKSTREAM,
 		...(childScope ? { parentOutcome: childScope.parent } : {}),
 		maxParallel: params.maxParallel ?? 3,
-		maxRepairLoops: params.maxRepairLoops ?? 2,
+		maxRepairLoops: params.maxRepairLoops ?? 0,
 		allowParallelBuilders: params.allowParallelBuilders ?? false,
 		nodes: params.nodes,
 		waves,
@@ -267,7 +268,15 @@ function manifest(
 	};
 }
 
-async function saveManifest(
+const manifestWrites = new Map<string, Promise<string>>();
+async function saveManifest(params: GraphParams, ctx: ExtensionContext, waves: string[][], warnings: GraphWarning[], childScope: ChildScope | null): Promise<string> {
+  const key = join(childScope?.stateRoot ?? await advisorStateRoot(ctx.cwd), "graphs", params.graphId);
+  const write = (manifestWrites.get(key) ?? Promise.resolve("")).catch(() => "").then(() => saveManifestNow(params, ctx, waves, warnings, childScope));
+  manifestWrites.set(key, write);
+  try { return await write; } finally { if (manifestWrites.get(key) === write) manifestWrites.delete(key); }
+}
+
+async function saveManifestNow(
 	params: GraphParams,
 	ctx: ExtensionContext,
 	waves: string[][],
@@ -276,11 +285,23 @@ async function saveManifest(
 ): Promise<string> {
 	const directory = join(childScope?.stateRoot ?? await advisorStateRoot(ctx.cwd), "graphs");
 	await mkdir(directory, { recursive: true });
-	const path = join(directory, `${params.graphId}.json`);
-	await writeFile(path, `${JSON.stringify(manifest(params, ctx, waves, warnings, childScope), null, 2)}\n`, {
-		encoding: "utf8",
-		flag: "wx",
-	});
+	const canonicalDirectory = await realpath(directory);
+	canonicalLocation(canonicalDirectory);
+	const path = join(canonicalDirectory, `${params.graphId}.json`);
+	const next = manifest(params, ctx, waves, warnings, childScope) as Record<string, unknown>;
+	let previous: Record<string, unknown> | undefined;
+	try { previous = JSON.parse(artifactRead(canonicalDirectory, `${params.graphId}.json`).text); }
+	catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+	if (previous) {
+		if (previous.advisorSessionId !== next.advisorSessionId || !isDeepStrictEqual(previous.parentOutcome, next.parentOutcome)) throw new Error("Graph belongs to a different advisor session or parent outcome");
+		const { revisions = [], ...prior } = previous;
+		if (!Array.isArray(revisions)) throw new Error("Invalid graph revision history");
+		next.revisions = [...revisions, prior];
+	}
+	if (!previous) { await writeFile(path, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 }); return path; }
+	const temporary = `${path}.${randomUUID()}.tmp`;
+	await writeFile(temporary, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+	await rename(temporary, path);
 	return path;
 }
 
@@ -313,13 +334,12 @@ export default function advisorGraphExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "advisor_graph_evidence",
     label: "Graph evidence",
-    description: "Bind or refresh an owned outcome attempt. Pass the returned prompt unchanged within the next launch/reply: admission captures its exact input lineage. Current output may supersede historical failed checks. For an explicit successor supply runId/attempt plus replacesRunId/replacesAttempt after prior ownership resolves; history and budgets remain. Never launches or verifies work.",
+    description: "Optionally bind or refresh an owned outcome attempt. The returned reference can accompany a launch/followup to record evidence provenance; stale or missing evidence does not prohibit execution. Current output may supersede historical failed checks. For an explicit successor supply runId/attempt plus replacesRunId/replacesAttempt after prior ownership resolves; history remains. Never launches or verifies work.",
     parameters: Type.Object({ graphId: Type.String({ pattern: "^[a-z][a-z0-9-]{0,47}$" }), node: Type.String(), runId: Type.Optional(Type.String()), attempt: Type.Optional(Type.Integer({ minimum: 1 })), replacesRunId: Type.Optional(Type.String()), replacesAttempt: Type.Optional(Type.Integer({ minimum: 1 })) }),
     async execute(_id, params, _signal, _update, ctx) {
       if (!GRAPH_IDENTIFIER.test(params.graphId)) throw new Error("Malformed graph id");
       const childScope = await readChildScope({ cwd: ctx.cwd });
       const path = join(childScope?.stateRoot ?? await advisorStateRoot(ctx.cwd), "graphs", `${params.graphId}.json`);
-      const info = await stat(path); if (info.size > 32768) throw new Error("Graph manifest exceeds bound");
       let plan;
       try { plan = JSON.parse(await readFile(path, "utf8")); }
       catch (cause) { throw new Error("Graph manifest is unreadable or malformed; recover the accepted plan before binding evidence", { cause }); }
@@ -327,9 +347,9 @@ export default function advisorGraphExtension(pi: ExtensionAPI): void {
       if (!isDeepStrictEqual(plan.parentOutcome, childScope?.parent)) throw new Error("Graph belongs to a different parent outcome");
       const request: { sessionId: string; action: string; payload: object; response?: Promise<unknown> } = {
         sessionId: ctx.sessionManager.getSessionId(), action: "graph.evidence",
-        payload: { graph: { graphId: plan.graphId, advisorSessionId: plan.advisorSessionId, maxRepairLoops: plan.maxRepairLoops ?? 2,
+        payload: { graph: { graphId: plan.graphId, advisorSessionId: plan.advisorSessionId, maxRepairLoops: plan.maxRepairLoops ?? 0,
           ...(childScope ? { parentOutcome: childScope.parent } : {}),
-          contract: createHash("sha256").update(JSON.stringify({ ...plan, createdAt: undefined, warnings: undefined })).digest("hex"),
+          contract: createHash("sha256").update(JSON.stringify({ ...plan, createdAt: undefined, warnings: undefined, revisions: undefined })).digest("hex"),
           nodes: plan.nodes.map((node: GraphNode) => ({ id: node.id, task: node.task, dependsOn: node.dependsOn ?? [] })) },
           node: params.node, ...(params.runId ? { runId: params.runId } : {}), ...(params.attempt !== undefined ? { attempt: params.attempt } : {}),
           ...(params.replacesRunId !== undefined ? { replacesRunId: params.replacesRunId } : {}), ...(params.replacesAttempt !== undefined ? { replacesAttempt: params.replacesAttempt } : {}) },
@@ -344,7 +364,7 @@ export default function advisorGraphExtension(pi: ExtensionAPI): void {
 		name: "advisor_graph_plan",
 		label: "Advisor Graph",
 		description:
-			"Structurally validate, lint, and persist a bounded DAG of visible Pi role agents. Malformed structure is rejected; role-order and reducer-shape concerns are non-blocking warnings. Writer coordination belongs to the advisor, not graph admission. It never launches agents.",
+			"Structurally validate, lint, and persist a DAG of visible Pi role agents. Malformed structure is rejected; role-order and reducer-shape concerns are non-blocking warnings. Writer coordination belongs to the advisor, not graph admission. It never launches agents.",
 		parameters: GraphParameters,
 		async execute(...args) {
 			const [, params, , , ctx] = args;

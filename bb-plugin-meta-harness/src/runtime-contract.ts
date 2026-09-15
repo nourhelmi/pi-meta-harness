@@ -10,7 +10,7 @@ export const scopeSchema = z.object({
 export type Scope = z.infer<typeof scopeSchema>;
 
 // The service parses each operation's payload before admission. This public
-// transport schema bounds the envelope and forbids caller-selected routing.
+// transport schema validates shape and forbids caller-selected routing.
 const payload = z.record(z.string(), z.unknown());
 const readOperations = [
   "workstream.open", "progress", "wait", "history", "artifact.read", "log.read",
@@ -29,10 +29,7 @@ export const commandSchema = z.union([
     v: z.literal(1), op: z.enum(mutationOperations), scope: scopeSchema, payload,
     commandId: id, expectedRevision: z.number().int().nonnegative(),
   }).strict(),
-]).refine(
-  value => new TextEncoder().encode(JSON.stringify(value)).length <= 32768,
-  "Command exceeds 32 KiB",
-);
+]);
 export type RuntimeCommand = z.infer<typeof commandSchema>;
 export type Mutation = Extract<RuntimeCommand, { commandId: string }>;
 

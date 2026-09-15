@@ -11,17 +11,16 @@ import { demand, privateDirectory } from './security.mjs';
 import { familyCall, readChildGrant } from './child-scope.mjs';
 
 /** Trusted bootstrap only; no per-task packet files and no provider launch here. */
-export async function hostPiDetach({ stateRoot, cwd, sessionId, credentialPath, port, slots = 16, managedIdentity = null, maxLaunches = 256, revision = null, keepAlive = true }) {
+export async function hostPiDetach({ stateRoot, cwd, sessionId, credentialPath, port, slots = 16, managedIdentity = null, maxLaunches = null, revision = null, keepAlive = true }) {
   demand(Number(process.versions.node.split('.')[0]) >= 24, 'NODE_24_REQUIRED');
   demand(typeof sessionId === 'string' && sessionId.length > 0 && sessionId.length <= 256, 'PI_SESSION_REQUIRED');
   demand(Number.isInteger(slots) && slots >= 1 && slots <= 32, 'BRIDGE_POOL_BOUNDS');
-  demand(Number.isInteger(maxLaunches) && maxLaunches >= 1 && maxLaunches <= 256, 'BRIDGE_LAUNCH_BOUND');
   demand(revision === null || (typeof revision === 'string' && /^[0-9a-f]{32}$/.test(revision)), 'BRIDGE_REVISION');
   const rootHost = managedIdentity?.rootHost ?? 'pi';
   demand(['pi', 'codex', 'claude-code'].includes(rootHost), 'UNSUPPORTED_HOST');
   const prefix = createHash('sha256').update(sessionId).digest('hex').slice(0, 24);
   const scopes = Array.from({ length: managedIdentity ? 1 : slots }, (_, i) => ({ workstream: `pi-${prefix}`, run: `pib-${prefix}-${i}`, node: 'root', ownerEpoch: 1 }));
-  const principal = { id: `pi-${prefix}`, kind: 'advisor', scopes: scopes.flatMap(({ ownerEpoch: _ownerEpoch, ...scope }) => [scope, { ...scope, node: 'worker' }]), operations: ['workstream.create', 'packet.admit', 'node.launch', 'node.reply', 'node.task', 'node.cancel', 'progress', 'wait', 'delivery.ack', 'artifact.read', 'log.read', 'team.status', 'team.enlist', 'team.rename', 'team.context', 'team.assign', 'team.message', 'team.retire'] };
+  const principal = { id: `pi-${prefix}`, kind: 'advisor', scopes: scopes.flatMap(({ ownerEpoch: _ownerEpoch, ...scope }) => [scope, { ...scope, node: 'worker' }]), operations: ['workstream.create', 'packet.admit', 'node.launch', 'node.reply', 'node.task', 'node.message', 'node.cancel', 'progress', 'wait', 'delivery.ack', 'artifact.read', 'log.read', 'team.status', 'team.enlist', 'team.rename', 'team.context', 'team.assign', 'team.message', 'team.retire'] };
   const adapter = createPiDetachAdapter(port);
   const canonicalCwd = realpathSync(cwd);
   const childGrant = existsSync(`${stateRoot}/child-grant.json`) ? readChildGrant(stateRoot, canonicalCwd) : null;

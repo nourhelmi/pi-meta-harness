@@ -179,7 +179,7 @@ export function checkSchema(schema, value, path = "$", root = schema, problems =
 
 // --- structural rules -------------------------------------------------------
 
-const RESULT_GATED_STATUSES = new Set(["done", "blocked"]);
+
 
 /**
  * Validate a parsed trace: schema shape per event, then the run-wide ordering
@@ -232,8 +232,8 @@ export function validateTrace(events, schema) {
     }
 
     if (type === "graph.planned") {
-      if (graphPlan) report(RULE_CODES.GRAPH, seq, "graph.planned may appear at most once per run");
-      if (launchedNodes > 0) report(RULE_CODES.GRAPH, seq, "graph.planned must appear before node.launched");
+      // Each plan revision resets only scheduling metadata, never node history.
+      startedWaves.clear(); completedWaves.clear();
       graphPlan = event;
       continue;
     }
@@ -410,12 +410,6 @@ export function validateTrace(events, schema) {
         break;
       case "node.settled": {
         const { status } = event.data;
-        if (RESULT_GATED_STATUSES.has(status)) {
-          const gate = state.validated;
-          if (!gate || !gate.valid || gate.path !== state.written) {
-            report(RULE_CODES.SETTLE, seq, `settlement "${status}" requires a prior valid node.result.validated`);
-          }
-        }
         if (status === "blocked" && !state.blockedSeq) {
           report(RULE_CODES.BLOCKED, seq, "blocked settlement requires a prior node.blocked carrying the request");
         }

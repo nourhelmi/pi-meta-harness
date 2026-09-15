@@ -91,11 +91,11 @@ flowchart TB
 
 | | |
 | --- | --- |
-| 🎯 **No ceremony** | Small and medium work runs as **direct work or one empowered maker** from a short packet. Scouts, planners, child advisors, checkers, reducers, and browser verifiers join only when they reduce uncertainty, expose real parallelism, or add independent evidence. Child advisors reuse the same doctrine, with linked subgraphs and shared family limits. |
+| 🎯 **No ceremony** | Work directly or delegate one coherent outcome. Advisors plan and investigate; makers inspect their own code. Scout/planner presets and graphs are optional for useful parallelism, specialization or independent judgment—not launch permits. |
 | 🐴 **Ponytail throughout** | [Default-on simplicity guidance](docs/ponytail.md) in ordinary Pi sessions, parent/child advisors, and workers: reuse before adding, fewer unnecessary handoffs, no repeated core-skill loading. Required behavior, tests, safety, and evidence remain binding. |
 | 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what the change touches, with Standard as the default. The tier sets review obligations and the checker's FAIL bar; High retains independent checking without an automatic extra maker-owned reviewer. |
-| 🔍 **Makers understand, checkers repair** | Makers prove criteria, clear environment and tooling obstacles themselves, and inspect their own diff. Checkers repair what they find inside the reviewed surface and report the post-repair state; a repair round is a delta review by the same reviewer, capped at two rounds. |
-| 🧩 **Roles ≠ models** | Fixed semantic role contracts (`bg-agent-profiles.json`) stay stable while **switchable intelligence guides** decide which model capacity each role should prefer today. |
+| 🔍 **Makers understand, checkers repair** | Makers prove criteria and inspect their diff. Checkers repair within the reviewed surface; revisit useful deltas without arbitrary repair-round quotas. User-set limits and required independent checks still apply. |
+| 🧩 **Roles ≠ models** | Optional semantic role presets (`bg-agent-profiles.json`) describe useful responsibilities while **switchable intelligence guides** recommend model capacity. Summaries are handoffs; searchable recorded transcripts and original artifacts retain the detail. |
 | 🔀 **Two worker harnesses** | Specialists run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. Managed root and child advisors are Pi-hosted. |
 | 🧪 **Evals that bite** | 21 hermetic live cases graded by **hidden deterministic verifiers**, including routing, explicit capability, and a medium API repair with regression-test mutation checks, plus recorded-trajectory judge calibration on Harbor. A localhost workbench compares runs and baselines. |
 | 📌 **Controlled updates** | Compatible npm ranges, full 40-hex Git commits, tree and SHA-256 verification, scoped backups, and a live doctor. |

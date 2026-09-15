@@ -31,7 +31,7 @@ export function createMcpHandler(credential, facade = null) {
         demand(initialized && cancelledNotification, 'INVALID_NOTIFICATION');
         requestFields(input.params, ['requestId', ...(Object.hasOwn(input.params ?? {}, 'reason') ? ['reason'] : [])]);
         demand(typeof input.params.requestId === 'string' || Number.isSafeInteger(input.params.requestId), 'INVALID_NOTIFICATION');
-        demand(input.params.reason === undefined || typeof input.params.reason === 'string' && Buffer.byteLength(input.params.reason) <= LIMITS.text, 'INVALID_NOTIFICATION');
+        demand(input.params.reason === undefined || typeof input.params.reason === 'string', 'INVALID_NOTIFICATION');
         // Transport IDs never cancel durable work; only the explicit scoped tool can do that.
         return null;
       }
@@ -78,20 +78,18 @@ export function createMcpHandler(credential, facade = null) {
   };
 }
 
-/** Bounded newline framing, sequential requests; no readline's unbounded line buffer. */
+/** Sequential newline-framed requests; full legitimate payloads are retained. */
 export async function serveMcp(credential, input = process.stdin, output = process.stdout, handle = createMcpHandler(credential)) {
   let pending = Buffer.alloc(0); let count = 0;
   for await (const chunk of input) {
     pending = Buffer.concat([pending, Buffer.from(chunk)]);
-    demand(pending.length <= LIMITS.envelope * 2, 'ENVELOPE_TOO_LARGE');
     let newline;
     while ((newline = pending.indexOf(10)) >= 0) {
       const line = pending.subarray(0, newline); pending = pending.subarray(newline + 1);
-      demand(line.length <= LIMITS.envelope && ++count <= LIMITS.requests, 'REQUEST_LIMIT');
       let request;
       try { request = JSON.parse(line.toString('utf8')); } catch { throw new RuntimeError('INVALID_JSON'); }
       const result = await handle(request);
-      if (result) { const encoded = JSON.stringify(result) + '\n'; demand(Buffer.byteLength(encoded) <= LIMITS.reply, 'RESPONSE_TOO_LARGE'); output.write(encoded); }
+      if (result) { const encoded = JSON.stringify(result) + '\n'; output.write(encoded); }
     }
   }
   demand(pending.length === 0, 'TRUNCATED_REQUEST');

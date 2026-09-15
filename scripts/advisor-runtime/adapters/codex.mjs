@@ -42,7 +42,7 @@ export class CodexWire {
     this.child = child; this.s = session; this.pending = new Map(); this.serial = 0; this.buffer = Buffer.alloc(0); this.stderr = 0;
     child.stdout.on('data', chunk => session.guarded(() => {
       session.count(chunk.toString('utf8')); this.buffer = Buffer.concat([this.buffer, chunk]);
-      demand(this.buffer.length <= session.limits.bytes, 'NATIVE_OUTPUT_BOUND');
+
       let end;
       while ((end = this.buffer.indexOf(10)) >= 0) {
         const line = this.buffer.subarray(0, end); this.buffer = this.buffer.subarray(end + 1);

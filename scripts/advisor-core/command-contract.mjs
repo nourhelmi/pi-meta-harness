@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const COMMAND_LIMITS = Object.freeze({ envelope: 32 * 1024, text: 16 * 1024, reason: 1024 });
+export const COMMAND_LIMITS = Object.freeze({});
 const encoder = new TextEncoder();
 /** @param {unknown} value @returns {value is string} */
 export const isCommandId = (value) => typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value);
@@ -112,7 +112,7 @@ export function freezeData(value) {
  */
 export function validateCommand(input) {
   try {
-    const canonical = canonicalJson(input, COMMAND_LIMITS.envelope);
+    const canonical = canonicalJson(input);
     const command = JSON.parse(canonical);
     fields(command, ["v", "commandId", "scope", "op", "expectedRevision", "payload"]);
     if (command.v !== 1) fail("UNSUPPORTED_VERSION");
@@ -127,7 +127,6 @@ export function validateCommand(input) {
     const field = reply ? "text" : "reason";
     const text = command.payload[field];
     if (typeof text !== "string" || !text.trim()) fail("INVALID_TEXT");
-    if (encoder.encode(text).length > COMMAND_LIMITS[field]) fail("TEXT_TOO_LARGE");
     return freezeData({ ok: true, command, digest: createHash("sha256").update(canonical, "utf8").digest("hex"), intents: [] });
   } catch (error) {
     // Reject exotic JS inputs too; no coercion or serialization hooks become authority.

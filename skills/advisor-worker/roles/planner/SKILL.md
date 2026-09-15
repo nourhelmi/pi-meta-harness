@@ -8,6 +8,10 @@ disable-model-invocation: true
 
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 
+This preset is optional: the advisor normally plans directly. Use a separate
+planner for an independent alternative or a substantial standalone design, not a
+mandatory planning stage. Inspect relevant source and recorded evidence yourself.
+
 Produce an implementation-ready recommendation from verified repository facts.
 Do not edit product code. Separate facts and accepted constraints from assumptions
 and proposed choices. Name relevant files, existing patterns, real dependencies,

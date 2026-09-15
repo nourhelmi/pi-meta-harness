@@ -28,11 +28,10 @@ any level are rejected, including identity and credential fields.
 For `node.cancel`, payload is exactly `{attempt, reason}`. Launch, resume and
 workstream creation are unsupported. All IDs use
 `^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$`. Epoch and attempt are safe integers >=1;
-revision is a safe integer >=0. Text/reason must be nonblank, with limits of
-16 KiB/1 KiB **UTF-8 bytes**. The complete semantic JSON envelope, including
-escaped strings and field names, must fit 32 KiB. Transport must bound original
-wire bytes before parsing too; this API takes decoded JSON, so it cannot measure
-discarded wire whitespace or escape spellings.
+revision is a safe integer >=0. Text/reason must be nonblank; task text and its
+semantic envelope have no fixed byte ceiling. Transport framing still distinguishes
+complete JSON requests, and large output may be paged without imposing an overall
+message-length quota.
 
 `canonicalJson` sorts object keys lexically, retains array order, and uses JSON
 primitive encoding (`-0` and `0` have the same JSON meaning). SHA-256 of that
@@ -45,11 +44,11 @@ in-process proxies. JSON parse duplicate-key/wire parsing policy is the future
 transport's responsibility. Arrays are tested for semantic canonicalization but
 are not valid values in either operation's envelope.
 
-Validation reasons: `NON_JSON`, `ENVELOPE_TOO_LARGE`, `INVALID_SHAPE`,
-`EXTRA_FIELD`, `MISSING_FIELD`, `UNSUPPORTED_VERSION`, `UNSUPPORTED_OPERATION`,
-`INVALID_ID`, `INVALID_INTEGER`, `INVALID_TEXT`, `TEXT_TOO_LARGE`.
-Non-JSON and envelope checks precede field checks. Rejections never echo the
-input or issue intents.
+Validation reasons include `NON_JSON`, `INVALID_SHAPE`, `EXTRA_FIELD`,
+`MISSING_FIELD`, `UNSUPPORTED_VERSION`, `UNSUPPORTED_OPERATION`, `INVALID_ID`,
+`INVALID_INTEGER` and `INVALID_TEXT`. Rejections never echo the input or issue
+intents; type/shape validation is not an assessment of the task's natural-language
+intent.
 
 ## Authority and read view
 

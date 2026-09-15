@@ -1,3 +1,5 @@
+import { repositoryIdentity, authorizedWorktree, authorizedWorkspace } from './workspaces.mjs';
+import { existsSync, realpathSync } from 'node:fs';
 // Executed only inside the root runtime's SQLite BEGIN IMMEDIATE transaction.
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
@@ -11,7 +13,7 @@ export function newFamily(stateRoot, config) {
   demand(workerHarness === undefined || ['pi', 'native'].includes(workerHarness), 'FAMILY_BINDING_MISMATCH');
   const teamMode = config.managedIdentity?.teamMode === true;
   const family = { v: 1, id: randomBytes(16).toString('hex'), rootStateRoot: stateRoot, workstream: config.managedIdentity?.workstream ?? config.scopes[0].workstream, ...(workerHarness ? { workerHarness } : {}), ...(teamMode ? { teamMode: true } : {}) };
-  return { family, ...(config.managedIdentity?.workstream || workerHarness || teamMode ? { advisorBinding: { ...(config.managedIdentity?.workstream ? { workstream: config.managedIdentity.workstream } : {}), ...(workerHarness ? { workerHarness } : {}), ...(teamMode ? { teamMode: true } : {}) } } : {}), maxLaunches: config.maxLaunches, admissions: {}, services: { [stateRoot]: { token: randomBytes(32).toString('hex'), sessionId: config.sessionId, workstream: config.scopes[0].workstream, allowedRoots: config.allowedRoots, parent: null, sealed: false } } };
+  return { family, ...(config.managedIdentity?.workstream || workerHarness || teamMode ? { advisorBinding: { ...(config.managedIdentity?.workstream ? { workstream: config.managedIdentity.workstream } : {}), ...(workerHarness ? { workerHarness } : {}), ...(teamMode ? { teamMode: true } : {}) } } : {}), maxLaunches: null, repository: { anchor: config.cwd ?? config.allowedRoots[0], common: repositoryIdentity(config.cwd ?? config.allowedRoots[0]) }, admissions: {}, services: { [stateRoot]: { token: randomBytes(32).toString('hex'), sessionId: config.sessionId, workstream: config.scopes[0].workstream, allowedRoots: config.allowedRoots, parent: null, sealed: false } } };
 }
 export function familyOperation(ledger, token, action, p) {
   const entry = Object.entries(ledger.services).find(([, service]) => service.token === token);
@@ -20,8 +22,10 @@ export function familyOperation(ledger, token, action, p) {
   const scopeCheck = value => { scope(value); demand(value.workstream === service.workstream && value.node === 'worker' && value.ownerEpoch === 1, 'FAMILY_SCOPE_FORBIDDEN'); };
   const active = () => {
     let current = service;
-    for (let depth = 0; current; depth++) {
-      demand(depth <= 256 && !current.sealed, 'FAMILY_ADMISSION_SEALED');
+    const visited = new Set();
+    for (; current;) {
+      demand(!visited.has(current) && !current.sealed, 'FAMILY_ADMISSION_SEALED');
+      visited.add(current);
       current = current.parent ? ledger.services[current.parent] : null;
     }
   };
@@ -34,7 +38,7 @@ export function familyOperation(ledger, token, action, p) {
     return publicChildScope(service.grant);
   }
   demand(service.sessionId, 'FAMILY_BINDING_REQUIRED');
-  if (action === 'budget') { fields(p, []); const used = Object.keys(ledger.admissions).length; return { maxLaunches: ledger.maxLaunches, used, remaining: ledger.maxLaunches - used }; }
+  if (action === 'budget') { fields(p, []); const used = Object.keys(ledger.admissions).length; return { maxLaunches: null, used, remaining: null }; }
   if (action === 'check') { fields(p, []); active(); return { active: true }; }
   if (action === 'reserve') {
     fields(p, ['commandId', 'digest', 'scope', 'op', 'attempt']); text(p.commandId, 128); scopeCheck(p.scope); integer(p.attempt, 1);
@@ -42,21 +46,24 @@ export function familyOperation(ledger, token, action, p) {
     const key = canonicalJson([stateRoot, p.commandId]);
     const old = ledger.admissions[key];
     if (old) { demand(canonicalJson(old) === canonicalJson(p), 'COMMAND_ID_REUSE'); return { reserved: true }; }
-    active(); demand(Object.keys(ledger.admissions).length < ledger.maxLaunches, 'BRIDGE_LAUNCH_LIMIT');
+    active();
     ledger.admissions[key] = p;
     return { reserved: true };
   }
   if (action === 'register') {
     fields(p, ['scope', 'cwd', 'issuedAttempt']); scopeCheck(p.scope); integer(p.issuedAttempt, 1);
-    demand(service.allowedRoots.includes(p.cwd), 'FAMILY_CWD_FORBIDDEN');
+    const repository = ledger.repository;
+    const anchor = repository?.anchor ?? service.allowedRoots.find(root => existsSync(root));
+    demand(anchor && realpathSync(p.cwd) === p.cwd && (repository?.common ? authorizedWorkspace(anchor, p.cwd, repository.common) : service.allowedRoots.includes(p.cwd)), 'FAMILY_CWD_FORBIDDEN');
+    for (const control of Object.keys(ledger.services)) disjointControlPath(control, [p.cwd]);
     const childState = childStatePath(ledger.family.rootStateRoot, stateRoot, p.scope.run);
     const old = ledger.services[childState];
     if (old) { demand(old.grant.cwd === p.cwd && canonicalJson(old.grant.parent.scope) === canonicalJson(p.scope), 'PI_DETACH_CHILD_GRANT_MISMATCH'); return old.grant; }
     active();
     demand(Object.entries(ledger.admissions).some(([key, value]) => key === canonicalJson([stateRoot, value.commandId]) && value.scope.run === p.scope.run && value.op === 'node.launch'), 'FAMILY_OUTCOME_UNRESERVED');
-    disjointControlPath(childState, service.allowedRoots);
+    disjointControlPath(childState, [...service.allowedRoots, p.cwd]);
     demand(Buffer.byteLength(join(childState, 'runtime.sock')) <= 100, 'SOCKET_PATH_TOO_LONG');
-    const grant = { v: 2, cwd: p.cwd, stateRoot: childState, allowedRoots: service.allowedRoots, parent: { stateRoot, sessionId: service.sessionId, scope: p.scope }, family: ledger.family, issuedAttempt: p.issuedAttempt, authority: { token: randomBytes(32).toString('hex') } };
+    const grant = { v: 2, cwd: p.cwd, stateRoot: childState, allowedRoots: [...new Set([...service.allowedRoots, p.cwd])], parent: { stateRoot, sessionId: service.sessionId, scope: p.scope }, family: ledger.family, issuedAttempt: p.issuedAttempt, authority: { token: randomBytes(32).toString('hex') } };
     ledger.services[childState] = { token: grant.authority.token, sessionId: null, workstream: null, allowedRoots: grant.allowedRoots, parent: stateRoot, sealed: false, grant };
     return grant;
   }

@@ -1,7 +1,7 @@
 # Advisor Worker Contract
 
-The parent advisor owns accepted scope, cross-workstream dependencies, budgets,
-and user communication. The worker owns one bounded outcome, with agency over
+The parent advisor owns accepted scope, cross-workstream dependencies, explicit
+user limits and user communication. The worker owns one coherent outcome, with agency over
 methods, evidence, and ordinary local decisions inside its mandate. Child advisors
 use the same advisor doctrine and own their execution strategy within a runtime-issued scope. A role is a
 responsibility and ownership boundary, not a script or a reason to seek
@@ -17,7 +17,7 @@ choose useful work, not to expand your scope or another role's write authority.
    a top-level workstream, routine, or inter-session orchestration. Ordinary
    specialists never start another agent or graph unless their role explicitly
    grants bounded depth-1 helpers; those helpers inherit the leaf prohibition.
-   Neither kind of delegation resets the family's remaining limits.
+   Both preserve parent scope and explicit user limits; accounting is not a quota.
 3. Load every skill named under `REQUIRED SKILLS` before task work. If a named
    skill is not installed, record that under `Deviations` and continue with
    the role skill and the repository's own instructions; a missing skill name
@@ -40,8 +40,8 @@ choose useful work, not to expand your scope or another role's write authority.
    independent proof.
    An unverified criterion is a failure you report, never an assumption you
    pass along. The frozen set is a floor: propose additional or sharper criteria
-   under `Proposed criteria`
-   in `result.md` and keep working. Suggested implementation steps are not
+   under `Proposed criteria` in your chosen handoff and keep working.
+   Suggested implementation steps are not
    frozen: makers use their own judgment to adapt them inside the accepted
    scope and record material deviations. Stop and report when new evidence
    invalidates a frozen criterion or an explicitly locked decision, so the parent
@@ -56,9 +56,11 @@ choose useful work, not to expand your scope or another role's write authority.
    or a contradiction needs resolving. A repair round focuses on the listed
    delta and its blast radius, not a fresh whole-work audit. Fix necessary
    in-scope defects under your role's authority; report unrelated discoveries.
-   The same graph node can span successive attempts of its owned worker run;
-   the parent refreshes current evidence after repair. A graphless task needs
-   no GRAPH block. Never treat an old attempt's PASS as current proof.
+   A graph is optional coordination context, not an execution permit. Its metadata
+   may be revised when evidence changes; record what you actually consumed rather
+   than claiming access to a newer report. Search the recorded run transcript and
+   open relevant source or artifacts directly when a summary is insufficient.
+   Never treat an old attempt's PASS as current proof.
 6. Filesystem tools remain available. Follow the role skill's write boundaries;
    tool availability is not permission to edit product code or configuration.
 7. Distinguish obstacles from blockers. `Blocked` means exactly one of four
@@ -69,7 +71,7 @@ choose useful work, not to expand your scope or another role's write authority.
    dependency, a pre-existing failure on an unchanged file, a misnamed skill,
    a flaky upstream, a placeholder file the launcher created. Resolve an
    obstacle with the least invasive local means, keep working, and record
-   what you changed and why under `Deviations` in `result.md`. Stop as
+   what you changed and why under `Deviations` in your chosen handoff. Stop as
    `Blocked` only for the four kinds, and only after a bounded attempt to
    unblock yourself. A safety boundary the packet names, such as a forbidden
    data target or a production system, is not an obstacle; stopping there is
@@ -94,30 +96,28 @@ choose useful work, not to expand your scope or another role's write authority.
    the handoff, not buried behind a link. If a separate artifact is unavailable
    or forbidden by the packet, include the necessary proof inline rather than
    omit it. Concision must not weaken criteria or lose reproducibility.
-9. Before the final response, write `result.md` with these headings: Status,
-   Claims, Evidence, Files, Decisions, and Remaining Risk. Claims map
-   one-to-one to the acceptance criteria, each with its outcome and a precise
-   evidence reference. Use a short label or artifact locator as convenient; no
-   particular citation syntax or report-length quota is required.
-   Add `Deviations` whenever you resolved an obstacle or departed from a
-   suggested step. Maker roles add `Proposed criteria`, `Adjacent findings`,
-   and `Fresh review` when they have content; checkers add `Repaired inline`.
-   Evidence attribution can use ordinary text and paths; no additional report
-   schema is required. These six headings are the expected template, but only
-   a missing or blank result artifact stalls settlement. Missing, empty, or
-   differently formatted sections are advisory notes for the parent, not
-   settlement failures.
-   The first line under Status is a signal the parent reads mechanically: end
-   a turn with `IN PROGRESS` only while your own background work or subagents
-   are still running; end your final turn with a terminal status such as
-   `PASS`, `FAIL`, `DONE`, or `BLOCKED`, never `IN PROGRESS`.
-10. Keep the final response short: overall outcome, material unresolved issue,
-    and result path. Do not repeat the result's proof inventory in chat.
-    An LLM statement or an uninspected summary is not evidence that a criterion
-    passed.
-11. Write `result.md` early and update it as work continues. It must exist and
-   be current no later than 85% context use. A partial durable result always
-   beats context exhaustion.
+9. Leave a useful handoff, normally `result.md`, with outcome, material changes,
+   evidence locators and remaining risk. Status, Claims, Evidence, Files, Decisions,
+   and Remaining Risk are convenient headings, not a mandatory schema. Account for
+   every assigned criterion and attribute the relevant evidence; the caller may
+   inspect actual files, tool results and your recorded transcript rather than rely
+   on the summary alone. Add deviations or proposed criteria when useful.
+   If the task explicitly requests a report, producing it remains a deliverable.
+   Otherwise references to `result.md` or named headings in this contract and role
+   presets apply to your chosen handoff; they do not require an additional file.
+   A useful final response with attributable evidence in the recorded session is valid.
+   A missing or differently formatted summary does not prevent execution
+   completion, notification or follow-up. A completed turn is not necessarily a
+   completed outcome: state pending work or descendants plainly. Use `BLOCKED` for
+   a real question/permission need, not a way to drive the runtime's state machine.
+10. Keep the final response useful and concise: outcome, unresolved issue, and
+    relevant artifact or evidence locators. Do not duplicate bulk logs. A summary
+    assertion is not proof; a recorded tool result establishes only what that
+    particular invocation actually observed.
+11. Keep decisions, progress and evidence discoverable during long work. Update
+    the assigned checkpoint or handoff after material changes; don't rely on memory
+    being lossless or wait for a context-percentage threshold. Recorded session
+    history remains a retrieval source, not a substitute for clear decisions.
 12. Before destructive or expensive work, run the task-shaped non-destructive
     readiness checks that can prevent unsafe or wasted execution. Check only the
     relevant identity, environment, credentials, ownership, doctor, or health
@@ -153,8 +153,8 @@ This contract takes precedence over conflicting Ponytail advice. Preserve
 accepted behavior, safety, security, accessibility, and role write boundaries;
 a shared root cause does not authorize edits outside your scope. A lazy
 alternative cannot replace accepted requirements. ONE check is not a test
-ceiling: retain repository tooling and every required check. Required evidence
-and result headings are not subject to code-first/three-line output advice.
+ceiling: retain repository tooling and every required check. Explicitly requested
+reports and explanations are not subject to code-first/three-line output advice.
 Complexity-only review supplements, never replaces, correctness/security checks
 or required independent verification; a dedicated read-only Ponytail skill does
 not make the repair-capable checker role globally read-only. Fewer lines is not

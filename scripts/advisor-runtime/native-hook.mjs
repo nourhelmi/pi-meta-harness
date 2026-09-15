@@ -9,7 +9,7 @@ try {
   if (process.argv.length !== 4 || realpathSync(process.argv[2]) !== process.argv[2]) throw new Error('scope');
   const readRoots = JSON.parse(process.argv[3]);
   if (!Array.isArray(readRoots) || !readRoots.length || readRoots.length > 64 || !readRoots.every(path => typeof path === 'string' && realpathSync(path) === path)) throw new Error('roots');
-  for await (const chunk of process.stdin) { bytes = Buffer.concat([bytes, chunk]); if (bytes.length > 32768) throw new Error('bound'); }
+  for await (const chunk of process.stdin) { bytes = Buffer.concat([bytes, chunk]); }
   output = preToolGuard({ cwd: process.argv[2], readRoots, root: true, writer: false }, JSON.parse(bytes.toString('utf8')));
 } catch { /* Only a constant typed denial, never the tool input or native exception. */ }
 clearTimeout(timer); process.stdout.write(JSON.stringify(output) + '\n');

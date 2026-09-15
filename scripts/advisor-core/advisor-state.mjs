@@ -86,12 +86,11 @@ function readSafe(root, path) {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const st = fstatSync(fd);
-    demand(st.isFile() && st.nlink === 1 && st.size <= 65536 && (process.getuid === undefined || st.uid === process.getuid()), 'Unsafe or oversized advisor state file');
+    demand(st.isFile() && st.nlink === 1 && (process.getuid === undefined || st.uid === process.getuid()), 'Unsafe advisor state file');
     return readFileSync(fd, 'utf8');
   } finally { closeSync(fd); }
 }
 function writeSafe(root, path, content) {
-  demand(Buffer.byteLength(content) <= 65536, 'Advisor checkpoint exceeds 64KiB');
   checkedRoot(root); safePath(root, path);
   if (info(path)) readSafe(root, path);
   const temp = join(dirname(path), `.${randomUUID()}.tmp`);

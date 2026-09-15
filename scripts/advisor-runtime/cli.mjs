@@ -14,7 +14,7 @@ async function stdinJson() {
   let bytes = Buffer.alloc(0);
   const timer = setTimeout(() => process.stdin.destroy(new RuntimeError('INPUT_TIMEOUT')), 10000);
   try {
-    for await (const chunk of process.stdin) { bytes = Buffer.concat([bytes, chunk]); demand(bytes.length <= LIMITS.envelope, 'ENVELOPE_TOO_LARGE'); }
+    for await (const chunk of process.stdin) { bytes = Buffer.concat([bytes, chunk]); }
     try { return JSON.parse(bytes.toString('utf8')); } catch { throw new RuntimeError('INVALID_JSON'); }
   } finally { clearTimeout(timer); }
 }

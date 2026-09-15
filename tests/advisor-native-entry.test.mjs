@@ -40,7 +40,6 @@ async function selectedDefaultProfile(plan, h) {
   let diagnosticBuffer = '';
   child.stdout.on('data', chunk => {
     diagnosticBuffer += chunk.toString();
-    if (diagnosticBuffer.length > NATIVE_LIMITS.bytes) { child.kill('SIGTERM'); return; }
     let newline;
     while ((newline = diagnosticBuffer.indexOf('\n')) !== -1) {
       const line = diagnosticBuffer.slice(0, newline); diagnosticBuffer = diagnosticBuffer.slice(newline + 1);
@@ -49,7 +48,7 @@ async function selectedDefaultProfile(plan, h) {
   });
   const session = {
     limits: NATIVE_LIMITS, failed: false,
-    count(value) { bytes += Buffer.byteLength(value); assert.ok(bytes <= NATIVE_LIMITS.bytes); },
+    count(value) { bytes += Buffer.byteLength(value); },
     fail(reason) { failures.push(String(reason)); this.failed = true; child.kill('SIGTERM'); },
     guarded(fn) { try { return fn(); } catch (error) { this.fail(error); } },
     exited() {},

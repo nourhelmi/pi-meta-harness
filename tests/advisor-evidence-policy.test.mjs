@@ -23,7 +23,7 @@ test("prove-once handoffs retain per-claim outcomes, actual coverage, and distin
   const { contract } = policy;
   assert.match(contract, /Record each distinct proof once with its producer, tested revision\/surface, command\/outcome, and limitations/);
   assert.match(contract, /Claims reference that proof instead of repeating it/);
-  assert.match(contract, /Claims map one-to-one to the acceptance criteria, each with its outcome and a precise evidence reference/);
+  assert.match(contract, /Account for every assigned criterion and attribute the relevant evidence/);
   assert.match(contract, /One proof may support several criteria only when its coverage actually establishes each claim/);
   assert.match(contract, /Distinct executions retain separate outcomes and provenance even when the command is the same/);
   assert.match(contract, /Attribute inherited proof; never present it as a new execution or independent verification/);
@@ -49,10 +49,10 @@ test("selective evidence reading removes blanket log consumption without skippin
   assert.match(contract, /Drill into source or raw output when coverage, provenance, a critical claim, or a contradiction needs resolving/);
   assert.match(contract, /Load every skill named under `REQUIRED SKILLS` before task work/);
   assert.match(builder, /Read required contract inputs and inspect linked proof relevant to your work; a packet summary alone is not proof/);
-  assert.match(advisor, /Required evidence, critical or contested claims, uncertain coverage\/provenance, and contradictions still require the underlying evidence/);
+  assert.match(advisor, /Required evidence, critical or contested claims, uncertain coverage or provenance, and contradictions still require the underlying evidence/);
   assert.match(advisor, /Missing or inaccessible proof stays unsatisfied/);
   assert.match(advisor, /Keep required launch criteria and material boundaries explicit/);
-  assert.match(advisor, /Read a worker result only when a claim needs inspection/);
+  assert.match(advisor, /Read a worker result only when a claim needs inspection|summary is useful when it answers the question/);
   for (const [name, source] of Object.entries(policy)) {
     assert.doesNotMatch(source, /read every evidence path the packet links|read all linked (?:evidence files|logs)/i, name);
   }
@@ -89,12 +89,25 @@ test("concise reports do not replace maker checks, independent proof, or honest 
 
 test("lean handoffs add no citation format, length quota, or settlement gate", () => {
   const { contract } = policy;
-  assert.match(contract, /Use a short label or artifact locator as convenient; no particular citation syntax or report-length quota is required/);
-  assert.match(contract, /no additional report schema is required/);
-  assert.match(contract, /only a missing or blank result artifact stalls settlement/);
-  assert.match(contract, /Missing, empty, or differently formatted sections are advisory notes for the parent, not settlement failures/);
-  assert.match(contract, /Keep the final response short: overall outcome, material unresolved issue, and result path/);
-  assert.match(contract, /Do not repeat the result's proof inventory in chat/);
-  assert.match(contract, /An LLM statement or an uninspected summary is not evidence that a criterion passed/);
+  assert.match(contract, /evidence locators and remaining risk/);
+  assert.match(contract, /not a mandatory schema/);
+  assert.match(contract, /missing or differently formatted summary does not prevent execution completion, notification or follow-up/);
+  assert.match(contract, /If the task explicitly requests a report, producing it remains a deliverable/);
+  assert.match(contract, /Keep the final response useful and concise: outcome, unresolved issue, and relevant artifact or evidence locators/);
+  assert.match(contract, /Do not duplicate bulk logs/);
+  assert.match(contract, /A summary assertion is not proof/);
   assert.match(policy.runtime, /This adds no citation syntax or length quota/);
+});
+
+test("obstacles and child ownership do not silently require an extra report file", () => {
+  assert.match(policy.contract, /under `Deviations` in your chosen handoff/);
+  assert.match(policy.contract, /under `Proposed criteria` in your chosen handoff/);
+  assert.match(policy.contract, /references to `result.md` or named headings in this contract and role presets apply to your chosen handoff; they do not require an additional file/);
+  assert.match(policy.contract, /If the task explicitly requests a report, producing it remains a deliverable/);
+  assert.doesNotMatch(policy.contract, /under `(?:Deviations|Proposed criteria)` in `result\.md`/);
+  assert.match(policy.child, /decisions, outstanding descendants, acceptance evidence and next steps in your recorded session or an assigned handoff\/checkpoint/);
+  assert.match(policy.child, /`result.md` when a file is useful or explicitly requested/);
+  assert.doesNotMatch(policy.child, /Use your assigned `result.md` as the operational checkpoint and final handoff/);
+  assert.match(policy.advisor, /A scoped child uses its recorded session or assigned handoff\/checkpoint/);
+  assert.match(policy.child, /Never write the parent's workstream file/);
 });

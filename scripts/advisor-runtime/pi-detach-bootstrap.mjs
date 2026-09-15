@@ -1,3 +1,4 @@
+import { registeredRoots } from './workspaces.mjs';
 // Node22-safe trusted lifecycle client. SQLite and execution stay in the host process.
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
@@ -27,18 +28,7 @@ export function readManagedConfig(path = configPath()) {
   return value;
 }
 export function workspaceRoots(cwd) {
-  const own = realpathSync(cwd);
-  const git = args => spawnSync('git', ['-C', own, ...args], { encoding: 'utf8', timeout: 5000, env: { PATH: process.env.PATH, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' } });
-  const top = git(['rev-parse', '--show-toplevel']);
-  if (top.status !== 0) return [own];
-  const listing = git(['worktree', 'list', '--porcelain', '-z']);
-  demand(listing.status === 0, 'PI_DETACH_WORKTREE_DISCOVERY_FAILED');
-  const roots = listing.stdout.split('\0').filter(v => v.startsWith('worktree ')).flatMap(v => {
-    try { return [realpathSync(v.slice(9))]; }
-    catch (error) { if (error.code === 'ENOENT') return []; throw error; } // Stale secondary registration; never prune or suppress permission errors.
-  });
-  demand(roots.includes(realpathSync(top.stdout.trim())) && roots.length <= 64, 'PI_DETACH_WORKSPACE_BOUND');
-  return [...new Set([own, ...roots])].sort();
+  return registeredRoots(cwd).sort();
 }
 /**
  * Content hash of the code a service loads: the detach sources plus this runtime
@@ -109,12 +99,13 @@ export async function ensurePiDetach({ cwd, sessionId, detachPath, herdr, env = 
     // Advisor selection may happen after eager service startup. It binds separately;
     // transport reconnect uses the original identity, never rewrites its marker.
     const transport = ({ workstream: _workstream, workerHarness: _harness, ...value }) => value;
-    demand(canonicalJson(transport(stored.identity)) === canonicalJson(transport(identity)) && canonicalJson(stored.roots) === canonicalJson(roots), 'PI_DETACH_BINDING_MISMATCH');
+    demand(canonicalJson(transport(stored.identity)) === canonicalJson(transport(identity)), 'PI_DETACH_BINDING_MISMATCH');
     for (const key of ['workstream', 'workerHarness']) demand(!stored.identity[key] || !identity[key] || stored.identity[key] === identity[key], 'PI_DETACH_BINDING_MISMATCH');
     identity = stored.identity;
   }
   let child, failed = false;
-  if (won) {
+  const retired = !won && (closedChild(stateRoot) || existsSync(join(stateRoot, 'service.lock', 'owner.json')) && !ownerAlive(stateRoot));
+  if (won || retired) {
     child = spawn(node, [config.host, identity.detachPath, stateRoot, identity.cwd, sessionId, marker], { cwd: identity.cwd, env: { ...env, PI_DETACH_RUNTIME_BRIDGE: '', ADVISOR_RUNTIME_DESCRIPTOR: '', PI_DETACH_WORKER_HARNESS: '' }, detached: true, stdio: 'ignore' });
     child.once('error', () => { failed = true; });
     child.once('exit', () => { failed = true; });
@@ -130,8 +121,9 @@ export async function ensurePiDetach({ cwd, sessionId, detachPath, herdr, env = 
         // A reconnected service keeps the code it started with; drift is reported, never hot-swapped.
         return { client, descriptor, stateRoot, identity, revision, stale: ready.revision !== revision };
       } catch (error) {
-        // Socket not yet published is the only startup race we wait through.
-        if (existsSync(join(stateRoot, 'runtime.sock'))) throw error;
+        // A dead owner's socket may outlive it until the replacement binds.
+        // Retry transport absence only; identity/authorization failures remain fatal.
+        if (!child || !['PI_DETACH_BRIDGE_UNAVAILABLE', 'TRANSPORT_ERROR', 'TRANSPORT_TIMEOUT', 'TRUNCATED_RESPONSE', 'ENOENT'].includes(error?.code ?? error?.message)) throw error;
       }
     }
     demand(!failed, 'PI_DETACH_START_FAILED_RECOVERY_REQUIRED');

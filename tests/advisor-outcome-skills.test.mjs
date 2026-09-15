@@ -40,29 +40,26 @@ test("both checker skill surfaces repair frozen baselines without claiming indep
 });
 
 test("graph guidance carries current attempts on stable outcome nodes without inventing native APIs", () => {
-  assert.match(graphs, /node represents an accepted outcome, not a single model turn or repair attempt/);
-  assert.match(graphs, /retain the graph\/node\/run and explicitly refresh/);
-  assert.match(graphs, /preserve repair budgets/);
-  assert.match(graphs, /returned task\/evidence prompt with the ordinary launch tool/);
-  assert.match(graphs, /graphless repair does not require this block/);
+  assert.match(graphs, /associates an owned run\/attempt with a plan node/);
+  assert.match(graphs, /never rewrite what a worker actually read or did/);
+  assert.match(graphs, /successor associations preserve prior run attribution and immutable captures/);
+  assert.match(graphs, /not a permit to launch, repair or finish an agent/);
+  assert.match(graphs, /A graphless task uses its normal handoff, recorded transcript and artifacts/);
   assert.match(managed, /advisor_worker_graph_evidence/);
+  assert.match(managed, /successor association does not cancel its predecessor or transfer a write surface/);
   assert.match(native, /Do not claim managed-runtime graph tools or attestations/);
-  for (const source of [graphs, managed]) {
-    assert.match(source, /replacesRunId/); assert.match(source, /replacesAttempt/);
-    assert.match(source, /[Aa]dmission/); assert.match(source, /not currently green/);
-  }
   assert.match(native, /maker owns remaining diagnosis/);
 });
 
-test("captured handoffs replace routine forensic hunts but never bypass recovery fences", () => {
+test("handoffs and transcripts expose history without bypassing recovery fences", () => {
   for (const source of [core, transport, managed]) {
-    assert.match(source, /captured (?:result|report|proof)/);
-    assert.match(source, /continuation|reply\/task|permits `task`/);
-    assert.match(source, /missing.*capture|Missing.*capture/);
-    assert.match(source, /(?:Never|never).*(?:replay|relaunch|clear locks)/);
+    assert.match(source, /summar(?:y|ies)/i);
+    assert.match(source, /recorded.*transcript|transcript.*recorded/i);
+    assert.match(source, /identity-checked/);
+    assert.match(source, /(?:Never|never).*(?:replay|relaunch|clear locks|resend)/);
   }
-  assert.match(transport, /Historical deliveries refer to their original attempts/);
-  assert.match(transport, /Do not use worktree commits, report mtimes or branch movement to override/);
+  assert.match(transport, /Historical deliveries and captures retain their original attempts/);
+  assert.match(transport, /Never relabel worker assertions as independent verification/);
   assert.match(transport, /explicit acceptance requirement.*stays unsatisfied if bypassed by direct work/);
 });
 
@@ -104,8 +101,8 @@ test("child advisors share strategy doctrine without topology quotas or lost bou
   assert.match(child, /parent.*outcome/);
   assert.match(child, /result\.md/);
   assert.match(core, /no graph, delegation depth, role sequence or launch quota is required/);
-  assert.match(core, /creating a child, graph or repair attempt never creates a fresh budget/);
-  assert.match(graphs, /never edit alongside a writing helper in the same checkout/);
+  assert.match(core, /accounting is not a cumulative launch\/reply\/task allowance/);
+  assert.match(graphs, /Keep one writer per checkout, including yourself/);
   assert.match(core, /child advisor's self-review is still maker evidence/);
   assert.match(nativeChild, /shared advisor guidance/);
   assert.match(nativeChild, /Inherit the parent's execution lane, actual authority, remaining spend\/depth limits/);

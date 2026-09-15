@@ -33,22 +33,25 @@ native agent process.
 7. Transfer ownership with an immutable handoff event.
 8. Intercom is only for coordination between independent peer sessions: never use it for parent-child progress or completion, which belongs to tracked `bg_agent` settlement.
 9. Launch delegated LLM work only through `bg_agent` — usually a configured semantic role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; use `bg_run` for shell commands. Pi mode runs selected identities through Pi. Native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi. A launch whose prompt still contains an unexpanded paste placeholder is rejected.
-10. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes) and a bounded result file. The quick packet is the default: goal, write surface, criteria phrased as failure probes, evidence linked by path, one risk-tier line, and stop conditions, in ten to twenty lines. A packet may freeze criteria, safety boundaries, the write surface, and locked decisions; it may never freeze tool versions the repository does not pin, directory modes, hash manifests outside a release gate, or literal command order, and never declares every severity terminal. Makers explore freely and deliver narrowly: they may propose criteria and report adjacent defects, and the advisor accepts proposals through a recorded packet revision.
-11. Use the graph planner as a structural validator/linter and coordination aid before three or more nodes or mixed parallel and dependent work, but create a graph only for real independent ownership or dependency boundaries.
-12. One writer owns a checkout at a time, including parent and child advisors alongside their helpers. Settle or stop a writing worker before reclaiming its surface. Parallel makers require explicit approval and separate worktrees; independent review uses a frozen revision.
+10. Every role launch needs concrete acceptance criteria (enumerated falsifiable claims, or a single anchor for trivial nodes). A useful summary is an optional handoff unless explicitly requested as a deliverable. The quick packet is the default: goal, write surface, failure probes, evidence paths, one risk-tier line and material stop conditions. Freeze criteria, safety, ownership and locked decisions—not incidental tool versions, directory modes or literal command order. Makers may propose sharper criteria; the advisor records deliberate contract revisions.
+11. Use an optional graph for real ownership or dependency boundaries. It records coordination and evidence, not permission to execute or a mandatory stage based on worker count.
+12. One writer owns a checkout at a time, including parent and child advisors. Settle a writing worker before reclaiming its surface. Parallel makers need separate worktrees and must respect explicit user limits. Independent review names the revision it assessed.
 13. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
 14. Keep a builder alive for a planned bounded repair and a checker alive for the delta review of its own findings. Makers prove criteria and inspect their own diff; an extra fresh-context helper requires a named distinct benefit, not just a Standard/High label. High requires a designated independent checker, without an automatic maker-owned reviewer first. Every checker starts fresh, judges against the packet tier's FAIL bar, and repairs every finding it can inside the reviewed surface in any round, including repair rounds. Auto-fixable mechanical findings (formatter output, lint autofix, generated-file drift, result formatting) are repaired inline by whoever finds them and never bind a verdict; a formatter or lint pass is never an acceptance criterion on its own.
 15. Keep global advisor routines paused because open Pi processes share routine state.
 
 ## Blocked signals
 
-Every blocking Pi UI prompt, including the question tool and select or confirm
-dialogs, marks its Herdr pane blocked through the bridge extension. When a
-worker's `result.md` Status starts with `BLOCKED`, the pane is marked blocked as
-the turn ends, so the parent `bg_agent` settles it as blocked and the request
-sound fires. Pi-detach discovers Pi worker result artifacts through the
-`advisor-worker` session entry declared by the profile's `resultDiscovery`
-field.
+Blocking Pi UI prompts, including question, select and confirm dialogs, mark the
+Herdr pane blocked. These are actual interaction boundaries: never type through a
+permission or credential dialog as an ordinary worker reply.
+
+In the managed runtime, a `BLOCKED` result is a report claim, not the execution
+completion signal. A completed turn can leave an unresolved product question; the
+caller reads that claim and chooses the next action. Summary status does not turn
+an otherwise idle worker into a blocked UI. The legacy backend still maps artifact
+`BLOCKED` to its pane signal. Pi artifacts are discovered through the profile's
+`resultDiscovery` session entry.
 
 Blocked means exactly one of four things: a missing product decision, a
 permission, a credential, or an external action only the user can perform.
@@ -211,17 +214,13 @@ or probe to a reviewer who did not author the patch. The original maker may
 serve when its prior assumptions are not the contested issue; there is no
 automatic checker-of-checker or whole-work re-review.
 
-Resume the same checker for a delta review of a maker's repair; use fresh
-review when prior reasoning is invalidated or material independent risk
-remains. Two serial review rounds per slice is the default budget. At that
-budget or a binding user, graph, or runtime cap, stop the loop and reassess;
-a budget is not evidence of completion. Deliver only when all acceptance
-criteria, required checks, and safety obligations are satisfied, disclosing
-only non-blocking residuals. Otherwise report the work as incomplete and
-choose a changed approach within remaining authority and limits, or ask the
-user with a recommended next step. Further work needs an explicit, authorized
-bounded plan; never silently reset a cap by renaming the slice or launching
-another planner. User-set limits or requirements need user approval to change.
+Resume the same checker for a delta review of a maker's repair; use fresh review
+when prior reasoning is invalidated or material independent risk remains. Continue
+useful authorized repairs without a fixed round count. Reassess when another pass
+would repeat the same strategy without new information. Deliver only when all
+acceptance criteria, required checks and safety obligations are satisfied; otherwise
+report the unmet work and take the next authorized action. User-set limits or
+requirements still need user approval to change.
 
 Review depth follows meaningful failure modes, oracle strength, coupling, and
 trust boundaries. Deepen on a concrete gap or contradictory evidence. Stop when
@@ -247,8 +246,8 @@ Examples, not fixed routes:
 - Editing an authorization test's acceptance oracle or a security-policy
   instruction is High when it changes that boundary; a comment-only repair
   with unchanged enforcement can be Low.
-- Exhausting two rounds with a failed required check leaves the work incomplete,
-  not shippable with a disclaimer; a clean result with only optional notes may ship.
+- A failed required check leaves the work incomplete regardless of review count;
+  a clean result with only non-blocking optional notes may ship.
 
 ## 🎭 Roles and intelligence
 
@@ -258,8 +257,8 @@ advisor doctrine and intelligence guide as the root, scoped to one parent
 outcome. It may implement directly, use specialists, or delegate further to
 child advisors; an optional local graph belongs to its parent outcome. The
 runtime supplies validated ancestry and a separate graph namespace, not a new
-top-level workstream. It shares the root family's cumulative allowance and
-cancellation tree. The delegation flag also grants the builder
+top-level workstream. It shares the root family's execution history and
+cancellation tree, not a lifetime admission allowance. The delegation flag grants the builder
 at most one optional read-only review helper under its role contract; ordinary
 specialist helpers retain the no-further-delegation prohibition.
 
@@ -297,7 +296,7 @@ changes transport, not roles or intelligence policy:
 | Mode | Transport |
 | --- | --- |
 | `pi` | `bg_agent` starts Pi and forwards the selected provider/model/reasoning. |
-| `native` | `openai-codex`/`openai` route to Codex CLI; `claude-bridge`/`anthropic` route to Claude Code. Native workers receive an automatically generated durable result path under the advisor state root, reserved before launch as an empty file with the launcher's default modes. Settlement stalls only when that artifact is missing or blank. Missing, empty, or differently formatted expected sections are advisory notes surfaced to the parent and do not prevent settlement. |
+| `native` | `openai-codex`/`openai` route to Codex CLI; `claude-bridge`/`anthropic` route to Claude Code. The launcher reserves a durable result path. In managed mode the report is an optional handoff, not a completion gate; missing or incomplete reports are reported separately from observed execution. Original artifacts and run-bound recorded transcript retrieval support further inspection. |
 
 The advisor profile is constrained to `harness: "pi"`, including in a session
 whose specialists use native Codex/Claude. The inherited specialist choice is
@@ -306,13 +305,13 @@ child to a stable parent outcome; a role label or copied graph cannot grant
 scope. Child graphs use that child's state root, with `parentOutcome` derived
 by the extension and checked by the runtime. A graphless parent/child is valid.
 
-Launch/reply/task reservations share one persistent family allowance and retain
-per-outcome repair history. Descendant cancellation is downward; observed
-settlement composes upward before parent result capture. Acknowledgement remains
-a separate shutdown condition. An old PASS, dead service or uncertain child
-never becomes current proof. Historical foreman skill paths are compatibility
-links, not a separate management role; old v1/unmetered scopes need explicit
-reissue for new execution. There is no automatic migration or crash adoption.
+Launch/reply/task accounting and per-outcome repair history do not impose lifetime
+quotas. Descendant cancellation is downward; parent turn completion is reported
+independently of outstanding children, which remain protected from teardown.
+Unacknowledged notifications stay durable without holding an otherwise idle service
+open. An old PASS, dead service or uncertain child never becomes current proof.
+Historical foreman paths remain compatibility links; use supported identity-checked
+reconciliation rather than blindly replaying or adopting a worker.
 
 Every shipped intelligence profile remains usable in either mode, but a
 specific recommendation is native-routable only when its provider maps to Codex

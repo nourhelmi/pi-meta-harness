@@ -79,11 +79,10 @@ for (const subtype of ['error_during_execution', 'error_max_turns', 'error_max_b
   decodeClaude(h.s, { type: 'system', subtype: 'session_state_changed', state: 'idle', uuid: 'idle', session_id: h.s.id });
   assert.equal(h.events[0].data.status, 'failed'); assert.equal(h.events[0].data.verified, false); assert.ok(!JSON.stringify(h.events).includes('DO-NOT-ECHO-SECRET')); assert.equal(h.events.some(e => e.kind === 'process-exited'), false);
 });
-test('wire rejects unknown responses, oversized stderr/stdout, truncated/invalid lines without echo', t => {
-  for (const kind of ['stdout', 'stderr', 'invalid', 'unknown-id', 'truncated']) {
+test('wire rejects unknown responses, oversized diagnostic stderr, truncated/invalid lines without echo', t => {
+  for (const kind of ['stderr', 'invalid', 'unknown-id', 'truncated']) {
     const h = session(t, 'codex', false, { bytes: 128, stderr: 64 }); const child = new EventEmitter(); child.stdout = new PassThrough(); child.stderr = new PassThrough(); child.stdin = new PassThrough();
     const wire = new CodexWire(child, h.s); wire.onMessage = () => {};
-    if (kind === 'stdout') child.stdout.write('x'.repeat(129));
     if (kind === 'stderr') child.stderr.write('secret'.repeat(12));
     if (kind === 'invalid') child.stdout.write('{invalid\n');
     if (kind === 'unknown-id') child.stdout.write('{"id":42,"result":{}}\n');

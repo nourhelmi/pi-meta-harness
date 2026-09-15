@@ -81,7 +81,7 @@ test("the advisor entry skill is thin and the injected core stays small with a r
   assert.deepEqual(core.match(/^# [^#].*$/gm) ?? [], ["# Advisor"]);
   assert.doesNotMatch(core, /^---\n/, "the injected core carries no skill frontmatter");
   // The shared core now also carries child scope, lineage and descendant obligations.
-  assert.ok(core.length < 28000, `doctrine core is ${core.length} bytes; keep the shared root/child core bounded`);
+  assert.ok(core.length < 30000, `doctrine core is ${core.length} bytes; keep the shared root/child core concise`);
   const references = section(core, "## References");
   for (const name of REFERENCES) {
     assert.match(references, new RegExp("`references/" + name + "\\.md`"));
@@ -96,7 +96,7 @@ test("routes put direct work and the single maker ahead of graphs and planners",
 
   assert.match(routes, /1\. \*\*Direct\.\*\*/);
   assert.match(routes, /2\. \*\*Single maker\.\*\*/);
-  assert.match(routes, /3\. \*\*Graph\.\*\*/);
+  assert.match(routes, /3\. \*\*Optional graph\.\*\*/);
   assert.match(routes, /should feel like launching one ordinary agent/);
   assert.match(routes, /no planner, no\s+graph, no checker unless the tier or the user asks/);
   assert.match(routes, /\*\*Direct\.\*\*[\s\S]*First-class at every risk tier/);
@@ -106,9 +106,9 @@ test("routes put direct work and the single maker ahead of graphs and planners",
   assert.match(routes, /marginal evidence value\s+and critical-path latency/);
   assert.match(routes, /materially resolve uncertainty, shorten genuinely parallel work, or add useful\s+independent confidence/);
   assert.match(routes, /Stop expanding the route when another launch would\s+mostly replay evidence/);
-  assert.match(routes, /Plan the work yourself by default/);
-  assert.match(routes, /Adopt, revise, or reject its proposed roles and sequence/);
-  assert.match(routes, /planner offers an optional second opinion\s+for product or architecture uncertainty/);
+  assert.match(routes, /Plan and investigate yourself by default/);
+  assert.match(routes, /Adopt, revise, or reject recommendations/);
+  assert.match(routes, /Scout and planner roles are optional\s+instruction presets/);
   assert.match(routes, /Tooling, environment,\s+harness and formatting failures belong to the same maker/);
   assert.doesNotMatch(routes, /\d+\s*(?:minutes?|hours?)/i);
   assert.doesNotMatch(routes, /(?:minimum|maximum)\s+(?:agent|worker|launch)/i);
@@ -133,8 +133,8 @@ test("packets freeze the contract and never the procedure, and are sized after d
   assert.match(packets, /Do not open a packet with "execute\s+exactly"/);
   assert.match(packets, /never carries a formatter or lint pass as an acceptance\s+criterion/);
   assert.match(packets, /judge a maker against a hidden contract/);
-  assert.match(packets, /`keepAlive: true`[\s\S]*checker expected to revisit its findings/);
-  assert.match(packets, /current continuation eligibility/);
+  assert.match(packets, /`keepAlive: true`[\s\S]*cleanup preference/);
+  assert.match(packets, /supported current continuation\/message operation/);
 
   assert.match(sizing, /Bound the accepted outcome, not an arbitrary number of files or steps/);
   assert.match(sizing, /maker may own the remaining diagnosis and implementation together/);
@@ -201,7 +201,7 @@ test("obstacles are resolved by workers and Blocked has exactly four meanings ev
   assert.match(contract, /only after a bounded attempt to\s+unblock yourself/);
   assert.match(contract, /missing skill name\s+is never a blocker/);
   assert.match(contract, /Never invent a missing product decision or product fallback\s+behavior/);
-  assert.match(contract, /Add `Deviations` whenever you resolved an obstacle/);
+  assert.match(contract, /Add deviations or proposed criteria when useful/);
   assert.match(contract, /placeholder is expected, not a contradiction/);
   assert.doesNotMatch(contract, /permission,\s+credential, or fallback/);
 
@@ -210,7 +210,7 @@ test("obstacles are resolved by workers and Blocked has exactly four meanings ev
   assert.match(builder, /Select or install the toolchain the repository pins/);
   assert.match(builder, /Do not add speculative abstractions or unaccepted fallback behavior/);
   assert.match(foreman, /same installed advisor doctrine/);
-  assert.match(core, /Never stop for a turn cap with live helpers/);
+  assert.match(core, /Before delivering the\s+integrated outcome or tearing down its workspace, account for every relevant child/);
   assert.match(checker, /Environment and tooling obstacles are yours to clear/);
   assert.match(browser, /Runtime setup is an obstacle, not a blocker/);
   assert.match(browser, /wrong data target, a production system,\s+or a missing credential is a safety boundary or a blocker/);
@@ -251,11 +251,11 @@ test("checkers are repair-first and review converges with the same reviewer", as
   assert.match(review, /verdict describes the post-repair state/);
   assert.match(review, /A repaired finding alone does not cause FAIL/);
   assert.match(review, /Resume the same checker for a delta review/);
-  assert.match(review, /Two serial review rounds per slice is the default budget/);
-  assert.match(review, /not evidence of completion/);
-  assert.match(review, /Deliver only when all acceptance criteria,\s+required checks, and safety obligations are satisfied/);
-  assert.match(review, /report the work as incomplete/);
-  assert.match(review, /never silently reset a cap by renaming the slice or launching another\s+planner/);
+  assert.match(review, /Reassess a loop when another attempt would repeat the same strategy without new\s+information/);
+  assert.match(review, /Never claim\s+completion because a counter ran out/);
+  assert.match(review, /all acceptance criteria, required checks and safety obligations are\s+satisfied/);
+  assert.match(review, /report what remains and ask with a recommendation/);
+  assert.match(review, /user-set limits need user approval to change/);
   assert.doesNotMatch(review, /one checker per phase|final whole-diff review/i);
 
   assert.match(checker, /and repair what you find/);
@@ -275,11 +275,10 @@ test("checkers are repair-first and review converges with the same reviewer", as
   assert.doesNotMatch(checker, /at most three findings|repair none of that class/);
 
   assert.match(JSON.parse(roles).profiles.checker.description, /repairs every finding it can/);
-  assert.match(graphs, /A checker repairs what it can inside the reviewed surface/);
-  assert.match(graphs, /resume the same checker\s+for the delta review/);
-  assert.match(graphs, /Never exceed the manifest repair-loop cap/);
-  assert.match(graphs, /only with all criteria, required checks, and safety obligations satisfied/);
-  assert.match(graphs, /Otherwise report incomplete work/);
+  assert.match(graphs, /Preserve maker\/checker independence wherever independent review is required/);
+  assert.match(graphs, /PASS summary never establishes verification by itself/);
+  assert.match(graphs, /do not stop because a graph\s+counter ran out/);
+  assert.match(graphs, /actual evidence needed before delivery or teardown/);
 });
 
 test("the advisor avoids redundant skill reads but loads decision-relevant instructions and keeps a hot section", async () => {
@@ -313,12 +312,13 @@ test("the advisor avoids redundant skill reads but loads decision-relevant instr
 
 test("doctrine rejects legacy universal gates across core and references", async () => {
   const source = await doctrine();
-  const graphs = section(await text("skills/advisor/references/graphs.md"), "## Information-value graphing", "## The `GRAPH:` block");
+  const graphs = await text("skills/advisor/references/graphs.md");
 
   assert.doesNotMatch(source, /one checker per phase|final whole-diff review before PR/i);
   assert.doesNotMatch(source, /every non-destructive pre-?flight/i);
   assert.doesNotMatch(source, /(?:advisor|delivery)[\s\S]{0,80}(?:reruns?|replays?)[\s\S]{0,40}every (?:deterministic )?criteri/i);
-  assert.match(graphs, /task-shaped deterministic criteria still needed for authoritative[\s\S]*proportionate to cost, risk, and oracle strength/);
+  assert.match(graphs, /not a permit to launch, repair or finish an agent/);
+  assert.match(graphs, /Trusted host checks establish only their actual invocation and tested\s+surface/);
   assert.doesNotMatch(graphs, /Run (?:all )?deterministic criteria/);
 });
 
@@ -353,8 +353,8 @@ test("worker roles share maker ownership, risk context, conditional delegation, 
   assert.match(contract, /explicit packet revision/);
   assert.match(contract, /task-shaped non-destructive[\s\S]*readiness checks/);
   assert.match(contract, /do not turn pre-flight into a universal checklist/);
-  assert.match(contract, /only\s+a missing or blank[\s\S]*stalls settlement/);
-  assert.match(contract, /Keep the final response short/);
+  assert.match(contract, /missing or differently formatted summary does not prevent execution\s+completion, notification or follow-up/);
+  assert.match(contract, /Keep the final response useful and concise/);
   assert.doesNotMatch(contract, /at most 12 lines/);
   assert.match(builder, /diagnose it, implement it,[\s\S]*task-shaped deterministic tests[\s\S]*ordinary browser exercise/);
   assert.match(builder, /exact command\s+evidence/);
@@ -383,8 +383,8 @@ test("adaptive doctrine preserves advisor safety and composition invariants", as
   assert.match(source, /never\s+translate it into `agent: "codex"` or `agent: "claude"`/);
   assert.match(source, /no-role\s+freeform worker is Pi-hosted/);
   assert.match(source, /## Freeform workers/);
-  assert.match(source, /Use a graph only when work has real independent ownership or dependency/);
-  assert.match(source, /Child advisors\s+may delegate further within the root family's remaining cumulative allowance/);
+  assert.match(source, /Use a graph when independent ownership or real data dependencies/);
+  assert.match(source, /Child advisors\s+may delegate further within their authority and explicit user limits/);
   assert.match(source, /High-risk boundaries receive independent review before\s+completion/);
   assert.match(source, /Deterministic evidence is authoritative for\s+the claim it actually proves/);
   assert.match(runtime, /presumption\s+against ceremony, not a target worker\s+count/);
@@ -431,14 +431,14 @@ test("parent and child advisors own execution while proposals remain nonbinding"
   ]);
   assert.match(advisor, /technical lead and orchestrator/);
   assert.match(advisor, /not an\s+obligation or a preference over delegation/);
-  assert.match(advisor, /Plan the work yourself by default/);
-  assert.match(advisor, /Adopt, revise, or reject its proposed roles and sequence/);
+  assert.match(advisor, /Plan and investigate yourself by default/);
+  assert.match(advisor, /Adopt, revise, or reject recommendations/);
   assert.match(advisor, /Reclaim\s+ownership explicitly after settlement/);
   assert.match(advisor, /Your own\s+rerun of your own work is self-verification, not independent review/);
   assert.match(advisor, /explicit acceptance requirement for a particular transport or worker stays\s+unsatisfied if bypassed by direct work/);
   assert.match(foreman, /same installed advisor doctrine/);
   assert.match(advisor, /Direct work\s+remains available/);
-  assert.match(advisor, /never edit alongside a\s+writing helper/);
+  assert.match(advisor, /Never edit a\s+worker-owned checkout/);
   assert.match(contract, /explicitly locked decision[\s\S]*explicit packet revision/);
   assert.match(planner, /advisor owns the plan and may adopt, revise, or reject/);
   assert.match(planner, /Do not edit product code/);
@@ -453,14 +453,16 @@ test("blocked settlement doctrine documents Pi prompt and worker result signals"
   const settlement = section(transport, "## Settlement ground truth", "## Status updates");
   const blocked = section(runtime, "## Blocked signals", "## 🪜 Adaptive topology");
 
-  assert.match(settlement, /current handoff separates admission, worker status, captured report, attempt,\s+proof and continuation/);
-  assert.match(settlement, /`paused` worker remains supervised while its own helpers run/);
-  assert.match(settlement, /do not require re-reading\/re-hashing an unchanged packet/);
-  assert.match(settlement, /Historical deliveries refer to their original attempts/);
-  assert.match(settlement, /Do not use worktree commits, report mtimes or branch movement to override/);
-  assert.match(blocked, /blocking Pi UI prompt[\s\S]*marks its Herdr pane blocked through the bridge extension/);
-  assert.match(blocked, /Status starts with `BLOCKED`[\s\S]*parent `bg_agent` settles it as blocked[\s\S]*request[\s\S]*sound fires/);
-  assert.match(blocked, /pi-detach discovers Pi worker result artifacts through the[\s\S]*`advisor-worker` session entry[\s\S]*`resultDiscovery`/i);
+  assert.match(settlement, /current handoff for execution state and available evidence/);
+  assert.match(settlement, /unavailable provider transcript is not an empty session/);
+  assert.match(settlement, /Historical deliveries and captures retain their original attempts/);
+  assert.match(settlement, /Never relabel worker assertions as independent\s+verification/);
+  assert.match(settlement, /current identity-checked transport state/);
+  assert.match(settlement, /descendants active; report them separately and protect their work/);
+  assert.match(blocked, /Blocking Pi UI prompts[\s\S]*mark the\s+Herdr pane blocked/);
+  assert.match(blocked, /managed runtime, a `BLOCKED` result is a report claim, not the execution\s+completion signal/);
+  assert.match(blocked, /legacy backend still maps artifact\s+`BLOCKED` to its pane signal/);
+  assert.match(blocked, /Pi artifacts are discovered through the profile's\s+`resultDiscovery` session entry/);
 });
 
 test("protocol step 6 fixes GRAPH syntax and host support boundaries", async () => {
@@ -471,13 +473,12 @@ test("protocol step 6 fixes GRAPH syntax and host support boundaries", async () 
     text("docs/advisor-runtime.md"),
   ]);
 
-  for (const source of [advisor, contract]) {
-    for (const key of ["graph", "node", "wave", "repair", "upstream", "downstream"]) {
-      assert.match(source, new RegExp("`" + key + "`"));
-    }
-    assert.match(source, /`GRAPH:`/);
-    assert.match(source, /blank line/);
+  for (const key of ["graph", "node", "wave", "repair", "upstream", "downstream"]) {
+    assert.match(contract, new RegExp("`" + key + "`"));
   }
+  assert.match(contract, /`GRAPH:`/);
+  assert.match(contract, /blank line/);
+  assert.match(advisor, /legacy `GRAPH:` block, when present, is correlation metadata/);
   assert.match(protocol, /^## Step 6 host support$/m);
   assert.match(protocol, /\| Pi \+ pi-detach \| yes \| yes \| yes \| yes \| yes \|/);
   assert.match(protocol, /\| Claude Code \| yes \| single-maker correlation only \| no \| no \| no \|/);
@@ -527,19 +528,19 @@ test("makers explore freely and deliver narrowly while the packet stays a floor"
   assert.match(builder, /## Explore freely, deliver narrowly/);
   assert.match(builder, /trace the\s+capability end to end/);
   assert.match(builder, /`Adjacent findings`/);
-  assert.match(builder, /`Proposed criteria`/);
+  assert.match(builder, /proposed criteria/i);
   assert.match(builder, /## Fresh review before handoff/);
   assert.match(builder, /model and\s+effort by the review need and live guide/);
   assert.match(builder, /fresh-context helper is optional, not an\s+automatic Standard\/High step/);
   assert.match(foreman, /same installed advisor doctrine/);
   assert.match(core, /maker traces the capability end to end/);
-  assert.match(contract, /`Fresh review`/);
-  assert.match(contract, /`Proposed criteria`/);
+  assert.match(contract, /not a mandatory schema/);
+  assert.match(contract, /proposed criteria/);
   assert.match(contract, /inspect the linked proof needed for\s+your assigned work/);
   assert.match(contract, /Required evidence and material contract\/threat context\s+must still be read/);
   assert.match(runtime, /## 🎚️ Risk tiers/);
   assert.match(runtime, /grants the builder\s+at most one optional read-only review helper/);
-  assert.match(runtime, /Settlement stalls only when that artifact is missing or blank/);
+  assert.match(runtime, /missing[\s\S]*summary[\s\S]*completion/);
   assert.match(runtime, /mechanical findings \(formatter output, lint autofix, generated-file drift, result formatting\) are repaired inline by whoever finds them and never bind a verdict/);
   assert.match(runtime, /formatter or lint pass is never an acceptance criterion on its own/);
   assert(JSON.parse(roles).profiles.builder.cliArgs.includes("--advisor-worker-allow-subagents"));
@@ -553,9 +554,9 @@ test("staffing judgment does not inherit a routine parallel-spend approval gate"
   ]) {
     const source = (await text(path)).replace(/\s+/g, " ");
     assert.doesNotMatch(source, /explicit user approval for the added spend|authorization for extra spend|Parallel writers[^.]*require explicit user approval/, path);
-    assert.match(source, /advisor chooses staffing/i, path);
-    assert.match(source, /explicit user limits/, path);
-    assert.match(source, /(?:distinct|separate) worktrees/, path);
+    assert.match(source, /advisor chooses staffing|Writer coordination belongs to the advisor/i, path);
+    assert.match(source, /explicit user (?:spend\/concurrency )?limits/, path);
+    assert.match(source, /(?:distinct|separate)(?: registered Git)? worktrees/, path);
     assert.match(source, /one (?:maker per write surface|writer per checkout)/i, path);
   }
 });

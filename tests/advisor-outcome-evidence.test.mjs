@@ -16,7 +16,12 @@ async function fixture(t, keepAlive = true) {
   const launches = []; const port = { version: 1,
     async prepare(params, sourceDirectory) { return { v: 1, command: 'fixture', prompt: params.prompt, role: params.role ?? 'builder', runtime: 'pi', model: 'fixture', thinking: 'none', maxTurns: null, requiredSkills: [], harness: 'pi', keepAlive: params.keepAlive ?? keepAlive, label: 'fixture', resultDiscovery: null, resultPolicy: 'runtime-capture', sourceDirectory,
       environment: { ADVISOR_RUNTIME_DESCRIPTOR: '', PI_DETACH_RUNTIME_BRIDGE: '', ADVISOR_BRIDGE_WORKER_DIR: sourceDirectory, ADVISOR_RUNTIME_CANONICAL_OWNER: '1' } }; },
-    async launch({ hooks, intent, reply }) { launches.push({ hooks, intent, reply }); hooks.recordHandle({ id: 'same-worker', session: 'same-session' }); return { async interrupt(observer) { launches.at(-1).cancel = observer; }, async readLive() { return 'output'; } }; }
+    async launch({ hooks, intent, reply }) {
+      hooks.recordHandle(hooks.expectedHandle ?? { id: 'same-worker', session: 'same-session' });
+      if (hooks.observeOnly) return { async readLive() { return 'output'; }, async runtimeObservation() { return { session: 'same-session', generation: hooks.expectedGeneration, state: 'done' }; } };
+      launches.push({ hooks, intent, reply });
+      return { async interrupt(observer) { launches.at(-1).cancel = observer; }, async readLive() { return 'output'; } };
+    }
   };
   const stateRoot = join(base, 'state'); const options = { stateRoot, cwd: work, sessionId: 'owner', credentialPath: join(stateRoot, 'pi.json'), port, keepAlive: false };
   let host = await hostPiDetach(options); const client = createPiDetachClient(options.credentialPath);
@@ -57,7 +62,7 @@ test('an unbound failed checker does not veto replacement work or repairs', asyn
   await f.launch({ name: replacement, prompt: 'Apply review repairs' }); f.settle('PASS');
   assert.equal((await f.request('get', { runId: replacement })).attempt, 2);
   assert.equal((await f.request('get', { runId: failed })).status, 'recovery-required');
-  await assert.rejects(f.launch({ name: failed, prompt: 'Retry the ambiguous checker' }), /BRIDGE_RESUME_OR_STEER_UNSUPPORTED/);
+  await assert.rejects(f.launch({ name: failed, prompt: 'Retry the ambiguous checker' }), /RECOVERY_REQUIRED/);
   assert.equal(failedLaunches, 1, 'replacement work must not replay or adopt the ambiguous effect');
   await f.ack(replacement);
 });
@@ -66,14 +71,14 @@ for (const status of ['PASS', 'FAIL', 'BLOCKED', 'malformed', null]) test(`captu
   const f = await fixture(t); const runId = await f.launch({}, 'initial'); f.settle(status);
   const first = await f.request('get', { runId }); const sealed = await f.request('result', { toolCallId: 'initial', seal: true });
   assert.equal(first.result?.proof ?? 'unknown', 'unknown'); assert.equal(first.result?.tested ?? null, null);
-  if (status === null) { assert.equal(first.result, null); assert.equal(first.status, 'stalled'); return; }
+  if (status === null) { assert.equal(first.result, null); assert.equal(first.status, 'done'); return; }
   assert.match(first.result.path, /result-1-[a-f0-9]{64}\.md$/); assert.equal(readFileSync(first.result.path, 'utf8'), status === 'malformed' ? '???' : report(status));
   assert.ok(first.result.claims.length <= 1200); assert.equal(sealed.result.path, first.result.path);
   const delivery = (await f.request('wait', { runId, timeoutMs: 0 })).find(d => d.kind === 'settled'); assert.equal(delivery.result.path, first.result.path);
   const old = f.launches[0]; writeFileSync(join(old.intent.sourceDirectory, 'result.md'), report('FAIL'));
   old.hooks.settled('done', 'duplicate', 2); assert.equal((await f.request('get', { runId })).result.sha256, first.result.sha256, 'duplicate callback cannot recapture');
   if (status === 'malformed') { writeFileSync(first.result.path, 'tampered'); assert.equal((await f.request('wait', { runId, timeoutMs: 0 })).find(d => d.kind === 'settled').result.integrity, 'invalid'); assert.equal(first.result.valid, false); assert.equal(first.result.status, 'unknown'); return; }
-  assert.equal(first.continuation, status === 'BLOCKED' ? 'reply' : 'task');
+  assert.equal(first.continuation, 'task');
   await f.launch({ name: runId, prompt: 'Scoped follow-up' }, 'next');
   assert.equal(f.launches.length, 2); assert.equal((await f.request('get', { runId })).result, null);
   assert.throws(() => old.hooks.settled('done', 'stale', 4), /ATTEMPT_MISMATCH/);
@@ -94,7 +99,7 @@ test('optional dependency consumes host proof, retains captures but invalidates 
   const proof = f.runtime().checkNode({ scope: node.snapshot.scope, command: process.execPath, args: ['check.mjs'], producer: 'independent-host-check' });
   assert.equal(proof.proof, 'verified'); assert.equal(JSON.parse(readFileSync(proof.path)).outcome, 'PASS');
   const checkBytes = readFileSync(proof.path); writeFileSync(proof.path, 'tampered'); assert.equal((await evidence('checker')).dependencies[0].proof, 'unknown'); writeFileSync(proof.path, checkBytes);
-  const consumed = await evidence('checker'); assert.equal(consumed.dependencies[0].proof, 'verified'); assert.ok(consumed.prompt.includes(proof.surface.sha256)); assert.ok(consumed.prompt.includes(node.result.path));
+  const consumed = await evidence('checker'); assert.equal(consumed.dependencies[0].proof, 'verified'); assert.equal(consumed.dependencies[0].result.tested.surface.sha256, proof.surface.sha256); assert.ok(consumed.prompt.includes(node.result.path));
   assert.equal(consumed.dependencies[0].result.tested.producer, 'independent-host-check');
   // Actually use the dependency prompt in the existing worker launch path, not an isolated metadata assertion.
   const downstream = await f.launch({ role: 'checker', prompt: consumed.prompt }); assert.equal(f.launches.at(-1).intent.prompt, consumed.prompt); f.settle('PASS'); await f.ack(downstream);
@@ -107,7 +112,8 @@ test('optional dependency consumes host proof, retains captures but invalidates 
   f.runtime().checkNode({ scope: node.snapshot.scope, command: process.execPath, args: ['check.mjs'] });
   await assert.rejects(f.client.request('foreign', 'graph.evidence', { graph, node: 'maker', runId }), /BRIDGE_SESSION_MISMATCH/);
   await assert.rejects(f.request('graph.evidence', { graph: { ...graph, advisorSessionId: 'foreign' }, node: 'maker', runId }), /GRAPH_OWNER_MISMATCH/);
-  await assert.rejects(f.request('graph.evidence', { graph: { ...graph, nodes: graph.nodes.slice(0, 1) }, node: 'maker' }), /GRAPH_CHANGED/);
+  const revision = await f.request('graph.evidence', { graph: { ...graph, nodes: graph.nodes.slice(0, 1) }, node: 'maker' });
+  assert.ok(revision.historicalRevisions.length > 0);
   await f.ack(runId); await f.restart();
   const reloaded = (await evidence('checker')).dependencies[0];
   assert.equal(reloaded.proof, 'unknown'); assert.equal(reloaded.result.tested, null);
@@ -171,10 +177,11 @@ test('stable graph outcome refresh preserves history, budgets and downstream pro
   await assert.rejects(evidence('maker', maker, 1), /ATTEMPT_MISMATCH/);
   await assert.rejects(evidence('maker', reviewer), /GRAPH_NODE_ALREADY_BOUND/);
   await assert.rejects(evidence('maker', 'unowned'), /BRIDGE_TARGET_FORBIDDEN/);
-  await assert.rejects(f.request('graph.evidence', { graph: { ...graph, contract: 'changed-acceptance' }, node: 'maker', runId: maker }), /GRAPH_CHANGED/);
+  const revised = await f.request('graph.evidence', { graph: { ...graph, contract: 'changed-acceptance' }, node: 'maker', runId: maker });
+  assert.equal(revised.historicalRevisions.at(-1).links.maker.runId, maker);
   f.settle('PASS'); const refreshed = await evidence('maker', maker, 2);
   assert.equal(refreshed.node.attempt, 2); assert.equal(refreshed.node.boundAttempt, 2);
-  assert.deepEqual(refreshed.node.budget, { maxRepairLoops: 2, used: 1, remaining: 1 });
+  assert.deepEqual(refreshed.node.budget, { maxRepairLoops: null, used: 1, remaining: null });
   assert.equal(refreshed.node.history[0].result.path, first.result.path);
   assert.equal(refreshed.node.history[0].result.proof, 'unknown');
   assert.equal(refreshed.node.history[0].checks[0].outcome, 'PASS');
@@ -191,10 +198,10 @@ test('stable graph outcome refresh preserves history, budgets and downstream pro
   writeFileSync(current.result.path, bytes); assert.equal((await evidence('delivery')).dependencies[0].proof, 'verified');
   await f.launch({ name: maker }); f.settle('PASS'); await evidence('maker', maker);
   assert.equal((await evidence('maker', maker)).node.budget.used, 2);
-  await assert.rejects(f.launch({ name: maker }), /GRAPH_REPAIR_LIMIT/);
+  await f.launch({ name: maker }); f.settle('PASS'); await evidence('maker', maker);
   await f.ack(maker); await f.ack(reviewer); await f.restart();
   const reloaded = await evidence('maker', maker);
-  assert.equal(reloaded.node.budget.used, 2); assert.equal(reloaded.node.historyCount, 2);
+  assert.equal(reloaded.node.budget.used, 3); assert.equal(reloaded.node.historyCount, 3);
   assert.equal(reloaded.node.proof, 'unknown');
 });
 
@@ -242,25 +249,15 @@ test('same worker stale generation and old owner callbacks are fenced before new
   assert.equal(readFileSync(first.result.path, 'utf8'), report('PASS'));
 });
 
-test('zero graph repair budget permits a blocked reply but cannot be reset by a new graph or omitted refresh', async t => {
+test('legacy zero repair budget never gates followups and remains accounting only', async t => {
   const f = await fixture(t); const runId = await f.launch(); f.settle('BLOCKED');
-  const graph = { graphId: 'strict-outcome', advisorSessionId: 'owner', maxRepairLoops: 0,
-    nodes: [{ id: 'maker', task: 'Complete accepted outcome', dependsOn: [] }] };
+  const graph = { graphId: 'strict-outcome', advisorSessionId: 'owner', maxRepairLoops: 0, nodes: [{ id: 'maker', task: 'Complete outcome', dependsOn: [] }] };
   await f.request('graph.evidence', { graph, node: 'maker', runId });
-  await f.launch({ name: runId, prompt: 'Authorized answer to the blocked request' }, 'answer');
-  f.settle('PASS');
-  const stale = await f.request('graph.evidence', { graph, node: 'maker' });
-  assert.equal(stale.node.reason, 'attempt changed');
-  assert.deepEqual(stale.node.budget, { maxRepairLoops: 0, used: 0, remaining: 0 });
-  const launches = f.launches.length;
-  await assert.rejects(f.launch({ name: runId }, 'no-refresh-bypass'), /GRAPH_REPAIR_LIMIT/);
-  await f.request('graph.evidence', { graph: { ...graph, graphId: 'renamed-outcome', maxRepairLoops: 3 }, node: 'maker', runId });
-  await assert.rejects(f.launch({ name: runId }, 'no-renaming-bypass'), /GRAPH_REPAIR_LIMIT/);
-  const refreshed = await f.request('graph.evidence', { graph, node: 'maker', runId, attempt: 2 });
-  assert.equal(refreshed.node.history[0].status, 'blocked');
-  assert.equal(refreshed.node.budget.used, 0);
-  await assert.rejects(f.launch({ name: runId }, 'no-refresh-reset'), /GRAPH_REPAIR_LIMIT/);
-  assert.equal(f.launches.length, launches, 'refused repairs never dispatch a worker');
+  for (let i = 0; i < 4; i++) { await f.launch({ name: runId, prompt: `next ${i}` }); f.settle('PASS'); }
+  const stale = await f.request('graph.evidence', { graph, node: 'maker' }); assert.equal(stale.node.reason, 'attempt changed');
+  const fresh = await f.request('graph.evidence', { graph, node: 'maker', runId });
+  assert.deepEqual(fresh.node.budget, { maxRepairLoops: null, used: 4, remaining: null });
+  assert.equal(fresh.node.historyCount, 4); assert.equal(fresh.node.history[0].result.status, 'BLOCKED');
 });
 
 // Derived from the independent late-bind / repair-first / successor probes.
@@ -323,23 +320,19 @@ test('repair-first current proof supersedes an evidenced failure without requiri
   assert.equal(f.launches.length, 3, 'no historical maker rerun');
 });
 
-test('input snapshots reject missing, tampered and misattributed evidence; absent snapshots stay unknown', async t => {
+test('missing/tampered input references allow work while proof and attribution remain unknown', async t => {
   const f = await fixture(t, false); const { evidence, check } = outcome(f);
-  const missing = await evidence('checker');
-  await assert.rejects(f.launch({ role: 'checker', prompt: missing.prompt }), /GRAPH_INPUT_MISSING_OR_CHANGED/);
-  const maker = await f.launch(); f.settle('FAIL'); await evidence('maker', maker);
-  const supplied = await evidence('checker');
-  await assert.rejects(f.launch({ role: 'checker', prompt: supplied.prompt.replace('Repair and check', 'Invent proof') }), /GRAPH_INPUT_CHANGED/);
-  await assert.rejects(f.launch({ role: 'checker', prompt: supplied.prompt.replace(/advisor-input:[a-f0-9]{64}/, `advisor-input:${'0'.repeat(64)}`) }), /GRAPH_INPUT_FORBIDDEN/);
-  const capture = (await f.request('get', { runId: maker })).result; const bytes = readFileSync(capture.path);
-  writeFileSync(capture.path, 'tampered'); await assert.rejects(f.launch({ role: 'checker', prompt: supplied.prompt }), /GRAPH_INPUT_MISSING_OR_CHANGED/);
-  writeFileSync(capture.path, bytes);
+  const missing = await evidence('checker'); const missingRun = await f.launch({ role: 'checker', prompt: missing.prompt }); f.settle('PASS');
+  assert.equal((await f.request('get', { runId: missingRun })).consumedInputs[0].evidenceStatus, 'stale');
+  const maker = await f.launch(); f.settle('FAIL'); await evidence('maker', maker); const supplied = await evidence('checker');
+  for (const [prompt, state] of [[supplied.prompt.replace('Repair and check', 'Invent proof'), 'stale'], [supplied.prompt.replace(/advisor-input:[a-f0-9]{64}/, `advisor-input:${'0'.repeat(64)}`), 'unknown']]) {
+    const runId = await f.launch({ role: 'checker', prompt }); f.settle('PASS'); assert.equal((await f.request('get', { runId })).consumedInputs[0].evidenceStatus, state);
+  }
+  const capture = (await f.request('get', { runId: maker })).result; const bytes = readFileSync(capture.path); writeFileSync(capture.path, 'tampered');
+  const tampered = await f.launch({ role: 'checker', prompt: supplied.prompt }); f.settle('PASS'); assert.equal((await f.request('get', { runId: tampered })).consumedInputs[0].evidenceStatus, 'stale'); writeFileSync(capture.path, bytes);
   const reviewer = await f.launch({ role: 'checker', prompt: supplied.prompt }); f.settle('PASS');
-  await assert.rejects(evidence('delivery', reviewer), /GRAPH_INPUT_MISATTRIBUTED/);
-  await evidence('checker', reviewer); await check(reviewer); assert.equal((await evidence('checker')).node.proof, 'verified', 'an authentic FAIL report is valid lineage');
-  const bare = await f.launch({ role: 'scout' }); f.settle('PASS'); await evidence('delivery', bare); await check(bare);
-  assert.equal((await evidence('delivery')).node.proof, 'unknown');
-  assert.equal((await evidence('delivery')).node.reason, 'consumed inputs unknown');
+  await evidence('delivery', reviewer); assert.equal((await evidence('delivery')).node.proof, 'unknown');
+  await evidence('checker', reviewer); await check(reviewer); assert.equal((await evidence('checker')).node.proof, 'verified', 'authentic failed report is valid input lineage, not upstream PASS');
 });
 
 test('explicit unkept successors preserve outcome history and budget, reject silent replacement and stale replay', async t => {
@@ -349,6 +342,7 @@ test('explicit unkept successors preserve outcome history and budget, reject sil
   await assert.rejects(evidence('maker', next), /GRAPH_NODE_ALREADY_BOUND/);
   await assert.rejects(evidence('maker', next, { attempt: 1, replacesRunId: first, replacesAttempt: 2 }), /GRAPH_NODE_ALREADY_BOUND/);
   await assert.rejects(evidence('maker', 'foreign', { attempt: 1, replacesRunId: first, replacesAttempt: 1 }), /BRIDGE_TARGET_FORBIDDEN/);
+  await f.request('reconcile', { runId: first });
   const replacement = { attempt: 1, replacesRunId: first, replacesAttempt: 1 };
   const changed = (await evidence('maker', next, replacement)).node;
   assert.equal(changed.budget.used, 1); assert.equal(changed.predecessors[0].runId, first);
@@ -358,10 +352,10 @@ test('explicit unkept successors preserve outcome history and budget, reject sil
   assert.equal((await evidence('maker', third, { attempt: 1, replacesRunId: next, replacesAttempt: 1 })).node.budget.used, 2);
   await assert.rejects(evidence('maker', next, replacement), /GRAPH_NODE_ALREADY_BOUND/);
   const fourth = await f.launch(); f.settle('PASS');
-  await assert.rejects(evidence('maker', fourth, { attempt: 1, replacesRunId: third, replacesAttempt: 1 }), /GRAPH_REPAIR_LIMIT/);
+  assert.equal((await evidence('maker', fourth, { attempt: 1, replacesRunId: third, replacesAttempt: 1 })).node.budget.used, 3);
   for (const id of [first, next, third, fourth]) await f.ack(id);
   await f.restart(); const restored = (await evidence('maker')).node;
-  assert.equal(restored.budget.used, 2); assert.equal(restored.historyCount, 2);
+  assert.equal(restored.budget.used, 3); assert.equal(restored.historyCount, 3);
 });
 
 for (const artifact of [null, '', report('IN PROGRESS')]) test(`completed unkept turn with ${artifact === null ? 'missing' : artifact === '' ? 'blank' : 'in-progress'} result permits explicit successor, not invented proof`, async t => {
@@ -369,9 +363,10 @@ for (const artifact of [null, '', report('IN PROGRESS')]) test(`completed unkept
   const first = await f.launch({ role: 'scout' }); await evidence('maker', first);
   if (artifact !== null) writeFileSync(join(f.launches[0].intent.sourceDirectory, 'result.md'), artifact);
   f.launches[0].hooks.settled('done', 'completed turn', 2);
-  const old = await f.request('get', { runId: first }); assert.equal(old.status, 'stalled');
+  const old = await f.request('get', { runId: first }); assert.equal(old.status, 'done');
   const stale = await evidence('checker');
   await f.ack(first); await f.restart();
+  await f.request('reconcile', { runId: first });
   const next = await f.launch({ role: 'scout', keepAlive: true }); f.settle('PASS');
   const captured = (await f.request('get', { runId: next })).result;
   await f.ack(next); await f.restart();
@@ -379,20 +374,21 @@ for (const artifact of [null, '', report('IN PROGRESS')]) test(`completed unkept
   const fenced = await f.request('get', { runId: next });
   assert.equal(fenced.status, 'recovery-required'); assert.equal(fenced.continuation, 'none');
   assert.equal(fenced.result.sha256, captured.sha256); assert.equal(fenced.result.integrity, 'intact');
+  await f.request('reconcile', { runId: first });
   const replacement = { attempt: 1, replacesRunId: first, replacesAttempt: 1 };
   const changed = (await evidence('maker', next, replacement)).node;
   assert.equal(changed.budget.used, 1); assert.equal(changed.predecessors[0].runId, first);
-  assert.equal((await f.request('get', { runId: first })).status, 'stalled');
+  assert.equal((await f.request('get', { runId: first })).executionStatus, 'done');
   assert.equal(changed.historyCount, old.result ? 1 : 0, 'missing reports must not become invented history');
   assert.equal(changed.history[0]?.result.sha256 ?? null, old.result?.sha256 ?? null);
   assert.equal(changed.proof, 'unknown'); assert.equal(changed.result.sha256, captured.sha256);
   assert.equal((await evidence('maker', next, replacement)).node.budget.used, 1);
-  if (!old.result) await assert.rejects(f.launch({ role: 'checker', prompt: stale.prompt }), /GRAPH_INPUT_MISSING_OR_CHANGED/);
+  if (!old.result) { const staleRun = await f.launch({ role: 'checker', prompt: stale.prompt }); f.settle('PASS'); assert.equal((await f.request('get', { runId: staleRun })).consumedInputs[0].evidenceStatus, 'stale'); }
   const supplied = await evidence('checker');
   const downstream = await f.launch({ role: 'checker', prompt: supplied.prompt }); f.settle('PASS');
   const consumed = (await f.request('get', { runId: downstream })).consumedInputs[0].inputs[0];
   assert.equal(consumed.runId, next); assert.equal(consumed.result, captured.sha256);
-  assert.equal(f.launches.length, 3, 'restart and successor binding never re-execute the inventory');
+  assert.equal(f.launches.filter(call => call.intent.role === 'scout' && !call.hooks.observeOnly).length, 2, 'reconciliation never re-executes inventory');
 });
 
 for (const boundary of ['requires-exit', 'pid', 'newer-observation']) test(`completed stalled turn still respects ${boundary}`, async t => {
@@ -406,9 +402,10 @@ for (const boundary of ['requires-exit', 'pid', 'newer-observation']) test(`comp
     return boundary === 'newer-observation' ? { ...driver, async runtimeObservation() { return { session: 'same-session', generation: 3, state: 'done' }; } } : driver;
   };
   const first = await f.launch({ role: 'scout' }); await evidence('maker', first);
-  assert.equal((await f.request('get', { runId: first })).status, 'stalled');
+  assert.equal((await f.request('get', { runId: first })).executionStatus, 'done');
   const next = await f.launch({ role: 'scout' }); f.settle('PASS');
-  await assert.rejects(evidence('maker', next, { attempt: 1, replacesRunId: first, replacesAttempt: 1 }), /GRAPH_OWNERSHIP_UNRESOLVED/);
+  if (boundary === 'newer-observation') assert.equal((await evidence('maker', next, { attempt: 1, replacesRunId: first, replacesAttempt: 1 })).node.proof, 'unknown');
+  else await assert.rejects(evidence('maker', next, { attempt: 1, replacesRunId: first, replacesAttempt: 1 }), /GRAPH_OWNERSHIP_UNRESOLVED/);
 });
 
 for (const state of ['active', 'cancel-pending', 'kept', 'kept-stalled', 'artifact-blocked', 'stale', 'ambiguous', 'stalled', 'recovery']) test(`succession refuses ${state} ownership`, async t => {
@@ -423,6 +420,7 @@ for (const state of ['active', 'cancel-pending', 'kept', 'kept-stalled', 'artifa
   if (state === 'stale') await f.launch({ name: first });
   if (state === 'ambiguous') await f.request('graph.evidence', { graph: { ...graph, graphId: 'second' }, node: 'maker', runId: first });
   const next = await f.launch({ role: 'scout' }); f.settle('PASS');
+  if (state === 'artifact-blocked') { assert.equal((await evidence('maker', next, { attempt: 1, replacesRunId: first, replacesAttempt: 1 })).node.proof, 'unknown'); return; }
   await assert.rejects(evidence('maker', next, { attempt: 1, replacesRunId: first, replacesAttempt: 1 }), state === 'stale' ? /ATTEMPT_MISMATCH/ : state === 'ambiguous' ? /GRAPH_OWNERSHIP_AMBIGUOUS/ : /GRAPH_OWNERSHIP_UNRESOLVED/);
 });
 
@@ -433,10 +431,10 @@ test('blocked reply admission records a fresh supplied snapshot without spending
   await f.launch({ name: maker }); f.settle('PASS'); await evidence('maker', maker);
   const supplied = await evidence('checker');
   await f.launch({ name: reviewer, prompt: supplied.prompt });
-  assert.equal((await f.request('get', { runId: reviewer })).consumedInputs[0].inputs[0].attempt, 2);
+  assert.equal((await f.request('get', { runId: reviewer })).consumedInputs.at(-1).inputs[0].attempt, 2);
   f.settle('PASS'); await evidence('checker', reviewer); await check(reviewer);
   const current = (await evidence('checker')).node;
-  assert.equal(current.proof, 'verified'); assert.equal(current.budget.used, 0);
+  assert.equal(current.proof, 'verified'); assert.equal(current.budget.used, 1);
 });
 
 test('literal graph-token syntax in report data cannot become a second admission marker', async t => {
@@ -448,7 +446,8 @@ test('literal graph-token syntax in report data cannot become a second admission
   const supplied = await evidence('checker');
   const reviewer = await f.launch({ role: 'checker', prompt: supplied.prompt }); f.settle('PASS');
   assert.equal((await evidence('checker', reviewer)).node.consumedInputs[0].runId, maker);
-  await assert.rejects(f.launch({ role: 'checker', prompt: `${supplied.prompt}\n[advisor-input:${'0'.repeat(64)}]` }), /GRAPH_INPUT_INVALID/);
+  const mixed = await f.launch({ role: 'checker', prompt: `${supplied.prompt}\n[advisor-input:${'0'.repeat(64)}]` }); f.settle('PASS');
+  assert.equal((await f.request('get', { runId: mixed })).consumedInputs.at(-1).evidenceStatus, 'unknown');
   const ordinary = await f.launch({ prompt: 'Explain the literal [advisor-input:example] notation without graph work.' }); f.settle('PASS');
   assert.deepEqual((await f.request('get', { runId: ordinary })).consumedInputs, []);
 });

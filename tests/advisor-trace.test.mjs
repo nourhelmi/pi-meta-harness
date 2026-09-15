@@ -153,14 +153,14 @@ test("the CLI exits 0 on a valid fixture and 1 with named problems on a broken t
   assert.match(ok.stdout, /^ok: 7 event\(s\)/);
 
   const events = await fixture(DONE);
-  const broken = events.filter((event) => event.type !== "node.result.validated").map((event, index) => ({ ...event, seq: index + 1 }));
+  const broken = events.filter((event) => event.type !== "node.result.written").map((event, index) => ({ ...event, seq: index + 1 }));
   const dir = await mkdtemp(join(tmpdir(), "advisor-trace-"));
   try {
     const path = join(dir, "broken.jsonl");
     await writeFile(path, `${broken.map((event) => JSON.stringify(event)).join("\n")}\n`);
     const bad = await run(process.execPath, [CLI, "validate", path]).catch((error) => error);
     assert.equal(bad.code, 1);
-    assert.match(bad.stdout, /E_SETTLE seq 5/);
+    assert.match(bad.stdout, /E_RESULT_ORDER seq 4/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -280,15 +280,15 @@ test("structural rules each reject a specific mutation with their own code", asy
   relaunch.splice(3, 0, { ...relaunch[1] });
   expectCode(check(reseq(relaunch)), RULE_CODES.ORDER);
 
-  // graph planning is unique and precedes launches; waves are contiguous and gated
+  // Plan revisions reset schedule metadata; node history and wave ordering remain structural.
   const secondPlan = clone(graph);
   secondPlan.splice(2, 0, { ...secondPlan[1] });
-  expectCode(check(reseq(secondPlan)), RULE_CODES.GRAPH);
+  assert.deepEqual(check(reseq(secondPlan)), { ok: true, problems: [] });
   const latePlan = clone(graph);
   const plan = latePlan.splice(1, 1)[0];
   latePlan.splice(4, 0, plan);
   for (const event of latePlan) event.at = "2026-09-05T10:00:00.000Z";
-  expectCode(check(reseq(latePlan)), RULE_CODES.GRAPH);
+  expectCode(check(reseq(latePlan)), RULE_CODES.WAVE);
   const earlyWaveTwo = reseq(graph.filter((event) => !(event.type === "wave.completed" && event.data.wave === 1)));
   expectCode(check(earlyWaveTwo), RULE_CODES.WAVE);
   const unsettledWave = clone(graph);
@@ -334,12 +334,12 @@ test("structural rules each reject a specific mutation with their own code", asy
   delete validWithoutStatus[4].data.status;
   expectCode(check(validWithoutStatus), RULE_CODES.RESULT_ORDER);
 
-  // done and blocked settlements require a prior valid validation
+  // Execution settlement is independent of report availability and validity.
   const noValidation = reseq(done.filter((event) => event.type !== "node.result.validated"));
-  expectCode(check(noValidation), RULE_CODES.SETTLE);
+  assert.deepEqual(check(noValidation), { ok: true, problems: [] });
   const invalidResult = clone(done);
   invalidResult[4].data = { path: invalidResult[4].data.path, valid: false, problems: ["Claims section is empty"] };
-  expectCode(check(invalidResult), RULE_CODES.SETTLE);
+  assert.deepEqual(check(invalidResult), { ok: true, problems: [] });
   const stalled = clone(invalidResult);
   stalled[5].data = { status: "stalled", reason: "result artifact is invalid" };
   stalled[6].data.childStatus = "stalled";

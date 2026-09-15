@@ -28,7 +28,7 @@ export function readChildGrant(stateRoot, cwd) {
   fields(grant.authority, ['token']);
   demand(grant.v === 2 && grant.family.v === 1 && /^[a-f0-9]{32}$/.test(grant.family.id) && /^[a-f0-9]{64}$/.test(grant.authority.token), 'PI_DETACH_CHILD_GRANT_MISMATCH');
   text(grant.parent.sessionId, 256); text(grant.family.workstream, 128); integer(grant.issuedAttempt, 1);
-  demand(Array.isArray(grant.allowedRoots) && grant.allowedRoots.length > 0 && grant.allowedRoots.length <= 64 && grant.allowedRoots.every(root => realpathSync(root) === root), 'PI_DETACH_CHILD_GRANT_MISMATCH');
+  demand(Array.isArray(grant.allowedRoots) && grant.allowedRoots.length > 0 && grant.allowedRoots.every(root => typeof root === 'string' && root.startsWith('/') && (!existsSync(root) || realpathSync(root) === root)), 'PI_DETACH_CHILD_GRANT_MISMATCH');
   demand(grant.cwd === realpathSync(cwd) && grant.allowedRoots.includes(grant.cwd) && grant.stateRoot === stateRoot && stateRoot === childStatePath(grant.family.rootStateRoot, grant.parent.stateRoot, grant.parent.scope.run), 'PI_DETACH_CHILD_GRANT_MISMATCH');
   for (const path of [stateRoot, grant.parent.stateRoot, grant.family.rootStateRoot]) disjointControlPath(path, grant.allowedRoots);
   demand(Buffer.byteLength(join(stateRoot, 'runtime.sock')) <= 100, 'SOCKET_PATH_TOO_LONG');

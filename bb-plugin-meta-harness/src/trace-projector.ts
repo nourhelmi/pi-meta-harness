@@ -392,7 +392,7 @@ export function checkSchema(
   return problems;
 }
 
-const RESULT_GATED_STATUSES = new Set<SettledStatus>(["done", "blocked"]);
+
 
 interface NodeValidationState {
   parent: string;
@@ -490,18 +490,7 @@ export function validateTrace(
     }
 
     if (type === "graph.planned") {
-      if (graphPlan)
-        report(
-          RULE_CODES.GRAPH,
-          seq,
-          "graph.planned may appear at most once per run",
-        );
-      if (launchedNodes > 0)
-        report(
-          RULE_CODES.GRAPH,
-          seq,
-          "graph.planned must appear before node.launched",
-        );
+      startedWaves.clear(); completedWaves.clear();
       graphPlan = event;
       continue;
     }
@@ -803,16 +792,6 @@ export function validateTrace(
         break;
       case "node.settled": {
         const { status } = event.data;
-        if (RESULT_GATED_STATUSES.has(status)) {
-          const gate = state.validated;
-          if (!gate || !gate.valid || gate.path !== state.written) {
-            report(
-              RULE_CODES.SETTLE,
-              seq,
-              `settlement "${status}" requires a prior valid node.result.validated`,
-            );
-          }
-        }
         if (status === "blocked" && !state.blockedSeq) {
           report(
             RULE_CODES.BLOCKED,

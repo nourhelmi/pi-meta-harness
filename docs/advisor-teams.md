@@ -70,12 +70,10 @@ missing capabilities rather than silently switching lanes. See [native skills](n
 6. `team_manage {action:"assign",to,assignmentId,task,acceptance,riskTier}` grants a
    **genuinely distinct accepted outcome** after prior ownership settles. It retains the
    session and all prior contracts/results/input lineage. Existing `bg_agent {name,prompt}`
-   remains same-outcome repair, retaining the original graph repair history. A new label
-   is not permission to evade exhausted repair or user limits. New outcomes still consume
-   cumulative explicit family accounting. Each accepted assignment binds at most one
-   graph outcome; use a distinct outcome node for new work. Prior graph bindings keep
-   their frozen contracts, proof locators and repair windows, never borrow current proof.
-   The existing graph API binds new evidence, not a second team proof store.
+   remains same-outcome repair with attributable history. New assignments preserve
+   prior contracts/results without inheriting unrelated current proof. Accounting
+   and repair history do not impose lifetime quotas. Optional graph associations
+   record context; they do not grant execution or write authority.
 7. `team_manage {action:"retire",to}` revokes membership and seals child admissions first.
    It stays `retiring` while relevant descendants are active or unknown. After actual
    settlements retry retirement; an exact retry can complete closure. Existing `bg_stop`
@@ -92,11 +90,10 @@ The canonical root file includes a bounded `Team projection` refreshed on releva
 results and checkpoint reads. It is an attributable runtime snapshot, not live liveness or
 another scheduler. It shows session/run/assignment, role/write surface, requested/observed
 identity, evidence locator, status and next action. Only the first 32 members are projected;
-`team_status` retains the full roster. The durable roster and messages share a 16 MiB team-state
-envelope; each command envelope is limited to 32 KiB, each response to 1 MiB, and message text to
-16 KiB. Status returns the latest 128 messages with a 1 KiB UTF-8 preview. These projection limits
-are not staffing or conversation quotas. Retired history is preserved; exhausting a byte envelope
-fails explicitly rather than evicting it.
+`team_status` retains the full roster and attributable history. Message previews
+and checkpoint projections are presentation choices, not semantic message byte
+ceilings, staffing quotas or permission to evict history. Large records remain
+retrievable without forcing the advisor to consume them all at once.
 
 ## Canonical state in every host
 

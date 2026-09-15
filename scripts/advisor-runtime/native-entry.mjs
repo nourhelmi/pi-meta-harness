@@ -41,7 +41,7 @@ export async function verifyCodexConfiguration(config, { cwd, env, spawnProcess 
   const child = spawnProcess('codex', ['app-server', '--stdio', '--strict-config', ...configArgs(config)], { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
   let bytes = 0;
   const session = { limits: NATIVE_LIMITS, failed: false,
-    count(value) { bytes += Buffer.byteLength(value); demand(bytes <= NATIVE_LIMITS.bytes, 'NATIVE_OUTPUT_BOUND'); },
+    count(value) { bytes += Buffer.byteLength(value);  },
     fail() { this.failed = true; child.kill('SIGTERM'); },
     guarded(fn) { try { return fn(); } catch { this.fail(); } }, exited() {} };
   const wire = new CodexWire(child, session); wire.onMessage = message => {

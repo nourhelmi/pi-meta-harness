@@ -4,13 +4,12 @@ import { childWorkSettled, closeChildService } from '../pi-detach-bootstrap.mjs'
 import { readChildGrant } from '../child-scope.mjs';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { atomicWrite, boundedRead, demand, privateDirectory } from '../security.mjs';
+import { atomicWrite, artifactRead, demand, privateDirectory } from '../security.mjs';
 
 /** Copy the worker's own result bytes into the runtime-owned artifact. Missing/unreadable bytes never inherit a prior attempt. */
 function captureResult(intent, context) {
   try {
-    const captured = boundedRead(intent.sourceDirectory, 'result.md', 65536);
-    demand(captured.eof, 'RESULT_TOO_LARGE');
+    const captured = artifactRead(intent.sourceDirectory, 'result.md');
     atomicWrite(context.resultPath, captured.text);
     return validateResultArtifact(captured.text);
   } catch {
@@ -29,12 +28,13 @@ export function createPiDetachAdapter(port) {
       demand(!handle || live?.handle.id === handle.id, 'BRIDGE_HANDLE_MISMATCH');
       return live ? (await live.driver.readLive(400)).slice(-32768) : null;
     },
-    capabilities: { 'node.launch': true, 'node.reply': true, 'node.task': true, 'node.cancel': true, 'team.assign': true, 'team.message': true },
+    capabilities: { 'node.launch': true, 'node.reply': true, 'node.task': true, 'node.cancel': true, 'team.assign': true, 'team.message': true, 'node.message': true, 'node.reconcile': true },
     async execute({ effect, handle, context, recordHandle, emit }) {
       const key = `${effect.scope.run}/${effect.scope.node}`;
-      if (effect.op === 'team.message') {
+      if (['team.message', 'node.message'].includes(effect.op)) {
         const live = sessions.get(key);
-        demand(live && live.handle.id === handle.id && typeof live.driver.message === 'function', 'BRIDGE_HANDLE_MISMATCH');
+        demand(live && live.handle.id === handle.id, 'BRIDGE_HANDLE_MISMATCH');
+        if (typeof live.driver.message !== 'function') return { accepted: true, delivery: { status: 'rejected', session: handle.session, generation: effect.payload.target.generation, state: 'unsupported' } };
         context.assertActive();
         const delivery = await live.driver.message({ text: effect.payload.text, target: effect.payload.target });
         return { accepted: true, delivery };
@@ -44,12 +44,12 @@ export function createPiDetachAdapter(port) {
         demand(live && live.handle.id === handle.id, 'BRIDGE_HANDLE_MISMATCH');
         context.assertActive();
         const childState = live.intent.environment.ADVISOR_BRIDGE_CHILD_STATE;
-        if (childState) await context.cancelChildren(childState);
         // Escape is the only input. The node stays cancel-pending until Herdr
         // shows the same occupant settled afterwards; process exit stays unclaimed.
         let cancelled = false;
         await live.driver.interrupt({
-          settled(state, output, generation) {
+          async beforeInterrupt() { if (childState) await context.cancelChildren(childState); },
+          settled(state, output, generation, providerSession) {
             context.assertActive();
             if (cancelled) return;
             context.assertSettlement(live.handle.id, generation, true);
@@ -68,16 +68,19 @@ export function createPiDetachAdapter(port) {
         return { accepted: true };
       }
       const prior = sessions.get(key);
-      const intent = effect.op === 'node.launch' ? effect.payload.packet.execution : prior?.intent;
+      const reconciling = effect.op === 'node.reconcile';
+      let intent = effect.op === 'node.launch' || reconciling ? effect.payload.packet.execution : prior?.intent;
+      if (intent && context.execution) intent = { ...intent, keepAlive: context.execution.keepAlive };
       demand(intent?.v === 1 && intent.sourceDirectory === join(context.artifactDirectory, 'source'), 'BRIDGE_INTENT_MISMATCH');
-      demand(effect.op === 'node.launch' ? !prior : prior && prior.handle.id === handle.id, 'BRIDGE_HANDLE_MISMATCH');
+      demand(effect.op === 'node.launch' ? !prior : reconciling ? Boolean(handle) : prior && prior.handle.id === handle.id, 'BRIDGE_HANDLE_MISMATCH');
       privateDirectory(intent.sourceDirectory);
       // Every admitted attempt owns fresh capture bytes. A reply that does not
-      // rewrite its artifact must stall, never inherit the prior BLOCKED result.
+      // rewrite its report has no report, never inherits the prior attempt's report.
+      const childState = intent.environment.ADVISOR_BRIDGE_CHILD_STATE;
+      if (!reconciling) {
       atomicWrite(join(intent.sourceDirectory, 'result.md'), '');
       atomicWrite(join(context.artifactDirectory, "output.log"), "");
       atomicWrite(join(context.artifactDirectory, 'request.json'), JSON.stringify(effect.op === 'node.reply' ? { id: effect.payload.requestId, answered: true } : {}));
-      const childState = intent.environment.ADVISOR_BRIDGE_CHILD_STATE;
       if (childState) {
         const expected = await context.reserveChild();
         demand(childState === expected.stateRoot, 'BRIDGE_CHILD_SCOPE_MISMATCH');
@@ -86,40 +89,47 @@ export function createPiDetachAdapter(port) {
         if (!existsSync(grant)) writeFileSync(grant, JSON.stringify(expected), { flag: 'wx', mode: 0o600 });
         demand(canonicalJson(readChildGrant(childState, context.cwd)) === canonicalJson(expected), 'PI_DETACH_CHILD_GRANT_MISMATCH');
       }
+      }
       let boundHandle; let settlement;
       const driver = await port.launch({ id: effect.scope.run, cwd: context.cwd, intent,
-        ...(effect.op !== 'node.launch' ? { reply: effect.payload.text } : {}),
+        ...(effect.op !== 'node.launch' && !reconciling ? { reply: effect.payload.text } : {}),
         hooks: {
           ...(handle ? { expectedHandle: handle, expectedGeneration: effect.executionObservation?.generation } : {}),
           assertActive: context.assertActive,
+          ...(reconciling ? { observeOnly: true, completed: effect.payload.completed || effect.payload.uncertainInput, expectedProviderSession: effect.payload.providerSession } : {}),
           ...(childState ? { childrenSettled: () => childWorkSettled(childState) } : {}),
           recordHandle(value) { recordHandle(value); boundHandle = value; },
           recoveryRequired: context.recoveryRequired,
-          settled(state, output, generation) {
+          settled(state, output, generation, providerSession) {
             context.assertActive();
             if (settlement) return settlement;
+            if (reconciling && (effect.payload.completed || effect.payload.uncertainInput)) {
+              context.observeSession({ session: boundHandle.session, generation, state, ...(providerSession ? { providerSession } : {}) });
+              return settlement = { terminal: ['done', 'idle'].includes(state), close: false };
+            }
             context.assertSettlement(boundHandle?.id, generation);
             atomicWrite(join(context.artifactDirectory, 'output.log'), output.slice(-32768));
             const validation = captureResult(intent, context);
             // Actual terminal UI blocking has no typed safe reply. Artifact
             // BLOCKED from a settled turn is classified by the core itself.
             emit({ id: `${effect.id}-settled`, kind: 'settled', attempt: effect.attempt, data: {
-              observation: { handleId: boundHandle.id, generation },
+              observation: { handleId: boundHandle.id, generation, ...(providerSession ? { providerSession } : {}) },
               status: state === 'done' || state === 'idle' ? /^FAIL(?:ED)?\b/i.test(validation?.status ?? '') ? 'failed' : 'done' : 'stalled',
               reason: state === 'blocked' ? 'Herdr UI requires direct inspection; typed reply unavailable' : 'Herdr turn settled; authoritative result captured', verified: false,
             } });
-            const terminal = Boolean(['done', 'idle'].includes(state) && validation?.valid && validation.classification === 'terminal');
+            const terminal = ['done', 'idle'].includes(state);
             // A finished, not-kept advisor no longer needs its reserved child service.
-            // Refusal (active or unacknowledged child work) is retried at parent shutdown.
+            // Refusal (active or uncertain child work) is retried at parent shutdown.
             if (terminal && !intent.keepAlive && childState) void closeChildService(childState).catch(() => {});
             return settlement = {
-              terminal: !(['done', 'idle'].includes(state) && validation?.valid && validation.classification === 'blocked'),
-              close: terminal && !/^FAIL(?:ED)?\b/i.test(validation.status ?? ''),
+              terminal: terminal,
+              close: terminal && !/^FAIL(?:ED)?\b/i.test(validation?.status ?? ''),
             };
           },
         },
       });
       demand(boundHandle, 'HANDLE_REQUIRED');
+      prior?.driver.detach?.();
       sessions.set(key, { intent, handle: boundHandle, driver });
       const observation = typeof driver.runtimeObservation === 'function' ? await driver.runtimeObservation() : null;
       return { accepted: true, ...(observation ? { observation } : {}) };

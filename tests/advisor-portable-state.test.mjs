@@ -131,3 +131,12 @@ test('malformed metadata never falls back and competing same-owner CAS processes
   assert.equal(readAdvisorCheckpoint(request).content, winner.content);
   assert.equal(readAdvisorCheckpoint(request).mode, 'cos');
 });
+
+test('checkpoint content above the former ceiling survives guarded writes and reads', t => {
+  const f = fixture(t); const original = claimAdvisorCheckpoint(f.request);
+  const content = original.content + '\n' + 'full attributed evidence\n'.repeat(12000);
+  const updated = updateAdvisorCheckpoint({ ...f.request, content, expectedDigest: original.digest });
+  assert.equal(readAdvisorCheckpoint(f.request).content, content);
+  assert.equal(updated.content, content);
+  assert.throws(() => updateAdvisorCheckpoint({ ...f.request, content, expectedDigest: original.digest }), /Stale/);
+});

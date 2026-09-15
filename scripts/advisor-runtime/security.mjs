@@ -46,7 +46,7 @@ export function safeFile(path) {
 }
 export function boundedRead(root, name, maxBytes = 65536, offset = 0) {
   demand(typeof name === 'string' && name.length > 0 && !isAbsolute(name) && !name.split(/[\\/]/).some(p => p === '..' || p === '.' || !p), 'PATH_FORBIDDEN');
-  demand(Number.isSafeInteger(maxBytes) && maxBytes > 0 && maxBytes <= 65536 && Number.isSafeInteger(offset) && offset >= 0 && offset <= 1048576, 'READ_BOUNDS');
+  demand((maxBytes === null || Number.isSafeInteger(maxBytes) && maxBytes > 0 && maxBytes <= 65536) && Number.isSafeInteger(offset) && offset >= 0, 'READ_BOUNDS');
   const path = resolve(root, name);
   demand(within(root, path), 'PATH_FORBIDDEN');
   demand(realpathSync(root) === resolve(root) && !lstatSync(root).isSymbolicLink(), 'SYMLINK_PATH');
@@ -61,10 +61,16 @@ export function boundedRead(root, name, maxBytes = 65536, offset = 0) {
     const currentStat = lstatSync(path);
     demand(realpathSync(root) === resolve(root) && realpathSync(path) === path && currentStat.ino === stat.ino && currentStat.dev === stat.dev, 'PATH_CHANGED');
     demand(stat.isFile() && stat.nlink === 1, 'UNSAFE_FILE');
+    if (maxBytes === null) { const text = readFileSync(fd, 'utf8'); return { text, bytes: Buffer.byteLength(text), nextOffset: stat.size, eof: true }; }
     const bytes = Buffer.alloc(maxBytes);
     const length = readSync(fd, bytes, 0, maxBytes, offset);
     return { text: bytes.subarray(0, length).toString('utf8'), bytes: length, nextOffset: offset + length, eof: offset + length >= stat.size };
   } finally { closeSync(fd); }
+}
+
+/** Full artifact read through a single checked descriptor; no semantic result ceiling. */
+export function artifactRead(root, name) {
+  return boundedRead(root, name, null);
 }
 
 function readOwner(path) {

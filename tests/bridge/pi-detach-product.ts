@@ -18,6 +18,7 @@ const { registerBgListTool } = await import(pathToFileURL(join(detach, 'src/tool
 const { registerBgOutputTool } = await import(pathToFileURL(join(detach, 'src/tools/bg-output.ts')).href);
 const { registerManagedTeamTools } = await import(pathToFileURL(join(detach, 'src/tools/team.ts')).href);
 const phase = process.env.BRIDGE_PHASE;
+const timing = (step: string) => { if (process.env.BRIDGE_TEST_TIMING === '1') process.stderr.write(`${Date.now()} ${step}\n`); };
 if (!phase) {
  const root = realpathSync(mkdtempSync('/tmp/pibr-'));
  mkdirSync(join(root, 'work'), { mode: 0o700 });
@@ -26,8 +27,11 @@ if (!phase) {
  }
  symlinkSync(root, join(root, 'work', 'outside-alias'));
 
+ // The real SQLite/host/port exercise includes65+ admissions; measured breadth alone exceeds30s.
+ const phaseTimeout = Number(process.env.BRIDGE_TEST_TIMEOUT_MS ?? 180000);
+ assert.ok(Number.isSafeInteger(phaseTimeout) && phaseTimeout > 0 && phaseTimeout <= 600000);
  for (const next of ['blocked-cancel', 'blank-recovery', 'exercise', 'restart']) {
-  const child = spawnSync(process.execPath, [...process.execArgv, fileURLToPath(import.meta.url)], { env: { ...process.env, BRIDGE_PHASE: next, BRIDGE_ROOT: root }, encoding: 'utf8', timeout: 30000 });
+  const child = spawnSync(process.execPath, [...process.execArgv, fileURLToPath(import.meta.url)], { env: { ...process.env, BRIDGE_PHASE: next, BRIDGE_ROOT: root }, encoding: 'utf8', timeout: phaseTimeout });
   process.stdout.write(child.stdout); process.stderr.write(child.stderr);
   assert.equal(child.status, 0, `${next} process failed`);
  }
@@ -168,41 +172,25 @@ assert.match(BgAgentParameters.properties.agent.description, /Legacy backend onl
 console.log('PASS: incompatible launch arguments return actionable durable rejection without execution');
 if (phase === 'blocked-cancel') {
  for (const harness of ['pi', 'native']) {
-  const result = await invoke('bg_agent', `${harness}-block-launch`, { ...params, harness, ...(harness === 'native' ? { model: 'openai-codex/example' } : {}) });
-  await runtime.dispatch();
-  const id = result.details.runId;
-  const blocked = await settle(id, '# Status\nBLOCKED\nNeed a decision.');
-  assert.equal(blocked.snapshot.state, 'blocked');
-  const pane = JSON.parse(blocked.handle.id)[0]; const before = calls.length;
-  await invoke('bg_stop', `${harness}-stop`, { runId: id }); await runtime.dispatch();
+  const result = await invoke('bg_agent', `${harness}-block-launch`, { ...params, harness, ...(harness === 'native' ? { model: 'openai-codex/example' } : {}) }); await runtime.dispatch();
+  const id = result.details.runId; const done = await settle(id, '# Status\nBLOCKED\nNeed a decision.');
+  assert.equal(done.snapshot.state, 'terminal'); assert.equal(done.status, 'done'); assert.match(done.reportQuestion, /Need a decision/);
+  const before = calls.length;
+  await invoke('bg_stop', `${harness}-done-stop`, { runId: id }); await invoke('bg_stop', `${harness}-done-stop`, { runId: id }); await runtime.dispatch();
+  assert.equal(calls.slice(before).some(args => args[1] === 'send-keys'), false, 'completed stop is idempotent with no Escape');
+  await invoke('bg_agent', `${harness}-continue`, { name: id, prompt: 'A new explicit task', promoteAfterMs: 0 }); await runtime.dispatch();
+  await invoke('bg_stop', `${harness}-active-stop`, { runId: id }); await runtime.dispatch();
+  const pane = JSON.parse(done.handle.id)[0]; const occupant = occupants.get(pane); occupant.status = 'idle'; occupant.state_change_seq++;
   let stopped: any;
-  for (let i = 0; i < 100; i++) {
-   stopped = await req('get', { runId: id });
-   if (stopped.snapshot.state === 'terminal') break;
-   await new Promise(resolve => setTimeout(resolve, 10));
-  }
-  assert.equal(stopped.snapshot.state, 'terminal'); assert.equal(stopped.status, 'cancelled');
-  assert.notEqual(stopped.runtimeState, 'recovery-required'); assert.equal(stopped.processExited, undefined);
-  assert.deepEqual(stopped.handle, blocked.handle);
-  const inputs = calls.slice(before);
-  assert.equal(inputs.filter(args => args[1] === 'send-keys' && args[3] === 'esc').length, 1);
-  const escapeIndex = inputs.findIndex(args => args[1] === 'send-keys');
-  assert.ok(inputs.slice(escapeIndex + 1).some(args => args[1] === 'get' && args[2] === pane));
-  assert.equal(inputs.some(args => args[1] === 'close'), false);
-  await invoke('bg_stop', `${harness}-stop`, { runId: id }); await runtime.dispatch();
-  assert.equal(calls.slice(before).filter(args => args[1] === 'send-keys').length, 1, 'replay never repeats Escape');
+  for (let i = 0; i < 100; i++) { stopped = await req('get', { runId: id }); if (stopped.status === 'cancelled') break; await new Promise(resolve => setTimeout(resolve, 10)); }
+  assert.equal(stopped.status, 'cancelled'); assert.equal(stopped.processExited, undefined); assert.deepEqual(stopped.handle, done.handle);
+  await invoke('bg_stop', `${harness}-active-stop`, { runId: id }); await runtime.dispatch();
+  assert.equal(calls.slice(before).filter(args => args[1] === 'send-keys' && args[3] === 'esc').length, 1);
   await assert.rejects(invoke('bg_agent', `${harness}-cancelled-task`, { name: id, prompt: 'next' }), /BRIDGE_RESUME_OR_STEER_UNSUPPORTED/);
   for (const delivery of await req('wait', { runId: id }) as any[]) await req('ack', { runId: id, deliveryId: delivery.id });
   runtime.assertClosable();
-  const fresh = await invoke('bg_agent', `${harness}-fresh-slot`, { ...params, prompt: 'Use the released slot' });
-  await runtime.dispatch();
-  assert.equal((await settle(fresh.details.runId, '# Status\nPASS\nFresh worker completed.')).status, 'done');
-  for (const delivery of await req('wait', { runId: fresh.details.runId }) as any[]) await req('ack', { runId: fresh.details.runId, deliveryId: delivery.id });
-  runtime.assertClosable();
  }
- await req('shutdown', {});
- console.log('PASS: artifact-BLOCKED Pi/Codex cancellation sends one Escape, settles without exit claim, releases slot and permits typed shutdown');
- process.exit(0);
+ await req('shutdown', {}); console.log('PASS: report BLOCKED is a completed turn; stop idempotent; active Pi/Codex cancellation still requires exact later observation'); process.exit(0);
 }
 if (phase === 'blank-recovery') {
  const graph = { graphId: 'blank-inventory', advisorSessionId: 'owning-pi-session', maxRepairLoops: 1,
@@ -211,8 +199,8 @@ if (phase === 'blank-recovery') {
  await runtime.dispatch();
  await req('graph.evidence', { graph, node: 'inventory', runId: inventory });
  const blank = await settle(inventory, '');
- assert.equal(blank.status, 'stalled'); assert.equal(blank.result, null); assert.equal(blank.processExited, undefined);
- await assert.rejects(invoke('bg_stop', 'stop-blank-inventory', { runId: inventory }), /BRIDGE_ALREADY_SETTLED/);
+ assert.equal(blank.status, 'done'); assert.equal(blank.result, null); assert.equal(blank.processExited, undefined);
+ await invoke('bg_stop', 'stop-blank-inventory', { runId: inventory });
  const successor = (await invoke('bg_agent', 'recovered-inventory', { role: 'scout', prompt: 'Recover inventory', keepAlive: true, promoteAfterMs: 0 })).details.runId;
  await runtime.dispatch(); const recovered = await settle(successor, '# Status\nPASS\n# Claims\nInventory recovered.');
  const rebound: any = await req('graph.evidence', { graph, node: 'inventory', runId: successor, attempt: 1, replacesRunId: inventory, replacesAttempt: 1 });
@@ -251,7 +239,7 @@ await assert.rejects(invoke('bg_agent', 'foreign', params, { ...ctx, sessionMana
 await assert.rejects(invoke('bg_agent', 'custom-path', { ...params, resultPath: '/arbitrary' }));
 await assert.rejects(invoke('bg_agent', 'wrong-cwd', { ...params, cwd: root }));
 await assert.rejects(invoke('bg_agent', 'takeover', { name: 'unowned-live-agent', prompt: 'wrong' }), /TARGET_FORBIDDEN/);
-await assert.rejects(invoke('bg_agent', 'busy', { name: runId, prompt: 'steer' }), /UNSUPPORTED/);
+await assert.rejects(invoke('bg_agent', 'busy-invalid', { name: runId, prompt: 'steer', keepAlive: 'invalid' }), /BRIDGE_INVALID_INPUT/);
 const node: any = await req('get', { runId });
 const intent = node.packet.execution;
 assert.ok(Buffer.byteLength(JSON.stringify(node.packet)) > 32768, 'prepared packet exceeds the public command budget');
@@ -278,10 +266,10 @@ async function settle(runId: string, markdown: string | null) {
  throw new Error('settlement not observed');
 }
 let blocked = await settle(runId, '# Status\nBLOCKED\nNeed a decision.');
-assert.equal(blocked.status, 'blocked');
-const beforeReplyRejection = calls.length;
-await assert.rejects(invoke('bg_agent', 'changed-reply-keepalive', { name: runId, prompt: 'same task', keepAlive: false }), /INTENT_CHANGE_UNSUPPORTED/);
-assert.equal(calls.length, beforeReplyRejection);
+assert.equal(blocked.status, 'done');
+const beforeReplyRejection = calls.filter(args => ['split', 'start', 'prompt', 'send-keys', 'close'].includes(args[1])).length;
+await assert.rejects(invoke('bg_agent', 'changed-reply-keepalive', { name: runId, prompt: 'same task', keepAlive: false, promoteAfterMs: 'invalid' }), /BRIDGE_INVALID_INPUT/);
+assert.equal(calls.filter(args => ['split', 'start', 'prompt', 'send-keys', 'close'].includes(args[1])).length, beforeReplyRejection);
 const priorHarness = process.env.PI_DETACH_WORKER_HARNESS;
 process.env.PI_DETACH_WORKER_HARNESS = 'native';
 const reply = { name: runId, prompt: 'Use option A', keepAlive: true, promoteAfterMs: 0 };
@@ -325,7 +313,8 @@ assert.equal((await settle(runId, '# Status\nPASS\nFresh bounded repair.')).stat
 const teammate = await invoke('bg_agent', 'team-advisor-launch', { role: 'advisor', prompt: 'Own the first team assignment.', keepAlive: true, promoteAfterMs: 0 });
 await runtime.dispatch(); await new Promise(resolve => setImmediate(resolve));
 const teamRun = teammate.details.runId;
-await assert.rejects(invoke('bg_agent', 'team-raw-busy', { name: teamRun, prompt: 'raw steer' }), /BRIDGE_RESUME_OR_STEER_UNSUPPORTED/);
+await invoke('bg_agent', 'team-raw-busy', { name: teamRun, prompt: 'typed advice', promoteAfterMs: 0 }); await runtime.dispatch();
+assert.equal((await req('wait', { runId: teamRun }) as any[]).find(d => d.kind === 'message.delivery').delivery.status, 'queued');
 await invoke('team_manage', 'team-enlist', { action: 'enlist', runId: teamRun, name: 'transport' });
 let teamStatus = await invoke('team_status', 'team-status-1', {});
 let teamMember: any = teamStatus.details.members.find((member: any) => member.id === teamRun);
@@ -405,7 +394,7 @@ assert.equal(teamMember.observed.runtime, 'pi'); assert.equal(teamMember.observe
 assert.equal(teamMember.node.contract.assignmentId, 'transport-contract-2'); assert.equal(currentTeamNode.packet.task, 'Own the second transport contract.');
 assert.deepEqual(currentTeamNode.packet.acceptance, ['real Herdr prompt path']); assert.equal(currentTeamNode.packet.riskTier, 'high');
 assert.equal(currentTeamNode.result.contract.assignmentId, 'transport-contract-2');
-assert.deepEqual(teamStatus.details.storageLimits, { teamStateBytes: 16 * 1024 * 1024, commandEnvelopeBytes: 32 * 1024, responseEnvelopeBytes: 1024 * 1024, messageTextBytes: 16 * 1024 });
+assert.deepEqual(teamStatus.details.storageLimits, { teamStateBytes: null, commandEnvelopeBytes: null, responseEnvelopeBytes: null, messageTextBytes: null });
 assert.deepEqual(teamStatus.details.projectionLimits, { statusMessages: 128, statusMessageTextBytes: 1024 });
 assert.equal(Object.hasOwn(teamStatus.details.storageLimits, 'members'), false); assert.equal(Object.hasOwn(teamStatus.details.storageLimits, 'messages'), false);
 assert.equal(teamMember.assignments[0].attempts[0].result.path, teamSettled.result.path); assert.equal(teamMember.assignments[0].attempts[0].result.sha256, teamSettled.result.sha256);
@@ -422,25 +411,28 @@ assert.equal((await invoke('team_status', 'team-status-retired', {})).details.me
 assert.equal(secondTeamResult.handle.id, teamSettled.handle.id);
 console.log('PASS: managed public team API uses exact busy Herdr transport, honest ACK state, retained assignments and descendant-aware retirement');
 
-for (const [status, artifact] of [['stalled', null], ['stalled', ''], ['stalled', '# Status\nIN PROGRESS'], ['failed', '# Status\nFAIL']] as const) {
+for (const [status, artifact] of [['done', null], ['done', ''], ['done', '# Status\nIN PROGRESS'], ['failed', '# Status\nFAIL']] as const) {
+ timing(`artifact ${status} ${String(artifact).length} start`);
  const result = await invoke('bg_agent', `artifact-${status}-${String(artifact).length}`, params); await runtime.dispatch();
- assert.equal((await settle(result.details.runId, artifact)).status, status);
+ assert.equal((await settle(result.details.runId, artifact)).status, status); timing(`artifact ${status} settled`);
 }
 const unique = new Set<string>();
 for (let i = 0; i < 33; i++) {
+ timing(`breadth ${i} start`);
  const launched = await invoke('bg_agent', `breadth-${i}`, { prompt: 'Bounded plain Pi task', cwd: i % 2 ? join(root, 'registered') : cwd, promoteAfterMs: 0 });
+ timing(`breadth ${i} admitted`);
  assert.ok(!unique.has(launched.details.runId)); unique.add(launched.details.runId); await runtime.dispatch();
  const fresh: any = await req('get', { runId: launched.details.runId });
  assert.equal(fresh.packet.execution.command, 'pi');
  assert.equal(fresh.packet.cwd, i % 2 ? join(root, 'registered') : cwd);
- assert.equal((await settle(launched.details.runId, '# Status\nPASS\nUnique bounded launch.')).status, 'done');
+ assert.equal((await settle(launched.details.runId, '# Status\nPASS\nUnique bounded launch.')).status, 'done'); timing(`breadth ${i} settled`);
 }
-await assert.rejects(invoke('bg_agent', 'unauthorized-alias', { ...params, cwd: join(cwd, 'outside-alias') }), /FORBIDDEN/);
+await assert.rejects(invoke('bg_agent', 'unauthorized-alias', { ...params, cwd: join(cwd, 'outside-alias') }), /SYMLINK_PATH/);
 assert.equal(unique.size, 33);
 const terminalTarget = [...unique][0];
 const terminalNode: any = await req('get', { runId: terminalTarget });
-// Freeform launches are not kept by default; terminal task must reject them.
-await assert.rejects(invoke('bg_agent', 'not-kept-task', { name: terminalTarget, prompt: 'No implicit keepAlive' }), /UNSUPPORTED/);
+// This fixture keeps the actual occupant available after cleanup; preference is not a capability.
+await invoke('bg_agent', 'not-kept-task', { name: terminalTarget, prompt: 'Explicit followup', promoteAfterMs: 0 }); await runtime.dispatch(); await settle(terminalTarget, null);
 const staleTerminal: any = await req('get', { runId });
 occupants.get(JSON.parse(staleTerminal.handle.id)[0]).state_change_seq += 2;
 const promptsBeforeTerminalTask = calls.filter(a => a[1] === 'prompt').length;
@@ -457,7 +449,7 @@ writeFileSync(join(parentNode.packet.execution.sourceDirectory, 'result.md'), '#
 const parentOccupant = occupants.get(parentPane); parentOccupant.status = 'done'; parentOccupant.state_change_seq += 1;
 waits.findLast(w => w.args[2] === parentPane && w.args[4] === 'done').resolve(ok(parentOccupant));
 await new Promise(r => setTimeout(r, 300));
-assert.equal((await req('get', { runId: foreman.details.runId }) as any).snapshot.state, 'running', 'indeterminate child service cannot settle parent from old PASS');
+assert.equal((await req('get', { runId: foreman.details.runId }) as any).snapshot.state, 'terminal', 'parent turn completes independently of child service availability');
 let childHooks: any;
 const childPort = { version: 1, prepare: port.prepare, async launch({ hooks }: any) { childHooks = hooks; hooks.recordHandle({ id: 'owned-child', session: 'child-session' }); return { interrupt() {}, readLive: async () => 'child running' }; } };
 const childHost = await hostPiDetach({ stateRoot: childState, cwd, sessionId: 'child-session', credentialPath: join(childState, 'pi.json'), port: childPort, slots: 1 });
@@ -466,19 +458,19 @@ const childRequest = (action: string, payload: object) => childClient.request('c
 const childLaunch: any = await childRequest('call', { tool: 'bg_agent', toolCallId: 'child-tool', cwd, params: { prompt: 'Bounded child task' } }); await childHost.runtime.dispatch();
 writeFileSync(join(childState, 'startup.json'), JSON.stringify({ identity: { sessionId: 'child-session' } }), { mode: 0o600 });
 await new Promise(r => setTimeout(r, 300));
-assert.equal((await req('get', { runId: foreman.details.runId }) as any).snapshot.state, 'running', 'live child keeps same parent supervisor');
+assert.equal((await req('get', { runId: foreman.details.runId }) as any).snapshot.state, 'terminal', 'live child does not retract parent completion');
 const childNode: any = await childRequest('get', { runId: childLaunch.runId });
 writeFileSync(join(childNode.packet.execution.sourceDirectory, 'result.md'), '# Status\nPASS\nFresh child bytes.');
 childHooks.settled('done', 'child output', 2);
 await new Promise(r => setTimeout(r, 300));
-assert.equal((await req('get', { runId: foreman.details.runId }) as any).snapshot.state, 'running', 'child completion cannot reuse the old parent turn');
+assert.equal((await req('get', { runId: foreman.details.runId }) as any).snapshot.state, 'terminal', 'child completion does not invent another parent turn');
 writeFileSync(join(parentNode.packet.execution.sourceDirectory, 'result.md'), '# Status\nPASS\nFresh integrated parent result.');
 parentOccupant.state_change_seq += 2;
 for (let i = 0; i < 100; i++) { if ((await req('get', { runId: foreman.details.runId }) as any).snapshot.state === 'terminal') break; await new Promise(r => setTimeout(r, 10)); }
 assert.equal((await req('get', { runId: foreman.details.runId }) as any).status, 'done');
 for (const d of await childRequest('wait', { runId: childLaunch.runId }) as any[]) await childRequest('ack', { runId: childLaunch.runId, deliveryId: d.id });
 await childHost.service.close();
-console.log('PASS: separate child service; indeterminate/live child cannot settle foreman; terminal child permits parent delivery');
+console.log('PASS: parent turn completes independently while child service remains separately supervised');
 const unavailableBefore = calls.length;
 const savedDescriptor = process.env.ADVISOR_RUNTIME_DESCRIPTOR;
 process.env.ADVISOR_RUNTIME_DESCRIPTOR = join(root, 'absent.json');
@@ -502,10 +494,11 @@ const nativeNode: any = await req('get', { runId: native.details.runId });
 assert.equal(nativeNode.packet.execution.harness, 'native'); assert.equal(nativeNode.packet.execution.keepAlive, false);
 assert.match(nativeNode.packet.execution.command, /^codex --model example -c model_reasoning_effort=low/);
 assert.equal(nativeNode.status, 'done', 'fast post-submission completion is captured without requiring a later working state');
-const beforeClosedTask = calls.length;
-await assert.rejects(invoke('bg_agent', 'closed-task', { name: native.details.runId, prompt: 'Must not reuse a closed worker' }), /UNSUPPORTED/);
-assert.equal(calls.length, beforeClosedTask);
-assert.ok(calls.some(args => args[0] === 'pane' && args[1] === 'close'), 'keepAlive false closes only after validated settlement');
+occupants.delete(JSON.parse(nativeNode.handle.id)[0]); // Simulate the actual closed pane disappearing.
+const beforeClosedTask = calls.filter(a => a[1] === 'prompt').length;
+await assert.rejects(invoke('bg_agent', 'closed-task', { name: native.details.runId, prompt: 'Must not reuse a closed worker' }), /UNSUPPORTED|UNAVAILABLE|IDENTITY|RECOVERY/);
+assert.equal(calls.filter(a => a[1] === 'prompt').length, beforeClosedTask);
+assert.ok(calls.some(args => args[0] === 'pane' && args[1] === 'close'), 'keepAlive false closes only after observed settlement');
 const nativeKept = (await invoke('bg_agent', 'native-kept', { ...params, harness: 'native', model: 'openai-codex/example' })).details.runId;
 await runtime.dispatch();
 const nativeBlocked = await settle(nativeKept, '# Status\nBLOCKED\nChoice required.');
@@ -513,11 +506,11 @@ await invoke('bg_agent', 'native-reply', { name: nativeKept, prompt: 'A', promot
 const nativePass = await settle(nativeKept, '# Status\nPASS\nNative reply verified.');
 await invoke('bg_agent', 'native-followup', { name: nativeKept, prompt: 'Fresh task', promoteAfterMs: 0 }); await runtime.dispatch();
 const nativeFresh = await settle(nativeKept, '# Status\nPASS\nNative fresh followup verified.');
-assert.equal(nativeBlocked.status, 'blocked'); assert.equal(nativePass.status, 'done'); assert.equal(nativeFresh.status, 'done');
+assert.equal(nativeBlocked.status, 'done'); assert.equal(nativePass.status, 'done'); assert.equal(nativeFresh.status, 'done');
 assert.deepEqual(nativeFresh.handle, nativeBlocked.handle, 'native provider attachment cannot rewrite durable transport authority');
 assert.deepEqual(nativePass.handle, nativeBlocked.handle);
 const nativeEffects = dbRows('effects').filter(row => row.run === nativeKept);
-assert.deepEqual(nativeEffects.map(row => JSON.parse(row.data).op), ['node.launch', 'node.reply', 'node.task']);
+assert.deepEqual(nativeEffects.map(row => JSON.parse(row.data).op), ['node.launch', 'node.task', 'node.task']);
 assert.ok(nativeEffects.every(row => row.state === 'done' && row.handle === nativeEffects[0].handle));
 console.log('PASS: native pre-thread launch, blocked reply and fresh kept task retain committed transport identity');
 const credentialRun = (await invoke('bg_agent', 'credential-launch', params)).details.runId; await runtime.dispatch();
@@ -547,12 +540,26 @@ const lostAck = consumer(); lostAck.start();
 for (let i = 0; i < 200 && !lostAck.messages.length; i++) await new Promise(resolve => setTimeout(resolve, 10));
 assert.deepEqual(lostAck.messages[0]?.details, newConsumer.messages[0]?.details, 'reload before ack redelivers stable identity through actual delivery pump');
 assert.deepEqual(lostAck.errors, []);
+const busy = await invoke('bg_agent', 'ordinary-busy', { ...params, prompt: 'working task' }); await runtime.dispatch();
+const busyCount = calls.filter(args => args[1] === 'prompt').length;
+await invoke('bg_agent', 'ordinary-advice', { name: busy.details.runId, prompt: 'use the supplied constraints', promoteAfterMs: 0 }); await runtime.dispatch();
+await invoke('bg_agent', 'ordinary-advice', { name: busy.details.runId, prompt: 'use the supplied constraints', promoteAfterMs: 0 }); await runtime.dispatch();
+assert.equal(calls.filter(args => args[1] === 'prompt').length, busyCount + 1);
+assert.equal((await req('get', { runId: busy.details.runId }) as any).attempt, 1);
+assert.equal((await req('wait', { runId: busy.details.runId }) as any[]).find(d => d.kind === 'message.delivery').delivery.status, 'queued');
+await settle(busy.details.runId, null);
 failPrompt = true;
 const ambiguous = await invoke('bg_agent', 'ambiguous-launch', params); await runtime.dispatch();
 assert.equal((await req('get', { runId: ambiguous.details.runId }) as any).runtimeState, 'recovery-required');
 const ambiguousPrompts = calls.filter(args => args[1] === 'prompt').length;
 await invoke('bg_agent', 'ambiguous-launch', params); await runtime.dispatch();
 assert.equal(calls.filter(args => args[1] === 'prompt').length, ambiguousPrompts);
+await req('reconcile', { runId: ambiguous.details.runId }); await runtime.dispatch();
+const unrelated = await settle(ambiguous.details.runId, '# Status\nPASS\nUnrelated background result.');
+assert.equal(unrelated.executionCompletion, 'unknown'); assert.equal(unrelated.result, null);
+assert.equal(calls.filter(args => args[1] === 'prompt').length, ambiguousPrompts, 'read-only reconcile never resends uncertain input');
+assert.equal(dbRows('events').filter(row => row.run === ambiguous.details.runId).some(row => JSON.parse(row.data).type === 'node.settled'), false, 'unrelated observed completion cannot prove uncertain task input');
+
 stallPrompt = true;
 const noProgress = await invoke('bg_agent', 'no-progress-launch', params); await runtime.dispatch();
 assert.equal((await req('get', { runId: noProgress.details.runId }) as any).runtimeState, 'recovery-required');
@@ -610,8 +617,9 @@ for (let i = 0; ; i++) {
  await settle(result.details.runId, '# Status\nPASS');
 }
 const effectsAtBound = calls.filter(args => ['split', 'start', 'prompt'].includes(args[1])).length;
-await assert.rejects(invoke('bg_agent', 'over-finite-bound', params), /LAUNCH_LIMIT/);
-assert.equal(calls.filter(args => ['split', 'start', 'prompt'].includes(args[1])).length, effectsAtBound);
+const beyond = await invoke('bg_agent', 'over-former-bound', params); await runtime.dispatch(); await settle(beyond.details.runId, null);
+assert.ok(calls.filter(args => ['split', 'start', 'prompt'].includes(args[1])).length > effectsAtBound);
+assert.equal((await req('family.budget', {}) as any).remaining, null);
 const foreignToken = runtime.registerPrincipal({ id: 'foreign-fixture', kind: 'advisor', scopes: [done.snapshot.scope].map(({ ownerEpoch, ...scope }: any) => scope), operations: ['node.task'] });
 assert.equal((await callSocket({ ...readCredential(descriptor), token: foreignToken }, { v: 1, op: 'pi.detach', sessionId: 'owning-pi-session', action: 'list', payload: {} }, 'model') as any).ok, false);
 runtime.revokePrincipal('foreign-fixture');

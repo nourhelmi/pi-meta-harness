@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { advisorStateRoot, nativeAdvisorIdentity, readAdvisorSession, claimAdvisorCheckpoint, readAdvisorCheckpoint, updateAdvisorCheckpoint } from './advisor-state.mjs';
@@ -24,10 +24,7 @@ export async function checkpointCommand(argv, env = process.env, input) {
   else {
     let content = input;
     if (content === undefined) {
-      const buffer = Buffer.alloc(65537); let size = 0;
-      while (size < buffer.length) { const n = readSync(0, buffer, size, buffer.length - size, null); if (!n) break; size += n; }
-      if (size > 65536) throw new Error('Advisor checkpoint exceeds 64KiB');
-      content = buffer.subarray(0, size).toString('utf8');
+      content = readFileSync(0, 'utf8');
     }
     value = updateAdvisorCheckpoint({ ...request, content, expectedDigest: options['--expected-digest'] });
   }

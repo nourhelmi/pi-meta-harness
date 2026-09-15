@@ -20,73 +20,42 @@ can read the returned hash-named report or host-check file, as well as the alias
 A missing or malformed report, changed capture, or missing tested surface is not
 verified proof. A worker PASS is a worker assertion, not independent review.
 
-`continuation: reply` means a currently answerable BLOCKED request; `task` means a
-kept PASS/FAIL worker eligible for a fresh task; `none` grants no continuation.
-Use the exact run ID as managed `bg_agent.name` or stock `message.runId`. Replay
-retains effect identity but refreshes the **current** handoff. Historical deliveries
-retain their original report and attempt alongside the current handoff. New attempts
-clear current proof/capture availability before dispatch. Late/duplicate callbacks
-cannot overwrite the next attempt's evidence. Cancellation, ownership, generation,
-and recovery fences still apply. Restarted kept workers require recovery;
-reloading a client connected to the same live owner is not a runtime restart.
+Use the exact run ID as managed `bg_agent.name` or stock `message.runId`; current
+identity-checked transport determines whether a message/follow-up is supported.
+`keepAlive` is a cleanup preference, not a result-validity capability. A completed
+turn, missing/incomplete report, current proof and available session are separate
+facts. Search the run's recorded transcript or inspect actual artifacts when the
+summary is absent or insufficient. A terminal tail is not the complete transcript.
+
+Historical deliveries retain their original report/attempt alongside current state.
+New attempts cannot inherit an old capture as their own output; late/duplicate
+callbacks cannot overwrite newer evidence. Supported recovery inspects the recorded
+worker identity without blindly resending input. A client reload is not a service
+restart or permission to adopt another session.
 
 ## Optional graph evidence
 
-1. Create the existing plan with `advisor_graph_plan`.
-2. Launch its maker with the existing worker tool.
-3. Call `advisor_graph_evidence({graphId, node, runId})` to bind that outcome node to
-   the exact owned run/attempt. After a same-worker repair, repeat this call to
-   explicitly refresh the **same node and run**, not a new graph. Optional `attempt`
-   fences stale refresh requests. A read without `runId` never advances the binding.
-4. Call `advisor_graph_evidence({graphId, node: downstreamId})`. Use the returned
-   `prompt` intact within the existing downstream launch or continuation. Its input
-   token binds the exact supplied evidence block at admission, before dispatch.
-   Later binding never infers consumed inputs from newer current state. A same-worker
-   continuation without a fresh block retains its prior input lineage. Missing tokens
-   on dependent work mean unknown lineage, not inferred proof.
-5. Keep the graph ID, run/attempt and proof locators in the workstream current section.
-   Requery before consuming proof; do not treat a copied checkpoint verdict as current.
+Use `advisor_graph_plan` and `advisor_graph_evidence` when recording dependencies
+and evidence helps coordination. Graphless work is first-class. A graph records a
+plan, not permission to launch or continue a worker; neither missing input metadata
+nor repair counters veto otherwise authorized execution.
 
-Stock-native `advisor_worker_graph_evidence` accepts `graph` as JSON
-`{graphId,nodes:[{id,task,dependsOn}],maxRepairLoops?,contract?}` plus `node`, optional
-`runId`/`attempt` and `replacesRunId`/`replacesAttempt` for explicit succession;
-the facade supplies its authenticated session identity.
-No graph call launches work. Links live in the existing owner's SQLite store,
-scoped to its principal and immutable graph contract. The managed plan fingerprints
-its full acceptance/role/worktree/budget contract, not only task text.
+Associate `{graphId,node,runId}` with the actual owned run/attempt. Keep references
+and provenance when useful for downstream work, without pasting whole reports into
+every prompt. A changed/missing reference remains visibly unknown; it must not be
+upgraded into a claim that the worker consumed newer evidence. Revisions preserve
+historical graph/run associations and immutable captures rather than rewriting the
+past. No graph node/dependency/parallel/repair quota is imposed by the runtime.
 
-A newer upstream attempt makes current and transitive downstream claims unknown,
-even when source bytes match. Historical reports and checks must remain intact and
-attributable, but their old source checks need not remain currently verified: a
-repair-first checker can consume an evidenced FAIL and establish valid current
-output on repaired bytes. Its own tested surface must still match. Late binding,
-same-attempt refresh and worker PASS never manufacture input identity or host proof.
+Stock-native `advisor_worker_graph_evidence` uses the same owned principal and
+actual tool schema. It never starts a worker. A successor association does not stop
+the predecessor, establish its exit, or release a write surface. The advisor must
+coordinate actual execution and retain explicit user limits.
 
-After prior ownership resolves, an explicit successor can retain the accepted node:
-bind new `runId`/`attempt` with the exact old `replacesRunId`/`replacesAttempt`.
-Active, cancel-pending, recovery-required, stale, still-kept or multiply-bound prior
-ownership is refused. Exit-required handles need confirmed exit. Already-associated
-successors and arbitrary rebinding are refused. An exact retry is idempotent; a
-superseded run cannot admit another task. This never launches work or coordinates
-workspace writes. For kept workers use the existing same-worker continuation; do not
-interpret an idle pane as permission to replace unresolved ownership.
-
-`node.history` exposes the latest eight historical captured reports with attributable
-host-check locators; `historyCount` reports the full retained capture count. All
-captures and check records remain in runtime storage. History is integrity-rechecked,
-labelled historical/unknown, and never overwritten by refresh. `node.budget` reports
-used/remaining terminal follow-ups and explicit successions (BLOCKED replies do not
-consume a repair). Successor pre-binding follow-ups count too; history includes run IDs.
-The plan's `maxRepairLoops` defaults to 2 (0–3); a bound run cannot admit more terminal
-follow-ups than that budget, including when the caller omits evidence refresh.
-Neither rebind nor restart resets it. A genuinely changed contract requires a new
-accepted plan, not a workaround for exhausted repairs.
-
-There are at most 24 nodes per graph, 12 dependencies per node and 128 graphs per
-principal, and 4096 immutable input snapshots per principal. Snapshot tokens are
-scoped to the authenticated principal and stored prompt bytes, not model attestations.
-Missing/tampered snapshot inputs are rejected at admission. Graphless launches and
-continuations use the same result store without graph budget gates.
+Historical captures/checks remain attributable and accessible. A repair can consume
+an evidenced FAIL; it need not wait for unrelated upstream proof to become green.
+Changed input identities or tested content make affected proof stale/unknown, not
+permission to fabricate verification and not a prohibition on unrelated work.
 
 ### Trusted host checks, not model attestations
 
@@ -119,12 +88,13 @@ The digest covers the whole Git-visible root, including dirty, untracked and del
 files and file modes, not HEAD alone or just the launch subdirectory. Current proof
 requires matching surface, report hash and intact captured check bytes. Code, tests
 and Git-visible dependency lock changes invalidate it. The actual tested revision is
-retained even when later commits contain identical bytes. Limits: 10,000 paths,
-16 MiB/file, 128 MiB total; unsupported file kinds (including symlinks) yield unknown.
-Ignored dependencies, external services and environment are **not covered**. Such
-uncertainty needs a fresh affected check, not a reused whole-environment claim.
-Host checks are synchronous and bounded to 120 seconds by default (300 maximum);
-do not use this host API for long builds while supervising active workers.
+retained even when later commits contain identical bytes. Unsupported or unavailable
+fingerprinting is reported as unknown rather than a verdict on the task. Ignored
+dependencies, external services and environment are not covered. Whole-checkout
+freshness is a conservative proof projection, not a launch gate: unrelated work may
+continue and affected claims can be checked directly. Never reuse a whole-environment
+claim without evidence. Host checks are synchronous; use normal background commands
+for long builds while supervising active workers.
 
 ## One checkpoint and memory integration
 

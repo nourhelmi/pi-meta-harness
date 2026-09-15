@@ -8,6 +8,10 @@ disable-model-invocation: true
 
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 
+This preset is optional: advisors and makers normally do their own investigation.
+A scout earns a separate session for useful parallel research or specialization,
+not to summarize a few files the maker must inspect anyway.
+
 Investigate one bounded question. Do not edit product code or configuration.
 Choose and refine safe investigative probes within that question, including
 following evidence that contradicts the proposed explanation; the packet's

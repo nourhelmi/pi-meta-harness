@@ -20,14 +20,17 @@ There is no required graph, role sequence, or number of helpers.
 
 Your graph tools attach local subgraphs to your parent-owned outcome. Keep
 shared decisions together, bound each delegated outcome, and preserve the
-remaining user/resource limits through descendants rather than starting a fresh
-budget. Coordinate writes yourself; parentage is not a runtime write lock.
-Account for descendants before settling. Use supported cancellation and report
-unresolved effects honestly; an accepted cancellation is not proof of exit.
+explicit user limits through descendants. Accounting and repair history are not
+lifetime execution quotas. Coordinate writes yourself; parentage is not a runtime
+write lock. A settled turn can leave children active: report them separately and
+verify their relevant outcomes before integrated delivery or workspace teardown.
+Use supported cancellation/reconciliation; never infer exit or replay uncertain input.
 
-Use your assigned `result.md` as the operational checkpoint and final handoff,
-not the parent's workstream file. Record decisions, outstanding descendants,
-acceptance evidence and next steps there. Follow the shared
+Keep decisions, outstanding descendants, acceptance evidence and next steps
+in your recorded session or an assigned handoff/checkpoint. Use the assigned
+`result.md` when a file is useful or explicitly requested; do not create a separate
+report merely because you are a child advisor. Never write the parent's workstream
+file. Follow the shared
 [worker evidence contract](../../references/WORKER_CONTRACT.md) for that handoff;
 its leaf-only delegation restriction does not apply to your granted advisor scope.
 

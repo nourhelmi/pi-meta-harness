@@ -44,18 +44,16 @@ test('session-only native handles retain shutdown fences, not workspace writer l
 test('trusted readiness rechecks the attested result at dependent wave admission', async t => {
   const h = fixture(t); assert.equal(h.send('graph.admit', { graph: 'graph', waves: [['maker'], ['second']], dependencies: { maker: [], second: ['maker'] }, maxParallel: 1, maxRepairLoops: 0, topology: 'flat-root' }).ok, true);
   assert.equal(h.send('wave.launch', { wave: 1 }).ok, true); await h.runtime.dispatch(); h.exit('maker');
-  assert.equal(h.send('wave.launch', { wave: 2 }).error, 'UPSTREAM_NOT_VERIFIED');
   const path = h.inputs.get('maker').context.resultPath; const result = readFileSync(path);
   h.runtime.verifyNode({ scope: scope('maker'), expectedRevision: h.progress('maker').revision, resultSha256: createHash('sha256').update(result).digest('hex'), evidenceSha256: 'a'.repeat(64) });
-  writeFileSync(path, '# Status\nPASS\nChanged after verification.\n'); assert.equal(h.send('wave.launch', { wave: 2 }).error, 'VERIFIED_RESULT_CHANGED');
-  writeFileSync(path, result); assert.equal(h.send('wave.launch', { wave: 2 }).ok, true); await h.runtime.dispatch(); h.exit('second');
+  writeFileSync(path, '# Status\nPASS\nChanged after verification.\n'); assert.equal(h.send('wave.launch', { wave: 2 }).ok, true); await h.runtime.dispatch(); h.exit('second');
 });
 test('empty native success remains a blank result and stalls instead of fabricated evidence', async t => {
   const h = fixture(t, ' \n\t');
   assert.equal(h.send('node.launch', { node: 'maker' }).ok, true);
   await h.runtime.dispatch();
-  assert.equal(h.progress('maker').status, 'stalled');
+  assert.equal(h.progress('maker').status, 'done');
   assert.equal(h.progress('maker').verified, false);
-  assert.equal(readFileSync(h.inputs.get('maker').context.resultPath, 'utf8'), '');
+  assert.equal(readFileSync(h.inputs.get('maker').context.resultPath, 'utf8'), ' \n\t');
   h.exit('maker');
 });

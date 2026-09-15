@@ -39,11 +39,27 @@ The optional Pi compatibility extension is a separate model client transport. A 
 
 New operation `node.launch` is **root-scoped** with `{node}` and the current run revision; it launches one previously admitted packet through the same transaction/outbox, without graph or wave events. Direct and graph modes cannot be mixed in a run. Write coordination belongs to the advisor, not runtime admission. PAR1A's pure reply/cancel oracle remains unchanged. Native node.reply rebinds asynchronous emitters to the new attempt/effect before delivering the answer.
 
-Concrete adapters always emit `verified:false`. Only trusted host code may call `runtime.verifyNode({scope,expectedRevision,resultSha256,evidenceSha256})`, after inspecting deterministic evidence. It verifies the actual result hash before enabling dependent waves and rechecks the attested hash at dependent-wave admission; there is no remote/model verification operation. Formatting or PASS prose does not establish acceptance. Injected legacy test adapters remain trusted host integrations responsible for their own verified flag.
+Concrete adapters emit `verified:false`. Trusted host code may call
+`runtime.verifyNode({scope,expectedRevision,resultSha256,evidenceSha256})` after
+inspecting deterministic evidence. Matching hashes establish an attributable proof
+record, not a permit for dependent execution. Formatting or PASS prose does not
+establish acceptance, and models cannot grant themselves verified status.
 
-The host writes a bounded actual result.md from the final native answer, and writes a BLOCKED result before ingesting the durable request. Maker tools write only the product workspace, not the service artifact directory. Root stop is a new explicit `root.stop` operation with empty payload; it requires idle, stops the owned host process/query, and records observed process exit separately. Claude precommitted session handles carry host-only `requiresExit:true`, keeping shutdown fences until observed exit even though the PID was unknown before query creation. Cancellation acceptance, terminal native turn, native OS exit and delivery ack are different facts. Unknown protocol / timeout / output exhaustion requests native shutdown and marks the already-owned effect recovery-required; this is not proof that an uncooperative child has exited.
+The host writes the final native answer to `result.md` without a semantic report
+size ceiling, and writes a BLOCKED report before ingesting a durable request.
+Maker tools write only the product workspace, not service artifacts. An empty
+answer leaves report quality unknown without undoing an observed completed turn.
+`root.stop` is explicit, requires idle, and records process exit separately.
+Claude's precommitted handles retain `requiresExit:true` until exit is observed.
+Cancellation acceptance, terminal turn, native OS exit and delivery ACK are
+different facts. Unknown protocol still requires identity-safe recovery; it does
+not justify replaying input or claim that an uncooperative child exited.
 
-Limits: six conversation submissions, 180 seconds per native session, 1 MiB cumulative native stdout/events, 64 KiB stderr (discarded), 32 durable requests, 8-second RPC timeout, 16 KiB final/progress text. Claude additionally uses SDK maxTurns=6 per query turn. Codex has no proven per-model-internal-step counter in this adapter; the six-turn bound is **conversation submissions**, not an invented provider loop limit. Time/bytes remain finite. The operator may select lower trusted adapter factory limits, never higher limits from model payloads.
+The adapter no longer imposes conversation-submission, output-byte, request-count
+or final/progress-text allowances. Explicit task limits remain binding. Transport
+RPC deadlines and discarded stderr buffering are operational bounds, not a task
+or result budget. This experimental native integration retains its documented
+provider permission boundary and still requires live certification.
 
 ### Security and capability limits
 

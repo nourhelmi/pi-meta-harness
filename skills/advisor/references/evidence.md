@@ -20,12 +20,16 @@ Preserve the reproducible invocation and needed source or output in the
 linked artifact. Never collapse distinct executions or pass a claim merely
 because a summary says PASS.
 
-Read the claim/evidence summary first, then inspect the relevant linked proof.
-Do not open every supporting artifact by default. Required evidence, critical
-or contested claims, uncertain coverage/provenance, and contradictions still
-require the underlying evidence. Missing or inaccessible proof stays
-unsatisfied. Keep required launch criteria and material boundaries explicit;
-link supporting detail rather than pasting upstream reports into every packet.
+Use the summary when it answers the question; it is an index, not the only evidence.
+Search the worker's recorded transcript for original decisions, commands and tool
+results, and inspect the relevant files or captures directly. A terminal output
+tail is not a complete transcript. Page large history instead of importing it all.
+Required evidence, critical or contested claims, uncertain coverage/provenance and
+contradictions still require underlying evidence. Missing proof stays unsatisfied,
+but does not negate observed execution completion or prohibit unrelated work.
+A recorded command proves only that invocation, not current behavior after a change.
+Keep required launch criteria and material boundaries explicit; link supporting
+detail rather than pasting upstream reports into every packet.
 
 ## Verification ownership
 

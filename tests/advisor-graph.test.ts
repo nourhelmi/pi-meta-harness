@@ -120,6 +120,19 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
       assert.deepEqual(manifest.warnings, result.details.warnings);
     });
 
+    await t.test("same-ID revisions preserve prior definitions and reject foreign ownership beyond old graph ceilings", async () => {
+      const nodes = Array.from({ length: 30 }, (_, i) => node(`n${i}`, "scout", { dependsOn: i < 15 ? [] : Array.from({ length: 15 }, (_, j) => `n${j}`) }));
+      const initial = await execute({ graphId: "revised-plan", goal: "first", maxParallel: 30, maxRepairLoops: 50, nodes });
+      assert.ok(initial.details.manifestPath);
+      const first = JSON.parse(await readFile(initial.details.manifestPath, "utf8"));
+      const updated = await execute({ graphId: "revised-plan", goal: "second", maxParallel: 40, nodes });
+      const current = JSON.parse(await readFile(updated.details.manifestPath!, "utf8"));
+      assert.equal(current.goal, "second"); assert.deepEqual(current.revisions, [first]);
+      const foreign = await tool.execute("foreign", { graphId: "revised-plan", goal: "takeover", nodes }, undefined, undefined, { ...context, sessionManager: { getSessionId: () => "foreign" } } as unknown as ExtensionContext);
+      assert.equal(foreign.details.manifestPath, undefined); assert.match(resultText(foreign), /different advisor session/);
+      assert.deepEqual(JSON.parse(await readFile(updated.details.manifestPath!, "utf8")), current);
+    });
+
     await t.test("accepts conventional review ancestry without warnings", async () => {
       const result = await execute({
         graphId: "review-ancestry",
@@ -216,7 +229,7 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
       );
       await rejected(
         { graphId: "invalid-concurrency", goal: "invalid", maxParallel: 0, nodes: [node("valid")] },
-        /maxParallel must be an integer between 1 and 6/,
+        /maxParallel must be a positive integer/,
       );
     });
 
@@ -281,7 +294,7 @@ test('graph evidence tool forwards the saved plan through the public bridge bus 
   await assert.rejects(tool!.execute('foreign', { graphId: 'flow', node: 'checker' }, undefined, undefined, ctx('foreign')), /different advisor/); assert.equal(requests.length, 1);
   await tool!.execute('refresh', { graphId: 'flow', node: 'maker', runId: 'run', attempt: 2 }, undefined, undefined, ctx('owner'));
   assert.equal(requests[1].payload.attempt, 2); assert.equal(requests[1].payload.runId, 'run');
-  assert.equal(requests[1].payload.graph.maxRepairLoops, 2);
+  assert.equal(requests[1].payload.graph.maxRepairLoops, 0);
   assert.equal(requests[1].payload.graph.contract, requests[0].payload.graph.contract);
   await writeFile(join(dir, 'graphs/flow.json'), JSON.stringify({ ...plan, maxRepairLoops: 1, nodes: plan.nodes.map(node => ({ ...node, acceptance: ['New contract'] })) }));
   await tool!.execute('changed', { graphId: 'flow', node: 'maker' }, undefined, undefined, ctx('owner'));

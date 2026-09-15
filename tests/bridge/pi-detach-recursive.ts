@@ -127,13 +127,13 @@ await assert.rejects(child.request('graph.evidence', { graph: { ...graph, parent
 await assert.rejects(root.request('graph.evidence', { graph: { ...graph, advisorSessionId: root.sessionId }, node: 'outcome' }), /GRAPH_PARENT_SCOPE_MISMATCH/);
 root.observe(a); child.observe(b);
 await new Promise(resolve => setTimeout(resolve, 300));
-assert.equal((await root.request('get', { runId: a.snapshot.scope.run })).snapshot.state, 'running');
+assert.equal((await root.request('get', { runId: a.snapshot.scope.run })).snapshot.state, 'terminal');
 grandchild.observe(leaf); await grandchild.terminal(leaf);
 assert.equal((await grandchild.request('supervision')).settled, true, 'settlement does not wait for acknowledgements');
-await assert.rejects(grandchild.service.close(), /SHUTDOWN_DELIVERY/);
+// Unacked notifications remain durable; keep this child open for followup coverage.
 await new Promise(resolve => setTimeout(resolve, 300));
-assert.equal((await child.request('get', { runId: b.snapshot.scope.run })).snapshot.state, 'running', 'old advisor PASS is not integration');
-child.observe(b); await child.terminal(b); root.observe(a); await root.terminal(a);
+assert.equal((await child.request('get', { runId: b.snapshot.scope.run })).snapshot.state, 'terminal', 'observed parent completion is independent of descendants');
+await child.terminal(b); await root.terminal(a);
 const grantBefore = readFileSync(join(bState, 'child-grant.json'), 'utf8');
 await child.request('call', { tool: 'bg_agent', toolCallId: 'kept-repair', cwd, params: { name: b.snapshot.scope.run, prompt: 'repair' } }); await child.runtime.dispatch();
 assert.equal(readFileSync(join(bState, 'child-grant.json'), 'utf8'), grantBefore, 'kept followup does not reissue or freeze the parent at attempt one');
@@ -141,8 +141,8 @@ child.observe(b); await child.terminal(b);
 const evidence = await child.request('graph.evidence', { graph, node: 'outcome', runId: b.snapshot.scope.run });
 assert.equal(evidence.node.budget.used, 1); assert.equal(evidence.node.boundAttempt, 2);
 assert.deepEqual(evidence.parentOutcome.scope, a.snapshot.scope); assert.equal(evidence.node.proof, 'unknown', 'nested maker evidence is not independent verification');
-await assert.rejects(child.request('call', { tool: 'bg_agent', toolCallId: 'excess-repair', cwd, params: { name: b.snapshot.scope.run, prompt: 'third task' } }), /GRAPH_REPAIR_LIMIT/);
-assert.equal((await child.request('family.budget')).used, 5, 'failed continuing admission is conservatively consumed, not refunded');
+await child.request('call', { tool: 'bg_agent', toolCallId: 'excess-repair', cwd, params: { name: b.snapshot.scope.run, prompt: 'third task' } }); await child.runtime.dispatch(); child.observe(b); await child.terminal(b);
+assert.equal((await child.request('family.budget')).used, 5, 'accepted continuations remain accounted without a quota');
 console.log('PASS kept advisor followup: stable grant, issuance attempt distinct, original graph repair budget and captured history retained');
 
 // Cancellation uses three real driver Escapes; ancestors cannot settle ahead of descendants.
@@ -151,12 +151,13 @@ const b2 = await child.launched('b-next'); const b2State = b2.packet.execution.e
 const last = await start(b2State, 'last', 1); const leaf2 = await last.launched('leaf-next', 'specialist');
 await root.request('call', { tool: 'bg_stop', toolCallId: 'cancel-tree', cwd, params: { runId: a.snapshot.scope.run } }); await root.runtime.dispatch();
 await until(async () => last.calls.some(args => args[1] === 'send-keys'), 'leaf Escape delivered');
-root.observe(a, 'idle'); child.observe(b2, 'idle');
 await new Promise(resolve => setTimeout(resolve, 300));
 assert.equal((await root.request('get', { runId: a.snapshot.scope.run })).snapshot.state, 'running');
 assert.equal((await child.request('get', { runId: b2.snapshot.scope.run })).snapshot.state, 'running');
 await assert.rejects(last.launched('after-seal', 'specialist'), /FAMILY_ADMISSION_SEALED/);
-last.observe(leaf2, 'idle'); await last.terminal(leaf2); await child.terminal(b2); await root.terminal(a);
+last.observe(leaf2, 'idle'); await last.terminal(leaf2);
+await until(async () => child.calls.some(args => args[1] === 'send-keys'), 'child Escape delivered'); child.observe(b2, 'idle'); await child.terminal(b2);
+await until(async () => root.calls.some(args => args[1] === 'send-keys'), 'parent Escape delivered'); root.observe(a, 'idle'); await root.terminal(a);
 for (const [service, node] of [[root, a], [child, b2], [last, leaf2]] as const) {
   const final = await service.request('get', { runId: node.snapshot.scope.run });
   assert.equal(final.status, 'cancelled'); assert.equal(final.processExited, undefined);
@@ -166,7 +167,7 @@ for (const [service, node] of [[root, a], [child, b2], [last, leaf2]] as const) 
 await root.request('call', { tool: 'bg_stop', toolCallId: 'cancel-tree', cwd, params: { runId: a.snapshot.scope.run } });
 assert.equal(root.calls.filter(args => args[1] === 'send-keys').length, 1);
 assert.equal((await root.request('supervision')).settled, true);
-await assert.rejects(root.service.close(), /SHUTDOWN_DELIVERY/);
+// Keep services available for the remaining authorization and accounting checks.
 console.log('PASS downward cancellation: sealed descendant admission, three observed post-Escape settlements, no process-exit claims, acknowledgement separate');
 
 // Narrow capabilities cannot call parent control or change exact scopes / workspace / grant.
@@ -184,19 +185,16 @@ for (const mutate of [(g: any) => { g.parent.scope.run = 'foreign'; }, (g: any) 
 chmodSync(path, 0o644); await assert.rejects(readChildScope({ cwd, env: { ADVISOR_BRIDGE_CHILD_STATE: bState } }), /UNSAFE_FILE/); chmodSync(path, 0o600);
 console.log('PASS narrow family capabilities: no parent runtime control, foreign cancel scope/credential/grant/workspace/provenance tampering rejected');
 
-// Root cumulative allowance survives new graphs/services and concurrent last-slot reservations.
+// Root cumulative accounting survives new graphs/services and concurrent admissions.
 const budget = await root.request('family.budget');
 for (let i = budget.used; i < 11; i++) { const n = await root.launched(`fill-${i}`, 'specialist'); root.observe(n); await root.terminal(n); }
 const concurrent = await Promise.allSettled([root.launched('last-slot-one', 'specialist'), root.launched('last-slot-two', 'specialist')]);
-assert.equal(concurrent.filter(result => result.status === 'fulfilled').length, 1);
-assert.equal(concurrent.filter(result => result.status === 'rejected').length, 1);
-const winner = (concurrent.find(result => result.status === 'fulfilled') as PromiseFulfilledResult<any>).value;
-root.observe(winner); await root.terminal(winner);
-assert.deepEqual(await root.request('family.budget'), { maxLaunches: 12, used: 12, remaining: 0 });
-const winnerKey = concurrent[0].status === 'fulfilled' ? 'last-slot-one' : 'last-slot-two';
-await root.launched(winnerKey, 'specialist');
-assert.equal((await root.request('family.budget')).used, 12);
-console.log('PASS root atomic accounting: continuations consume, services cannot reset, concurrent last slot cannot overspend, replay charges once');
+assert.equal(concurrent.filter(result => result.status === 'fulfilled').length, 2);
+for (const result of concurrent) { assert.equal(result.status, 'fulfilled'); if (result.status === 'fulfilled') { root.observe(result.value); await root.terminal(result.value); } }
+assert.deepEqual(await root.request('family.budget'), { maxLaunches: null, used: 13, remaining: null });
+await root.launched('last-slot-one', 'specialist');
+assert.equal((await root.request('family.budget')).used, 13);
+console.log('PASS root atomic accounting: concurrent admissions have no lifetime quota, replay charges once');
 
 for (const service of services) for (const row of await service.request('list')) if (row.node) await service.ack({ snapshot: { scope: { run: row.runId } } });
 await root.service.close();

@@ -26,7 +26,7 @@ class InputQueue {
 }
 export function claudeOptions(s, mcp, env, spawnProcess) {
   return { cwd: s.input.context.cwd, sessionId: s.id, model: s.requested.model, effort: s.requested.thinking,
-    maxTurns: s.limits.turns, includePartialMessages: true, persistSession: true, settingSources: [], settings: {}, plugins: [], skills: [], agents: {},
+    includePartialMessages: true, persistSession: true, settingSources: [], settings: {}, plugins: [], skills: [], agents: {},
     tools: s.writer ? ['Read', 'Glob', 'Grep', 'Edit', 'Write', 'AskUserQuestion'] : ['Read', 'Glob', 'Grep', 'AskUserQuestion'],
     disallowedTools: ['Agent', 'Bash', 'Task', 'WebFetch', 'WebSearch'], permissionMode: 'default', permissionPrompts: 'host',
     env, mcpServers: mcp ?? {}, strictMcpConfig: true, systemPrompt: { type: 'preset', preset: 'claude_code', append: s.root ? ROOT_DOCTRINE : MAKER_DOCTRINE },
@@ -138,7 +138,7 @@ export function decodeClaude(s, message) {
   if (message.type === 'result') {
     demand(!s.result && (message.subtype === 'success' || RESULT_ERRORS.has(message.subtype)) && typeof message.is_error === 'boolean', 'UNKNOWN_RESULT');
     nativeId(s.inputUuid); demand(message.user_message_uuid === s.inputUuid && (!message.user_message_uuids || (message.user_message_uuids.length === 1 && message.user_message_uuids[0] === s.inputUuid)), 'RESULT_TURN_MISMATCH');
-    demand(Number.isSafeInteger(message.num_turns) && message.num_turns <= s.limits.turns && !message.queued_turn_count, 'CLAUDE_TURN_BOUND');
+    demand(Number.isSafeInteger(message.num_turns) && !message.queued_turn_count, 'CLAUDE_TURN_BOUND');
     const status = s.cancelled ? 'cancelled' : message.subtype === 'success' && !message.is_error ? 'done' : 'failed';
     // Result receipt is distinct from the authoritative idle/turn-over event.
     s.result = { status, text: status === 'done' ? message.result : `Native turn ${status}.` }; return;

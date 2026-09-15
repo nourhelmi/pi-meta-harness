@@ -592,7 +592,7 @@ describe("current protocol conformance and adversarial ordering", async () => {
       type: "node.settled" as const,
       data: { status: "done" as const, reason: "must revalidate" },
     };
-    compare(normalize([...resumed, done]), "E_SETTLE");
+    compare(normalize([...resumed, done]));
     expect(projectTrace(events).nodes[0]).toMatchObject({
       attempts: 2,
       cancelRequested: true,

@@ -116,7 +116,7 @@ test("AC1: non-JSON values never get silently erased or coerced", () => {
   assert.equal(calls, 0);
 });
 
-test("AC1: text and reason UTF-8 byte boundaries, not character counts", () => {
+test("AC1: text and reason preserve UTF-8 above former boundaries", () => {
   for (const [op, field, limit] of [["node.reply", "text", 16384], ["node.cancel", "reason", 1024]]) {
     for (const value of [null, 1, false, [], {}, "", " \n\t "]) {
       const input = command(op); input.payload[field] = value;
@@ -127,12 +127,12 @@ test("AC1: text and reason UTF-8 byte boundaries, not character counts", () => {
       input.payload[field] = unit.repeat(limit / Buffer.byteLength(unit));
       assert.equal(validateCommand(input).ok, true);
       input.payload[field] += "a";
-      reject(input, "TEXT_TOO_LARGE");
+      assert.equal(validateCommand(input).ok, true);
     }
   }
 });
 
-test("AC1: whole-envelope 32 KiB boundary counts JSON escaping and metadata", () => {
+test("AC1: envelope accepts escaped text above the former 32 KiB boundary", () => {
   const input = command();
   input.payload.text = "";
   const overhead = Buffer.byteLength(canonicalJson(input));
@@ -142,7 +142,7 @@ test("AC1: whole-envelope 32 KiB boundary counts JSON escaping and metadata", ()
   assert.ok(Buffer.byteLength(input.payload.text) < 16384);
   assert.equal(validateCommand(input).ok, true);
   input.payload.text += "x";
-  reject(input, "ENVELOPE_TOO_LARGE");
+  assert.equal(validateCommand(input).ok, true);
 });
 
 test("AC2: semantic JSON sorts keys, preserves array order and exact text", () => {

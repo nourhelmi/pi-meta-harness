@@ -49,7 +49,7 @@ test("optional review capacity retains delegation boundaries and needs a distinc
   assert.match(policy.child, /Do not prescribe read-only helpers, forbid builders/);
   assert.match(policy.child, /child advisor's self-review is still maker evidence/);
   assert.doesNotMatch(policy.child, /Never launch a checker/);
-  assert.match(policy.child, /may delegate further within the root family's remaining cumulative allowance/);
+  assert.match(policy.child, /may delegate further within their authority and explicit user limits/);
   assert.match(policy.contract, /specialists never start another agent or graph unless their role explicitly grants bounded depth-1 helpers; those helpers inherit the leaf prohibition/);
   for (const [name, source] of Object.entries(policy)) {
     assert.doesNotMatch(source, /one reasoning level below|with the same model family|launch exactly one read-only subagent|Makers run one fresh-context review|one maker with (?:maker-owned )?fresh review/i, name);
@@ -73,7 +73,7 @@ test("scoped evidence reuse preserves provenance, explicit independent checks, a
   assert.match(policy.contract, /Full contract context does not expand the assigned work/);
   assert.match(policy.contract, /Do not relabel inherited evidence as your own execution, or maker evidence as independent proof/);
   assert.match(policy.contract, /An unverified criterion is a failure you report/);
-  assert.match(policy.contract, /no additional report schema is required/);
+  assert.match(policy.contract, /not a mandatory schema/);
   assert.match(policy.advisor, /Assign delivery gates to an owner rather than every layer/);
   assert.match(policy.child, /Carry evidence forward only with its tested revision/);
   assert.match(policy.child, /rerun what a code, test, dependency, or environment change invalidates/);
@@ -100,7 +100,7 @@ test("repair-first checkers close their own findings and delta review reuses the
   assert.match(policy.advisor, /not merely because a file changed or a test once failed/);
   assert.match(policy.advisor, /Checkers are repair-first/);
   assert.match(policy.advisor, /Resume the same checker for a delta review of a maker's repair/);
-  assert.match(policy.advisor, /Two serial review rounds per slice is the default budget/);
+  assert.match(policy.advisor, /Reassess a loop when another attempt would repeat the same strategy without new\s+information/);
   assert.match(policy.checker, /delta and its blast radius and rerun affected criteria/);
   assert.match(policy.checker, /no automatic checker-of-checker/);
   assert.match(policy.checker, /own the reviewed write surface/);
@@ -126,7 +126,8 @@ test("checker-authored repairs keep self-verification distinct from independent 
   const sources = { core: advisorCore, checker: policy.checker, evidence: advisorReferences.evidence, graphs: advisorReferences.graphs, runtime: policy.runtime };
   for (const [name, source] of Object.entries(sources)) {
     if (name === "graphs") {
-      assert.match(source, /checker-authored patch follows the evidence reference's risk-based delta review, not self-certified independence/i, name);
+      assert.match(source, /Preserve maker\/checker independence wherever independent review is required/, name);
+      assert.match(source, /PASS summary never establishes verification by itself/, name);
     } else {
       assert.match(source, /not independent review of that patch/, name);
       assert.match(source, /no material independent risk remains|non-author.*(?:independent probe|targeted diff read)/, name);
@@ -140,22 +141,18 @@ test("checker-authored repairs keep self-verification distinct from independent 
   assert.match(advisorReferences.evidence, /separate reviewer only for named unresolved independent risk/);
 });
 
-test("exhausted review budgets leave unmet obligations incomplete rather than shippable", () => {
-  const sources = { core: advisorCore, graphs: advisorReferences.graphs, runtime: policy.runtime };
-  for (const [name, source] of Object.entries(sources)) {
-    assert.match(source, /all (?:acceptance )?criteria, required checks, and safety obligations/, name);
-    assert.match(source, /(?:disclosing|disclose) only non-blocking residuals/, name);
-    assert.match(source, /report (?:the work as )?incomplete/, name);
-    assert.match(source, /never silently reset a cap by renaming the slice or launching another planner/i, name);
-    assert.doesNotMatch(source, /cap is terminal|cap ends in a disclosed residual/i, name);
-    assert.doesNotMatch(source, /may never freeze[^.;]*retry counts/i, name);
+test("removed review quotas do not weaken completion or explicit user limits", () => {
+  for (const [name, source] of Object.entries({ core: advisorCore, runtime: policy.runtime })) {
+    assert.match(source, /all (?:acceptance )?criteria, required checks,? and safety obligations/, name);
+    assert.match(source, /report what remains|report the unmet work/, name);
+    assert.match(source, /[Uu]ser-set limits.*user approval to change/, name);
+    assert.doesNotMatch(source, /binding user, graph, or runtime cap|Two serial review rounds/, name);
   }
-  for (const source of [advisorCore, policy.runtime]) {
-    assert.match(source, /binding user, graph, or runtime cap/);
-    assert.match(source, /budget is not evidence of completion/);
-    assert.match(source, /User-set limits or requirements need user approval to change/);
-  }
-  assert.match(advisorReferences.graphs, /Never exceed the manifest repair-loop cap/);
+  assert.match(advisorCore, /Never claim completion because a counter ran out/);
+  assert.match(advisorCore, /Reassess a loop when another attempt would repeat the same strategy without new information/);
+  assert.match(advisorReferences.graphs, /do not stop because a graph counter ran out/);
+  assert.match(advisorReferences.graphs, /Explicit user limits remain binding/);
+  assert.match(advisorReferences.graphs, /actual evidence needed before delivery or teardown/);
 });
 
 test("test and instruction changes inherit the controlled boundary's risk, not a filename exemption", () => {

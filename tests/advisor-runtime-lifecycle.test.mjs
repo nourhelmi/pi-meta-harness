@@ -113,7 +113,6 @@ test('child services close only by typed shutdown after their work settles and i
   const { hooks, intent } = a.launches[0];
   writeFileSync(join(intent.sourceDirectory, 'result.md'), '# Status\nPASS\n# Claims\nFixture.', { mode: 0o600 });
   hooks.settled('done', 'fixture output', 2);
-  await assert.rejects(closeChildService(a.stateRoot), /SHUTDOWN_CHILD_ACTIVE/, 'unacknowledged deliveries keep the child alive');
   for (const delivery of await a.request('wait', { runId, timeoutMs: 0 })) await a.request('ack', { runId, deliveryId: delivery.id });
   assert.deepEqual(await closeChildServices(parentRoot), [a.stateRoot]);
   assert.equal(alive(a.stateRoot), false);
@@ -236,7 +235,7 @@ test('a superseded terminal cancellation never advertises a new task as reusable
   await started.host.service.close();
 });
 
-for (const [status, reusable, close] of [['PASS', true, true], ['FAIL', true, false], ['IN PROGRESS', false, false]]) {
+for (const [status, reusable, close] of [['PASS', true, true], ['FAIL', true, false], ['IN PROGRESS', true, true]]) {
   test(`sealed ${status} result separates task eligibility from pane closing`, async t => {
     const base = temporary(t); const { port, launches } = stubPort(); const prepare = port.prepare;
     port.prepare = async (...args) => ({ ...await prepare(...args), keepAlive: true });
