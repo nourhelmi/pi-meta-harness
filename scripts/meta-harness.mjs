@@ -78,6 +78,8 @@ const PORTABLE_COPY_ENTRIES = [
   ["extensions/ponytail.ts", "extensions/ponytail.ts"],
   ["extensions/unified-edit.ts", "extensions/unified-edit.ts"],
   ["extensions/unified-edit-fallback/upstream.ts", "extensions/unified-edit-fallback/upstream.ts"],
+  // Vendored fork of @ogulcancelik/pi-codex-compaction: the compaction request replays the last live request prefix.
+  ["extensions/codex-compaction", "extensions/codex-compaction"],
   ["skills/advisor", "skills/advisor"],
   ["skills/cos", "skills/cos"],
   ["skills/advisor-team", "skills/advisor-team"],

@@ -4,5 +4,6 @@
   "npm:pi-claude-bridge",
   "npm:taskplane",
   "git:https://github.com/nourhelmi/pi-powerline",
-  "packages/pi-openai-server-compaction"
+  "packages/pi-openai-server-compaction",
+  "npm:@ogulcancelik/pi-codex-compaction"
 ]

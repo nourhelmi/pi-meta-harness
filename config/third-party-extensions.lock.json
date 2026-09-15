@@ -74,11 +74,11 @@
     {
       "name": "pi-codex-compaction",
       "repository": "https://github.com/ogulcancelik/pi-extensions/tree/main/packages/pi-codex-compaction",
-      "installSource": "npm:@ogulcancelik/pi-codex-compaction@^0.1.4",
-      "integrity": "sha512-5yR+DQIAhh5UO+eC67XtS1znncAi+0fz5lc+8VmdewVRf+smg5aXNJbIpgdIrALfHhsUA5psJa9BlMW0/NhW/g==",
+      "upstreamVersion": "0.1.5",
+      "installSource": "extensions/codex-compaction",
       "license": "MIT",
-      "package": "@ogulcancelik/pi-codex-compaction@0.1.4",
-      "purpose": "Add Codex-aware provider compaction without maintaining a vendored fork."
+      "package": "@ogulcancelik/pi-codex-compaction@0.1.5 (vendored fork)",
+      "purpose": "Codex-aware native compaction. Vendored so the compaction request replays the last live request prefix and shares the conversation prompt cache instead of re-billing the full context."
     },
     {
       "name": "pi-mermaid",

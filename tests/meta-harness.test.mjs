@@ -128,7 +128,12 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal(nativeBinding.stdout, "loaded");
   assert.match(await readFile(join(target, "scripts/advisor-runtime/runtime.mjs"), "utf8"), /class AdvisorRuntime/);
   assert.equal(JSON.parse(await readFile(join(target, "pi-detach-runtime.json"), "utf8")).backend, "runtime");
-  assert(packageSources.includes("npm:@ogulcancelik/pi-codex-compaction@^0.1.4"));
+  // Native Codex compaction is the vendored fork; the npm package is retired.
+  assert(!packageSources.some((entry) => entry.includes("@ogulcancelik/pi-codex-compaction")));
+  assert.equal(
+    await readFile(join(target, "extensions/codex-compaction/native-compaction.ts"), "utf8"),
+    await readFile(join(ROOT, "extensions/codex-compaction/native-compaction.ts"), "utf8"),
+  );
   assert(packageSources.includes("npm:pi-better-edit@^1.4.3"));
   assert(packageSources.includes("npm:pi-claude-agent-sdk@^0.8.6"));
   assert(!packageSources.includes("npm:pi-claude-bridge@^0.7.0"));

@@ -12,4 +12,5 @@ Exceptions and selected components:
 - `pi-better-edit` is the compatible-range primary hash-anchored read/edit/undo package recorded in `config/third-party-extensions.lock.json` and retains its upstream MIT license.
 - `pi-claude-agent-sdk` is the compatible-range Claude Code subscription bridge recorded in `config/third-party-extensions.lock.json` and retains its upstream MIT license.
 - `pi-detach` is separate first-party MIT source and is installed from the exact public Git commit in `config/settings.overlay.json`.
-- `pi-ui-pack` and `pi-skill-tags` use the exact Git commits recorded in `config/third-party-extensions.lock.json`; `@ogulcancelik/pi-codex-compaction` and `pi-mermaid` use the recorded compatible npm ranges. They retain their upstream MIT licenses.
+- `pi-ui-pack` and `pi-skill-tags` use the exact Git commits recorded in `config/third-party-extensions.lock.json`; `pi-mermaid` uses the recorded compatible npm range. They retain their upstream MIT licenses.
+- `extensions/codex-compaction/` is a vendored fork of `@ogulcancelik/pi-codex-compaction` 0.1.5 (Can Celik, MIT; upstream `LICENSE` kept in the directory). The fork captures each live Codex request and replays it verbatim as the compaction request prefix so native compaction shares the conversation prompt cache instead of re-billing the full context; everything else is upstream behavior.
