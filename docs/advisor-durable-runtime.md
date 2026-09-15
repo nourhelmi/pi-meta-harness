@@ -271,6 +271,18 @@ proving no owner remains. Do not silently steal it. An idle root with an
 unexited/unknown native session also requires recovery on service restart;
 client reconnect to the same live service is unaffected.
 
+An explicit graph successor may replace an unkept terminal Pi worker whose report
+is missing, blank or still in progress when its trusted completed-turn observation
+matches the bound handle, session and generation. The old result stays stalled;
+this resolves execution ownership, not result validity or proof. UI blocking,
+kept workers, required process exits, pending effects and recovery fences still
+refuse replacement. Existing graph history, repair budgets and input checks apply.
+
+A trusted idle-service upgrade preserves immutable captures and their attribution,
+but fences continuation of kept workers as `recovery-required`. When no further
+same-worker work is needed, those intact captures remain usable as graph inputs;
+the upgrade must not adopt, relaunch or manufacture an exit for the old worker.
+
 Every SQL transaction checks the service nonce in addition to the process lock.
 `security.mjs` exports `withRunOwnership(root,run,'runtime'|'legacy',owner,action)`
 and the bounded `withLegacyRunOwnership(root,run,action)` adapter helper. Both use

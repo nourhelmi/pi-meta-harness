@@ -14,7 +14,7 @@ async function fixture(t, keepAlive = true) {
   git(['init', '-q']); writeFileSync(join(work, 'check.mjs'), "import assert from 'node:assert/strict'; assert.equal(2 + 2, 4);\n");
   git(['add', '.']); git(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture']);
   const launches = []; const port = { version: 1,
-    async prepare(params, sourceDirectory) { return { v: 1, command: 'fixture', prompt: params.prompt, role: params.role ?? 'builder', runtime: 'pi', model: 'fixture', thinking: 'none', maxTurns: null, requiredSkills: [], harness: 'pi', keepAlive, label: 'fixture', resultDiscovery: null, resultPolicy: 'runtime-capture', sourceDirectory,
+    async prepare(params, sourceDirectory) { return { v: 1, command: 'fixture', prompt: params.prompt, role: params.role ?? 'builder', runtime: 'pi', model: 'fixture', thinking: 'none', maxTurns: null, requiredSkills: [], harness: 'pi', keepAlive: params.keepAlive ?? keepAlive, label: 'fixture', resultDiscovery: null, resultPolicy: 'runtime-capture', sourceDirectory,
       environment: { ADVISOR_RUNTIME_DESCRIPTOR: '', PI_DETACH_RUNTIME_BRIDGE: '', ADVISOR_BRIDGE_WORKER_DIR: sourceDirectory, ADVISOR_RUNTIME_CANONICAL_OWNER: '1' } }; },
     async launch({ hooks, intent, reply }) { launches.push({ hooks, intent, reply }); hooks.recordHandle({ id: 'same-worker', session: 'same-session' }); return { async interrupt(observer) { launches.at(-1).cancel = observer; }, async readLive() { return 'output'; } }; }
   };
@@ -364,10 +364,59 @@ test('explicit unkept successors preserve outcome history and budget, reject sil
   assert.equal(restored.budget.used, 2); assert.equal(restored.historyCount, 2);
 });
 
-for (const state of ['active', 'cancel-pending', 'kept', 'stale', 'ambiguous', 'stalled', 'recovery']) test(`succession refuses ${state} ownership`, async t => {
-  const kept = ['kept', 'stale'].includes(state); const f = await fixture(t, kept); const { graph, evidence } = outcome(f);
+for (const artifact of [null, '', report('IN PROGRESS')]) test(`completed unkept turn with ${artifact === null ? 'missing' : artifact === '' ? 'blank' : 'in-progress'} result permits explicit successor, not invented proof`, async t => {
+  const f = await fixture(t, false); const { evidence } = outcome(f);
+  const first = await f.launch({ role: 'scout' }); await evidence('maker', first);
+  if (artifact !== null) writeFileSync(join(f.launches[0].intent.sourceDirectory, 'result.md'), artifact);
+  f.launches[0].hooks.settled('done', 'completed turn', 2);
+  const old = await f.request('get', { runId: first }); assert.equal(old.status, 'stalled');
+  const stale = await evidence('checker');
+  await f.ack(first); await f.restart();
+  const next = await f.launch({ role: 'scout', keepAlive: true }); f.settle('PASS');
+  const captured = (await f.request('get', { runId: next })).result;
+  await f.ack(next); await f.restart();
+  // A service upgrade fences kept continuation, not the already-captured report.
+  const fenced = await f.request('get', { runId: next });
+  assert.equal(fenced.status, 'recovery-required'); assert.equal(fenced.continuation, 'none');
+  assert.equal(fenced.result.sha256, captured.sha256); assert.equal(fenced.result.integrity, 'intact');
+  const replacement = { attempt: 1, replacesRunId: first, replacesAttempt: 1 };
+  const changed = (await evidence('maker', next, replacement)).node;
+  assert.equal(changed.budget.used, 1); assert.equal(changed.predecessors[0].runId, first);
+  assert.equal((await f.request('get', { runId: first })).status, 'stalled');
+  assert.equal(changed.historyCount, old.result ? 1 : 0, 'missing reports must not become invented history');
+  assert.equal(changed.history[0]?.result.sha256 ?? null, old.result?.sha256 ?? null);
+  assert.equal(changed.proof, 'unknown'); assert.equal(changed.result.sha256, captured.sha256);
+  assert.equal((await evidence('maker', next, replacement)).node.budget.used, 1);
+  if (!old.result) await assert.rejects(f.launch({ role: 'checker', prompt: stale.prompt }), /GRAPH_INPUT_MISSING_OR_CHANGED/);
+  const supplied = await evidence('checker');
+  const downstream = await f.launch({ role: 'checker', prompt: supplied.prompt }); f.settle('PASS');
+  const consumed = (await f.request('get', { runId: downstream })).consumedInputs[0].inputs[0];
+  assert.equal(consumed.runId, next); assert.equal(consumed.result, captured.sha256);
+  assert.equal(f.launches.length, 3, 'restart and successor binding never re-execute the inventory');
+});
+
+for (const boundary of ['requires-exit', 'pid', 'newer-observation']) test(`completed stalled turn still respects ${boundary}`, async t => {
+  const f = await fixture(t, false); const { evidence } = outcome(f); const launch = f.port.launch;
+  f.port.launch = async input => {
+    if (f.launches.length) return launch(input);
+    const driver = await launch({ ...input, hooks: { ...input.hooks, recordHandle(handle) {
+      input.hooks.recordHandle({ ...handle, ...(boundary === 'requires-exit' ? { requiresExit: true } : boundary === 'pid' ? { pid: 12345 } : {}) });
+    } } });
+    f.settle(null);
+    return boundary === 'newer-observation' ? { ...driver, async runtimeObservation() { return { session: 'same-session', generation: 3, state: 'done' }; } } : driver;
+  };
+  const first = await f.launch({ role: 'scout' }); await evidence('maker', first);
+  assert.equal((await f.request('get', { runId: first })).status, 'stalled');
+  const next = await f.launch({ role: 'scout' }); f.settle('PASS');
+  await assert.rejects(evidence('maker', next, { attempt: 1, replacesRunId: first, replacesAttempt: 1 }), /GRAPH_OWNERSHIP_UNRESOLVED/);
+});
+
+for (const state of ['active', 'cancel-pending', 'kept', 'kept-stalled', 'artifact-blocked', 'stale', 'ambiguous', 'stalled', 'recovery']) test(`succession refuses ${state} ownership`, async t => {
+  const kept = ['kept', 'kept-stalled', 'stale'].includes(state); const f = await fixture(t, kept); const { graph, evidence } = outcome(f);
   const first = await f.launch({ role: 'scout' }); await evidence('maker', first);
   if (['kept', 'stale', 'ambiguous', 'recovery'].includes(state)) f.settle('PASS');
+  if (state === 'kept-stalled') f.settle(null);
+  if (state === 'artifact-blocked') f.settle('BLOCKED');
   if (state === 'stalled') f.launches[0].hooks.settled('blocked', 'Direct UI inspection required', 2);
   if (state === 'recovery') f.launches[0].hooks.recoveryRequired();
   if (state === 'cancel-pending') { await f.request('call', { tool: 'bg_stop', toolCallId: 'cancel', cwd: f.work, params: { runId: first } }); await f.runtime().dispatch(); }

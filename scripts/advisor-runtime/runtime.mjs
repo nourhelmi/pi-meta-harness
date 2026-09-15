@@ -710,8 +710,15 @@ export class AdvisorRuntime {
               demand(p.replacesRunId === prior.runId && p.replacesAttempt === prior.attempt, 'GRAPH_NODE_ALREADY_BOUND');
               const old = owned(prior.runId);
               demand(old.node.snapshot.attempt === prior.attempt, 'ATTEMPT_MISMATCH');
+              // A bad/missing report does not undo an observed completed turn.
+              // UI-blocked or stale observations still leave ownership unresolved.
+              const completedTurn = old.node.packet.adapter === 'pi-detach' && old.node.status === 'stalled'
+                && old.node.executionObservation?.handleId === old.node.handle?.id
+                && old.node.transportObservation?.state === 'done'
+                && old.node.transportObservation.session === old.node.handle?.session
+                && old.node.transportObservation.generation === old.node.executionObservation?.generation;
               demand(old.node.snapshot.state === 'terminal' && old.node.runtimeState !== 'recovery-required' && !this.#pending(old.run, 'worker')
-                && (['done', 'failed', 'cancelled'].includes(old.node.status) || old.node.processExited !== undefined)
+                && (['done', 'failed', 'cancelled'].includes(old.node.status) || completedTurn || old.node.processExited !== undefined)
                 && (!(old.node.handle?.pid || old.node.handle?.requiresExit || old.node.packet.execution?.keepAlive) || old.node.processExited !== undefined), 'GRAPH_OWNERSHIP_UNRESOLVED');
               demand(this.#repairCount(prior) + 1 + this.#repairCount({ runId: p.runId, firstAttempt: 1 }) <= maxRepairLoops, 'GRAPH_REPAIR_LIMIT');
               const allLinks = this.#all('SELECT data FROM graph_evidence').flatMap(row => Object.values(decode(row.data).links));

@@ -26,7 +26,7 @@ if (!phase) {
  }
  symlinkSync(root, join(root, 'work', 'outside-alias'));
 
- for (const next of ['blocked-cancel', 'exercise', 'restart']) {
+ for (const next of ['blocked-cancel', 'blank-recovery', 'exercise', 'restart']) {
   const child = spawnSync(process.execPath, [...process.execArgv, fileURLToPath(import.meta.url)], { env: { ...process.env, BRIDGE_PHASE: next, BRIDGE_ROOT: root }, encoding: 'utf8', timeout: 30000 });
   process.stdout.write(child.stdout); process.stderr.write(child.stderr);
   assert.equal(child.status, 0, `${next} process failed`);
@@ -39,10 +39,11 @@ delete process.env.ADVISOR_RUNTIME_CANONICAL_OWNER;
 delete process.env.ADVISOR_BRIDGE_CHILD_STATE;
 delete process.env.PI_DETACH_WORKER_HARNESS;
 delete process.env.ADVISOR_WORKSTREAM;
-const stateRoot = join(root, phase === 'blocked-cancel' ? 'cancel-state' : 'state'); const cwd = join(root, 'work');
-const descriptor = join(root, phase === 'blocked-cancel' ? 'cancel-pi.json' : 'pi.json');
+const stateName = phase === 'blocked-cancel' ? 'cancel-state' : phase === 'blank-recovery' ? 'blank-state' : 'state';
+const stateRoot = join(root, stateName); const cwd = join(root, 'work');
+const descriptor = join(root, `${stateName}-pi.json`);
 const profile = join(root, 'profiles.json');
-writeFileSync(profile, JSON.stringify({ defaultAgent: 'pi', profiles: { advisor: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, foreman: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, reviewer: { agent: 'pi', skill: 'role-reviewer', maxTurns: 4, requireAnchor: true, resultDiscovery: 'advisor-worker' } } }));
+writeFileSync(profile, JSON.stringify({ defaultAgent: 'pi', profiles: { scout: { agent: 'pi' }, planner: { agent: 'pi' }, advisor: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, foreman: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, reviewer: { agent: 'pi', skill: 'role-reviewer', maxTurns: 4, requireAnchor: true, resultDiscovery: 'advisor-worker' } } }));
 process.env.PI_DETACH_AGENT_PROFILES = profile;
 process.env.PI_DETACH_RUNTIME_BRIDGE = resolve('scripts/advisor-runtime/pi-detach-client.mjs');
 process.env.ADVISOR_RUNTIME_DESCRIPTOR = descriptor;
@@ -201,6 +202,31 @@ if (phase === 'blocked-cancel') {
  }
  await req('shutdown', {});
  console.log('PASS: artifact-BLOCKED Pi/Codex cancellation sends one Escape, settles without exit claim, releases slot and permits typed shutdown');
+ process.exit(0);
+}
+if (phase === 'blank-recovery') {
+ const graph = { graphId: 'blank-inventory', advisorSessionId: 'owning-pi-session', maxRepairLoops: 1,
+  nodes: [{ id: 'inventory', task: 'Capture inventory', dependsOn: [] }, { id: 'planner', task: 'Plan from captured inventory', dependsOn: ['inventory'] }] };
+ const inventory = (await invoke('bg_agent', 'blank-inventory', { role: 'scout', prompt: 'Capture inventory', keepAlive: false, promoteAfterMs: 0 })).details.runId;
+ await runtime.dispatch();
+ await req('graph.evidence', { graph, node: 'inventory', runId: inventory });
+ const blank = await settle(inventory, '');
+ assert.equal(blank.status, 'stalled'); assert.equal(blank.result, null); assert.equal(blank.processExited, undefined);
+ await assert.rejects(invoke('bg_stop', 'stop-blank-inventory', { runId: inventory }), /BRIDGE_ALREADY_SETTLED/);
+ const successor = (await invoke('bg_agent', 'recovered-inventory', { role: 'scout', prompt: 'Recover inventory', keepAlive: true, promoteAfterMs: 0 })).details.runId;
+ await runtime.dispatch(); const recovered = await settle(successor, '# Status\nPASS\n# Claims\nInventory recovered.');
+ const rebound: any = await req('graph.evidence', { graph, node: 'inventory', runId: successor, attempt: 1, replacesRunId: inventory, replacesAttempt: 1 });
+ assert.equal(rebound.node.budget.used, 1); assert.equal(rebound.node.predecessors[0].runId, inventory);
+ assert.equal(rebound.node.result.sha256, recovered.result.sha256); assert.equal(rebound.node.proof, 'unknown');
+ const input: any = await req('graph.evidence', { graph, node: 'planner' });
+ const planner = (await invoke('bg_agent', 'recovery-planner', { role: 'planner', prompt: input.prompt, keepAlive: false, promoteAfterMs: 0 })).details.runId;
+ await runtime.dispatch();
+ const consumed = (await req('get', { runId: planner }) as any).consumedInputs[0].inputs[0];
+ assert.equal(consumed.runId, successor); assert.equal(consumed.result, recovered.result.sha256);
+ await settle(planner, '# Status\nPASS\n# Claims\nPlan consumed recovered inventory.');
+ for (const runId of [inventory, successor, planner]) for (const d of await req('wait', { runId }) as any[]) await req('ack', { runId, deliveryId: d.id });
+ await req('shutdown', {});
+ console.log('PASS: real port completed blank-result worker permits explicit successor and captured planner lineage');
  process.exit(0);
 }
 const largeParams = { ...params, prompt: 'Plan the migration without losing any requirements.\n'.repeat(230),
