@@ -83,7 +83,7 @@ test("concise reports do not replace maker checks, independent proof, or honest 
   for (const name of ["advisor", "contract", "checker"]) {
     assert.match(policy[name], /Explicitly required independent checks must actually run/, name);
   }
-  assert.match(policy.advisor, /High-risk boundaries receive independent review before completion/);
+  assert.match(policy.advisor, /A pending, unavailable or stale required verdict remains an unmet delivery gate/);
   assert.match(policy.checker, /Never weaken acceptance to make a rerun green/);
 });
 
@@ -110,4 +110,45 @@ test("obstacles and child ownership do not silently require an extra report file
   assert.doesNotMatch(policy.child, /Use your assigned `result.md` as the operational checkpoint and final handoff/);
   assert.match(policy.advisor, /A scoped child uses its recorded session or assigned handoff\/checkpoint/);
   assert.match(policy.child, /Never write the parent's workstream file/);
+});
+
+test("journey-impact verification belongs to every author without blanket browser work", async () => {
+  const native = collapse(await read("native-skills/advisor/references/worker-contract.md"));
+  for (const [name, source] of Object.entries({ managed: policy.contract, native })) {
+    assert.match(source, /builder implementation, checker repairs(?:,? and| and) direct advisor work/, name);
+    assert.match(source, /actual diff and call\/data flow/, name);
+    assert.match(source, /plausible (?:affected user journeys|consumers)/, name);
+    assert.match(source, /every transitively reachable screen/, name);
+    assert.match(source, /backend auth, API wiring/, name);
+    assert.match(source, /real browser against the integrated changed application/, name);
+    assert.match(source, /persona\/state and meaningful failure or edge path/, name);
+    assert.match(source, /Reuse current project browser tests when they actually cover that flow/, name);
+    assert.match(source, /screenshot.*(?:alone|do not).*prove/i, name);
+    assert.match(source, /Internal changes.*(?:unit, API|unit, API or integration)/, name);
+    assert.match(source, /Uncertain impact/, name);
+    assert.match(source, /missing browser coverage and why/, name);
+    assert.match(source, /dirty content|including dirty/, name);
+    assert.match(source, /no mandatory manifest or screenshot quota/i, name);
+    assert.match(source, /rerun (?:the )?affected flow/, name);
+    assert.match(source, /A checker that edits is an author/, name);
+    assert.match(source, /safe targets, credentials|safe targets, credentials, accessibility/, name);
+  }
+  assert.match(policy.builder, /worker contract's journey-impact browser verification rule/);
+  assert.match(policy.checker, /journey-impact browser verification rule for your repairs/);
+  assert.match(policy.child, /journey-impact browser rule to direct edits and integration/);
+  assert.match(policy.advisor, /including checker repairs and direct advisor work/);
+});
+
+test("required external agentic review cannot be replaced or silently waived", async () => {
+  const surfaces = [policy.advisor, policy.contract, await read("skills/advisor-stock-entry/SKILL.md"), await read("native-skills/advisor/references/worker-contract.md"), await read("native-skills/advisor/SKILL.md")].map(collapse);
+  for (const source of surfaces) {
+    assert.match(source, /agentic PR review/);
+    assert.match(source, /pending, unavailable or stale|Pending, unavailable or stale/);
+    assert.match(source, /(?:current PR revision|required PR verdict)/);
+    assert.match(source, /local checker|local\s+checker/);
+    assert.match(source, /green (?:test|deterministic)/);
+    assert.match(source, /old(?:er)? (?:PR )?verdict/);
+    assert.match(source, /scope and authorization/);
+    assert.doesNotMatch(source, /High requires a designated independent checker/i);
+  }
 });

@@ -79,8 +79,8 @@ For a definite pre-effect rejection, correct its cause and use a new call ID.
 Do not repeat identical failed requests or relaunch an uncertain effect. If transport
 remains unavailable, perform cohesive work directly only when ownership and authority
 are clear;
-required independent review remains unsatisfied until actually obtained. Any
-explicit acceptance requirement for a particular transport or worker stays
+project/user-required independent review remains unsatisfied until actually obtained.
+Any explicit acceptance requirement for a particular transport or worker stays
 unsatisfied if bypassed by direct work. Another root/workstream must be
 explicitly scoped through its supported bootstrap, not
 used to evade a refusal or adopt an uncertain worker. Keep unfinished criteria

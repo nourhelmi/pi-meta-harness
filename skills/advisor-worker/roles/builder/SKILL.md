@@ -9,10 +9,9 @@ disable-model-invocation: true
 Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 
 Own the cohesive maker task in the assigned worktree: investigate it, choose and
-refine its plan, implement it, run task-shaped deterministic tests, and perform
-ordinary browser exercise when the acceptance contract calls for it. Do not split
-those responsibilities merely
-because separate worker roles exist. Before editing, confirm the packet includes
+refine its plan, implement it, run task-shaped deterministic tests, and apply the
+worker contract's journey-impact browser verification rule. Do not split those
+responsibilities merely because separate workers are available. Before editing, confirm the packet includes
 the complete known acceptance contract, risk tier, threat model, risk
 invariants, evidence paths, and stop conditions; report a missing material
 boundary instead of guessing. Read required contract inputs and inspect linked
@@ -97,7 +96,8 @@ such as early design risk, missing expertise, or an integration gap. Do not
 stack a maker-owned reviewer ahead of a planned independent checker covering
 the same purpose. If that extra review adds no distinct value, hand off your
 criterion evidence directly; skipping an optional helper is not missing proof.
-High still requires the parent advisor's designated independent checker.
+Risk alone never mandates a harness checker. Follow project/user review gates,
+including agentic PR verdicts when required; local helper review does not replace them.
 
 Your depth-1 grant is capacity for at most one read-only review helper, not a
 launch quota or general delegation permission. If useful, choose its model and

@@ -47,13 +47,11 @@ flowchart TB
     Build[builder]
     Child["child advisor\noptional linked subgraph"]
     Check[checker]
-    Browser[browser-verifier]
   end
 
   Route -->|cohesive implementation| Build
   Route -->|scoped outcome| Child
-  Route -->|risk-triggered review| Check
-  Route -->|independent UI evidence| Browser
+  Route -->|concrete review uncertainty| Check
 
   classDef you fill:#e94560,stroke:#e94560,color:#fff
   classDef mux fill:#16213e,stroke:#533483,color:#eee
@@ -65,7 +63,7 @@ flowchart TB
   class Ghostty,Herdr mux
   class Adv,Route advisor
   class Guide,Roles map
-  class Build,Child,Check,Browser worker
+  class Build,Child,Check worker
 ```
 
 **[Quick start](#-quick-start)** ·
@@ -85,9 +83,9 @@ flowchart TB
 
 | | |
 | --- | --- |
-| 🎯 **Four roles, no ceremony** | Advisors investigate, plan, implement and synthesize. Builders own implementation and verification. Checkers investigate and repair findings. Browser-verifiers capture focused browser/before-after evidence. Graphs are optional coordination, not launch permits. |
+| 🎯 **Three roles, no ceremony** | Advisors investigate, plan, implement and synthesize. Builders own implementation and verification. Checkers investigate and repair findings. Every author verifies plausibly affected browser journeys. Graphs are optional coordination, not launch permits. |
 | 🐴 **Ponytail throughout** | [Default-on simplicity guidance](docs/ponytail.md) in ordinary Pi sessions, parent/child advisors, and workers: reuse before adding, fewer unnecessary handoffs, no repeated core-skill loading. Required behavior, tests, safety, and evidence remain binding. |
-| 🎚️ **Risk tiers** | Every packet is Low, Standard, or High from what the change touches, with Standard as the default. The tier sets review obligations and the checker's FAIL bar; High retains independent checking without an automatic extra maker-owned reviewer. |
+| 🎚️ **Risk without choreography** | Low, Standard, or High guides probe depth and the checker's FAIL bar, not mandatory reviewers. Required agentic PR review belongs to the project's review/CI workflow; local self-verification never substitutes for its current-revision verdict. |
 | 🔍 **Makers understand, checkers repair** | Makers prove criteria and inspect their diff. Checkers repair within the reviewed surface; revisit useful deltas without arbitrary repair-round quotas. User-set limits and required independent checks still apply. |
 | 🧩 **Roles ≠ models** | Optional semantic role presets (`bg-agent-profiles.json`) describe useful responsibilities while **switchable intelligence guides** recommend model capacity. Summaries are handoffs; searchable recorded transcripts and original artifacts retain the detail. |
 | 🔀 **Two worker harnesses** | Specialists run through Pi, or natively through Codex CLI and Claude Code — same roles, same skills, chosen once per advisor session. Managed root and child advisors are Pi-hosted. |
@@ -124,7 +122,7 @@ invoke `/advisor`.
 
 1. installs and tests the harness;
 2. shows the live install plan;
-3. installs the compatible browser-verifier CLI and its browser;
+3. installs the compatible browser automation CLI and its browser;
 4. backs up and installs managed Pi configuration;
 5. updates compatible npm packages and installs reviewed Git commits, including
    the public `pi-detach` repository;

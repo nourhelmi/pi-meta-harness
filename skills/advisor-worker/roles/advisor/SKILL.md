@@ -35,6 +35,8 @@ file. Follow the shared
 its leaf-only delegation restriction does not apply to your granted advisor scope.
 
 You own verification of the integrated outcome. Carry forward attributable
-component evidence and rerun what integration invalidates. The parent retains
-its required independent check of your integrated outcome; neither your own
-review nor a nested maker report becomes independent by moving up the tree.
+component evidence and rerun what integration invalidates. Apply the shared
+journey-impact browser rule to direct edits and integration. Project/user review
+requirements apply to the integrated outcome; neither your own review nor a nested
+maker report becomes independent by moving up the tree. No extra parent checker
+or non-author closure is required merely because this outcome was delegated.

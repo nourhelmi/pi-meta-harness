@@ -60,11 +60,16 @@ evidence reuse never waives them. Missing proof remains unsatisfied. A
 genuinely new finding that meets the packet's severity bar remains valid even
 though it was not known to the maker.
 
-Assign delivery gates to an owner rather than every layer. Run the
-repository's actual required merge or CI gates once for the delivered
-revision; do not add unrelated repository-wide sweeps or duplicate gates
-already authoritative for that revision and environment. Do not mandate
-unrelated repository-wide sweeps.
+Assign delivery gates to an owner rather than every layer. Follow the repository's
+actual required checks, agentic PR review, verdict and merge/release requirements
+for the delivered revision, plus explicit user requirements. Agentic PR review is
+owned by the project's review/CI workflow, not a mandatory local harness stage.
+Inspect that review's findings and verdict for the current PR revision, and follow
+its re-review rules after changes. Pending, unavailable or stale required review
+remains an unmet delivery gate: a local checker, green tests or an older verdict
+cannot substitute for it. Do not invent external review where none is required,
+or add/change workflows, publish verdicts or merge without scope and authorization.
+Do not duplicate already-authoritative checks or add unrelated repository sweeps.
 
 ## Review depth and closure
 
@@ -84,50 +89,49 @@ assigned claims and material risks are resolved with current evidence and no
 material contradiction remains; more possible tests or files alone do not
 justify continuing. Neither elapsed time nor absence of findings is proof.
 
-Verify repairs with affected criterion reruns and a targeted diff or
-blast-radius read, and carry forward unaffected valid evidence. Another
-independent review is warranted only when the repair invalidates prior
-independent reasoning or leaves material independent risk, not merely because
-a file changed or a test once failed. Review that delta first; expand only
-when the risk crosses its boundary. A checker's assessment of the original
-work remains independent, but its own patch's reruns are self-verification,
-not independent review of that patch. The advisor or another non-author closes
-a material checker delta with inspected rerun evidence, a targeted diff read,
-and any still-needed independent probe. Use a separate reviewer only for named
-unresolved independent risk; the original maker can serve when its prior
-assumptions are not the contested issue. Preserve unaffected review evidence
-and never launch an automatic checker-of-checker for closed work.
+Verify repairs with affected criterion reruns and a targeted diff or blast-radius
+read, and carry forward unaffected valid evidence. Another review is useful when
+the repair invalidates prior reasoning or leaves a named uncertainty, not merely
+because a file changed or a test once failed. Review that delta first; expand only
+when the risk crosses its boundary. A checker's assessment of the original work
+remains independent, but its patch's reruns are self-verification, not independent
+review of that patch. No material checker delta automatically requires a non-author
+or checker-of-checker: follow project/user review requirements, verify the affected
+behavior and report remaining uncertainty without inventing another harness gate.
 
 Independent read-only checks of the same frozen diff may run in parallel when
 they materially shorten the critical path and neither is likely to invalidate
 the other's evidence. Serialize a likely high-impact safety review first when
-its findings would make parallel browser evidence stale or unsafe. Any
-verifying agent that launches a browser records evidence during that same run
-and registers it in an evidence manifest in its run directory: capture commit
-SHA, flows covered, and artifact paths. Verifiers never upload and never need
-artifact-upload credentials. Never schedule a separate browser pass whose only
-purpose is evidence capture.
+its findings would make parallel browser evidence stale or unsafe. A separate
+browser specialist is not required: whoever changes behavior owns the affected
+journey checks, including checker repairs and direct advisor work.
 
-## Evidence delivery
+## Browser impact and evidence delivery
 
-Evidence is captured while verifying and submitted at delivery.
+Use the worker contract's journey-impact rule before edits and again when repairs
+or integration change the surface. Name plausible affected user journeys from the
+actual diff and call/data flow, not every reachable screen. Exercise browser-facing
+changes against the integrated application, including backend changes that affect
+auth, API wiring, stored state or user-visible errors. Choose relevant personas,
+states and failure paths; use current project browser tests when they cover the
+flow, without defaulting to the whole suite. No plausible browser impact means
+relevant unit/API/integration checks and a short rationale, not a browser ritual.
+Unclear impact requires inspecting consumers. A missing safe target or unexercised
+flow remains an explicit coverage gap, not a PASS inferred from non-browser tests.
 
-1. Verifiers record during verification with safe local or dev personas only
-   and write an evidence manifest (capture SHA, flows, artifact paths) in
-   their run directory. Unsafe captures are deleted and recaptured, never
-   retained.
-2. The delivery node collects the manifests, compares each capture SHA to the
-   delivered SHA, and submits still-valid evidence with the PR. Evidence stays
-   valid only when the changed code, tests, dependencies, configuration and
-   environment leave its covered behavior and oracle intact. A test-only commit
-   or unchanged file path is not by itself proof of that.
-3. Only stale evidence earns a re-capture, and only for the affected flows,
-   never the full suite by default.
-4. Artifact-upload authorization is a delivery-time gate. Pre-flight the
-   actual upload capability once early in the workstream when browser work is
-   planned, and again before launching the delivery node, so a credential
-   failure escalates early. An upload-authorization failure never blocks
-   verification or recording.
+Record tested content (including dirty changes), environment/persona, flow, checks,
+observed outcomes and useful evidence paths during verification. Screenshots or
+recordings support the claim when useful; a screenshot alone is not functional
+proof. No mandatory manifest or extra evidence-only pass. Protect credentials and
+private data; remove unsafe captures and recapture safely. Use repository-required
+artifact formats and delivery rules when they exist.
+
+At delivery, carry forward only still-valid evidence for the delivered revision.
+Recheck coverage when code, tests, dependencies, configuration or environment
+changes; a test-only commit or unchanged path alone proves nothing. Rerun affected
+flows after repairs, not the entire browser suite by default. Submit evidence with
+the PR only when required/authorized. Missing upload access does not prevent local
+verification; report any required publication as pending rather than dropping it.
 
 ## Rebase policy
 

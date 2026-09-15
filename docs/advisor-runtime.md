@@ -37,7 +37,7 @@ native agent process.
 11. Use an optional graph for real ownership or dependency boundaries. It records coordination and evidence, not permission to execute or a mandatory stage based on worker count.
 12. One writer owns a checkout at a time, including parent and child advisors. Settle a writing worker before reclaiming its surface. Parallel makers need separate worktrees and must respect explicit user limits. Independent review names the revision it assessed.
 13. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers, without run-id suffixes. Successful worker panes close automatically; blocked or unknown panes stay visible.
-14. Keep a builder alive for a planned bounded repair and a checker alive for the delta review of its own findings. Makers prove criteria and inspect their own diff; an extra fresh-context helper requires a named distinct benefit, not just a Standard/High label. High requires a designated independent checker, without an automatic maker-owned reviewer first. Every checker starts fresh, judges against the packet tier's FAIL bar, and repairs every finding it can inside the reviewed surface in any round, including repair rounds. Auto-fixable mechanical findings (formatter output, lint autofix, generated-file drift, result formatting) are repaired inline by whoever finds them and never bind a verdict; a formatter or lint pass is never an acceptance criterion on its own.
+14. Keep a worker alive only for a useful planned follow-up. Makers prove criteria, inspect their own diff and exercise plausibly affected browser journeys; checker repairs have the same duties. Extra review needs a named uncertainty or project/user requirement, not a Standard/High label. Required agentic PR review belongs to the project's review/CI workflow, not a mandatory local checker. A checker assesses the assigned work and repairs in-scope findings; repairs do not automatically require a non-author or another checker. Auto-fixable mechanical findings are repaired inline; a formatter or lint pass is never an acceptance criterion on its own.
 15. Keep global advisor routines paused because open Pi processes share routine state.
 
 ## Blocked signals
@@ -69,7 +69,7 @@ Three routes exist: direct work, a single maker, and a graph. For small and
 cohesive-medium work with one decision set, presume **one empowered maker** —
 the advisor itself, a builder, or a child advisor — from a short packet, and let it
 feel like launching one ordinary agent: no graph or extra review stage
-unless the tier or the user asks for one. Choose direct, delegated, or hybrid
+unless it adds concrete value or a project/user requirement asks for one. Choose direct, delegated, or hybrid
 execution by context, decision load, specialization, evidence value, and total
 delivery cost. This is a presumption against ceremony, not a target worker
 count or an advisor-first bias. Direct implementation is available at every
@@ -94,7 +94,7 @@ flowchart TD
   Q -->|no| Gate{"would another launch\nmaterially…"}
   Gate -->|"resolve uncertainty"| Investigate["advisor / maker investigates"]
   Gate -->|"parallelize real work"| Graph["+ child advisor / validated graph"]
-  Gate -->|"add independent confidence\n(risk or info-value rationale)"| Check["+ checker / browser-verifier"]
+  Gate -->|"resolve a review uncertainty"| Check["+ checker"]
   Investigate --> Stop
   Graph --> Stop
   Check --> Stop
@@ -111,14 +111,14 @@ flowchart TD
 ```
 
 Optimize marginal evidence value and critical-path latency: add a child advisor,
-graph, checker, browser verifier, or freeform worker whenever it materially
+graph, checker, or freeform worker whenever it materially
 resolves uncertainty, parallelizes real work, or adds useful independent
 confidence. Child advisors use the same doctrine: the parent delegates outcomes
 and real constraints, not execution strategy. They choose direct work or useful
 delegation, not a mandatory role sequence. Their turn cap is advisory while
 their helpers are live.
-Graphs require genuine ownership or dependency boundaries; dedicated checkers and browser verifiers
-require a risk or information-value rationale.
+Graphs require genuine ownership or dependency boundaries; extra review requires
+a named uncertainty or project/user requirement, not a universal harness stage.
 Stop adding launches when another would mostly replay existing evidence.
 
 Makers prove every criterion with task-shaped command evidence and inspect their
@@ -180,11 +180,14 @@ behavior, acceptance oracles, and enforcement semantics remain unchanged.
 Changes to an acceptance oracle, security gate, or safety-relevant instruction
 take the tier of the boundary they control; the highest applicable tier wins.
 
-| Tier | Covers | Route | Checker FAIL bar |
+| Tier | Covers | Verification focus | Checker FAIL bar |
 | --- | --- | --- | --- |
-| Low | docs, skills, prompts, specs, config, or test maintenance with unchanged behavior and acceptance/enforcement semantics; bounded repairs with a strong oracle and no higher-tier effect | one maker, deterministic criteria; no added review by default | violated criterion only |
-| Standard | product runtime code with coupling or a weak oracle | one maker; fresh review only for material uncertainty or a review trigger | violated criterion or unrepaired High finding |
-| High | schema, migration, auth, RLS or security, privacy, money, idempotency, destructive or external effects, concurrency, gate code | one maker and a designated independent checker; no automatic extra maker-owned reviewer; browser verification when visible | violated criterion or unrepaired Medium-or-higher finding |
+| Low | unchanged behavior/enforcement, bounded repairs with a strong oracle | affected criteria and own-diff inspection | violated criterion only |
+| Standard | runtime code with coupling or a weak oracle | affected behavior, integration and weak-oracle probes | violated criterion or unrepaired High finding |
+| High | schema, migration, auth, security, privacy, money, replay, destructive/external effects, concurrency or gate code | critical boundaries, failure paths and affected browser journeys | violated criterion or unrepaired Medium-or-higher finding |
+
+No tier mandates a harness checker. Project and explicit user review requirements
+remain binding; risk guides evidence depth, not a fixed role sequence.
 
 Finding severity is graded by consequence, separately from tier: High breaks a
 security, data, money, auth, or destructive boundary or a risk invariant;
@@ -193,11 +196,14 @@ everything else. A violated criterion takes the severity of what it breaks.
 
 ## 🔍 Review proportionality
 
-Fresh context is useful when it resolves a named uncertainty, not as a ritual
-between maker proof and independent checking. A maker-owned helper remains maker
-evidence and cannot replace High's designated independent checker. Extra review
-needs a distinct purpose not covered by the planned check. Choose model and
-effort from actual review need and the guide, not a fixed offset from the maker.
+Fresh context is useful when it resolves a named uncertainty, not as a ritual.
+Follow the repository's checks, agentic PR review, required verdicts and merge/release
+requirements for the current PR revision, plus explicit user requirements. Agentic
+PR review is project-owned: inspect its verdict/findings, repair in-scope findings
+and follow its re-review rules. Pending, unavailable or stale required review is
+an unmet delivery gate; a local checker, green tests or an old verdict cannot
+substitute. Do not add/change CI reviewers, publish verdicts or merge without
+scope and authorization. If no external review is required, do not invent one.
 
 Checkers are repair-first. A checker repairs every finding it can inside the
 reviewed surface, at any severity, unless the fix needs a product decision,
@@ -205,12 +211,11 @@ changes schema or migration semantics, or has an external effect. Its verdict
 describes the post-repair state. A repaired finding alone does not cause FAIL;
 unmet criteria or new defects still bind at the tier's bar. The original
 assessment remains independent, but the checker's own patch has
-self-verification, not independent review of that patch. The advisor inspects
-the rerun evidence and delta, preserves unaffected review evidence, and closes
-it when no material independent risk remains. Otherwise assign a scoped read
-or probe to a reviewer who did not author the patch. The original maker may
-serve when its prior assumptions are not the contested issue; there is no
-automatic checker-of-checker or whole-work re-review.
+self-verification, not independent review of that patch. The author verifies the
+affected delta and browser journeys, carrying forward unaffected evidence. A repair
+does not automatically require a non-author, checker-of-checker or whole-work
+re-review; use further review for project/user requirements or a named remaining
+uncertainty, not merely because someone edited a file.
 
 Resume the same checker for a delta review of a maker's repair; use fresh review
 when prior reasoning is invalidated or material independent risk remains. Continue
@@ -226,21 +231,52 @@ assigned claims and material risks are resolved with current evidence and no
 material contradiction remains. More possible tests or a large assertion count
 is not an objective; neither elapsed time nor no findings alone proves safety.
 
-Examples, not fixed routes:
+### Browser verification follows impact, not filenames
+
+Before editing, trace the actual change through its callers and data consumers to
+plausibly affected user journeys. Repeat that assessment after repairs/integration
+change the surface. The author owns these checks—builder, repairing checker or
+advisor—not a separate browser-verifier. Existing project browser tests count when
+they exercise the affected flow against the integrated application. Pure API tests,
+mocked components and screenshots alone do not prove browser wiring or behavior.
+
+| Change | Proportional verification |
+| --- | --- |
+| Login cookie or API auth change | Sign in, reload a protected view, and exercise the relevant expired/denied state with safe test accounts. |
+| Save API or stored-state change used by a form | Submit through the form, reload/read back the value, and check the affected validation/error path. |
+| Responsive navigation or keyboard interaction | Exercise the affected viewport and keyboard journey; capture visual/focus evidence when useful. |
+| Checker repairs a form error path | Re-run that journey and affected criteria on the repaired revision, not an automatic second full review. |
+| Internal CLI logging with no browser consumer | Appropriate CLI/unit checks and a short no-browser-impact rationale; no browser ceremony. |
+
+Choose relevant personas, states and failure paths, not every transitively reachable
+screen. Inspect consumers when impact is unclear. Reuse valid evidence and run the
+affected flows, not the whole browser suite by default. Use the project's safe
+environment and existing browser setup; respect permissions, privacy and accessibility.
+A missing safe target or unexercised affected journey stays an explicit coverage gap;
+continue other authorized work without calling that flow verified.
+
+Record tested content (including dirty changes), environment/persona, journey,
+observed outcomes and useful screenshot/log paths as you verify. No fixed screenshot
+count, mandatory manifest or capture-only pass. Submit evidence through the project's
+required/authorized delivery path, and rerun what later changes invalidate. See the
+[shared worker contract](../skills/advisor-worker/references/WORKER_CONTRACT.md#verify-the-affected-journeys).
+
+### Examples, not fixed routes
 
 - A coupled Standard repair with strong relevant tests and no unresolved material
   uncertainty may finish with maker proof and own-diff inspection, without a helper.
-- A High authorization repair uses maker proof plus a designated independent
-  checker for the boundary. Do not add a maker-side reviewer for the same purpose.
+- A High authorization repair needs boundary/failure-path evidence and affected
+  browser checks. Its delivery follows the project's agentic PR-review gate when
+  required, without a duplicate mandatory local checker.
 - A weak acceptance oracle may warrant substantial independent probes; if the
   packet explicitly requires generated reference or mutation checks, run them.
 - An integrated child-advisor result reuses current component evidence and verifies
   the integration delta plus required final checks, not every child's work again.
 - A checker that finds one Medium race in a reviewed file fixes it, reruns the
-  affected criteria, and reports the post-repair state. The advisor can close
-  the delta from the proof and patch when no material independent risk remains.
-- A checker-authored authorization fix with a weak oracle needs scrutiny from
-  someone who did not author the patch, scoped to the unresolved boundary.
+  affected criteria and browser flows, and reports the post-repair state. No extra
+  reviewer is automatic; project/user gates and named uncertainty determine it.
+- A checker-authored authorization fix with a weak oracle may benefit from a
+  focused independent probe to resolve that specific uncertainty.
 - Editing an authorization test's acceptance oracle or a security-policy
   instruction is High when it changes that boundary; a comment-only repair
   with unchanged enforcement can be Low.
@@ -249,7 +285,7 @@ Examples, not fixed routes:
 
 ## 🎭 Roles and intelligence
 
-Configured roles are `advisor`, `builder`, `checker`, and `browser-verifier`.
+Configured roles are `advisor`, `builder`, and `checker`.
 A child advisor uses the same installed advisor doctrine and intelligence guide
 as the root, scoped to one parent
 outcome. It may implement directly, use specialists, or delegate further to
@@ -272,9 +308,9 @@ its mandate, including resolving environment and tooling obstacles. Packets
 include the broader goal, why the contribution matters, upstream evidence,
 downstream consumers, and locked versus suggested decisions. Builders own
 in-scope investigation, planning, technical choices, implementation and tests
-without routine permission round-trips. Browser-verifiers retain product-code
-read-only boundaries and focus on explicit flows and before/after evidence with
-an economical model and small task-shaped context. Checker repairs stay inside the reviewed surface with
+without routine permission round-trips. Every author, including a checker repairing
+findings or an advisor integrating changes, owns journey-impact browser verification.
+Checker repairs stay inside the reviewed surface with
 exclusive write ownership. Classify by behavioral effect: acceptance oracles and
 security gates are enforcement work even in `tests/` or `evals/`, not harmless
 test-only changes. Mechanical fixes preserve behavior and the acceptance

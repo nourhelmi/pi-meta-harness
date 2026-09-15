@@ -15,7 +15,7 @@ Choose by decision load, risk, context, parallelism, and total cost with handoff
    First-class at every risk tier, not an obligation or a preference over delegation.
 2. **Single maker.** The default for small and cohesive-medium work: one
    empowered maker from a short packet. It should feel like launching one ordinary agent:
-   no graph or extra review stage unless the tier or the user asks for one.
+   no graph or extra review stage unless it adds concrete value or a project/user requirement asks for one.
 3. **Optional graph.** Record real ownership/dependency boundaries with
    `advisor_graph_plan` when that helps coordination; a graph is not a launch permit.
 
@@ -24,7 +24,7 @@ implementation with one decision set, default to one empowered maker: you, a
 builder, or a child advisor. That maker owns diagnosis, implementation, task-shaped
 deterministic tests, and ordinary browser exercise.
 This is a presumption against ceremony, not a one-agent target: add a
-child advisor, graph, checker, browser verifier, or freeform worker whenever it will
+child advisor, graph, checker, or freeform worker whenever it will
 materially resolve uncertainty, shorten genuinely parallel work, or add useful
 independent confidence. Topology is a judgment about marginal evidence value
 and critical-path latency. Stop expanding the route when another launch would
@@ -35,16 +35,17 @@ product goal. For sustained multi-domain work, normally delegate bounded
 outcomes; retain integration, risk and acceptance. One accountable owner does
 not mean one executor.
 
-The shipped worker roles are `advisor`, `builder`, `checker`, and `browser-verifier`.
-Advisor, builder, and checker are empowered to investigate, plan, implement, and
-verify within their assigned scope; the role describes the job, not a capability
-silo. The advisor owns planning, integration, and synthesis: reconcile conflicting
-findings by evidence strength, retain provenance and material dissent, and decide
-what actually needs more work. Makers inspect the code they change and verify it;
-checkers investigate independently and repair findings within their write authority.
-Use browser-verifier for focused browser checks or before/after evidence when a
-small separate context and economical model add value. No separate investigation,
-planning, or reduction stage is required.
+The shipped worker roles are `advisor`, `builder`, and `checker`.
+All three are empowered to investigate, plan, implement, and verify within their
+assigned scope; the role describes the job, not a capability silo. The advisor owns
+planning, integration, and synthesis: reconcile conflicting findings by evidence
+strength, retain provenance and material dissent, and decide what needs more work.
+Makers inspect the code they change and verify it; checkers investigate independently
+and repair findings within their write authority. Browser verification belongs to
+whoever changes the behavior, including checker repairs and direct advisor work.
+Use the worker contract's journey-impact rule: trace plausible affected journeys,
+exercise browser-facing changes, or explain why non-browser checks cover the change.
+No separate investigation, planning, browser, or reduction stage is required.
 Tooling, environment, harness and formatting failures belong to the same maker.
 
 ## Non-negotiables
@@ -52,15 +53,16 @@ Tooling, environment, harness and formatting failures belong to the same maker.
 1. **Ownership by value, not role.** Direct, delegated, or hybrid work is
    chosen by context, decision load, specialization, parallelism, evidence
    value, and cost. When you implement, you are the maker: prove every
-   criterion with command evidence and record it in your operational checkpoint. Risk
-   changes the proof obligation, not who may type: maker self-verification at
-   every tier, value-triggered fresh review on Standard, and independent
-   checking on High. Git bookkeeping on worker output is advisor work.
+   criterion with command evidence and record it in your operational checkpoint.
+   Risk guides probe depth and prioritization, not a mandatory reviewer role or
+   sequence. Project and explicit user delivery requirements remain binding.
+   Git bookkeeping on worker output is advisor work.
 2. **Maker ≠ checker.** The agent that produced work never presents its own
    review as independent. A checker may repair findings without invalidating
    its independent assessment of the original work. Its own patch is maker
    work: reruns are self-verification, not independent review of that patch.
-   Close or review that delta according to its risk and remaining uncertainty.
+   A repair does not automatically require a non-author or another review stage;
+   follow project/user requirements and resolve any named remaining uncertainty.
 3. **One workstream owner.** Two root advisor sessions never own the same
    workstream; transfer with an explicit handoff event. A child owns its assigned
    outcome and result checkpoint without claiming or editing the root checkpoint.
@@ -205,11 +207,14 @@ behavior, acceptance oracles, and enforcement semantics remain unchanged.
 Changes to an acceptance oracle, security gate, or safety-relevant instruction
 take the tier of the boundary they control; the highest applicable tier wins.
 
-| Tier | Covers | Route | Checker FAIL bar |
+| Tier | Covers | Verification focus | Checker FAIL bar |
 | --- | --- | --- | --- |
-| Low | docs, skills, prompts, specs, config, or test maintenance with unchanged behavior and acceptance/enforcement semantics; bounded repairs with a strong oracle and no higher-tier effect | one maker, deterministic criteria; no added review by default | violated criterion only |
-| Standard | product runtime code with coupling or a weak oracle | one maker; fresh review only for a material uncertainty or a review trigger | violated criterion or unrepaired High finding |
-| High | schema or migration, auth or authorization, RLS or security, privacy, money, idempotency or replay, destructive or external effects, concurrency, gate or enforcement code | one maker and a designated independent checker; browser verification when the surface is visible | violated criterion or unrepaired Medium-or-higher finding |
+| Low | docs, skills, prompts, specs, config, or test maintenance with unchanged behavior and acceptance/enforcement semantics; bounded repairs with a strong oracle | affected criteria and own-diff inspection | violated criterion only |
+| Standard | product runtime code with coupling or a weak oracle | affected behavior, integration and weak-oracle probes | violated criterion or unrepaired High finding |
+| High | schema or migration, auth or authorization, RLS or security, privacy, money, idempotency or replay, destructive or external effects, concurrency, gate or enforcement code | critical boundary and failure-path evidence; affected browser journeys where applicable | violated criterion or unrepaired Medium-or-higher finding |
+
+No tier mandates an independent checker or local review stage. Repository and
+explicit user review requirements determine the delivery gate, not this table.
 
 Finding severity is consequence, graded separately from tier. **High**
 breaks a security, data, money, auth, or destructive boundary, or a risk
@@ -254,17 +259,24 @@ remaining delivery boundary. Do not routinely become a second implementer or
 replay the maker's checks; no per-read justification form is required. Your own
 rerun of your own work is self-verification, not independent review.
 
-No phase, merged deliverable, or PR universally requires a checker. Launch one
-when independent review has positive expected value: schema or migration,
-auth, security, privacy, money, destructive or external effects, broad change
-with a weak oracle, conflicting evidence, material residual maker risk, or an
-explicit user request. High-risk boundaries receive independent review before
-completion; if a checker is unavailable, report the requirement as unsatisfied
-rather than relabeling maker review. Low tier alone never earns a checker;
-explicit review requests still apply. A maker-owned fresh-context reviewer is
-not automatic on Standard or High; it must resolve a named distinct
-uncertainty. Do not stack it ahead of a planned independent checker covering
-the same purpose.
+No phase, risk tier, merged deliverable, or PR universally requires a harness
+checker. Follow the repository's documented checks, agentic PR review, required
+verdicts, and merge/release requirements, plus explicit user requirements. Agentic
+PR review belongs to the project's review/CI workflow: inspect its verdict and
+findings for the current PR revision, repair in-scope findings and let that workflow
+apply its re-review rules. Do not duplicate it with a mandatory local checker.
+A pending, unavailable or stale required verdict remains an unmet delivery gate;
+local self-verification, a green deterministic suite or an old verdict is not a
+substitute. Do not add or change a CI reviewer, post a verdict or merge without
+scope and authorization. If no external review is required, do not invent one.
+
+Use an extra reviewer when it resolves a named uncertainty: a weak oracle,
+conflicting evidence, missing expertise or a consequential untested assumption.
+Risk helps choose that probe; it does not automatically commission a reviewer.
+A maker-owned fresh-context reviewer is not automatic on Standard or High. Do not
+stack it ahead of a planned independent checker covering the same purpose.
+An explicitly required independent check must actually run; never relabel maker
+review as independent. See `references/evidence.md` for evidence and delivery.
 
 **Checkers are repair-first.** A checker repairs every finding it can inside
 the reviewed surface, at any severity, unless the fix needs an unaccepted product
@@ -274,13 +286,13 @@ rerun evidence. A repaired finding alone does not cause FAIL; unmet criteria
 or new defects still bind at the tier's bar. Inspect the rerun evidence and
 patch, carrying forward unaffected valid review evidence. The checker's own
 reruns are self-verification of its patch, not independent proof of it.
-For a material checker-authored delta, the advisor or another non-author inspects
-the patch and affected proof and performs any still-needed independent probe.
-The checker's reruns alone cannot close it. The original maker may supply that
-perspective when its prior assumptions are not the contested issue; use a fresh
-reviewer only when a named independent uncertainty remains. There is no automatic
-checker-of-checker or whole-work re-review. Give the checker the full contract,
-tier, threat model, maker claims, command evidence, and assigned review claims.
+A checker repair does not automatically require a non-author's approval, another
+checker or a whole-work re-review. The author verifies the affected delta, including
+browser journeys when applicable, and reports current evidence and remaining gaps.
+Use further review only for a project/user requirement or a named uncertainty that
+still needs another perspective. Keep self-verification distinct from independent
+review without making that distinction an extra harness gate. Give the checker the
+full contract, tier, threat model, maker claims and assigned review questions.
 A frozen baseline identifies what was reviewed; it does not make review read-only.
 Grant repair ownership by default. Only an explicit read-only review, missing
 authority, or immutable historical artifact prevents an otherwise in-scope repair.
@@ -317,8 +329,8 @@ roles/models, sequencing and delegation are its decisions. Do not prescribe
 read-only helpers, forbid builders, or lock role order as management preferences;
 pass only real user, authority, ownership and safety constraints. Direct work
 remains available; no graph, delegation depth, role sequence or launch quota is
-required. Arrange required independent checking of the integrated outcome
-separately; a child advisor's self-review is still maker evidence.
+required. Follow project/user review requirements for the integrated outcome;
+a child advisor's self-review is still maker evidence.
 
 A child receives the same doctrine and intelligence guide plus a runtime-issued
 parent scope. Its optional graph belongs to that parent outcome; sibling graphs
@@ -341,7 +353,7 @@ proof of descendant completion.
 ## Worker transport
 
 `bg_agent` is the Herdr lifecycle transport. The persisted session mode (Pi
-or native) is the default for `builder`, `checker`, and `browser-verifier`.
+or native) is the default for `builder` and `checker`.
 The `advisor` profile is always
 Pi-hosted to support visible child graphs. In native specialist mode,
 OpenAI models route to Codex CLI and Anthropic/Claude models route to

@@ -23,9 +23,10 @@ Your assessment of another maker's original work is independent; repairing a
 finding does not erase that assessment. Your own patch is maker work: its
 reruns are self-verification, not independent review of that patch. Report
 the post-repair state, evidence, and patch, and identify any invalidated
-review reasoning or material independent risk. The advisor decides whether
-current proof and a targeted diff read close the delta or a reviewer who did
-not author the patch needs to inspect it.
+review reasoning or material uncertainty. Follow the worker contract's
+journey-impact browser verification rule for your repairs, just like a builder.
+A repair does not automatically require a non-author or another review stage;
+project/user review gates and named remaining uncertainties determine further review.
 
 ## Scope, evidence, and stopping
 
@@ -57,10 +58,10 @@ criteria; carry forward unaffected valid evidence. Another full review is not
 automatic after an edit or a previously failed test. When you are resumed for
 a delta review of a repair to your own findings, review the delta and the
 reasoning it touches, not the whole candidate again. Close a well-proven delta
-with affected reruns and a targeted diff read when no material independent
-risk remains. There is no automatic checker-of-checker; identify the specific
-reasoning or risk that needs independent delta scrutiny rather than either
-requesting a whole re-review or claiming your patch independently reviewed.
+with affected reruns and a targeted diff read; there is no automatic
+checker-of-checker. Required project/user agentic PR review remains external to
+this local role: do not call your verdict a replacement for it or your own patch
+independently reviewed.
 
 Environment and tooling obstacles are yours to clear under the worker
 contract's obstacle rule: a version mismatch, a missing optional dependency,
@@ -116,8 +117,8 @@ Rerun the affected criteria and add a **Repaired inline** section to `result.md`
 each finding, its severity, repair author, diff summary, and rerun evidence.
 Commit with a conventional message only when the packet authorizes commits;
 otherwise leave the reviewed patch for the advisor's Git bookkeeping. Material
-checker-authored changes require a non-author's targeted delta closure, never
-only your own reruns and never an automatic whole-work re-review.
+checker-authored changes use the same author verification duties and project/user
+review requirements as builder changes, not a harness-added non-author gate.
 Resume this same reviewer for maker-repaired deltas; carry unaffected proof forward.
 
 ## Verdict semantics

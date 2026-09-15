@@ -50,18 +50,6 @@
         "thinking": "medium",
         "fit": "Alternate review choice; select by review tier, risk, and capacity."
       }
-    ],
-    "browser-verifier": [
-      {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "medium",
-        "fit": "Preferred for browser verification in this profile."
-      },
-      {
-        "model": "cursor/grok-4.6",
-        "thinking": "high",
-        "fit": "Alternate for ambiguous visual or behavioral verification."
-      }
     ]
   }
 }

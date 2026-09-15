@@ -23,21 +23,24 @@ policy.advisor = [advisorCore, ...Object.values(advisorReferences)].join(" ");
 // Child behavior comes from the shared core and worker evidence contract, not a duplicated role.
 policy.child = [policy.child, advisorCore, policy.contract].join(" ");
 // These are instruction-contract regressions, not a claim about live model behavior.
-test("review admission keeps maker proof and High independence without automatic stacked reviewers", () => {
+test("project-owned review replaces risk-tier and local reviewer choreography", () => {
   assert.match(policy.advisor, /maker proves every acceptance criterion, inspects its own diff/);
   assert.match(policy.builder, /run the named checks, exercise the behavior/);
   assert.match(policy.builder, /inspect your own diff/);
-  assert.match(policy.advisor, /maker-owned fresh-context reviewer is not automatic on Standard or High/);
+  for (const source of [advisorCore, policy.runtime]) {
+    assert.match(source, /No (?:phase, risk tier|tier mandates)/);
+    assert.match(source, /agentic PR review/i);
+    assert.match(source, /current PR revision/);
+    assert.match(source, /(?:pending|Pending), unavailable or stale required/);
+    assert.match(source, /(?:substitute|cannot substitute)/);
+    assert.match(source, /If no external review is required, do not invent one/);
+    assert.match(source, /scope and authorization/);
+    assert.doesNotMatch(source, /High(?:-risk boundaries receive independent review| requires a designated independent checker)|one maker and a designated independent checker/);
+  }
   assert.match(policy.builder, /helper is optional, not an automatic Standard\/High step/);
-  assert.match(policy.child, /maker-owned fresh-context reviewer is not automatic on Standard or High/);
+  assert.match(policy.builder, /Risk alone never mandates a harness checker/);
+  assert.match(policy.child, /Follow project\/user review requirements for the integrated outcome/);
   assert.match(policy.advisor, /Do not stack it ahead of a planned independent checker covering the same purpose/);
-  assert.match(policy.builder, /Do not stack a maker-owned reviewer ahead of a planned independent checker covering the same purpose/);
-  assert.match(policy.child, /Do not stack it ahead of a planned independent checker covering the same purpose/);
-  assert.match(policy.advisor, /High-risk boundaries receive independent review before completion/);
-  assert.match(policy.advisor, /if a checker is unavailable, report the requirement as unsatisfied rather than relabeling maker review/);
-  assert.match(policy.builder, /High still requires the parent advisor's designated independent checker/);
-  assert.match(policy.child, /Arrange required independent checking of the integrated outcome separately/);
-  assert.match(policy.advisor, /Low tier alone never earns a checker; explicit review requests still apply/);
 });
 
 test("optional review capacity retains delegation boundaries and needs a distinct review purpose", () => {
@@ -95,7 +98,7 @@ test("review stops on resolved claims and material risks, not test counts or a t
 
 test("repair-first checkers close their own findings and delta review reuses the same reviewer", () => {
   assert.match(policy.advisor, /carry forward unaffected valid evidence/);
-  assert.match(policy.advisor, /repair invalidates prior independent reasoning or leaves material independent risk/);
+  assert.match(policy.advisor, /repair invalidates prior reasoning or leaves a named uncertainty/);
   assert.match(policy.advisor, /Review that delta first; expand only when the risk crosses its boundary/);
   assert.match(policy.advisor, /not merely because a file changed or a test once failed/);
   assert.match(policy.advisor, /Checkers are repair-first/);
@@ -122,23 +125,19 @@ test("repair-first checkers close their own findings and delta review reuses the
 // Counterexample-oriented wording guards, not a semantic or live-behavior evaluator.
 // Check each active surface independently and reject contradictory legacy absolutes,
 // even if the correct rule also occurs elsewhere in the same policy.
-test("checker-authored repairs keep self-verification distinct from independent delta review", () => {
-  const sources = { core: advisorCore, checker: policy.checker, evidence: advisorReferences.evidence, graphs: advisorReferences.graphs, runtime: policy.runtime };
+test("checker repairs keep honest provenance without mandatory non-author closure", () => {
+  const sources = { core: advisorCore, checker: policy.checker, evidence: advisorReferences.evidence, runtime: policy.runtime };
   for (const [name, source] of Object.entries(sources)) {
-    if (name === "graphs") {
-      assert.match(source, /Preserve maker\/checker independence wherever independent review is required/, name);
-      assert.match(source, /PASS summary never establishes verification by itself/, name);
-    } else {
-      assert.match(source, /not independent review of that patch/, name);
-      assert.match(source, /no material independent risk remains|non-author.*(?:independent probe|targeted diff read)/, name);
-    }
+    assert.match(source, /not independent review of that patch/, name);
+    assert.match(source, /(?:does not|do not) automatically require|No material checker delta automatically requires/, name);
+    assert.match(source, /project\/user (?:review )?(?:requirements|gates)/, name);
+    assert.doesNotMatch(source, /Material checker-authored changes require a non-author|The checker's reruns alone cannot close it|advisor or another non-author closes a material checker delta/i, name);
     assert.doesNotMatch(source, /Independence is a property of (?:the|your) verdict, not of (?:the|your) keystrokes|has not compromised its review|does not compromise your review/, name);
   }
-  assert.match(advisorCore, /advisor or another non-author inspects the patch and affected proof/);
-  assert.match(advisorCore, /original maker may supply that perspective when its prior assumptions are not the contested issue/i);
-  assert.match(policy.checker, /reviewer who did not author the patch needs to inspect it/);
-  assert.match(advisorReferences.evidence, /advisor or another non-author closes a material checker delta/i);
-  assert.match(advisorReferences.evidence, /separate reviewer only for named unresolved independent risk/);
+  assert.match(advisorReferences.graphs, /Preserve maker\/checker independence wherever independent review is required/);
+  assert.match(advisorReferences.graphs, /PASS summary never establishes verification by itself/);
+  assert.match(policy.checker, /journey-impact browser verification rule for your repairs/);
+  assert.match(advisorCore, /No phase, risk tier, merged deliverable, or PR universally requires a harness checker/);
 });
 
 test("removed review quotas do not weaken completion or explicit user limits", () => {

@@ -73,18 +73,6 @@
         "thinking": "high",
         "fit": "Alternate review choice; select by review tier, risk, and capacity."
       }
-    ],
-    "browser-verifier": [
-      {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
-        "fit": "Preferred for browser verification in this profile."
-      },
-      {
-        "model": "cursor/grok-4.6",
-        "thinking": "high",
-        "fit": "Alternate for ambiguous visual or behavioral verification."
-      }
     ]
   }
 }

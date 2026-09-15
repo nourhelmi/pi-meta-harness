@@ -73,13 +73,15 @@ inconsistent pair rather than guessing which side is authoritative.
 In `codex-lean`, Astra runs at xhigh wherever it is used: the advisor and
 wide-breadth child advisor. Regular builders use Sol medium; materially
 ambiguous or wide-breadth builders use Sol max. Checking and fully locked
-execution use Sol medium; browser verification uses Luna max. The
-named guide contains only OpenAI Codex models.
+execution use Sol medium. Luna max is an optional economical choice for explicitly
+assigned browser-heavy work. The named guide contains only OpenAI Codex models.
 
 In `codex-max`, the advisor, child advisor, and primary builder use Astra
 xhigh, including substantial and all UX implementation. Review uses Sol xhigh;
-browser verification uses Luna max. Advisors own planning and synthesis; builders
-and checkers own their investigation, local planning and verification.
+Luna max remains optional for browser-heavy work. Advisors own planning and synthesis;
+builders and checkers own their investigation, local planning and verification.
+Browser verification belongs to the author, not a separate worker stage. The
+profile does not mandate reviewers or replace project-owned agentic PR review.
 Changing this guidance does not switch the running advisor's reasoning level.
 
 Deep dive: [`docs/intelligence-profiles.md`](https://github.com/nourhelmi/pi-meta-harness/blob/main/docs/intelligence-profiles.md)

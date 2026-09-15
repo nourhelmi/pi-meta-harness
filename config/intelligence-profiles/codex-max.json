@@ -10,7 +10,7 @@
       "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: The focused browser-verification model at max reasoning for explicit flows and before/after evidence in a small task-shaped context.",
+      "character": "Advisory: An economical option at max reasoning for explicit browser-flow checks by the assigned builder or checker. Browser verification is an author responsibility, not a separate role or required stage.",
       "defaultThinking": "max"
     },
     "cursor/grok-4.6": {
@@ -53,13 +53,6 @@
         "model": "openai-codex/gpt-5.6-sol",
         "thinking": "high",
         "fit": "Alternate for routine mid-phase checks and repair verification."
-      }
-    ],
-    "browser-verifier": [
-      {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
-        "fit": "Preferred for browser verification in this profile."
       }
     ]
   }

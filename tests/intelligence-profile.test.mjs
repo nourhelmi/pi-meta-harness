@@ -27,9 +27,9 @@ test("fixed role configuration is standalone and model-free", async () => {
   const config = JSON.parse(await readFile(join(ROOT, "config", "bg-agent-profiles.json"), "utf8"));
   assert.deepEqual(roleConfigErrors(config), []);
   assert.deepEqual(Object.keys(config).sort(), ["defaultAgent", "profiles"]);
-  assert.deepEqual(REQUIRED_ROLES, ["builder", "advisor", "checker", "browser-verifier"]);
+  assert.deepEqual(REQUIRED_ROLES, ["builder", "advisor", "checker"]);
   assert.deepEqual(Object.keys(config.profiles), REQUIRED_ROLES);
-  for (const role of ["scout", "planner", "reducer"]) {
+  for (const role of ["scout", "planner", "reducer", "browser-verifier"]) {
     assert.equal(config.profiles[role], undefined);
     await assert.rejects(readFile(join(ROOT, "skills", "advisor-worker", "roles", role, "SKILL.md")), { code: "ENOENT" });
   }
@@ -57,12 +57,12 @@ test("fixed role validation rejects deterministic tool and turn enforcement", as
   const config = JSON.parse(await readFile(join(ROOT, "config", "bg-agent-profiles.json"), "utf8"));
   config.profiles.builder.tools = ["read"];
   config.profiles.checker.excludeTools = ["edit"];
-  config.profiles["browser-verifier"].turnCapFlag = "--max-turns";
+  config.profiles.builder.turnCapFlag = "--max-turns";
   config.profiles.advisor.harness = "other";
   const errors = roleConfigErrors(config).join("\n");
   assert.match(errors, /builder contains deterministic enforcement field: tools/);
   assert.match(errors, /checker contains deterministic enforcement field: excludeTools/);
-  assert.match(errors, /browser-verifier contains deterministic enforcement field: turnCapFlag/);
+  assert.match(errors, /builder contains deterministic enforcement field: turnCapFlag/);
   assert.match(errors, /invalid harness constraint: advisor/);
 });
 
@@ -85,7 +85,7 @@ test("named advisor guides are structurally valid and cover every role", async (
   }
 });
 
-test("codex-max uses Astra xhigh for primary decisions and Luna max for focused browser verification", async () => {
+test("codex-max retains maker/reviewer identities without a browser role", async () => {
   const guide = JSON.parse(
     await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"),
   );
@@ -101,11 +101,12 @@ test("codex-max uses Astra xhigh for primary decisions and Luna max for focused 
     ["cursor/grok-4.6", "high"],
   ]);
   assert.deepEqual(identities("checker"), [[sol, "xhigh"], [sol, "high"]]);
-  assert.deepEqual(identities("browser-verifier"), [[luna, "max"]]);
+  assert.equal(guide.recommendations["browser-verifier"], undefined);
   assert(!Object.keys(guide.models).some((model) => /^(anthropic|claude-bridge)\//.test(model)));
   assert.match(guide.models[astra].character, /advisor session, child advisor, and primary builder model at xhigh/);
   assert.match(guide.models[astra].character, /every kind of UX work with frontend-design loaded/);
-  assert.match(guide.models[luna].character, /focused browser-verification model at max reasoning/);
+  assert.equal(guide.models[luna].defaultThinking, "max");
+  assert.match(guide.models[luna].character, /assigned builder or checker/);
 });
 
 test("codex-lean is Codex-only and assigns the requested effort ladder", async () => {
@@ -129,11 +130,12 @@ test("codex-lean is Codex-only and assigns the requested effort ladder", async (
   assert.deepEqual(identities("builder"), [[sol, "medium"], [sol, "max"]]);
   assert.deepEqual(identities("advisor"), [[astra, "xhigh"]]);
   assert.deepEqual(identities("checker"), [[sol, "medium"]]);
-  assert.deepEqual(identities("browser-verifier"), [[luna, "max"]]);
+  assert.equal(guide.recommendations["browser-verifier"], undefined);
   assert.match(guide.models[astra].character, /Astra runs at xhigh wherever it is used/);
   assert.match(guide.models[sol].character, /Use Sol max for materially ambiguous or wide-breadth implementation/);
   assert.match(guide.models[sol].character, /regular workhorse at medium reasoning/);
-  assert.match(guide.models[luna].character, /focused browser-verification model at max reasoning/);
+  assert.equal(guide.models[luna].defaultThinking, "max");
+  assert.match(guide.models[luna].character, /not a separate role or required stage/);
 });
 
 test("every guide provides a native-routable choice for every semantic role", async () => {

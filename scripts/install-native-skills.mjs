@@ -24,7 +24,7 @@ export function installNativeSkills(home = os.homedir()) {
     throw new Error(`Unowned bundle: ${bundle}`);
   }
   // Remove only our retired links, never user replacements at the old names.
-  const retired = prior ? ['.codex', '.claude'].flatMap(host => ['scout', 'planner', 'reducer'].map(role => {
+  const retired = prior ? ['.codex', '.claude'].flatMap(host => ['scout', 'planner', 'reducer', 'browser-verifier'].map(role => {
     const name = `advisor-role-${role}`;
     const link = path.join(home, host, 'skills', name);
     const target = exists(link)?.isSymbolicLink() ? fs.readlinkSync(link) : null;

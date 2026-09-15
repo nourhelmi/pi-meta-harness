@@ -212,5 +212,5 @@ lookup before any ledger read, reject all named request bindings, exercise both
 commit orders and gate adapter spies across successful and failed commits. Maker
 evidence includes isolated source mutations of scope validation, deduplication,
 principal validation and commit-before-effect ordering. Passing memory tests is
-interface conformance evidence only; independent High-risk checking remains a
-separate review responsibility.
+interface conformance evidence only, not live-host certification. Project/user
+review and delivery requirements remain separate from runtime admission.

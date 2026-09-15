@@ -128,12 +128,59 @@ choose useful work, not to expand your scope or another role's write authority.
     native launch reserves your result path as an empty file before you
     start; that placeholder is expected, not a contradiction.
 
+## Verify the affected journeys
+
+Every author owns verification of the behavior they change: builder implementation,
+checker repairs, and direct advisor work alike. Before editing, trace the changed
+behavior to its plausible consumers and name the affected user journeys, or state
+why none are plausibly affected. Use the actual diff and call/data flow, not a
+filename rule or every transitively reachable screen. Revisit this assessment when
+integration or a repair changes the affected surface. Keep it in the normal task
+notes/handoff, not a separate checklist or approval step.
+
+For a plausible browser-facing impact (including backend auth, API wiring, saved
+state, navigation, or loading/error behavior), exercise the affected journey in a
+real browser against the integrated changed application. Choose the relevant
+persona/state and meaningful failure or edge path by the change; do not run every
+persona or the whole browser suite by default. Reuse current project browser tests
+when they actually cover that flow; a mocked request, rendered shell, or screenshot
+alone does not prove the interaction. Follow `agent-browser` for interactive browser
+work unless the user specifies another tool, and keep safe targets, credentials,
+accessibility and action permissions binding.
+
+Internal changes with no plausible browser-facing effect use the relevant unit,
+API or integration checks and a brief impact rationale instead of a browser ritual.
+Uncertain impact means inspect the relevant callers/consumers, not silently skip
+verification or launch a specialist by default. If the affected flow cannot be
+exercised safely, state the missing browser coverage and why; passing non-browser
+checks does not establish that flow. Continue independent authorized work.
+
+Record the tested revision (including dirty content), environment/persona, flow,
+checks and observed outcomes; link screenshots, recordings or logs when they add
+useful proof or the repository requires them. Capture evidence while exercising the
+flow, not in an extra evidence-only pass. No mandatory manifest or screenshot quota.
+Carry forward unaffected evidence; rerun the affected flow after a repair that
+invalidates it. A checker that edits is an author for this rule.
+
+## Project-owned review gates
+
+Follow the repository's documented checks, agentic PR review, required verdicts,
+and merge/release requirements, plus explicit user requirements. Do not invent a
+mandatory harness reviewer because a tier is High or a checker wrote a repair.
+An extra review is useful when it resolves a named uncertainty; it is not a fixed
+stage. Your own patch and reruns remain self-verification, not independent review.
+If a required external review is pending, unavailable or stale for the current PR
+revision, report that delivery requirement as unmet. Do not substitute a local
+checker, a green test suite or an older PR verdict for the required agentic review.
+Creating/changing CI review workflows, publishing PR comments, or merging requires
+scope and authorization; this contract does not install or trigger those actions.
+
 ## Ponytail by default
 
 Every role uses Ponytail in its own work: investigate the smallest relevant
 surface, question unnecessary mechanisms, reuse before adding, and discard
-redundant evidence. Checkers repair avoidable complexity; browser verifiers choose
-task-shaped probes. Advisors apply it to planning, synthesis, implementation,
+redundant evidence. Checkers repair avoidable complexity; every author chooses
+journey-shaped probes. Advisors apply it to planning, synthesis, implementation,
 and delegation alike; direct completion and the
 single-maker fast path remain first-class. Do not add a Ponytail worker, extra
 review stage, or whole-repo audit merely to demonstrate use.

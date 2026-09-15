@@ -66,8 +66,9 @@ test("handoffs and transcripts expose history without bypassing recovery fences"
 test("readiness and integration evidence have owners rather than mandatory repeated sweeps", async () => {
   const routing = await text("skills/advisor/references/model-routing.md");
   const evidence = await text("skills/advisor/references/evidence.md");
-  assert.match(routing, /Assign task-shaped readiness to the maker or browser verifier and reuse current proof/);
-  assert.match(routing, /missing safe target, credential or authority is a real stop/);
+  assert.match(routing, /author owns browser verification through the worker contract's journey-impact\s+rule/);
+  assert.match(routing, /Reuse current proof before\s+costly setup/);
+  assert.match(routing, /missing safe target, credential or authority\s+is a real stop/);
   assert.match(evidence, /unchanged patch does not prove an unchanged dependency or environment/);
   assert.match(evidence, /rerun invalidated criteria and required merge gates/);
   assert.doesNotMatch(evidence, /single criterion rerun is the maximum|carries every prior verdict/);

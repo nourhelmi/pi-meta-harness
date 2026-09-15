@@ -9,7 +9,6 @@ export const REQUIRED_ROLES = [
   "builder",
   "advisor",
   "checker",
-  "browser-verifier",
 ];
 const REASONING_LEVELS = new Set(["minimal", "low", "medium", "high", "xhigh", "max"]);
 const FORBIDDEN_ROLE_POLICY_FIELDS = new Set([

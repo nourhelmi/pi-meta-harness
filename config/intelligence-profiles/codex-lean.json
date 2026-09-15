@@ -10,7 +10,7 @@
       "defaultThinking": "medium"
     },
     "openai-codex/gpt-5.6-luna": {
-      "character": "Advisory: The focused browser-verification model at max reasoning for explicit flows and before/after evidence in a small task-shaped context. Other semantic roles use Astra or Sol in this profile.",
+      "character": "Advisory: An economical option at max reasoning for explicit browser-flow checks by the assigned builder or checker. Browser verification is an author responsibility, not a separate role or required stage.",
       "defaultThinking": "max"
     }
   },
@@ -39,13 +39,6 @@
         "model": "openai-codex/gpt-5.6-sol",
         "thinking": "medium",
         "fit": "Preferred fresh-context checker and reviewer in this profile."
-      }
-    ],
-    "browser-verifier": [
-      {
-        "model": "openai-codex/gpt-5.6-luna",
-        "thinking": "max",
-        "fit": "Preferred for browser verification in this profile."
       }
     ]
   }

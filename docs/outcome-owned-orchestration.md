@@ -3,8 +3,11 @@
 The normal unit of delegation is one maker owning diagnosis, implementation, local
 obstacles, verification and reporting. A graph is optional. Review resolves remaining
 uncertainty; it does not replay every maker command. Checkers can repair serious
-findings inside their authorized surface. Material checker-authored changes still
-need independent delta closure. Resume the original checker for maker-repaired deltas.
+findings inside their authorized surface. Their repairs require verification of the
+affected behavior, including plausible browser journeys, not automatic non-author
+closure. Extra review resolves a named uncertainty or project/user requirement;
+required agentic PR review belongs to the project's review/CI workflow. Resume the
+original checker for a justified maker-repaired delta.
 
 ## Captured handoffs and continuation
 

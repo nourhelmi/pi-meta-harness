@@ -174,7 +174,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
 
   const roles = JSON.parse(await readFile(join(target, "bg-agent-profiles.json"), "utf8"));
   assert.deepEqual(Object.keys(roles).sort(), ["defaultAgent", "profiles"]);
-  assert.deepEqual(Object.keys(roles.profiles), ["builder", "advisor", "checker", "browser-verifier"]);
+  assert.deepEqual(Object.keys(roles.profiles), ["builder", "advisor", "checker"]);
   assert.equal(roles.profiles.builder.maxTurns, 6);
   assert.equal(roles.profiles.advisor.skill, "advisor-role-advisor");
   assert.equal(roles.profiles.advisor.harness, "pi");
@@ -183,11 +183,10 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.equal("excludeTools" in roles.profiles.advisor, false);
   assert.equal(roles.profiles.foreman, undefined);
   assert.equal(roles.profiles.checker.requireAnchor, true);
-  for (const role of ["scout", "planner", "reducer"]) {
+  for (const role of ["scout", "planner", "reducer", "browser-verifier"]) {
     assert.equal(roles.profiles[role], undefined);
     await assert.rejects(readFile(join(target, "skills/advisor-worker/roles", role, "SKILL.md")), { code: "ENOENT" });
   }
-  assert.equal(roles.profiles["browser-verifier"].skillPath, "skills/advisor-worker/roles/browser-verifier/SKILL.md");
 
   assert.equal("models" in roles, false);
   assert.equal("allowedModels" in roles.profiles.builder, false);
@@ -1044,7 +1043,7 @@ test("reinstall keeps a switched intelligence profile", async () => {
   // Simulate the previous seven-role install, including its selected live guide.
   const oldRoles = JSON.parse(fixedRoles);
   const oldGuide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
-  for (const role of ["scout", "planner", "reducer"]) {
+  for (const role of ["scout", "planner", "reducer", "browser-verifier"]) {
     oldRoles.profiles[role] = { ...oldRoles.profiles.builder, skill: `advisor-role-${role}`, skillPath: `skills/advisor-worker/roles/${role}/SKILL.md` };
     oldGuide.recommendations[role] = oldGuide.recommendations.builder;
     const skill = join(target, "skills/advisor-worker/roles", role);
@@ -1057,14 +1056,11 @@ test("reinstall keeps a switched intelligence profile", async () => {
   assert.equal(second.status, 0, second.stderr);
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-lean\n");
   assert.deepEqual(await readFile(join(target, "bg-agent-profiles.json")), fixedRoles);
-  for (const role of ["scout", "planner", "reducer"]) await assert.rejects(readFile(join(target, "skills/advisor-worker/roles", role, "SKILL.md")), { code: "ENOENT" });
+  for (const role of ["scout", "planner", "reducer", "browser-verifier"]) await assert.rejects(readFile(join(target, "skills/advisor-worker/roles", role, "SKILL.md")), { code: "ENOENT" });
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-lean");
   assert.equal(guide.recommendations.advisor[0].model, "openai-codex/gpt-6-astra");
-  assert.deepEqual(
-    guide.recommendations["browser-verifier"].map(({ model, thinking }) => [model, thinking]),
-    [["openai-codex/gpt-5.6-luna", "max"]],
-  );
+  assert.equal(guide.recommendations["browser-verifier"], undefined);
   assert.deepEqual(
     guide.recommendations.builder.map(({ model, thinking }) => [model, thinking]),
     [
@@ -1072,10 +1068,7 @@ test("reinstall keeps a switched intelligence profile", async () => {
       ["openai-codex/gpt-5.6-sol", "max"],
     ],
   );
-  assert.deepEqual(
-    guide.recommendations["browser-verifier"].map(({ model, thinking }) => [model, thinking]),
-    [["openai-codex/gpt-5.6-luna", "max"]],
-  );
+  assert.equal(guide.models["openai-codex/gpt-5.6-luna"].defaultThinking, "max");
   assert(Object.keys(guide.models).every((id) => id.startsWith("openai-codex/")));
   const doctor = run("doctor", "--target", target);
   assert.equal(doctor.status, 0, `${doctor.stdout}\n${doctor.stderr}`);

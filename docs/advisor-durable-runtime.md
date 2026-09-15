@@ -3,8 +3,10 @@
 The runtime owns execution identity, durable command receipts, artifacts and delivery.
 It is not a workflow approval engine. The advisor owns planning, staffing, write
 coordination, synthesis and acceptance. Builders and checkers own investigation,
-planning and verification within their work; browser-verifiers provide focused
-browser evidence. Dependency graphs remain optional.
+planning and verification within their work. Every author, including a repairing
+checker or directly implementing advisor, verifies plausibly affected browser
+journeys. Dependency graphs remain optional; project-owned agentic PR review is
+not a mandatory local runtime stage.
 
 This managed-runtime contract supersedes historical report-gated settlement examples
 in [the adapter protocol](advisor-protocol.md). Legacy adapters remain separate.

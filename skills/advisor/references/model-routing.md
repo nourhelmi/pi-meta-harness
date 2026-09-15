@@ -101,8 +101,8 @@ recording them under `Deviations`. It must stop and report evidence rather
 than invent or change a material product, architecture, schema, migration,
 auth, product-fallback, destructive-operation, or external-effect decision.
 The advisor then clarifies the packet or selects a stronger model. Do not add
-an extra checker merely because the maker was cheap; review tier still follows
-product risk, while deterministic criteria backstop the packet.
+an extra checker merely because the maker was cheap; follow project/user review
+requirements and use additional review for a named uncertainty, not a role ritual.
 
 Prefer one maker packet for adjacent work that shares a decision set, risk
 tier, worktree, skills, and criterion suite. Split when those boundaries
@@ -113,10 +113,10 @@ unrelated decisions merely to reduce launch count.
 
 ## Browser verification preflight
 
-Assign task-shaped readiness to the maker or browser verifier and reuse current
-proof before a costly separate launch. Check relevant runtime ownership, safe
-environment/data target, local auth and doctor/health gates, not a universal
-checklist that the advisor repeats itself. If readiness can only be established
-inside the verifier, make it the first step before page control. Resolve permitted
-local obstacles there; a missing safe target, credential or authority is a real
-stop, not permission to proceed unsafely.
+The author owns browser verification through the worker contract's journey-impact
+rule, including checker repairs and direct advisor work. Reuse current proof before
+costly setup. Check relevant runtime ownership, safe environment/data target, local
+auth and doctor/health gates, not a universal checklist repeated by the advisor.
+Resolve permitted local obstacles; a missing safe target, credential or authority
+is a real stop, not permission to proceed unsafely. Report any unexercised affected
+journey as a coverage gap. There is no dedicated browser role to commission.

@@ -42,19 +42,6 @@
       ],
       "maxTurns": 5,
       "requireAnchor": true
-    },
-    "browser-verifier": {
-      "description": "Focused browser checks and before/after evidence capture; use an economical model when the task is explicit and bounded.",
-      "agent": "pi",
-      "resultDiscovery": "advisor-worker",
-      "skill": "advisor-role-browser-verifier",
-      "skillPath": "skills/advisor-worker/roles/browser-verifier/SKILL.md",
-      "cliArgs": [
-        "--advisor-worker-role",
-        "browser-verifier"
-      ],
-      "maxTurns": 5,
-      "requireAnchor": true
     }
   }
 }
