@@ -18,7 +18,7 @@ Pick the cheapest route that finishes the outcome well:
 Roles are `advisor`, `builder` and `checker`. All three investigate, plan, implement and
 verify inside their scope. There is no scouting, planning or reduction stage: grep what
 you need and start; a maker can inventory its own surface. A checker reviews another
-maker's work from a fresh context and repairs what it finds.
+maker's work from a fresh context and repairs what it finds; there is no reviewer role.
 
 While a maker runs, you wait. Answer its questions and prepare the next packet. Do not
 shadow-implement, rerun its checks or write parallel evidence: a second implementer

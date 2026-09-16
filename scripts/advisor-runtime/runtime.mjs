@@ -1013,7 +1013,7 @@ export class AdvisorRuntime {
       try { execution = await config.prepare(p.params, sourceDirectory, { childState: childStatePath(this.#familyIdentity()?.rootStateRoot ?? this.#root, this.#root, scope.run), workstream: this.#familyIdentity()?.workstream, workerHarness: this.#familyIdentity()?.workerHarness, teamMode: this.#familyIdentity()?.teamMode === true }); }
       catch (error) {
         // Only execution-port validation codes are safe to expose; never return arbitrary exception text.
-        const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL'];
+        const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL', 'BRIDGE_UNKNOWN_ROLE'];
         const response = { ok: false, error: error instanceof Error && safe.includes(error.message) ? error.message : 'BRIDGE_PREPARATION_REJECTED' };
         this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: 'rejected', scope, response }), key));
         return response;

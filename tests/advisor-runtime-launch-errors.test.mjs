@@ -7,7 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { hostPiDetach } from '../scripts/advisor-runtime/pi-detach-host.mjs';
 import { createPiDetachClient } from '../scripts/advisor-runtime/pi-detach-client.mjs';
 
-const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL'];
+const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL', 'BRIDGE_UNKNOWN_ROLE'];
 for (const thrown of [...safe.map(code => new Error(code)), new Error('secret command /private/credential'), new Error('BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED secret'), new Error('toString'), 'BRIDGE_EMPTY_PROMPT', { message: 'BRIDGE_EMPTY_PROMPT' }]) {
   const expected = thrown instanceof Error && safe.includes(thrown.message) ? thrown.message : 'BRIDGE_PREPARATION_REJECTED';
   test(`preparation rejection ${String(thrown)} is bounded and replayable`, async t => {
