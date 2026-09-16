@@ -176,12 +176,12 @@ async function writeGraphManifest(root: string, graphId: string, waves: string[]
 }
 
 function graphPrompt(graph: string, node: string, wave: number): string {
-	return `RISK TIER: Standard. Execute the graph node.\n\nGRAPH:\n  graph: ${graph}\n  node: ${node}\n  wave: ${wave}\n  repair: 0\n  upstream:\n  downstream:\n\nACCEPTANCE CRITERIA:\n1. The graph trace validates.`;
+	return `Execute the graph node.\n\nGRAPH:\n  graph: ${graph}\n  node: ${node}\n  wave: ${wave}\n  repair: 0\n  upstream:\n  downstream:\n\nDONE WHEN:\n1. The graph trace validates.`;
 }
 
 function launchInput(overrides: Record<string, unknown> = {}) {
 	return {
-		prompt: "RISK TIER: Standard. Emit the canonical advisor trace.",
+		prompt: "Emit the canonical advisor trace.",
 		role: "builder",
 		label: "Pi host adapter",
 		model: "openai-codex/gpt-5.6-sol",
@@ -292,7 +292,6 @@ async function seedRunningTrace(root: string, runId: string): Promise<string> {
 				model: "openai-codex/gpt-5.6-sol",
 				thinking: "high",
 				cwd: process.cwd(),
-				riskTier: "high",
 				acceptance: ["Cancellation ordering survives asynchronous host boundaries."],
 				launchRef: { detachRunId: runId, agentName: `builder-${runId}` },
 			},
@@ -437,7 +436,7 @@ test("blocked result emits node.blocked before result.written and settles blocke
 			resultMarkdown("BLOCKED", { statusBody: "Choose the product storage boundary." }),
 		);
 		const host = installedHost();
-		const input = launchInput({ prompt: "Make the change; the risk tier is Standard." });
+		const input = launchInput({ prompt: "Make the change." });
 		await launchPromoted(host, runId, resultPath, input, { runtime: "claude" });
 		await host.dispatch("message_end", settlementMessage(runId, resultPath, "blocked"));
 
@@ -999,7 +998,6 @@ test("restart appends settlement with contiguous seq and generation-1 wake", asy
 					model: "openai-codex/gpt-5.6-sol",
 					thinking: "high",
 					cwd: process.cwd(),
-					riskTier: "standard",
 					acceptance: ["The restarted trace validates."],
 					resultPath,
 					launchRef: { detachRunId: runId, agentName: `builder-${runId}` },
@@ -1101,7 +1099,6 @@ test("name follow-up is a new run and reuses the observed harness identity", asy
 		const launch = events.find((event) => event.type === "node.launched");
 		assert.equal(launch?.node, "freeform-follow123");
 		assert.equal((launch?.data as Record<string, unknown>).harness, "codex");
-		assert.equal((launch?.data as Record<string, unknown>).riskTier, "high");
 	});
 });
 

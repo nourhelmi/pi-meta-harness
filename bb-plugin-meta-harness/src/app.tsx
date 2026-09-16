@@ -212,7 +212,6 @@ function NodeCard({
         <MetaField label="Host" value={node.host} />
         <MetaField label="Model" value={node.launch.model} />
         <MetaField label="Thinking" value={node.launch.thinking} />
-        <MetaField label="Risk" value={node.launch.riskTier} />
         <MetaField label="Keep alive" value={node.launch.keepAlive ?? null} />
         <MetaField label="Launched" value={formatTime(node.launchedAt)} />
         <MetaField label="Last settled" value={formatTime(node.settledAt)} />

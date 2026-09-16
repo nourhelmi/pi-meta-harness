@@ -19,7 +19,7 @@ Canonical trace and artifacts             the only truth a surface may read
 
 | Layer | Owns | Never owns |
 | --- | --- | --- |
-| Advisor Core | workstreams, runs, graphs and waves, roles, acceptance criteria, risk tier, logical parent links, state transitions, result validation, settlement and wake rules, BLOCKED request semantics, repair caps, evidence manifests | native transcripts, pane layout |
+| Advisor Core | workstreams, runs, graphs and waves, roles, done-when lines, logical parent links, state transitions, result validation, settlement and wake rules, BLOCKED request semantics, repair caps, evidence manifests | native transcripts, pane layout |
 | Harness adapter | worker creation, native messaging, stop and resume, log collection, capability reporting, translation of native lifecycle into canonical events | scheduling policy, role policy, settlement truth |
 | Surface adapter | display, navigation, controls, log and artifact presentation; sends commands to the owning host | mutating run state directly |
 
@@ -84,7 +84,7 @@ Every event carries the same nine fields:
 | `graph.planned` | a manifest-backed graph is correlated to the run | `graph`, `waves`, `maxParallel`, `maxRepairLoops` |
 | `wave.started` | a contiguous graph wave opens | `wave`, `nodes` |
 | `wave.completed` | every listed node in a started wave has settled | `wave`, `nodes` |
-| `node.launched` | a worker starts | `role`, `label`, `harness`, `model`, `thinking`, `cwd`, `riskTier`, `acceptance` |
+| `node.launched` | a worker starts | `role`, `label`, `harness`, `model`, `thinking`, `cwd`, `acceptance` |
 | `node.progress` | a bounded non-terminal note | `note` |
 | `node.blocked` | the worker needs a decision, permission, credential, or external action | `request.kind`, `request.text` |
 | `node.reply.sent` | the advisor or user answers a blocked node | `text`, `source`; optional `replyTo` |
@@ -210,11 +210,9 @@ the first ten nonempty lines for a known status token. Only that status line
 can classify the result as `blocked` or `in-progress`; any other or unknown
 status is terminal.
 
-Status, Claims, Evidence, Files, Decisions, and Remaining Risk remain the
-expected template. Missing or empty sections produce advisory notes, carried
-with `valid: true` in `node.result.validated.data.problems`; they never stall
-settlement. This is the shared `result-artifact-v2` rule implemented identically
-by the script and TypeScript Advisor Core validators.
+Only the status line is structural. Missing detail is reported as an advisory note rather
+than stalling settlement. Workers should still name changed files, checks actually run,
+decisions and unresolved issues when those exist.
 
 ## Pi host binding
 
@@ -234,9 +232,9 @@ canonical run. The run id is
 the pi-detach `details.runId` (or the settled `RunRecord.id`), its worker node
 is `<role-or-freeform>-<runId>`, and its parent is the `advisor` root. Native
 runtime names map as `pi` → `pi`, `codex` → `codex`, and `claude` →
-`claude-code`. The adapter parses `risk tier` followed by `low`, `standard`, or
-`high` from the launch prompt, case-insensitively; an absent or unrecognized
-tier defaults to `high`.
+`claude-code`. Launch metadata records the configured role, model, reasoning effort,
+working directory and done-when lines; verification depth is a maker decision, not a
+transport classification.
 
 With a valid `GRAPH` block and manifest, Pi uses run `graph-<graph>` and the
 block's node id. The first launch appends `run.created`, `graph.planned`, and
@@ -303,11 +301,9 @@ files serialize updates, and replayed payloads append no duplicate event.
 
 Launch packet fields come from the `Agent` prompt and documented hook fields:
 
-- `riskTier` parses `RISK TIER` followed by low, standard, or high,
-  case-insensitively, and defaults to `high`;
-- `acceptance` is the `-` bullets or numbered lines under an
-  `ACCEPTANCE CRITERIA` block, or
-  `result.md validates with the six required headings` when absent;
+- `acceptance` is the `-` bullets or numbered lines under a `DONE WHEN` block;
+  legacy `ACCEPTANCE` headings remain readable, and the adapter falls back to
+  `result.md starts with a terminal Status line`;
 - `model` is `tool_input.model` when present. When it is absent at launch the
   append-only launch event records `unknown`; a later foreground wake may
   expose `tool_response.resolvedModel`, but cannot rewrite the launch event;
@@ -400,10 +396,9 @@ are serialized, and replayed payloads append nothing.
 
 Launch fields are fixed from the spawn input and packet:
 
-- `riskTier` parses `RISK TIER` followed by low, standard, or high and defaults
-  to `high`;
-- `acceptance` parses bullets or numbered entries under `ACCEPTANCE CRITERIA`
-  and defaults to `result.md validates with the six required headings`;
+- `acceptance` parses bullets or numbered entries under `DONE WHEN`; legacy
+  `ACCEPTANCE` headings remain readable, and the adapter defaults to
+  `result.md starts with a terminal Status line`;
 - `model` is `tool_input.model` or `unknown`, and `thinking` is
   `tool_input.reasoning_effort` or `unspecified`;
 - `label` is `tool_input.task_name` or `advisor-maker`, `cwd` is the hook cwd,

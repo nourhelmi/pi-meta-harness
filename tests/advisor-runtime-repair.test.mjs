@@ -19,7 +19,7 @@ function paths(t) {
 const scope = (node = 'root') => ({ workstream: 'work', run: 'run', node, ownerEpoch: 1 });
 const grant = node => ({ workstream: 'work', run: 'run', node });
 const principal = (id = 'operator', nodes = ['root', 'maker']) => ({ id, kind: id === 'operator' ? 'operator' : 'advisor', scopes: nodes.map(grant), operations: OPERATIONS });
-const packet = cwd => ({ role: 'builder', task: 'Synthetic defensive regression', acceptance: ['No real secrets'], riskTier: 'high', cwd, adapter: 'fixture', model: 'fixture', thinking: 'off' });
+const packet = cwd => ({ role: 'builder', task: 'Synthetic defensive regression', acceptance: ['No real secrets'], cwd, adapter: 'fixture', model: 'fixture', thinking: 'off' });
 function fixture(t) {
   const p = paths(t); const contexts = new Map(); const calls = [];
   const adapter = { capabilities: Object.fromEntries(OPERATIONS.map(op => [op, true])), execute(input) {

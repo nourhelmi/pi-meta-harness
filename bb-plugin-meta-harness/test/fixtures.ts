@@ -39,7 +39,6 @@ export function syntheticDoneEvents(): CanonicalEvent[] {
         model: "gpt-5",
         thinking: "high",
         cwd: "/workspace",
-        riskTier: "high",
         acceptance: ["Projection is deeply equivalent."],
         resultPath: RESULT_PATH,
         keepAlive: true,

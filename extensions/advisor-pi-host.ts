@@ -224,10 +224,6 @@ function launchAcceptance(input: BgAgentInput): string[] {
 	return [stringValue(input.prompt) ?? "Complete the supervised bg_agent launch."];
 }
 
-function riskTier(prompt: string | undefined): "low" | "standard" | "high" {
-	const match = prompt?.match(/\brisk\s+tier\b[\s:*_`-]*(low|standard|high)\b/i)?.[1]?.toLowerCase();
-	return match === "low" || match === "standard" || match === "high" ? match : "high";
-}
 
 function eventText(content: unknown): string {
 	if (typeof content === "string") return content;
@@ -1032,7 +1028,6 @@ export default function advisorPiHostExtension(pi: ExtensionAPI): void {
 						label: launchLabel(input, role),
 						...identity,
 						cwd: typeof input.cwd === "string" ? resolve(captured.cwd, input.cwd) : captured.cwd,
-						riskTier: riskTier(prompt),
 						acceptance: launchAcceptance(input),
 						...(resultPath ? { resultPath } : {}),
 						...(typeof input.keepAlive === "boolean" ? { keepAlive: input.keepAlive } : {}),

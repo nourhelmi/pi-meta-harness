@@ -19,7 +19,7 @@ const scope = (name = 'root', run = 'run') => ({ workstream: 'work', run, node: 
 const read = (op = 'progress', name = 'root', payload = {}) => ({ v: 1, op, scope: scope(name), payload });
 let serial = 0;
 const command = (op, revision, payload = {}, name = 'root', commandId = `cmd-${++serial}`) => ({ ...read(op, name, payload), commandId, expectedRevision: revision });
-const packet = cwd => ({ role: 'builder', task: 'Test bounded worker', acceptance: ['deterministic result'], riskTier: 'high', cwd, adapter: 'mock', model: 'fixture', thinking: 'none' });
+const packet = cwd => ({ role: 'builder', task: 'Test bounded worker', acceptance: ['deterministic result'], cwd, adapter: 'mock', model: 'fixture', thinking: 'none' });
 const graph = (waves = [['maker']], dependencies = { maker: [] }) => ({ graph: 'graph', waves, dependencies, topology: 'flat-root', maxParallel: 2, maxRepairLoops: 0 });
 const success = result => { assert.equal(result.ok, true, JSON.stringify(result)); return result.receipt ?? result.value; };
 const denied = (result, error) => assert.deepEqual(result, { ok: false, error });
@@ -262,7 +262,7 @@ if(process.env.TEST_BOOT==='1'){
  token=runtime.registerPrincipal({id:'operator',kind:'operator',scopes:['root','maker'].map(node=>({workstream:'work',run:'run',node})),operations:OPERATIONS});
  writeFileSync(root+'/token',token,{mode:0o600});
  assert.equal(runtime.execute(token,cmd('workstream.create',0,{cwd:work,host:'codex'})).ok,true);
- assert.equal(runtime.execute(token,cmd('packet.admit',1,{node:'maker',packet:{role:'builder',task:'test',acceptance:['proof'],riskTier:'high',cwd:work,adapter:'mock',model:'fixture',thinking:'none'}})).ok,true);
+ assert.equal(runtime.execute(token,cmd('packet.admit',1,{node:'maker',packet:{role:'builder',task:'test',acceptance:['proof'],cwd:work,adapter:'mock',model:'fixture',thinking:'none'}})).ok,true);
  assert.equal(runtime.execute(token,cmd('graph.admit',2,{graph:'graph',waves:[['maker']],dependencies:{maker:[]},topology:'flat-root',maxParallel:1,maxRepairLoops:0})).ok,true);
 }else token=readFileSync(root+'/token','utf8');
 const launch=cmd('wave.launch',3,{wave:1},'launch');

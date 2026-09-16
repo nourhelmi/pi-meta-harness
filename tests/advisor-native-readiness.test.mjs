@@ -28,7 +28,7 @@ function fixture(t, finalText) {
   const progress = node => runtime.execute(token, { v: 1, op: 'progress', scope: scope(node), payload: {} }).value;
   const send = (op, payload, node = 'root') => runtime.execute(token, { v: 1, op, scope: scope(node), payload, commandId: randomUUID(), expectedRevision: op === 'workstream.create' ? 0 : progress(node).revision });
   assert.equal(send('workstream.create', { cwd, host: 'codex' }).ok, true);
-  for (const node of ['maker', 'second']) assert.equal(send('packet.admit', { node, packet: { role: 'builder', task: 'fixture', acceptance: ['fixture'], riskTier: 'high', cwd, adapter: 'fixture', model: 'fixture', thinking: 'high' } }).ok, true);
+  for (const node of ['maker', 'second']) assert.equal(send('packet.admit', { node, packet: { role: 'builder', task: 'fixture', acceptance: ['fixture'], cwd, adapter: 'fixture', model: 'fixture', thinking: 'high' } }).ok, true);
   const exit = node => inputs.get(node).emit({ id: randomUUID(), kind: 'process-exited', attempt: 1, data: { code: 0 } });
   t.after(() => { try { for (const node of inputs.keys()) if (progress(node).processExited === undefined) exit(node); for (const d of runtime.execute(token, { v: 1, op: 'wait', scope: scope('root'), payload: { timeoutMs: 0, limit: 128 } }).value) send('delivery.ack', { deliveryId: d.id }); runtime.close(); } finally { rmSync(base, { recursive: true, force: true }); } });
   return { runtime, send, progress, exit, inputs };

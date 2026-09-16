@@ -56,7 +56,6 @@ type NodeLaunchedEvent = EventEnvelope<
     model: string;
     thinking: string;
     cwd: string;
-    riskTier: "low" | "standard" | "high";
     acceptance: string[];
     resultPath?: string;
     keepAlive?: boolean;

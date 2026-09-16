@@ -12,7 +12,7 @@
     "items": [
       {
         "type": "text",
-        "text": "RISK TIER: Standard.\n\nTASK: Emit one canonical advisor trace.\n\nACCEPTANCE CRITERIA:\n1. The result artifact validates.\n2. The parent receives one wake."
+        "text": "TASK: Emit one canonical advisor trace.\n\nDONE WHEN:\n1. The result artifact validates.\n2. The parent receives one wake."
       }
     ],
     "agent_type": "advisor-maker",

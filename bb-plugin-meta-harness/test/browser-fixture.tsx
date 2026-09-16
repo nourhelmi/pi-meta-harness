@@ -11,7 +11,7 @@ async function seed(op: Mutation["op"], payload: Record<string, unknown>) {
 }
 await seed("workstream.create", { cwd: "/isolated/fixture-workspace", host: "codex" });
 await seed("root.create", { adapter: "codex", model: "fixture-only", thinking: "high", text: "Inspect the fixture with one maker. Ask before choosing a format." });
-await seed("packet.admit", { node: "maker", packet: { role: "builder", task: "Inspect the fixture", acceptance: ["Report evidence"], riskTier: "high", cwd: "/isolated/fixture-workspace", adapter: "codex", model: "fixture-only", thinking: "high" } });
+await seed("packet.admit", { node: "maker", packet: { role: "builder", task: "Inspect the fixture", acceptance: ["Report evidence"], cwd: "/isolated/fixture-workspace", adapter: "codex", model: "fixture-only", thinking: "high" } });
 await seed("node.launch", { node: "maker" });
 fixture.block("maker", "question", JSON.stringify({ questions: [{ id: "format", question: "Which result format should I use?", options: [{ label: "Concise report", description: "Evidence and remaining risk" }, { label: "Detailed report", description: "Include the full inspection" }] }] }));
 function FixtureApp() {

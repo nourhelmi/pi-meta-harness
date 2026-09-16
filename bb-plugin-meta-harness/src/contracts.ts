@@ -97,7 +97,6 @@ const nodeStateSchema = z.enum([
   "result-invalid",
   "settled",
 ]);
-const riskTierSchema = z.enum(["low", "standard", "high"]);
 
 const launchSchema = z
   .object({
@@ -107,7 +106,6 @@ const launchSchema = z
     model: z.string().min(1),
     thinking: z.string().min(1),
     cwd: z.string().min(1),
-    riskTier: riskTierSchema,
     acceptance: z.array(z.string().min(1)).min(1),
     resultPath: z.string().optional(),
     keepAlive: z.boolean().optional(),

@@ -10,7 +10,7 @@
   "tool_use_id": "call-spawn-v2-001",
   "tool_input": {
     "task_name": "codex_trace",
-    "message": "RISK TIER: Standard.\n\nTASK: Emit one canonical advisor trace.\n\nACCEPTANCE CRITERIA:\n1. The result artifact validates.\n2. The parent receives one wake.",
+    "message": "TASK: Emit one canonical advisor trace.\n\nDONE WHEN:\n1. The result artifact validates.\n2. The parent receives one wake.",
     "agent_type": "advisor-maker",
     "model": "gpt-5.6-sol",
     "reasoning_effort": "high",

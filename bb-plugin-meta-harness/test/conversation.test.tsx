@@ -39,7 +39,7 @@ async function resync(view: View) {
 }
 async function maker(view: View) {
   fireEvent.click(view.getByText("Admit a maker packet"));
-  fill(view, "Node", "maker"); fill(view, "Task", "Inspect fixture"); fill(view, "Acceptance criteria (one per line)", "Show evidence\nReturn result"); fill(view, "Maker model", "fixture-model");
+  fill(view, "Node", "maker"); fill(view, "Task", "Inspect fixture"); fill(view, "Done when (one line each)", "Show evidence\nReturn result"); fill(view, "Maker model", "fixture-model");
   fireEvent.click(view.getByRole("button", { name: "Admit packet" }));
   fireEvent.click(await view.findByRole("button", { name: "Launch maker" }));
   await view.findByRole("heading", { name: "maker · builder" });

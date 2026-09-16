@@ -46,7 +46,7 @@ missing capabilities rather than silently switching lanes. See [native skills](n
 ## Managed operations
 
 1. Launch an outcome owner with existing `bg_agent`, `role:"advisor"`, `keepAlive:true`,
-   explicit fitting model/effort, self-contained scope and acceptance criteria.
+   explicit fitting model/effort, self-contained scope and a done-when line.
 2. `team_manage {action:"enlist",runId,name}` enlists that already-owned candidate.
    Candidates must have been launched with team binding and child scope. Leaves and old
    sessions cannot be imported. The teammate can implement directly and launch scoped helpers.
@@ -67,7 +67,7 @@ missing capabilities rather than silently switching lanes. See [native skills](n
    a revision. Members see it via `team_status`; accepted assignments carry the snapshot.
    Send a message when a busy member needs an update. Context never rewrites a session's model, role or host.
    `action:"rename",to,name` changes only the roster label.
-6. `team_manage {action:"assign",to,assignmentId,task,acceptance,riskTier}` grants a
+6. `team_manage {action:"assign",to,assignmentId,task,acceptance}` grants a
    **genuinely distinct accepted outcome** after prior ownership settles. It retains the
    session and all prior contracts/results/input lineage. Existing `bg_agent {name,prompt}`
    remains same-outcome repair with attributable history. New assignments preserve

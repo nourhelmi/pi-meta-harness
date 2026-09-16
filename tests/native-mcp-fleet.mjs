@@ -31,7 +31,7 @@ export async function runFixtureFleet(config, cwd, adapter) {
   try {
     await rpc('initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'root-fixture', version: '1' } });
     const list = (await rpc('tools/list', {})).result.tools; assert.ok(list.some(t => t.name === 'advisor_node_launch')); assert.ok(!list.some(t => t.name === 'advisor_root_create'));
-    await mutation('packet.admit', { node: 'maker', packet: { role: 'builder', task: 'complete', acceptance: ['synthetic shared runtime proof'], riskTier: 'high', cwd, adapter, model: 'fixture', thinking: 'high' } });
+    await mutation('packet.admit', { node: 'maker', packet: { role: 'builder', task: 'complete', acceptance: ['synthetic shared runtime proof'], cwd, adapter, model: 'fixture', thinking: 'high' } });
     const launch = await mutation('node.launch', { node: 'maker' });
     const replay = await tool('node.launch', { node: 'maker' }, 'root', launch.extra); assert.equal(replay.replayed, true);
     for (let i = 0; i < 32; i++) {

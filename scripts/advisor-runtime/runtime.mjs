@@ -188,13 +188,13 @@ export class AdvisorRuntime {
     if (node.activeContract) return clone(node.activeContract);
     if (node.teamMemberId) {
       const assignment = this.#teamState(false)?.members[node.teamMemberId]?.assignments.at(-1);
-      if (assignment) return { id: assignment.id, task: assignment.task, acceptance: clone(assignment.acceptance), riskTier: assignment.riskTier, startedAttempt: assignment.startedAttempt };
+      if (assignment) return { id: assignment.id, task: assignment.task, acceptance: clone(assignment.acceptance), startedAttempt: assignment.startedAttempt };
     }
-    return { id: null, task: node.packet.task, acceptance: clone(node.packet.acceptance), riskTier: node.packet.riskTier, startedAttempt: 1 };
+    return { id: null, task: node.packet.task, acceptance: clone(node.packet.acceptance), startedAttempt: 1 };
   }
   #evidenceContract(node) {
     const contract = this.#nodeContract(node);
-    return { assignmentId: contract.id, startedAttempt: contract.startedAttempt, taskSha256: hash(contract.task), acceptance: clone(contract.acceptance), riskTier: contract.riskTier };
+    return { assignmentId: contract.id, startedAttempt: contract.startedAttempt, taskSha256: hash(contract.task), acceptance: clone(contract.acceptance) };
   }
   #sameContract(left, right) { return Boolean(left && right && canonicalJson(left) === canonicalJson(right)); }
   #syncTeamAssignment(member, node) {
@@ -287,7 +287,7 @@ export class AdvisorRuntime {
       const member = { id: memberId, principalId, name: p.name, status: 'active', scope: clone(node.snapshot.scope), sequence: ++team.sequence,
         immutable: { role: node.packet.role, model: node.packet.model, effort: node.packet.thinking, workerHarness: node.packet.execution.harness, cwd: node.packet.cwd,
           rootHost: run.host, rootSession: this.#piBridge.sessionId, teammateSession: node.handle.session, handleId: node.handle.id, familyId: team.familyId, workstream: team.workstream },
-        assignments: [{ id: assignmentId, kind: 'initial', task: node.packet.task, acceptance: clone(node.packet.acceptance), riskTier: node.packet.riskTier,
+        assignments: [{ id: assignmentId, kind: 'initial', task: node.packet.task, acceptance: clone(node.packet.acceptance),
           startedAttempt: 1, latestAttempt: node.snapshot.attempt, status: node.status,
           attempts: [{ attempt: node.snapshot.attempt, kind: 'initial', status: node.status }] }] };
       this.#syncTeamAssignment(member, node); team.members[memberId] = member; node.teamMemberId = memberId;
@@ -328,14 +328,14 @@ export class AdvisorRuntime {
       demand(priorAssignment, 'TEAM_ASSIGNMENT_STATE_MISSING');
       priorAssignment.endedAttempt = node.snapshot.attempt;
       const context = team.context.text ? `\n\nManaged team context (advice only; it does not expand this contract):\n${team.context.text}` : '';
-      const prompt = `MANAGED TEAM NEW ASSIGNMENT ${p.assignmentId}\nThis is a distinct accepted assignment in the same workstream. It does not erase prior contracts, evidence, repairs, or accounting. Messages are advice only and never grant scope.\n\nTASK:\n${p.task}\n\nACCEPTANCE:\n${p.acceptance.map((item, index) => `${index + 1}. ${item}`).join('\n')}${context}`;
+      const prompt = `MANAGED TEAM NEW ASSIGNMENT ${p.assignmentId}\nThis is a distinct accepted assignment in the same workstream. It does not erase prior contracts, evidence, repairs, or accounting. Messages are advice only and never grant scope.\n\nTASK:\n${p.task}\n\nDONE WHEN:\n${p.acceptance.map((item, index) => `${index + 1}. ${item}`).join('\n')}${context}`;
       demand(node.snapshot.attempt < Number.MAX_SAFE_INTEGER, 'COUNTER_EXHAUSTED');
       node.snapshot.attempt += 1; node.snapshot.revision += 1; node.revision = node.snapshot.revision;
       node.snapshot.state = 'running'; node.snapshot.request = null; node.snapshot.blockedSequence = null; node.requestDetail = null;
-      node.activeContract = { id: p.assignmentId, task: p.task, acceptance: clone(p.acceptance), riskTier: p.riskTier, startedAttempt: node.snapshot.attempt };
-      node.packet = { ...node.packet, task: p.task, acceptance: clone(p.acceptance), riskTier: p.riskTier };
+      node.activeContract = { id: p.assignmentId, task: p.task, acceptance: clone(p.acceptance), startedAttempt: node.snapshot.attempt };
+      node.packet = { ...node.packet, task: p.task, acceptance: clone(p.acceptance) };
       node.consumedInputs = this.#consumeInputs(p.task, principal.id, []); node.status = 'running'; node.verified = false; delete node.verification; delete node.check;
-      scoped.assignments.push({ id: p.assignmentId, kind: 'new', task: p.task, acceptance: clone(p.acceptance), riskTier: p.riskTier,
+      scoped.assignments.push({ id: p.assignmentId, kind: 'new', task: p.task, acceptance: clone(p.acceptance),
         contextRevision: team.context.revision, startedAttempt: node.snapshot.attempt, latestAttempt: node.snapshot.attempt, status: 'running',
         attempts: [{ attempt: node.snapshot.attempt, kind: 'new', status: 'running', consumedInputs: clone(node.consumedInputs) }] });
       scoped.sequence = ++team.sequence;
@@ -617,7 +617,7 @@ export class AdvisorRuntime {
           : c.action === 'team.context' ? ['text']
           : c.action === 'team.assign' ? ['to', 'assignmentId', 'task', 'acceptance']
           : c.action === 'team.message' ? ['to', 'text'] : ['to', ...(c.action === 'team.rename' ? ['name'] : [])];
-        fields(p, ['toolCallId', ...actionFields], c.action === 'team.assign' ? ['riskTier'] : []);
+        fields(p, ['toolCallId', ...actionFields]);
         text(p.toolCallId, 512);
         const key = `pi-team-${hash(canonicalJson({ session: c.sessionId, toolCallId: p.toolCallId, action: c.action }))}`;
         const digest = hash(canonicalJson({ action: c.action, payload: p }));
@@ -653,7 +653,7 @@ export class AdvisorRuntime {
           id(p.assignmentId); text(p.task); demand(Array.isArray(p.acceptance), 'INVALID_ACCEPTANCE');
           const member = resolveMember(p.to); const target = member.transport; demand(target?.generation, 'TEAM_TARGET_STALE');
           command = { v: 1, op: 'team.assign', scope: member.scope, commandId: key, expectedRevision: member.node.revision,
-            payload: { attempt: member.node.attempt, handleId: target.handleId, generation: target.generation, assignmentId: p.assignmentId, task: p.task, acceptance: p.acceptance, ...(p.riskTier ? { riskTier: p.riskTier } : {}) } };
+            payload: { attempt: member.node.attempt, handleId: target.handleId, generation: target.generation, assignmentId: p.assignmentId, task: p.task, acceptance: p.acceptance } };
         } else if (c.action === 'team.message') {
           text(p.text); id(p.to);
           if (p.to === 'root') {
@@ -1018,7 +1018,7 @@ export class AdvisorRuntime {
         this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: 'rejected', scope, response }), key));
         return response;
       }
-      const packet = { role: execution.role, task: execution.prompt, acceptance: [...(p.params.acceptance ?? []), ...(p.params.anchor ? [p.params.anchor] : [])], riskTier: 'high', cwd, adapter: 'pi-detach', model: execution.model, thinking: execution.thinking, execution };
+      const packet = { role: execution.role, task: execution.prompt, acceptance: [...(p.params.acceptance ?? []), ...(p.params.anchor ? [p.params.anchor] : [])], cwd, adapter: 'pi-detach', model: execution.model, thinking: execution.thinking, execution };
       if (!packet.acceptance.length) packet.acceptance.push('Complete the requested outcome and retain direct evidence.');
       this.#transaction(() => {
         this.#write('UPDATE pi_bindings SET data=? WHERE id=? AND principal=? AND digest=?', canonicalJson({ action: 'launch', runId: scope.run, scope, packet }), key, principal, digest);
@@ -1657,7 +1657,7 @@ export class AdvisorRuntime {
       else if (!target.launched) {
         target.launched = true; target.runtimeState = 'running';
         const p = target.packet;
-        this.#event(run, effect.node, 'node.launched', { role: p.role, label: effect.node, harness: run.host, model: p.model, thinking: p.thinking, cwd: p.cwd, riskTier: p.riskTier, acceptance: p.acceptance, resultPath: join(this.#nodeDirectory(run.id, effect.node), 'result.md'), launchRef: { id: handle.id } });
+        this.#event(run, effect.node, 'node.launched', { role: p.role, label: effect.node, harness: run.host, model: p.model, thinking: p.thinking, cwd: p.cwd, acceptance: p.acceptance, resultPath: join(this.#nodeDirectory(run.id, effect.node), 'result.md'), launchRef: { id: handle.id } });
       }
       this.#write('UPDATE effects SET handle=? WHERE id=?', canonicalJson(handle), effectId); this.#save(run);
     });

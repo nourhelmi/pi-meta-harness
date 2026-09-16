@@ -28,6 +28,8 @@ const PI_SKILLS = [
   "skills/advisor-team/SKILL.md",
   "skills/advisor-pi/SKILL.md",
   "skills/advisor-native/SKILL.md",
+  "skills/advisor-native-entry/SKILL.md",
+  "skills/advisor-native-maker/SKILL.md",
 ];
 const NATIVE_SKILLS = [
   "native-skills/advisor/SKILL.md",
@@ -77,6 +79,20 @@ test("no risk tiers, claim schemas or retired stages survive on any instruction 
   assert.match(bootstrap, /advisory ceiling, never a reason to stop while your own helpers are live/);
   assert.doesNotMatch(runtimeDoc, /## .*Risk tiers|\| High \|/);
   assert.doesNotMatch(await text("README.md"), /risk tier/i);
+  for (const path of [
+    "config/advisor-core/canonical-events.schema.json",
+    "docs/advisor-protocol.md",
+    "docs/advisor-teams.md",
+    "extensions/advisor-pi-host.ts",
+    "scripts/advisor-core/host-binding.mjs",
+    "scripts/advisor-runtime/contract.mjs",
+    "scripts/advisor-runtime/runtime.mjs",
+    "scripts/claude-advisor-trace.mjs",
+    "scripts/codex-advisor-trace.mjs",
+    "bb-plugin-meta-harness/src/canonical-events.schema.json",
+    "bb-plugin-meta-harness/src/contracts.ts",
+    "bb-plugin-meta-harness/src/trace-projector.ts",
+  ]) assert.doesNotMatch(await text(path), /risk[ -]?tier|riskTier/i, path);
   for (const path of ["scripts/claude-advisor-trace.mjs", "scripts/codex-advisor-trace.mjs"]) {
     assert.doesNotMatch(await text(path), /six top-level headings/, path);
   }
@@ -260,7 +276,7 @@ test("runtime and protocol docs describe lenient, status-driven results and the 
   const validation = section(protocol, "## Result validation", "## Pi host binding");
   assert.match(validation, /stalls only for a missing, unreadable, or[\s\S]*blank artifact/);
   assert.match(validation, /first ten nonempty lines/);
-  assert.match(validation, /node\.result\.validated\.data\.problems[\s\S]*never stall/);
+  assert.match(validation, /Only the status line is structural[\s\S]*advisory note rather[\s\S]*than stalling settlement/);
   assert.match(protocol, /^## Step 6 host support$/m);
   assert.match(runtimeDoc, /Protocol step 6[\s\S]*Pi is the[\s\S]*reference implementation/);
   const blocked = section(runtimeDoc, "## Blocked signals", "## 🪜 Adaptive topology");

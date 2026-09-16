@@ -47,7 +47,7 @@ async function setup(t, provider) {
     }
     throw new Error(`state timeout: ${JSON.stringify(state(node))}`);
   };
-  const packet = task => ({ role: 'builder', task, acceptance: ['deterministic'], riskTier: 'high', cwd, adapter: provider, model: 'fixture', thinking: 'high' });
+  const packet = task => ({ role: 'builder', task, acceptance: ['deterministic'], cwd, adapter: provider, model: 'fixture', thinking: 'high' });
   const launch = async task => { ok((await send('packet.admit', { node: 'maker', packet: packet(task) })).result); return send('node.launch', { node: 'maker' }); };
   const ack = async () => { for (const d of ok(await callSocket(credential, read('wait', 'root', { timeoutMs: 0, limit: 128 })))) ok((await send('delivery.ack', { deliveryId: d.id })).result); };
   t.after(async () => { for (const child of children) if (child.exitCode === null) child.kill('SIGKILL'); try { await ack(); await service.close(); } catch {} rmSync(base, { recursive: true, force: true }); });

@@ -413,7 +413,7 @@ test('managed roster keeps immutable identity and history while public peer tran
 
   settleLaunch(alphaLaunch); settleLaunch(betaLaunch);
   status = await root.request('team.status'); target = status.members.find(member => member.id === alpha);
-  await root.request('team.assign', { toolCallId: 'assign-alpha-2', to: 'systems', assignmentId: 'alpha-contract-2', task: 'Second distinct contract', acceptance: ['second contract result'], riskTier: 'high' });
+  await root.request('team.assign', { toolCallId: 'assign-alpha-2', to: 'systems', assignmentId: 'alpha-contract-2', task: 'Second distinct contract', acceptance: ['second contract result'] });
   await root.host.runtime.dispatch(); const secondLaunch = root.launches.at(-1); assert.match(secondLaunch.reply, /MANAGED TEAM NEW ASSIGNMENT alpha-contract-2/);
   assert.match(root.messages[0].input.text, /Advice\/context only/);
   settleLaunch(secondLaunch);
@@ -463,7 +463,7 @@ test('retained teammate keeps independent graph contracts, repair budgets, check
   await evidence('first-outcome', member, 2);
   const firstNode = await root.request('get', { runId: member });
   const firstCheck = root.host.runtime.checkNode({ scope: firstNode.snapshot.scope, command: process.execPath, args: ['check.mjs'], producer: 'contract-checker' });
-  assert.deepEqual(firstCheck.contract.acceptance, ['first accepted result']); assert.equal(firstCheck.contract.riskTier, 'high');
+  assert.deepEqual(firstCheck.contract.acceptance, ['first accepted result']);
   const firstBound = await evidence('first-outcome');
   assert.deepEqual(firstBound.node.budget, { maxRepairLoops: null, used: 1, remaining: null });
   assert.equal(firstBound.node.proof, 'verified');
@@ -471,17 +471,17 @@ test('retained teammate keeps independent graph contracts, repair budgets, check
 
   const secondInput = await evidence('second-outcome');
   await root.request('team.assign', { toolCallId: 'assign-second-outcome', to: 'contract-owner', assignmentId: 'second-contract', task: secondInput.prompt,
-    acceptance: ['second accepted result', 'current checker contract'], riskTier: 'standard' });
+    acceptance: ['second accepted result', 'current checker contract'] });
   await root.host.runtime.dispatch(); root.settle();
   await assert.rejects(evidence('first-outcome', member, 3), /GRAPH_NODE_ALREADY_BOUND/, 'a new label cannot overwrite the exhausted graph outcome');
   await evidence('second-outcome', member, 3);
   await assert.rejects(evidence('duplicate-outcome', member, 3), /GRAPH_OUTCOME_ALREADY_BOUND/, 'one accepted assignment cannot mint another graph budget');
   let secondNode = await root.request('get', { runId: member });
-  assert.equal(secondNode.packet.task, secondInput.prompt); assert.deepEqual(secondNode.packet.acceptance, ['second accepted result', 'current checker contract']); assert.equal(secondNode.packet.riskTier, 'standard');
+  assert.equal(secondNode.packet.task, secondInput.prompt); assert.deepEqual(secondNode.packet.acceptance, ['second accepted result', 'current checker contract']);
   assert.deepEqual(secondNode.consumedInputs.map(input => input.node), ['second-outcome']);
   assert.equal(secondNode.result.contract.assignmentId, 'second-contract'); assert.deepEqual(secondNode.result.contract.acceptance, secondNode.packet.acceptance);
   const secondCheck = root.host.runtime.checkNode({ scope: secondNode.snapshot.scope, command: process.execPath, args: ['check.mjs'], producer: 'contract-checker' });
-  assert.equal(secondCheck.contract.assignmentId, 'second-contract'); assert.deepEqual(secondCheck.contract.acceptance, secondNode.packet.acceptance); assert.equal(secondCheck.contract.riskTier, 'standard');
+  assert.equal(secondCheck.contract.assignmentId, 'second-contract'); assert.deepEqual(secondCheck.contract.acceptance, secondNode.packet.acceptance);
   assert.deepEqual(JSON.parse(readFileSync(secondCheck.path)).contract, secondCheck.contract, 'captured checker evidence freezes the current accepted contract');
   secondNode = await root.request('get', { runId: member });
   assert.deepEqual(secondNode.check.contract, secondCheck.contract); assert.deepEqual(secondNode.verification.contract, secondCheck.contract);
@@ -541,7 +541,7 @@ test('enlistment preserves pre-roster checker evidence instead of relabelling it
   assert.equal(roster.assignments[0].attempts[0].result.verification.contract.assignmentId, null);
 
   await root.request('call', { tool: 'bg_agent', toolCallId: 'enlist-repair', cwd: f.cwd, params: { name: member, prompt: 'same outcome repair' } }); await root.host.runtime.dispatch(); root.settle();
-  await root.request('team.assign', { toolCallId: 'distinct-after-pre-roster', to: 'prechecked', assignmentId: 'distinct-contract', task: 'New accepted outcome', acceptance: ['new proof'], riskTier: 'standard' });
+  await root.request('team.assign', { toolCallId: 'distinct-after-pre-roster', to: 'prechecked', assignmentId: 'distinct-contract', task: 'New accepted outcome', acceptance: ['new proof'] });
   await root.host.runtime.dispatch(); root.settle();
   const nextGraph = { graphId: 'post-roster-outcome', advisorSessionId: 'root', maxRepairLoops: 1, nodes: [{ id: 'next', task: 'new contract', dependsOn: [] }] };
   await root.request('graph.evidence', { graph: nextGraph, node: 'next', runId: member });

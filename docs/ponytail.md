@@ -37,7 +37,7 @@ not a second native mode engine or a claim that Pi commands run in native CLIs.
 
 The managed adapter and role contracts explicitly resolve upstream shortcuts:
 
-- Requested behavior, acceptance criteria, safety/security/accessibility, write
+- Requested behavior, done-when lines, safety/security/accessibility, write
   ownership, and required evidence remain binding. A “lazy version” is an
   alternative to discuss, not permission to ship an incomplete request.
 - “ONE check” is not a test ceiling. Use the repository's tooling and run all

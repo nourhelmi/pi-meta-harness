@@ -129,14 +129,9 @@ export async function inspectArtifact(path) {
   };
 }
 
-export function parseRiskTier(prompt) {
-  const match = prompt.match(/\brisk\s+tier\b[\s:*_`-]*(low|standard|high)\b/i)?.[1]?.toLowerCase();
-  return match === "low" || match === "standard" || match === "high" ? match : "high";
-}
-
 export function parseAcceptance(prompt) {
   const lines = prompt.split(/\r?\n/);
-  const start = lines.findIndex((line) => /^\s*(?:#{1,6}\s*)?ACCEPTANCE CRITERIA\s*:?\s*#*\s*$/i.test(line));
+  const start = lines.findIndex((line) => /^\s*(?:#{1,6}\s*)?(?:DONE WHEN|ACCEPTANCE(?: CRITERIA)?)\s*:?\s*#*\s*$/i.test(line));
   if (start < 0) return ["result.md starts with a terminal Status line"];
   const criteria = [];
   for (const line of lines.slice(start + 1)) {

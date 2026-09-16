@@ -382,7 +382,7 @@ const teamSettled = await settle(teamRun, '# Status\nPASS\nFirst managed assignm
 await invoke('team_manage', 'team-context', { action: 'context', text: 'Shared workstream context.' });
 await invoke('team_manage', 'team-rename', { action: 'rename', to: 'transport', name: 'runtime' });
 const beforeAssignmentDispatch = calls.length;
-await invoke('team_manage', 'team-assign-2', { action: 'assign', to: 'runtime', assignmentId: 'transport-contract-2', task: 'Own the second transport contract.', acceptance: ['real Herdr prompt path'], riskTier: 'high' });
+await invoke('team_manage', 'team-assign-2', { action: 'assign', to: 'runtime', assignmentId: 'transport-contract-2', task: 'Own the second transport contract.', acceptance: ['real Herdr prompt path'] });
 await runtime.dispatch();
 assert.ok(calls.slice(beforeAssignmentDispatch).some(args => args[1] === 'prompt' && args.includes('--wait') && args[3].includes('MANAGED TEAM NEW ASSIGNMENT transport-contract-2')));
 const secondTeamResult = await settle(teamRun, '# Status\nPASS\nSecond managed assignment.');
@@ -392,7 +392,7 @@ const currentTeamNode: any = await req('get', { runId: teamRun });
 assert.deepEqual(teamMember.immutable, immutable); assert.equal(teamMember.assignments.length, 2); assert.equal(teamMember.assignments[0].status, 'done'); assert.equal(teamMember.assignments[1].status, 'done');
 assert.equal(teamMember.observed.runtime, 'pi'); assert.equal(teamMember.observed.model, null); assert.equal(teamMember.observed.effort, null);
 assert.equal(teamMember.node.contract.assignmentId, 'transport-contract-2'); assert.equal(currentTeamNode.packet.task, 'Own the second transport contract.');
-assert.deepEqual(currentTeamNode.packet.acceptance, ['real Herdr prompt path']); assert.equal(currentTeamNode.packet.riskTier, 'high');
+assert.deepEqual(currentTeamNode.packet.acceptance, ['real Herdr prompt path']);
 assert.equal(currentTeamNode.result.contract.assignmentId, 'transport-contract-2');
 assert.deepEqual(teamStatus.details.storageLimits, { teamStateBytes: null, commandEnvelopeBytes: null, responseEnvelopeBytes: null, messageTextBytes: null });
 assert.deepEqual(teamStatus.details.projectionLimits, { statusMessages: 128, statusMessageTextBytes: 1024 });

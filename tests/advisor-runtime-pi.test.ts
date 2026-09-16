@@ -133,7 +133,7 @@ test("actual Pi extension transport admits before one effect, replays exactly, a
 	assert.equal((await invoke(tool, mutation("workstream.create", "create-run", 0, { cwd: work, host: "pi" }))).ok, true);
 	assert.equal((await invoke(tool, mutation("packet.admit", "admit-maker", 1, {
 		node: "maker",
-		packet: { role: "builder", task: "Hermetic task", acceptance: ["One effect"], riskTier: "high", cwd: work, adapter: "fixture", model: "fixture-model", thinking: "off" },
+		packet: { role: "builder", task: "Hermetic task", acceptance: ["One effect"], cwd: work, adapter: "fixture", model: "fixture-model", thinking: "off" },
 	}))).ok, true);
 	assert.equal((await invoke(tool, mutation("graph.admit", "admit-graph", 2, {
 		graph: "graph", waves: [["maker"]], dependencies: { maker: [] }, topology: "flat-root", maxParallel: 1, maxRepairLoops: 0,
@@ -158,7 +158,7 @@ test("actual Pi extension transport admits before one effect, replays exactly, a
 	writeCredential(revokedDescriptor, { socketPath: service.socketPath, token: revokedToken }, runtime);
 	runtime.revokePrincipal("revoked-advisor");
 	assert.deepEqual(await invoke(installExtension(revokedDescriptor).tools[0], readCommand("progress")), { ok: false, error: "UNAUTHORIZED" });
-	const stalePacket = { role: "builder", task: "x", acceptance: ["x"], riskTier: "high", cwd: work, adapter: "fixture", model: "m", thinking: "off" };
+	const stalePacket = { role: "builder", task: "x", acceptance: ["x"], cwd: work, adapter: "fixture", model: "m", thinking: "off" };
 	assert.deepEqual(await invoke(tool, mutation("packet.admit", "ungranted-command", 0, { node: "other", packet: stalePacket })), { ok: false, error: "TARGET_SCOPE_FORBIDDEN" });
 	assert.deepEqual(await invoke(tool, mutation("packet.admit", "stale-command", 0, { node: "maker", packet: stalePacket })), { ok: false, error: "STALE_REVISION" });
 	assert.deepEqual(await invoke(tool, readCommand("progress", {}, rootScope("wrong-run"))), { ok: false, error: "SCOPE_FORBIDDEN" });
@@ -221,7 +221,7 @@ test("actual Pi and native appenders share persistent legacy ownership and rejec
 
 	await piStore.update("legacy-run", () => [
 		{ node: null, parent: null, type: "run.created", data: { workstream: "work", stateRoot: root, root: { node: "root", session: "legacy-root" } } },
-		{ node: "maker", parent: "root", type: "node.launched", data: { role: "builder", label: "maker", harness: "pi", model: "fixture", thinking: "off", cwd: work, riskTier: "high", acceptance: ["ordered"] } },
+		{ node: "maker", parent: "root", type: "node.launched", data: { role: "builder", label: "maker", harness: "pi", model: "fixture", thinking: "off", cwd: work, acceptance: ["ordered"] } },
 	]);
 	const appends: Array<Promise<unknown>> = [];
 	for (let index = 0; index < 10; index += 1) {

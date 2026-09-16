@@ -92,7 +92,7 @@ async function writeGraphManifest(root, graph, node) {
 }
 
 function graphPrompt(graph, node) {
-  return `RISK TIER: Standard.\n\nGRAPH:\n  graph: ${graph}\n  node: ${node}\n  wave: 1\n  upstream:\n  downstream: review\n\nACCEPTANCE CRITERIA:\n1. The graph trace validates.`;
+  return `GRAPH:\n  graph: ${graph}\n  node: ${node}\n  wave: 1\n  upstream:\n  downstream: review\n\nDONE WHEN:\n1. The graph trace validates.`;
 }
 
 async function withRoot(fn) {
@@ -176,7 +176,6 @@ test("recorded foreground hook payloads emit one valid done trace and generation
       model: "claude-sonnet-4-5",
       thinking: "unspecified",
       cwd: "/Users/example/Dev/example-repo",
-      riskTier: "standard",
       acceptance: ["The result artifact validates.", "The parent receives one wake."],
       resultPath,
     });
@@ -345,7 +344,6 @@ test("a second maker gets a new ordinal and packet fields use their frozen defau
     assert.equal(started.id, runId(firstPayloads.sessionId, 2));
     const second = await validated(root, started.id);
     const launch = second.events.find((event) => event.type === "node.launched");
-    assert.equal(launch.data.riskTier, "high");
     assert.deepEqual(launch.data.acceptance, ["result.md starts with a terminal Status line"]);
     assert.equal(launch.data.model, "unknown");
     assert.equal(launch.data.label, "Second maker");

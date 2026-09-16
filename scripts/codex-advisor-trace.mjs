@@ -13,7 +13,6 @@ import {
   inspectArtifact,
   nextWakeGeneration,
   parseAcceptance,
-  parseRiskTier,
   readJson,
   resolveGraphLaunch,
   reserveResult,
@@ -214,7 +213,6 @@ async function subagentStart(payload, root, paths) {
             model: mapping.model,
             thinking: mapping.thinking,
             cwd: mapping.cwd,
-            riskTier: parseRiskTier(mapping.prompt),
             acceptance: parseAcceptance(mapping.prompt),
             resultPath: mapping.resultPath,
             launchRef: {

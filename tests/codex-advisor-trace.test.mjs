@@ -133,7 +133,7 @@ async function writeGraphManifest(root, graph, node) {
 }
 
 function graphPrompt(graph, node) {
-  return `RISK TIER: Standard.\n\nGRAPH:\n  graph: ${graph}\n  node: ${node}\n  wave: 1\n  repair: 0\n  upstream:\n  downstream: review\n\nACCEPTANCE CRITERIA:\n1. The graph trace validates.`;
+  return `GRAPH:\n  graph: ${graph}\n  node: ${node}\n  wave: 1\n  repair: 0\n  upstream:\n  downstream: review\n\nDONE WHEN:\n1. The graph trace validates.`;
 }
 
 async function withRoot(fn) {
@@ -239,7 +239,6 @@ test("real captured Codex hooks emit one valid done trace and a SubagentStop gen
       model: "unknown",
       thinking: "unspecified",
       cwd: payloads.pre.cwd,
-      riskTier: "low",
       resultPath,
     });
     const launchHash = createHash("sha256").update(payloads.spawnToolUseId).digest("hex").slice(0, 32);
@@ -433,7 +432,6 @@ test("only SubagentStart emits context, malformed stdin is inert, and packet def
     const defaultRun = await complete(root, defaults, resultMarkdown(), { workstream: null });
     const launch = defaultRun.events.find((event) => event.type === "node.launched");
     assert.equal(defaultRun.projection.run.workstream, "codex");
-    assert.equal(launch.data.riskTier, "high");
     assert.deepEqual(launch.data.acceptance, ["result.md starts with a terminal Status line"]);
     assert.equal(launch.data.model, "unknown");
     assert.equal(launch.data.thinking, "unspecified");

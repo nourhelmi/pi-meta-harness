@@ -126,7 +126,7 @@ it("public server + actual host + installed package Unix service share SQLite ad
     faultPoint = "transaction.afterCommit";
     expect(await rpc(reply)).toEqual({ ok: false, error: "INTERNAL_ERROR" });
     expect((await rpc(reply)).replayed).toBe(true); await runtime.dispatch();
-    await mutate("packet.admit", { node: "maker", packet: { role: "builder", task: "No-model fixture", acceptance: ["result"], riskTier: "high", cwd: work, adapter: "codex", model: "fixture", thinking: "high" } });
+    await mutate("packet.admit", { node: "maker", packet: { role: "builder", task: "No-model fixture", acceptance: ["result"], cwd: work, adapter: "codex", model: "fixture", thinking: "high" } });
     await mutate("node.launch", { node: "maker" });
     expect((await read("progress", maker)).value.requestDetail).toEqual({ id: "maker-question", kind: "question", text: "Choose fixture" });
     const node = (await read("progress", maker)).value;

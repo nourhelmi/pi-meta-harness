@@ -119,7 +119,7 @@ test("native settlement hooks emit optional deviations once, without changing st
       });
       try {
         await hook({ hook_event_name: "PreToolUse", tool_use_id: "deviation-call", tool_name: host === "claude" ? "Agent" : "spawn_agent", tool_input: {
-          prompt: "RISK TIER: Standard. Verify deviations.", message: "RISK TIER: Standard. Verify deviations.",
+          prompt: "Verify deviations.", message: "Verify deviations.",
           description: "Deviation fixture", subagent_type: "advisor-maker", agent_type: "advisor-maker",
         } });
         const start = JSON.parse(await hook({ hook_event_name: "SubagentStart" }));
@@ -420,9 +420,6 @@ test("schema-level probes fail through the JSON Schema file alone", async () => 
   delete missingData[1].data.acceptance;
   expectCode(check(missingData), RULE_CODES.SCHEMA);
 
-  const badTier = clone(done);
-  badTier[1].data.riskTier = "critical";
-  expectCode(check(badTier), RULE_CODES.SCHEMA);
 
   const badTime = clone(done);
   badTime[2].at = "yesterday";
