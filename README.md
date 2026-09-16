@@ -140,7 +140,7 @@ You work in Ghostty; Herdr owns the tabs. `/advisor` claims one isolated
 workstream and picks the **smallest useful topology** for the task — the
 diagram above is the whole story. `pi-detach` keeps every worker visible in a
 named pane inside the advisor's tab. The root advisor owns planning and judgment
-and may implement at any risk tier with the same maker proof and review duties.
+and may implement at any risk level with the same maker proof and review duties.
 Choose direct, delegated, or hybrid work by value—not rigid role labels or an
 advisor-first preference.
 

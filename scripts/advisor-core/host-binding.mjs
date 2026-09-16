@@ -137,14 +137,14 @@ export function parseRiskTier(prompt) {
 export function parseAcceptance(prompt) {
   const lines = prompt.split(/\r?\n/);
   const start = lines.findIndex((line) => /^\s*(?:#{1,6}\s*)?ACCEPTANCE CRITERIA\s*:?\s*#*\s*$/i.test(line));
-  if (start < 0) return ["result.md validates with the six required headings"];
+  if (start < 0) return ["result.md starts with a terminal Status line"];
   const criteria = [];
   for (const line of lines.slice(start + 1)) {
     if (/^\s*(?:#{1,6}\s+|[A-Z][A-Z _-]+:\s*$)/.test(line) && criteria.length > 0) break;
     const match = /^\s*(?:-\s+|\d+[.)]\s+)(.+?)\s*$/.exec(line);
     if (match?.[1]) criteria.push(match[1]);
   }
-  return criteria.length > 0 ? criteria : ["result.md validates with the six required headings"];
+  return criteria.length > 0 ? criteria : ["result.md starts with a terminal Status line"];
 }
 
 const TRACE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;

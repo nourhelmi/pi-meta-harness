@@ -44,10 +44,10 @@ export function parseEnvelope(input) {
     case 'team.enlist': case 'team.rename': fields(p, ['name']); id(p.name); break;
     case 'team.context': fields(p, ['text']); text(p.text); break;
     case 'team.assign':
-      fields(p, ['attempt', 'handleId', 'generation', 'assignmentId', 'task', 'acceptance', 'riskTier']);
+      fields(p, ['attempt', 'handleId', 'generation', 'assignmentId', 'task', 'acceptance'], ['riskTier']);
       integer(p.attempt, 1); text(p.handleId, 1024); integer(p.generation, 1); id(p.assignmentId); text(p.task);
       demand(Array.isArray(p.acceptance) && p.acceptance.length > 0, 'INVALID_ACCEPTANCE');
-      p.acceptance.forEach(item => text(item, 2048)); demand(['low', 'standard', 'high'].includes(p.riskTier), 'INVALID_RISK'); break;
+      p.acceptance.forEach(item => text(item, 2048)); if (p.riskTier !== undefined) demand(['low', 'standard', 'high'].includes(p.riskTier), 'INVALID_RISK'); break;
     case 'team.message':
       fields(p, ['to', 'target', 'text']); id(p.to); text(p.text);
       if (p.to === 'root') { fields(p.target, ['rootSession']); text(p.target.rootSession, 256); }
@@ -63,7 +63,7 @@ export function parseEnvelope(input) {
 }
 // Validate prepared execution identity and payload shape, without semantic size ceilings.
 export function validatePacket(p) {
-  fields(p, ['role', 'task', 'acceptance', 'riskTier', 'cwd', 'adapter', 'model', 'thinking'], ['execution']);
+  fields(p, ['role', 'task', 'acceptance', 'cwd', 'adapter', 'model', 'thinking'], ['riskTier', 'execution']);
   if (p.execution !== undefined) {
     demand(p.adapter === 'pi-detach', 'EXECUTION_ADAPTER');
     const e = p.execution;
@@ -81,7 +81,7 @@ export function validatePacket(p) {
   }
   text(p.task);
   ['role', 'adapter'].forEach(key => id(p[key])); ['cwd', 'model', 'thinking'].forEach(key => text(p[key]));
-  demand(['low', 'standard', 'high'].includes(p.riskTier), 'INVALID_RISK');
+  if (p.riskTier !== undefined) demand(['low', 'standard', 'high'].includes(p.riskTier), 'INVALID_RISK');
   demand(Array.isArray(p.acceptance) && p.acceptance.length > 0, 'INVALID_ACCEPTANCE');
   p.acceptance.forEach(item => text(item, 2048));
 }

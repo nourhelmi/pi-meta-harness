@@ -182,7 +182,7 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
   return { beforeAgentStart, ctx, sessionCompact, sessionStart, toolCall: (event: ToolCallEvent) => toolCall!(event, ctx) };
 }
 
-const REFERENCE_NAMES = ["graphs", "model-routing", "evidence", "transport-and-settlement"];
+const REFERENCE_NAMES = ["graphs", "model-routing", "team", "transport-and-settlement"];
 async function advisorDoctrine(): Promise<string> {
   const core = await readFile(new URL("../skills/advisor/doctrine.md", import.meta.url), "utf8");
   const references = await Promise.all(
@@ -191,31 +191,22 @@ async function advisorDoctrine(): Promise<string> {
   return [core, ...references].join("\n\n");
 }
 
-test("advisor doctrine routes locked execution without weakening decision boundaries", async () => {
+test("advisor doctrine keeps routing, recovery and child rules without ceremony", async () => {
   const source = await advisorDoctrine();
-  assert.match(source, /decision load and risk/);
-  assert.match(source, /locked execution packet/);
-  assert.match(source, /stop and report evidence rather\s+than invent or change a material product/);
-  assert.match(source, /author owns browser verification through the worker contract's journey-impact/);
-  assert.match(source, /Reuse current proof before\s+costly setup/);
-  assert.match(source, /missing safe target, credential or authority\s+is a real stop/);
-  assert.match(source, /check `bg_list`\s+once/);
-  assert.match(source, /Coalesce a\s+routine settlement/);
-  assert.match(source, /## Child advisors/);
-  assert.match(source, /pass only real user, authority, ownership and safety constraints/);
-  assert.match(source, /no graph, delegation depth, role sequence or launch quota is\s+required/);
-  assert.match(source, /Managed advisors are Pi-hosted, including in native specialist mode/);
-  assert.match(source, /Follow project\/user review requirements for the integrated outcome/);
-  assert.match(source, /settlement wakes\s+the parent like any worker/);
-  assert.match(source, /Never use `advisor_launch` or Intercom for status/);
-  assert.match(source, /Deliberate criteria\s+revision[\s\S]+new packet\s+revision/);
-  assert.match(source, /criteria serve the advisor's\s+judgment, not the reverse/);
-  assert.match(source, /## Worker transport recovery/);
-  assert.match(source, /Do not repeat identical failed requests or relaunch an uncertain effect/);
-  assert.match(source, /identity-checked reconciliation when available/);
-  assert.match(source, /perform cohesive work directly only when ownership and authority\s+are clear/);
-  assert.match(source, /required independent review remains unsatisfied until actually obtained/);
-  assert.match(source, /explicit acceptance requirement for a particular transport or worker stays\s+unsatisfied if bypassed by direct work/);
+  assert.match(source, /1\. \*\*Direct\.\*\*/);
+  assert.match(source, /While a maker runs, you wait/);
+  assert.match(source, /## Locked execution packets/);
+  assert.match(source, /stops and\s+reports rather than invent a product, architecture, schema, migration, auth/);
+  assert.match(source, /`bg_list`\s+once/);
+  assert.match(source, /Child advisors launch with `role: "advisor"`/);
+  assert.match(source, /Delegate the outcome and real constraints,\s+not the strategy/);
+  assert.match(source, /`advisor` is always Pi-hosted/);
+  assert.match(source, /## Recovery/);
+  assert.match(source, /A definite pre-launch rejection: fix the cause, new call/);
+  assert.match(source, /identity-checked\s+reconciliation/);
+  assert.match(source, /do cohesive work directly when you own the\s+surface/);
+  assert.match(source, /keep any explicitly required review visible as unsatisfied/);
+  assert.doesNotMatch(source, /risk[ -]tier|Proposed criteria|falsifiable/i);
 });
 
 test("advisor mode entrypoints select their worker harness and defer to the injected doctrine", async () => {
@@ -274,8 +265,8 @@ Review the current document.`;
 
   assert.ok(result);
   assert.match(result.systemPrompt, /^base prompt\n\n# Current Advisor Doctrine/);
-  assert.match(result.systemPrompt, /\*\*Blocked\*\* means exactly one of four things/);
-  assert.match(result.systemPrompt, /\*\*Direct\.\*\* You implement and verify with the same maker duties\.\s+First-class at every risk tier/);
+  assert.match(result.systemPrompt, /Blocked means a missing product decision, a permission, a credential/);
+  assert.match(result.systemPrompt, /1\. \*\*Direct\.\*\* You do it/);
   assert.match(result.systemPrompt, /Session mode: \*\*native\*\*/);
   assert.match(result.systemPrompt, /OpenAI models route to Codex CLI/);
   assert.doesNotMatch(result.systemPrompt, /Model character notes are binding/);

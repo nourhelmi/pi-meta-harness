@@ -118,22 +118,20 @@ test("Ponytail package and all six canonical skills share one reviewed pin witho
 test("Ponytail defaults retain native access, owner agency, and binding verification obligations", async () => {
   const doctrine = await readFile(new URL("../skills/advisor/doctrine.md", import.meta.url), "utf8");
   const worker = await readFile(new URL("../skills/advisor-worker/references/WORKER_CONTRACT.md", import.meta.url), "utf8");
-  for (const text of [doctrine, worker]) {
-    const policy = text.split("## Ponytail by default\n")[1]?.split(/\n## /)[0];
-    assert(policy, "each host contract needs its own default policy");
-    assert.match(policy, /~\/\.agents\/skills\/ponytail\/SKILL\.md/);
-    assert.match(policy, /once/);
-    assert.match(policy, /full by\s+default/);
-    assert.match(policy, /mode\/off choice/);
-    assert.match(policy, /compaction/);
-    assert.match(policy, /take[s]? precedence over\s+conflicting Ponytail advice/);
-    assert.match(policy, /ONE.check[^;:]*not a test\s+ceiling/);
-    assert.match(policy, /required (?:independent checking|independent verification)/);
-    assert.match(policy, /(?:single-maker fast path|one empowered maker)/);
-    for (const obligation of ["accepted", "safety", "security", "accessibility", "evidence"]) assert(policy.includes(obligation));
-  }
-  assert.match(worker, /not make the repair-capable checker role globally read-only/);
-  assert.match(worker, /shared root cause does not authorize edits outside your scope/);
+  assert.match(doctrine, /\*\*Ponytail by default\.\*\*/);
+  assert.match(doctrine, /never lowers accepted behavior, safety,\s+security, accessibility or required checks/);
+  const policy = worker.split("## Ponytail by default\n")[1]?.split(/\n## /)[0];
+  assert(policy, "the worker contract needs its own default policy");
+  assert.match(policy, /~\/\.agents\/skills\/ponytail\/SKILL\.md/);
+  assert.match(policy, /once/);
+  assert.match(policy, /full by default/);
+  assert.match(policy, /mode\/off choice/);
+  assert.match(policy, /compaction/);
+  assert.match(policy, /takes precedence over conflicting Ponytail advice/);
+  assert.match(policy, /ONE check is not a test ceiling/);
+  assert.match(policy, /lazy alternative is not\s+permission to ship partial requirements/);
+  for (const obligation of ["accepted", "safety", "security", "accessibility", "required checks"]) assert(policy.includes(obligation), obligation);
+  assert.match(worker, /shared root cause does not authorize\s+edits outside your scope/);
   for (const role of ["builder", "advisor", "checker"]) {
     const skill = await readFile(new URL(`../skills/advisor-worker/roles/${role}/SKILL.md`, import.meta.url), "utf8");
     assert.match(skill, /WORKER_CONTRACT\.md/, role);

@@ -346,7 +346,7 @@ test("a second maker gets a new ordinal and packet fields use their frozen defau
     const second = await validated(root, started.id);
     const launch = second.events.find((event) => event.type === "node.launched");
     assert.equal(launch.data.riskTier, "high");
-    assert.deepEqual(launch.data.acceptance, ["result.md validates with the six required headings"]);
+    assert.deepEqual(launch.data.acceptance, ["result.md starts with a terminal Status line"]);
     assert.equal(launch.data.model, "unknown");
     assert.equal(launch.data.label, "Second maker");
     assert.equal(second.projection.run.workstream, "claude-host-test");
@@ -380,7 +380,7 @@ test("only SubagentStart emits context; malformed stdin exits zero and writes no
   await withRoot(async (root) => {
     const payloads = await recordedPayloads("stdout");
     const started = await startRun(root, payloads);
-    assert.match(started.startOutput.hookSpecificOutput.additionalContext, /Status, Claims, Evidence, Files, Decisions, and Remaining Risk/);
+    assert.match(started.startOutput.hookSpecificOutput.additionalContext, /Start with a Status heading or line/);
     assert.equal((await runHook(payloads.stop, root)).stdout, "");
     assert.equal((await runHook(payloads.post, root)).stdout, "");
     assert.equal((await runHook(payloads.failure, root)).stdout, "");

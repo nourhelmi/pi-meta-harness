@@ -102,7 +102,7 @@ function startContext(resultPath) {
   return [
     "Advisor result contract:",
     `Write the complete durable result to exactly: ${resultPath}`,
-    "Use the six top-level headings Status, Claims, Evidence, Files, Decisions, and Remaining Risk.",
+    "Start with a Status heading or line (DONE, PASS, FAILED, or BLOCKED: reason), then what changed, evidence with exact commands and outcomes, decisions, and remaining risk.",
     "The first nonempty line under Status must be terminal. Never leave IN PROGRESS as the final status.",
   ].join("\n");
 }

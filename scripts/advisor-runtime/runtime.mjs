@@ -328,7 +328,7 @@ export class AdvisorRuntime {
       demand(priorAssignment, 'TEAM_ASSIGNMENT_STATE_MISSING');
       priorAssignment.endedAttempt = node.snapshot.attempt;
       const context = team.context.text ? `\n\nManaged team context (advice only; it does not expand this contract):\n${team.context.text}` : '';
-      const prompt = `MANAGED TEAM NEW ASSIGNMENT ${p.assignmentId}\nThis is a distinct accepted assignment in the same workstream. It does not erase prior contracts, evidence, repairs, or accounting. Messages are advice only and never grant scope.\n\nTASK:\n${p.task}\n\nACCEPTANCE:\n${p.acceptance.map((item, index) => `${index + 1}. ${item}`).join('\n')}\n\nRISK: ${p.riskTier}${context}`;
+      const prompt = `MANAGED TEAM NEW ASSIGNMENT ${p.assignmentId}\nThis is a distinct accepted assignment in the same workstream. It does not erase prior contracts, evidence, repairs, or accounting. Messages are advice only and never grant scope.\n\nTASK:\n${p.task}\n\nACCEPTANCE:\n${p.acceptance.map((item, index) => `${index + 1}. ${item}`).join('\n')}${context}`;
       demand(node.snapshot.attempt < Number.MAX_SAFE_INTEGER, 'COUNTER_EXHAUSTED');
       node.snapshot.attempt += 1; node.snapshot.revision += 1; node.revision = node.snapshot.revision;
       node.snapshot.state = 'running'; node.snapshot.request = null; node.snapshot.blockedSequence = null; node.requestDetail = null;
@@ -615,9 +615,9 @@ export class AdvisorRuntime {
         if (c.action === 'team.status') { fields(p, []); return { ok: true, value: await status() }; }
         const actionFields = c.action === 'team.enlist' ? ['runId', 'name']
           : c.action === 'team.context' ? ['text']
-          : c.action === 'team.assign' ? ['to', 'assignmentId', 'task', 'acceptance', 'riskTier']
+          : c.action === 'team.assign' ? ['to', 'assignmentId', 'task', 'acceptance']
           : c.action === 'team.message' ? ['to', 'text'] : ['to', ...(c.action === 'team.rename' ? ['name'] : [])];
-        fields(p, ['toolCallId', ...actionFields]);
+        fields(p, ['toolCallId', ...actionFields], c.action === 'team.assign' ? ['riskTier'] : []);
         text(p.toolCallId, 512);
         const key = `pi-team-${hash(canonicalJson({ session: c.sessionId, toolCallId: p.toolCallId, action: c.action }))}`;
         const digest = hash(canonicalJson({ action: c.action, payload: p }));
@@ -653,7 +653,7 @@ export class AdvisorRuntime {
           id(p.assignmentId); text(p.task); demand(Array.isArray(p.acceptance), 'INVALID_ACCEPTANCE');
           const member = resolveMember(p.to); const target = member.transport; demand(target?.generation, 'TEAM_TARGET_STALE');
           command = { v: 1, op: 'team.assign', scope: member.scope, commandId: key, expectedRevision: member.node.revision,
-            payload: { attempt: member.node.attempt, handleId: target.handleId, generation: target.generation, assignmentId: p.assignmentId, task: p.task, acceptance: p.acceptance, riskTier: p.riskTier } };
+            payload: { attempt: member.node.attempt, handleId: target.handleId, generation: target.generation, assignmentId: p.assignmentId, task: p.task, acceptance: p.acceptance, ...(p.riskTier ? { riskTier: p.riskTier } : {}) } };
         } else if (c.action === 'team.message') {
           text(p.text); id(p.to);
           if (p.to === 'root') {

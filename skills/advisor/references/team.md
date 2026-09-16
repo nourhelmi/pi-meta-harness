@@ -1,69 +1,19 @@
-# Workstream-scoped CoS teams
+# CoS teams
 
-The advisor and teammates are empowered technical owners. Choose direct work,
-reusable teammates, temporary specialists, and combinations by task, context and
-evidence value. The team is a resource, not a routing constraint. Prefer full-stack
-outcome ownership; specialize when useful. Root and teammates may implement or use
-fitting temporary roles at any point, including parallel investigation before any
-team exists. Teammates use child-advisor authority, not leaf-only builder rules or a
-mandatory management role. One maker per checkout/write surface still applies.
+Teammates are child advisors kept for the workstream's lifetime. Each session belongs to
+exactly one workstream and is never adopted by, renamed into or imported from another.
+Work directly, launch temporary roles, or enlist a kept `role: advisor` run with
+`team_manage enlist`; use `team_status`, `team_message {to,text}` and root-only
+`team_manage` (enlist, rename, context, assign, retire). Messages are advice: they never
+grant scope, assign work or certify completion. `bg_agent` continuation handles
+same-outcome repair; `team_manage assign` is for a genuinely distinct outcome. One maker
+per checkout still applies.
 
-Use the active intelligence profile as guidance, not a CoS staffing quota or routine
-budget ceremony. Respect explicit user limits and real platform capacity;
-retaining or renaming a member preserves accounting, not a lifetime quota. Requested
-model and effort are not observed settings. Report unavailable controls and unknown
-observations honestly; never silently change an existing session's role, model,
-host, specialist preference or workstream.
+Retire members before closing a team; retirement waits for real descendant settlement.
+Accepted or queued is not read or done; never retry an ambiguous effect as a new message.
+In native hosts use only the facilities the host exposes and say so when continuity is
+unavailable.
 
-## Lifetime and assignments
-
-Every teammate session and its conversational context belongs to exactly one
-workstream for its lifetime. A new workstream needs fresh sessions even if names
-repeat. No global pool, transcript/compaction import, rename-based adoption or
-reassignment across workstreams. Reuse selected durable lessons, repository docs
-and bounded factual handoffs, not another workstream's conversation.
-
-The roster records continuity; the existing outcome DAG records accepted work and
-consumed evidence. Neither a team nor a graph is mandatory. Retained teammates may
-receive distinct new accepted assignments inside their workstream. Same-outcome
-repair retains its prior acceptance and evidence history. New assignments preserve
-prior proof and contracts without inheriting unrelated current inputs. Graph changes
-are planning updates, not execution permission. Advice cannot assign work,
-grant write scope, certify completion or substitute for independent checking.
-
-## Conversation and settlement
-
-Message naturally: questions, discoveries, cautions and requests do not need graph
-nodes or ceremonial acknowledgements. Delivery mechanics bind the intended member,
-assignment/session/generation and workstream underneath. Accepted/queued never means
-read, acted on or done. Do not retry an ambiguous effect as a new launch/message.
-
-In managed Pi use `team_status`, `team_message {to,text}` and root-only `team_manage`.
-Launch a useful kept `role: advisor` outcome with `bg_agent` then enlist its run; the
-member may work directly or launch scoped helpers. `team_manage` supports enlist,
-rename, context, assign and retire. Use `bg_agent` continuation for same-outcome
-repair and `team_manage assign` only for a genuinely distinct accepted outcome.
-Update shared workstream context with `team_manage context`; it is bounded advice,
-not authority. Busy member messages use the managed queue, never legacy raw steering.
-
-Retire members before closing a team. Retirement revokes authority and waits for
-actual relevant descendant settlement; unknown ownership/liveness fails closed.
-Keep history and evidence. Cancellation acceptance, a closed pane, old checkpoint
-or logical retirement does not prove process exit. Never cancel/adopt foreign work.
-
-In native host orchestration use only available native handles, message/wait/cancel
-facilities. This policy and the checkpoint helper do not install a second scheduler,
-create managed acknowledgements or guarantee durable queue/replay/read receipts.
-Disclose unsupported continuity or messaging; use a fresh scoped session when the
-host cannot validate retained identity. Keep the chosen execution lane unchanged.
-
-## One canonical checkpoint
-
-Ordinary advisor and CoS share `~/.advisor/<repo-key>/workstreams/<workstream>.md`,
-resolved and claimed by the host-neutral helper. One root updates its operational
-checkpoint; helpers write assigned attributable evidence and report precise locators,
-not competing current sections. Keep decisions, ownership, outstanding handles,
-acceptance, evidence and next action current. Runtime roster facts are a timestamped
-projection, not a second hand-edited scheduler. Refresh only relevant current
-workstream context after compaction. Missing state/capability must be reported;
-a native host summary is not a fallback represented as canonical persistence.
+Root and CoS share one checkpoint at `~/.advisor/<repo-key>/workstreams/<slug>.md`. The
+root updates it; helpers report locators. Runtime roster facts are a projection, not a
+second scheduler.

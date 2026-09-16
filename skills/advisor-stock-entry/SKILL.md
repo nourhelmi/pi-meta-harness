@@ -5,49 +5,67 @@ description: Use the shared Meta runtime from an ordinary Codex or Claude Code C
 
 # Meta harness in a native CLI
 
-You remain a normal coding agent with your host's tools, authentication and permissions. The runtime manages delegated work; it does not replace your judgment or sandbox your own work. This entry uses Herdr for visible workers and needs no Pi parent session.
+You remain a normal coding agent with your host's tools, authentication and permissions.
+The runtime manages delegated work; it does not replace your judgment. This entry uses
+Herdr for visible workers and needs no Pi parent session.
 
 ## Choose the smallest useful workflow
 
-- Work directly for a quick fix or cohesive task you can finish well yourself.
-- Delegate one bounded task when a maker's fresh context, specialization or parallel effort helps. Small and medium tasks do not need a graph.
-- Split genuinely independent work only. Give each writer an isolated worktree; do not edit its files concurrently.
-- Follow the user's scope, safety and permission choices. Prefer existing code, standard libraries and simple implementations over new abstractions. Never trade away acceptance, security, accessibility or required checks for brevity.
+Work directly for anything you can finish well. Delegate one bounded task when fresh
+context, specialization or parallel effort helps. Split only genuinely independent work,
+one writer per worktree. Roles are `advisor`, `builder` and `checker`; all three
+investigate, plan, implement and verify in scope, and checkers repair what they find.
+Give a worker a self-contained packet: goal, decided versus suggested, edit boundary and
+non-goals, a done-when line with its proving command, relevant paths, stop conditions.
+Let it clear local obstacles; escalate changed authority, safety or product decisions
+only. Browser verification belongs to whoever changes behavior: trace the diff to the
+affected journeys and exercise them against the integrated app, or state why none are
+affected. Use the connected `meta_harness` MCP tools, never a second native scheduler
+for the same work, and do not read a whole role skill just to launch that role.
 
-## Delegate and finish
+## Runtime mechanics
 
-Use the connected `meta_harness` MCP tools, not a second native Agent/Task scheduler for the same work. Load only the skill needed for your current decision; workers load their own role skills. Do not read an entire checker or builder skill just to launch that role.
+Launch, message and cancel calls need an explicit unique `commandId`. Preserve the exact
+ID and arguments for a transport-uncertain replay; never resend an ambiguous launch with
+a fresh ID. Runtime-owned IDs and artifact paths come back from tools; never invent them.
+Admission is not completion: read status, then wait explicitly for a durable outcome; an
+empty wait is only a timeout, and native MCP promises no unsolicited wake after your
+turn ends. Read the handoff, the recorded transcript and actual artifacts as useful; a
+worker's PASS is a claim, not verification. Use the exact run for follow-up and
+`keepAlive` only as a cleanup preference. Acknowledge consumed deliveries. Historical
+deliveries keep their original attempt; cancellation acceptance does not prove exit; use
+supported reconciliation rather than blind resends or lock deletion.
 
-Give a worker a self-contained task, edit boundary and falsifiable acceptance checks. Include relevant context and paths, not your whole transcript. The shipped roles are advisor, builder, and checker. Own planning and synthesis as the advisor; makers investigate, plan, implement and verify within their scope, and checkers can repair findings. Allow reasonable local obstacle resolution within the accepted outcome. Escalate changed authorization, safety or product decisions—not recoverable toolchain issues.
+Tool path: `advisor_worker_launch` → `advisor_worker_wait` / `advisor_worker_status` →
+`advisor_worker_artifact` → verification → `advisor_worker_ack`. `advisor_worker_list`
+and `advisor_worker_output` provide visibility. Only an explicit first launch initializes
+a runtime; `STOCK_NOT_STARTED` on a read is not an instruction to launch. Use
+`advisor_worker_runtime_close` when deliberately finishing this root's runtime; active
+work and pending notifications stay protected.
 
-Browser verification belongs to whoever changes behavior, including checker repairs and direct advisor work. Trace the actual diff and call/data flow to plausibly affected user journeys, including backend auth/API/state/error effects. Exercise those journeys against the integrated application using relevant personas/states and meaningful failure paths; reuse project browser tests that actually cover them. Internal changes with no plausible browser impact need appropriate unit/API/integration checks and a short rationale, not a browser ritual. Unclear impact needs consumer inspection; a missing safe environment or unexercised flow remains a coverage gap, not a PASS inferred from non-browser tests. Record tested revision (including dirty content), environment/persona, flow and observed outcome with useful evidence paths. Respect permissions, privacy and safe data targets; no screenshot quota or separate capture stage.
+## Review and delivery
 
-Launch, message and cancel calls need an explicit unique `commandId`. Preserve the exact ID and arguments for transport-uncertain replay; never resend an ambiguous launch with a fresh ID. A definite rejection allows corrected arguments under a new ID. Acknowledgements use actual issued run and delivery IDs. Runtime-owned IDs and artifact paths are returned by tools: never invent them or supply a custom result path.
+A checker repairs findings within the accepted outcome and owned surface, reruns affected
+checks and journeys, and reports the post-repair state; its original assessment is
+independent, its own fixes are maker work, and a repair does not automatically require a
+non-author or another checker. Resume the same reviewer for a maker-repaired delta. You
+own final acceptance and the truthful user summary. Follow the repository's checks and
+required agentic PR review for the current PR revision; a pending, unavailable or stale
+required verdict is an unmet gate that a local checker, green tests or an old verdict
+cannot substitute for. Do not invent review where none is required, or add or change CI,
+publish verdicts or merge without scope and authorization.
 
-Admission means accepted work, not completion. Read status, then explicitly wait for a durable outcome; an empty wait is only a timeout. Native MCP does not promise an unsolicited wake after you end your turn. Continue bounded waiting while work is outstanding, or tell the user honestly that it remains active.
-
-Read current execution state and the useful handoff. Summaries are optional indexes, not the only evidence or a condition for observing completion. Search the run's recorded transcript and inspect actual code, commands, tool results or artifacts when useful; terminal tails are not full history. Explicitly requested deliverables and checks still matter. A worker's PASS is a claim, not independent verification. Use the exact run and supported message/reconciliation operation for follow-up; never send credentials. Acknowledge a consumed delivery without claiming the worker's conclusions are automatically verified.
-
-Use the current identity-checked message/follow-up operation; keepAlive is a cleanup preference, not a report-validity capability. Historical deliveries retain their original attempt/capture. Cancellation acceptance does not prove exit. For uncertain effects use supported reconciliation; never blindly resend, adopt unrelated panes or delete locks.
-
-Tool path: `advisor_worker_launch` → `advisor_worker_wait` / `advisor_worker_status` → `advisor_worker_artifact` → verification → `advisor_worker_ack`. `advisor_worker_list` and `advisor_worker_output` provide scoped visibility. Only an explicit first launch initializes a runtime; `STOCK_NOT_STARTED` on a read is not an instruction to start a worker just to get status.
-
-Use `advisor_worker_runtime_close` when deliberately finishing this root's runtime. Active work and unresolved live identity remain protected; pending notification records stay durable for reconnect. Do not equate runtime close with cancellation or process exit.
-
-## Review without ceremony
-
-Give the checker repair ownership by default: it fixes findings within the accepted outcome and owned surface, including serious findings, reruns affected criteria and browser journeys, and reports the post-repair state. Only explicit read-only instructions, missing authority or an unaccepted material decision prevent an otherwise qualifying repair; a frozen baseline is not read-only. Keep findings and repairs attributable. Its original assessment is independent; its own fixes are maker work. A repair does not automatically require a non-author or another checker. Use extra review for a named uncertainty or project/user requirement, not a risk-tier label. Resume the same reviewer for maker-repaired deltas when further review is useful and carry unaffected proof forward. You own final acceptance and the truthful user summary.
-
-Follow repository checks and required agentic PR review, verdict and merge/release rules. Agentic PR review belongs to the project's review/CI workflow, not a mandatory local harness stage. Inspect its verdict and findings for the current PR revision and follow its re-review rules. Pending, unavailable or stale required verdicts remain unmet gates; local checkers, green deterministic tests and old verdicts cannot substitute. Do not invent review where none is required or add/change CI, publish verdicts or merge without scope and authorization.
-
-## Carry current evidence, not duplicate diaries
-
-Graphs are optional plans, not launch permits. Use `advisor_worker_graph_evidence` when recording owned runs and evidence references helps coordination. Preserve actual consumed inputs and historical captures; changed/missing graph metadata is a limitation, not a veto on authorized work. Revise plans when the useful work changes. A successor association does not cancel its predecessor or transfer a write surface. Accounting and repair history impose no lifetime quota; explicit user limits remain binding. Host proof covers only its actual check and surface. Use ordinary handoffs, transcripts and artifacts for graphless work.
-
-Keep one current operational checkpoint with decisions, ownership, handles, acceptance, evidence locators and next action. Update material changes, not every read or wait. Recover from that checkpoint and current runtime state; do not recreate parallel memory diaries or reread all role skills.
+Graphs are optional plans; `advisor_worker_graph_evidence` records owned runs and
+evidence references. A successor association does not cancel its predecessor or transfer
+a write surface. Keep one current operational checkpoint (decisions, ownership, handles,
+done-when, evidence locators, next action); update it on material changes, not every
+read or status tick, and recover from it rather than parallel memory diaries.
 
 ## Boundaries
 
-Runtime tools authorize only this root's admitted workspaces and workers. Reconnecting MCP to the same live native session must not create a replacement run. A different session or ambiguous identity is not permission to adopt previous work. The runtime cannot widen your native host permissions or answer its trust dialogs. Missing tools, authentication and explicit approval requirements must be reported accurately.
-
-Do not inspect runtime credentials, provider auth files or private service state. Do not change global settings to bypass a rejection. Worker processes receive no broad parent runtime authority. Nested stock-root use is unsupported; the scoped Pi child-advisor path is separate and requires a runtime-issued parent grant.
+Runtime tools authorize only this root's admitted workspaces and workers. Reconnecting
+MCP to the same live session must not create a replacement run; a different or ambiguous
+identity is not permission to adopt previous work. The runtime cannot widen native host
+permissions or answer trust dialogs. Do not inspect runtime credentials or private
+service state, or change global settings to bypass a rejection. Nested stock-root use is
+unsupported; the scoped Pi child-advisor path needs a runtime-issued parent grant.

@@ -412,7 +412,7 @@ test("only SubagentStart emits context, malformed stdin is inert, and packet def
   await withRoot(async (root) => {
     const payloads = await recordedPayloads("v2", "stdout");
     const started = await startRun(root, payloads);
-    assert.match(started.startOutput.hookSpecificOutput.additionalContext, /Status, Claims, Evidence, Files, Decisions, and Remaining Risk/);
+    assert.match(started.startOutput.hookSpecificOutput.additionalContext, /Start with a Status heading or line/);
     assert.equal((await runHook(payloads.postSpawn, root)).stdout, "");
     await writeFile(started.resultPath, resultMarkdown(), "utf8");
     assert.equal((await runHook(payloads.stop, root)).stdout, "");
@@ -434,7 +434,7 @@ test("only SubagentStart emits context, malformed stdin is inert, and packet def
     const launch = defaultRun.events.find((event) => event.type === "node.launched");
     assert.equal(defaultRun.projection.run.workstream, "codex");
     assert.equal(launch.data.riskTier, "high");
-    assert.deepEqual(launch.data.acceptance, ["result.md validates with the six required headings"]);
+    assert.deepEqual(launch.data.acceptance, ["result.md starts with a terminal Status line"]);
     assert.equal(launch.data.model, "unknown");
     assert.equal(launch.data.thinking, "unspecified");
     assert.equal(launch.data.label, "advisor-maker");
