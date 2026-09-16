@@ -30,7 +30,8 @@ state: `bg_list` once, then the handoff and the recorded transcript. Never clear
 adopt a pane or resend an ambiguous effect; use the runtime's identity-checked
 reconciliation. A missing or blank summary does not mean the run failed or must be
 repeated. A completed turn, an available report, verification and live descendants are
-separate facts. If transport is down, do cohesive work directly when you own the
+separate facts; a child advisor held open by live descendants shows a progress note, not
+a result. If transport is down, do cohesive work directly when you own the
 surface, and keep any explicitly required review visible as unsatisfied.
 
 ## Context

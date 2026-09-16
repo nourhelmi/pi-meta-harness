@@ -252,6 +252,48 @@ test('advisor binding preserves authority, freezes metadata and replays exactly 
   assert.deepEqual(JSON.parse(resumed.rows('family_state')[0].data), used);
 });
 
+test('a child advisor parked with live descendants is held open and settles on its final turn', async t => {
+  const f = fixture(t); const root = await f.start('root');
+  const runId = await root.launch('advisor', { delegate: true });
+  const parent = await root.request('get', { runId }); const childState = parent.childService.stateRoot;
+  const child = await f.start('child', { stateRoot: childState });
+  const grandchild = await child.launch('grandchild');
+  const { intent, hooks } = root.launches[0];
+  writeFileSync(join(intent.sourceDirectory, 'result.md'), 'IN PROGRESS\n\nActive descendant owns the checkout until settlement.');
+  const held = await hooks.settled('done', 'parked at composer', 2);
+  assert.deepEqual(held, { terminal: false, close: false, rearm: true }, 'a non-terminal report with live descendants keeps the attempt open');
+  const parked = await root.request('get', { runId });
+  assert.equal(parked.status, 'running'); assert.equal(parked.snapshot.state, 'running'); assert.equal(parked.agentState, 'done'); assert.equal(parked.result, null);
+  assert.equal(parked.continuation, 'none'); assert.equal(parked.reusable, false);
+  const deliveries = await root.request('wait', { runId, timeoutMs: 0 });
+  assert.equal(deliveries.filter(d => d.kind === 'settled').length, 0, 'no settlement while descendants are live');
+  const progress = deliveries.find(d => d.kind === 'progress'); assert.match(progress.note, /report status IN PROGRESS; descendants are still active/);
+  for (const d of deliveries) await root.request('ack', { runId, deliveryId: d.id });
+  assert.equal((await root.request('supervision')).settled, false, 'the parked advisor is still outstanding work');
+  assert.equal(await childWorkSettled(childState), false);
+  child.settle(); await child.ack(grandchild);
+  assert.equal(await childWorkSettled(childState), true);
+  writeFileSync(join(intent.sourceDirectory, 'result.md'), '# Status\nPASS\nIntegrated after the descendant settled.');
+  const final = await hooks.settled('done', 'final turn', 4);
+  assert.deepEqual(final, { terminal: true, close: true });
+  const done = await root.request('get', { runId });
+  assert.equal(done.status, 'done'); assert.equal(done.snapshot.state, 'terminal'); assert.match(done.result.path, /result-1-[a-f0-9]{64}\.md$/); assert.equal(done.result.status, 'PASS');
+  assert.equal((await root.request('wait', { runId, timeoutMs: 0 })).filter(d => d.kind === 'settled').length, 1, 'exactly one settlement, on the final turn');
+  await root.ack(runId);
+});
+
+test('a child advisor with a non-terminal report but quiet descendants settles at once', async t => {
+  const f = fixture(t); const root = await f.start('root');
+  const runId = await root.launch('advisor', { delegate: true });
+  const parent = await root.request('get', { runId });
+  await f.start('child', { stateRoot: parent.childService.stateRoot });
+  const { intent, hooks } = root.launches[0];
+  writeFileSync(join(intent.sourceDirectory, 'result.md'), 'IN PROGRESS\nNothing delegated yet.');
+  assert.deepEqual(await hooks.settled('done', 'ended early', 2), { terminal: true, close: true }, 'no live descendants means the turn end is the settlement');
+  const node = await root.request('get', { runId }); assert.equal(node.status, 'done'); assert.equal(node.result.status, 'IN PROGRESS');
+  await root.ack(runId);
+});
+
 test('first binding freezes a matching synthetic workstream with harness-only startup', async t => {
   const f = fixture(t); const options = { managedIdentity: { workerHarness: 'native' } };
   const root = await f.start('partial', options);

@@ -6,6 +6,9 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWrite, artifactRead, demand, privateDirectory } from '../security.mjs';
 
+/** Report statuses that end an attempt on their own; anything else with live descendants is a checkpoint. */
+const TERMINAL_REPORT = /^(?:PASS|DONE|FAIL(?:ED)?|BLOCKED)\b/i;
+
 /** Copy the worker's own result bytes into the runtime-owned artifact. Missing/unreadable bytes never inherit a prior attempt. */
 function captureResult(intent, context) {
   try {
@@ -110,21 +113,35 @@ export function createPiDetachAdapter(port) {
             context.assertSettlement(boundHandle?.id, generation);
             atomicWrite(join(context.artifactDirectory, 'output.log'), output.slice(-32768));
             const validation = captureResult(intent, context);
-            // Actual terminal UI blocking has no typed safe reply. Artifact
-            // BLOCKED from a settled turn is classified by the core itself.
-            emit({ id: `${effect.id}-settled`, kind: 'settled', attempt: effect.attempt, data: {
-              observation: { handleId: boundHandle.id, generation, ...(providerSession ? { providerSession } : {}) },
-              status: state === 'done' || state === 'idle' ? /^FAIL(?:ED)?\b/i.test(validation?.status ?? '') ? 'failed' : 'done' : 'stalled',
-              reason: state === 'blocked' ? 'Herdr UI requires direct inspection; typed reply unavailable' : 'Herdr turn settled; authoritative result captured', verified: false,
-            } });
-            const terminal = ['done', 'idle'].includes(state);
-            // A finished, not-kept advisor no longer needs its reserved child service.
-            // Refusal (active or uncertain child work) is retried at parent shutdown.
-            if (terminal && !intent.keepAlive && childState) void closeChildService(childState).catch(() => {});
-            return settlement = {
-              terminal: terminal,
-              close: terminal && !/^FAIL(?:ED)?\b/i.test(validation?.status ?? ''),
+            const reportStatus = validation?.status ?? '';
+            const finish = () => {
+              // Actual terminal UI blocking has no typed safe reply. Artifact
+              // BLOCKED from a settled turn is classified by the core itself.
+              emit({ id: `${effect.id}-settled`, kind: 'settled', attempt: effect.attempt, data: {
+                observation: { handleId: boundHandle.id, generation, ...(providerSession ? { providerSession } : {}) },
+                status: state === 'done' || state === 'idle' ? /^FAIL(?:ED)?\b/i.test(reportStatus) ? 'failed' : 'done' : 'stalled',
+                reason: state === 'blocked' ? 'Herdr UI requires direct inspection; typed reply unavailable' : 'Herdr turn settled; authoritative result captured', verified: false,
+              } });
+              const terminal = ['done', 'idle'].includes(state);
+              // A finished, not-kept advisor no longer needs its reserved child service.
+              // Refusal (active or uncertain child work) is retried at parent shutdown.
+              if (terminal && !intent.keepAlive && childState) void closeChildService(childState).catch(() => {});
+              return settlement = { terminal, close: terminal && !/^FAIL(?:ED)?\b/i.test(reportStatus) };
             };
+            if (!['done', 'idle'].includes(state) || !childState || TERMINAL_REPORT.test(reportStatus)) return finish();
+            // A child advisor that ends a turn without a terminal report while its own
+            // descendants still run has checkpointed, not finished: their settlement wakes
+            // it for another turn. Keep this attempt open and observe the same occupant.
+            return childWorkSettled(childState).then(quiet => {
+              context.assertActive();
+              if (settlement) return settlement;
+              if (quiet) return finish();
+              context.observeSession({ session: boundHandle.session, generation, state, ...(providerSession ? { providerSession } : {}) });
+              emit({ id: `${effect.id}-progress-${generation}`, kind: 'progress', attempt: effect.attempt, data: {
+                note: `Turn settled ${state} with report status ${reportStatus || 'missing'}; descendants are still active, so this attempt stays open and settles on the final turn. Interim report: ${context.resultPath}`,
+              } });
+              return { terminal: false, close: false, rearm: true };
+            });
           },
         },
       });

@@ -64,9 +64,10 @@ there is no cumulative launch/reply/task quota.
 - `bg_stop` requests explicit cancellation; a completed stop is idempotent. An
   accepted Escape is not proof of process exit. Relevant children remain separately
   visible and protected from workspace teardown.
-- Parent turn completion and descendant activity are separate. The parent can report
-  its turn's outcome while children remain outstanding; integrated delivery still
-  requires the actual accepted work to be complete.
+- Parent turn completion and descendant activity are separate facts. A child advisor
+  that parks at its composer without a terminal report while its descendants still run
+  is held open: the parent sees a progress note and one settlement on the final turn.
+  Integrated delivery still requires the actual accepted work to be complete.
 
 There are no semantic message/result byte ceilings or fixed graph node/repair
 quotas. Large output is read in pages rather than rejected or silently replaced by

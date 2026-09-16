@@ -125,8 +125,12 @@ supported transport; credential and permission dialogs are never answered by typ
 an ordinary task into the pane. A terminal stop is idempotent. Cancellation acceptance
 is not proof of worker exit or completed descendant cancellation.
 
-Parent turn completion is reported independently of outstanding descendants. Their
-work and ownership remain protected from teardown. An otherwise idle service is not
+Parent turn completion is reported independently of outstanding descendants, with
+one exception: a child advisor whose turn ends without a terminal report while its
+own descendants are still active is held open. The runtime records a progress note,
+keeps the attempt running and observes the same occupant for its next turn, so the
+parent gets one settlement at the real end. Descendant work and ownership remain
+protected from teardown. An otherwise idle service is not
 held alive merely by unacknowledged notifications: durable deliveries remain available
 for reconnect. Active or unresolved live execution must not be silently killed to
 make shutdown succeed.

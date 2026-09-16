@@ -137,8 +137,9 @@ switching.
 | `native` | `openai-codex`/`openai` route to Codex CLI; `claude-bridge`/`anthropic` route to Claude Code. The launcher reserves a durable result path; the report is an optional handoff, not a completion gate. |
 
 The advisor profile is constrained to `harness: "pi"`. Launch, reply and task accounting
-impose no lifetime quotas. Descendant cancellation is downward; parent turn completion is
-reported independently of outstanding children.
+impose no lifetime quotas. Descendant cancellation is downward. A child advisor whose
+turn ends without a terminal report while its descendants are live is held open and
+settles on its final turn; the parent sees a progress note in between.
 
 Named guides in [`../config/intelligence-profiles/`](../config/intelligence-profiles/)
 are the advisor's source of model character and ordered role recommendations. Install

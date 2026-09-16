@@ -61,8 +61,8 @@ revisions. For a genuinely mixed task use `bg_agent` without `role`; it is still
 
 Child advisors launch with `role: "advisor"`. Delegate the outcome and real constraints,
 not the strategy: they choose direct work or helpers and may delegate further within your
-limits. A settled child turn is not finished children; account for descendants before
-delivering.
+limits. A child's progress note is a checkpoint, not a result; account for descendants before
+delivering a terminal report.
 
 ## Verify and review
 
