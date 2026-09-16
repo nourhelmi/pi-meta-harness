@@ -68,7 +68,7 @@ test("the injected stack stays small and the references index matches the direct
 });
 
 test("no risk tiers, claim schemas or retired stages survive on any instruction surface", async () => {
-  const banned = /risk[ -]tiers?|riskTier|FAIL bar|falsifiable|one-to-one|Proposed criteria|Claims, Evidence|\b(scout|planner|reducer|browser-verifier)\b|Standard\/High|Medium-or-higher/i;
+  const banned = /risk[ -]tiers?|riskTier|FAIL bar|falsifiable|one-to-one|Proposed criteria|Claims, Evidence|\b(scout|planner|reducer|browser-verifier)\b|Standard\/High|Medium-or-higher|checker-of-checker|non-author/i;
   for (const path of [...PI_SKILLS, ...NATIVE_SKILLS]) assert.doesNotMatch(await text(path), banned, path);
   const workerSource = await text("extensions/advisor-worker.ts");
   const bootstrap = workerSource.slice(workerSource.indexOf("function workerContract"), workerSource.indexOf("function childAdvisorScope"));
@@ -98,6 +98,8 @@ test("the doctrine keeps the invariants the runtime and the user rely on", () =>
   const rules = section(core, "## Rules", "## Packets");
   assert.match(rules, /One writer per surface at a time, including you/);
   assert.match(rules, /distinct worktrees/);
+  assert.match(rules, /advisor-worktree\.mjs add <path> -b <branch>/);
+  assert.match(rules, /copies the untracked `\.env\*` files/);
   assert.match(rules, /Maker ≠ checker/);
   assert.match(rules, /Git is the ledger/);
   assert.match(rules, /commit on their branch or worktree as they go/);
@@ -120,8 +122,7 @@ test("the doctrine keeps the invariants the runtime and the user rely on", () =>
   assert.match(review, /Depth follows consequence/);
   assert.match(review, /A worker PASS is a\s+claim, not proof/);
   assert.match(review, /Checkers repair what they find inside the reviewed surface/);
-  assert.match(review, /Resume the same checker for a delta/);
-  assert.match(review, /do not stack checker-of-checker or\s+non-author closure/);
+  assert.doesNotMatch(review, /checker-of-checker|non-author|named uncertainty|fixed stage/);
   assert.match(review, /Do not invent review the repository does not require; do not skip\s+review it does/);
 
   const blocked = section(core, "## Blocked versus obstacle", "## Transport and settlement");
@@ -180,7 +181,7 @@ test("the worker contract and role skills carry commit, handoff, obstacle and jo
   assert.match(checker, /Never weaken a\s+check or the done-when line/);
   assert.match(checker, /a changed oracle is behavior, even in\s+`tests\/`/);
   assert.match(checker, /your own repairs are maker work/);
-  assert.match(checker, /review the delta and the reasoning it touches,\s+not the whole change again/);
+  assert.match(checker, /review\s+the delta and the reasoning it touches,\s+not the whole change again/);
   assert.match(child, /same installed advisor doctrine/);
   assert.match(child, /never invoke `\/advisor`, `advisor_session_init` or `advisor_launch`/);
   assert.match(child, /never write the parent's workstream file/);

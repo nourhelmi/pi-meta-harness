@@ -50,13 +50,11 @@ permit.
 ## Review and delivery
 
 Each maker verifies its own work; depth follows consequence (auth, money, data, security,
-concurrency and external effects get failure-path probes). Add a checker for a named
-uncertainty or a project/user requirement, not as a fixed stage. A checker repairs
-in-scope findings and reports the post-repair state; its assessment is independent, its
-own repairs are maker work, and a repair does not automatically require a non-author,
-another checker or a complete re-review. Resume the same reviewer for a delta when
-supported. A frozen baseline is not a read-only mandate. Stop a repair loop when another
-round would repeat the strategy without new evidence.
+concurrency and external effects get failure-path probes). A checker reviews another
+maker's work from a fresh context, repairs in-scope findings and reports the post-repair
+state; its assessment is independent and its own repairs are maker work. A frozen
+baseline is not a read-only mandate. Stop a repair loop when another round would repeat
+the strategy without new evidence.
 
 Follow repository checks and explicit user requirements.
 Agentic PR review belongs to the project's review/CI workflow, not an automatic local

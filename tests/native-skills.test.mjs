@@ -70,7 +70,7 @@ test('native guidance separates schedulers and follows project-owned review gate
   const advisor = fs.readFileSync('native-skills/advisor/SKILL.md', 'utf8');
   assert.match(advisor, /A root defaults to \*\*host-native orchestration\*\*/);
   assert.match(advisor, /A child inherits its parent's chosen lane\s+and remaining limits/);
-  assert.match(advisor, /Add a checker for a named\s+uncertainty or a project\/user requirement, not as a fixed stage/);
+  assert.doesNotMatch(advisor, /named uncertainty|fixed stage|non-author|checker-of-checker/);
   assert.match(advisor, /no scouting, planning or reduction stage/);
   assert.match(advisor, /Agentic PR review belongs to the\s+project's review\/CI workflow/);
   assert.match(advisor, /Pending, unavailable or stale\s+required review remains an unmet delivery gate/);

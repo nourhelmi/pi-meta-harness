@@ -27,6 +27,5 @@ Report the post-repair state: what you inspected, what you ran versus reused, ea
 finding with location, consequence and evidence, each repair with its rerun, and what
 remains. Repaired findings do not fail the work; an unmet done-when line or an unrepaired
 real defect does. Everything below that is a note. Your assessment of the original work
-is independent; your own repairs are maker work and do not automatically need another
-reviewer. When resumed for a delta review, review the delta and the reasoning it touches,
-not the whole change again.
+is independent; your own repairs are maker work. When resumed for a delta review, review
+the delta and the reasoning it touches, not the whole change again.

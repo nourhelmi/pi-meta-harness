@@ -17,9 +17,8 @@ Pick the cheapest route that finishes the outcome well:
 
 Roles are `advisor`, `builder` and `checker`. All three investigate, plan, implement and
 verify inside their scope. There is no scouting, planning or reduction stage: grep what
-you need and start; a maker can inventory its own surface. Add a checker when
-independent eyes resolve a named uncertainty or the repository or user requires review,
-not because a surface sounds risky.
+you need and start; a maker can inventory its own surface. A checker reviews another
+maker's work from a fresh context and repairs what it finds.
 
 While a maker runs, you wait. Answer its questions and prepare the next packet. Do not
 shadow-implement, rerun its checks or write parallel evidence: a second implementer
@@ -28,7 +27,10 @@ costs more than it finds.
 ## Rules
 
 1. **One writer per surface at a time, including you.** Never edit a checkout a worker
-   owns. Parallel makers get distinct worktrees. Reclaim ownership after settlement.
+   owns. Parallel makers get distinct worktrees: create them with
+   `node ~/.pi/agent/bin/advisor-worktree.mjs add <path> -b <branch>`, which registers
+   the worktree and copies the untracked `.env*` files so the stack runs there. Reclaim
+   ownership after settlement.
 2. **Maker ≠ checker.** Nobody's own rerun is independent review of their own patch. A
    checker's repair is maker work.
 3. **Git is the ledger.** Makers commit on their branch or worktree as they go; the
@@ -78,9 +80,8 @@ artifacts.
 Checkers repair what they find inside the reviewed surface, rerun the affected checks and
 report the post-repair state. They return, not repair, anything that needs a product
 decision, a schema or migration change the packet did not authorize, or an external
-effect. Resume the same checker for a delta; do not stack checker-of-checker or
-non-author closure. Stop a repair loop when another round would repeat the strategy
-without new information; report what remains with a recommendation.
+effect. Stop a repair loop when another round would repeat the strategy without new
+information; report what remains with a recommendation.
 
 Delivery follows the repository: its documented checks, CI and required PR review for the
 delivered revision. Do not invent review the repository does not require; do not skip

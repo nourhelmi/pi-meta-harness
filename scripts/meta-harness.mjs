@@ -97,6 +97,7 @@ const PORTABLE_COPY_ENTRIES = [
   ["config/intelligence-profiles/balanced.json", "intelligence-profiles/balanced.json"],
   ["config/intelligence-profiles/grok-cycle.json", "intelligence-profiles/grok-cycle.json"],
   ["scripts/intelligence-profile.mjs", "bin/intelligence-profile.mjs"],
+  ["scripts/advisor-core/worktree.mjs", "bin/advisor-worktree.mjs"],
   ["skills/switch-intelligence-profile", "skills/switch-intelligence-profile"],
   ["config/claude-bridge.json", "claude-bridge.json"],
   ["config/markdown-workflows.json", "markdown-workflows.json"],

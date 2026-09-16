@@ -25,9 +25,9 @@ and does not imply that a model response started.
 7. Intercom is only for coordination between independent peer sessions, never for parent-child progress or completion.
 8. Delegated LLM work launches only through `bg_agent`: a configured role, or freeform with no role when the task fits none. Workers remain panes in the owning advisor tab; `bg_run` is for shell commands. Pi mode runs selected identities through Pi; native mode maps OpenAI identities to Codex CLI and Anthropic identities to Claude Code. Freeform workers always run through Pi.
 9. Every role launch carries a done-when line (`anchor`, or a few `acceptance` lines). Packets are short: goal, decided versus suggested, write surface, done-when, evidence paths, stop conditions. Freeze decisions, safety and ownership, never tool versions or command order.
-10. One writer owns a checkout at a time, including parent and child advisors. Settle a writing worker before reclaiming its surface. Parallel makers need separate worktrees. Makers commit on their branch as they go; the tested revision is a commit.
+10. One writer owns a checkout at a time, including parent and child advisors. Settle a writing worker before reclaiming its surface. Parallel makers need separate worktrees: `node ~/.pi/agent/bin/advisor-worktree.mjs add <path> -b <branch>` registers one and copies the untracked `.env*` files, and the runtime admits any worktree Git lists for the repository, including ones added after the advisor started. Makers commit on their branch as they go; the tested revision is a commit.
 11. Pane labels use `advisor · <purpose>` for advisor roots and `role · <purpose>` for workers. Successful worker panes close automatically; blocked or unknown panes stay visible. Keep a worker alive only for a planned follow-up.
-12. Makers prove their own work and exercise plausibly affected browser journeys; checker repairs carry the same duties. Extra review needs a named uncertainty or a project/user requirement. Required agentic PR review belongs to the project's review/CI workflow, not a mandatory local checker.
+12. Makers prove their own work and exercise plausibly affected browser journeys; checker repairs carry the same duties. Required agentic PR review belongs to the project's review/CI workflow, not a mandatory local checker.
 13. Global advisor routines stay paused because open Pi processes share routine state.
 
 ## Blocked signals
@@ -96,17 +96,16 @@ admission gate. Checker nodes without maker ancestors produce non-blocking warni
 
 Verification depth follows consequence, not a tier table. Auth, money, data loss,
 security, concurrency and external effects get failure-path probes; docs and mechanical
-changes get the affected check. A checker is launched for a named uncertainty or a
-project/user requirement, never as a fixed stage.
+changes get the affected check. The advisor decides on its own whether independent eyes
+are worth it; the doctrine does not prescribe review stages.
 
 Checkers are repair-first: they fix every finding they can inside the reviewed surface,
 rerun the affected checks and browser journeys, commit, and report the post-repair state.
 They return, not repair, what needs a product decision, an unauthorized schema or
 migration change, or an external effect. Their assessment of the original work is
-independent; their own patch is self-verification, and it does not automatically require
-a non-author, a checker-of-checker or a whole-work re-review. Resume the same checker
-for a delta. Stop a repair loop when another round would repeat the same strategy without
-new information; report what remains with a recommendation. Deliver through the
+independent; their own patch is self-verification. Stop a repair loop when another round
+would repeat the same strategy without new information; report what remains with a
+recommendation. Deliver through the
 repository's documented checks, CI and required PR review for the delivered revision;
 do not invent review the repository does not require, and do not skip review it does.
 

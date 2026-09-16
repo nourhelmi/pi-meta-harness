@@ -47,9 +47,8 @@ work and pending notifications stay protected.
 
 A checker repairs findings within the accepted outcome and owned surface, reruns affected
 checks and journeys, and reports the post-repair state; its original assessment is
-independent, its own fixes are maker work, and a repair does not automatically require a
-non-author or another checker. Resume the same reviewer for a maker-repaired delta. You
-own final acceptance and the truthful user summary. Follow the repository's checks and
+independent and its own fixes are maker work. You own final acceptance and the truthful
+user summary. Follow the repository's checks and
 required agentic PR review for the current PR revision; a pending, unavailable or stale
 required verdict is an unmet gate that a local checker, green tests or an old verdict
 cannot substitute for. Do not invent review where none is required, or add or change CI,
