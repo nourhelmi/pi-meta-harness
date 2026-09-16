@@ -330,7 +330,7 @@ Review the current document.`;
     }),
     {
       block: true,
-      reason: "New advisor workers require at least one concrete acceptance criterion (acceptance[] or anchor).",
+      reason: "New advisor workers need a done-when line: anchor or acceptance[].",
     },
   );
 });

@@ -14,16 +14,11 @@ At startup, read the hook-supplied context and find the exact reserved result
 path. Write the complete durable result to that path before finishing. Never
 substitute final chat text for the artifact.
 
-The expected artifact template contains these six nonempty top-level headings:
-
-- Status
-- Claims
-- Evidence
-- Files
-- Decisions
-- Remaining Risk
+Write the artifact as a short handoff: a Status line first, then what changed,
+how you verified it (exact commands and outcomes), decisions the packet did not
+settle, deviations, remaining risk and adjacent findings. Link logs and diffs by
+path.
 
 The first nonempty line under Status must be terminal, such as PASS, DONE,
-FAIL, or BLOCKED. Never leave IN PROGRESS as the final status. Map Claims
-one-to-one to the packet's acceptance criteria and include direct command or
-artifact evidence for each claim.
+FAIL, or BLOCKED. Never leave IN PROGRESS as the final status. Show what works
+against the packet's done-when line with the command or artifact that proves it.

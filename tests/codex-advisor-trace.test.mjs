@@ -499,9 +499,10 @@ test("shipped Codex hooks and advisor-maker TOML satisfy the four-group contract
   assert.equal(parsed.name, "advisor-maker");
   assert.ok(parsed.description);
   assert.equal(parsed.agents.enabled, false);
-  for (const heading of ["Status", "Claims", "Evidence", "Files", "Decisions", "Remaining Risk"]) {
-    assert.match(parsed.developer_instructions, new RegExp(`\\b${heading}\\b`));
-  }
+  assert.match(parsed.developer_instructions, /a Status line first/);
+  assert.match(parsed.developer_instructions, /first nonempty line under Status must be terminal/);
+  assert.match(parsed.developer_instructions, /done-when line/);
+  assert.doesNotMatch(parsed.developer_instructions, /acceptance criteria|one-to-one|six nonempty top-level headings/);
   const trackedCodexConfig = await run("git", ["ls-files", ".codex"], { cwd: REPO_ROOT });
   assert.equal(trackedCodexConfig.stdout, "");
 });

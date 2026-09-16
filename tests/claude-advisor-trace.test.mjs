@@ -415,9 +415,10 @@ test("shipped Claude Code hooks and advisor-maker definition satisfy the contrac
   const agent = await readFile(new URL("../config/advisor-core/hosts/claude-code/agents/advisor-maker.md", import.meta.url), "utf8");
   assert.match(agent, /^---\nname: advisor-maker\n/);
   const body = agent.replace(/^---\n[\s\S]*?\n---\n/, "");
-  for (const heading of ["Status", "Claims", "Evidence", "Files", "Decisions", "Remaining Risk"]) {
-    assert.match(body, new RegExp(`\\b${heading}\\b`));
-  }
+  assert.match(body, /a Status line first/);
+  assert.match(body, /first nonempty line under Status must be terminal/);
+  assert.match(body, /done-when line/);
+  assert.doesNotMatch(body, /acceptance criteria|one-to-one|six nonempty top-level headings/);
   assert.match(agent, /background: false/);
   assert.match(agent, /does not force foreground execution/);
   assert.match(agent, /CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1.*required/s);

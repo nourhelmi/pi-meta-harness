@@ -73,7 +73,7 @@ for (const status of ['PASS', 'FAIL', 'BLOCKED', 'malformed', null]) test(`captu
   assert.equal(first.result?.proof ?? 'unknown', 'unknown'); assert.equal(first.result?.tested ?? null, null);
   if (status === null) { assert.equal(first.result, null); assert.equal(first.status, 'done'); return; }
   assert.match(first.result.path, /result-1-[a-f0-9]{64}\.md$/); assert.equal(readFileSync(first.result.path, 'utf8'), status === 'malformed' ? '???' : report(status));
-  assert.ok(first.result.claims.length <= 1200); assert.equal(sealed.result.path, first.result.path);
+  assert.equal('claims' in first.result, false, 'no claim projection survives'); assert.equal(sealed.result.path, first.result.path);
   const delivery = (await f.request('wait', { runId, timeoutMs: 0 })).find(d => d.kind === 'settled'); assert.equal(delivery.result.path, first.result.path);
   const old = f.launches[0]; writeFileSync(join(old.intent.sourceDirectory, 'result.md'), report('FAIL'));
   old.hooks.settled('done', 'duplicate', 2); assert.equal((await f.request('get', { runId })).result.sha256, first.result.sha256, 'duplicate callback cannot recapture');
@@ -137,8 +137,8 @@ test('kept terminal restart denies continuation and graph association never sile
 
 test('report projection preserves uncertainty and never promotes a worker assertion into proof', () => {
   assert.equal(reportSummary('not a report').valid, false);
-  assert.equal(reportSummary('Status: PASS\nClaims:\nAn existing plain-label report.\nEvidence:\ncheck').claims, 'An existing plain-label report.');
-  for (const status of ['PASS', 'FAIL', 'BLOCKED']) { const summary = reportSummary(report(status)); assert.equal(summary.status, status); assert.equal(summary.claims.length, 1200); assert.match(summary.risks, /External/); }
+  assert.equal(reportSummary('Status: PASS\nClaims:\nAn existing plain-label report.\nEvidence:\ncheck').status, 'PASS');
+  for (const status of ['PASS', 'FAIL', 'BLOCKED']) { const summary = reportSummary(report(status)); assert.equal(summary.status, status); assert.deepEqual(Object.keys(summary).sort(), ['limitations', 'status', 'valid']); }
 });
 
 test('repair-capable checker retains its identity for a maker-repaired delta and never self-certifies it', async t => {

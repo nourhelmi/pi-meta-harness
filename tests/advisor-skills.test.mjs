@@ -71,7 +71,9 @@ test("the injected stack stays small and the references index matches the direct
 
 test("no risk tiers, claim schemas or retired stages survive on any instruction surface", async () => {
   const banned = /risk[ -]tiers?|riskTier|FAIL bar|falsifiable|one-to-one|Proposed criteria|Claims, Evidence|\b(scout|planner|reducer|browser-verifier)\b|Standard\/High|Medium-or-higher|checker-of-checker|non-author/i;
-  for (const path of [...PI_SKILLS, ...NATIVE_SKILLS]) assert.doesNotMatch(await text(path), banned, path);
+  const makerPrompts = ["config/advisor-core/hosts/claude-code/agents/advisor-maker.md", "config/advisor-core/hosts/codex/agents/advisor-maker.toml"];
+  for (const path of [...PI_SKILLS, ...NATIVE_SKILLS, ...makerPrompts]) assert.doesNotMatch(await text(path), banned, path);
+  for (const path of makerPrompts) assert.match(await text(path), /a Status line first/, path);
   const workerSource = await text("extensions/advisor-worker.ts");
   const bootstrap = workerSource.slice(workerSource.indexOf("function workerContract"), workerSource.indexOf("function childAdvisorScope"));
   assert.doesNotMatch(bootstrap, /Claims, Evidence, Files|exactly one of four/);

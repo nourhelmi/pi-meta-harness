@@ -213,7 +213,7 @@ test("advisor graph keeps structural safety hard and semantic ordering advisory"
           goal: "invalid",
           nodes: [{ id: "bare", role: "scout", task: "Survey" }],
         },
-        /needs at least one acceptance criterion/,
+        /needs a done-when line/,
       );
     });
 

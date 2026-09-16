@@ -137,7 +137,7 @@ function validateStructuralParameters(params: GraphParams): void {
 			(criterion) => criterion.trim(),
 		);
 		if (criteria.length === 0) {
-			throw new Error(`Node ${node.id} needs at least one acceptance criterion (acceptance or anchor)`);
+			throw new Error(`Node ${node.id} needs a done-when line (anchor or acceptance)`);
 		}
 	}
 }

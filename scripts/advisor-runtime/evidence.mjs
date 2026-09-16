@@ -2,15 +2,14 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
-import { validateResultArtifact, resultSectionBody } from '../advisor-core/result-artifact.mjs';
+import { validateResultArtifact } from '../advisor-core/result-artifact.mjs';
 
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
-/** A projection of the existing report, not another worker report contract. */
+/** A projection of the existing report's status, not another worker report contract. */
 export function reportSummary(markdown) {
   const validation = validateResultArtifact(markdown);
-  const section = name => resultSectionBody(markdown, name);
-  return { status: validation.status?.slice(0, 256) ?? 'unknown', claims: section('Claims'), evidence: section('Evidence'), risks: section('Remaining Risk'),
+  return { status: validation.status?.slice(0, 256) ?? 'unknown',
     valid: validation.valid && /^(PASS|DONE|FAIL|BLOCKED)\b/i.test(validation.status ?? ''), limitations: validation.notes.slice(0, 8) };
 }
 

@@ -549,7 +549,7 @@ function bgAgentGuardReason(input: unknown, workerHarness?: WorkerHarness): stri
 		Array.isArray(params.acceptance) &&
 		params.acceptance.some((criterion) => typeof criterion === "string" && criterion.trim());
 	if (!hasAnchor && !hasAcceptance) {
-		return "New advisor workers require at least one concrete acceptance criterion (acceptance[] or anchor).";
+		return "New advisor workers need a done-when line: anchor or acceptance[].";
 	}
 	return undefined;
 }
