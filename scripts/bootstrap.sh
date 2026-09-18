@@ -31,6 +31,9 @@ pi update --extensions
 printf '\n==> Install the selected third-party skills\n'
 node scripts/meta-harness.mjs install-skills --live
 
+printf '\n==> Install advisor skills for native Claude Code and Codex\n'
+node scripts/install-native-skills.mjs
+
 printf '\n==> Install Herdr configuration and regenerate its Pi integration\n'
 node scripts/meta-harness.mjs install-herdr-config --live
 node scripts/meta-harness.mjs install-herdr-integration --live

@@ -35,13 +35,17 @@ Use this procedure to update an existing machine. For a fresh machine, use
    single canonical `~/.agents/skills` root, removes duplicate Pi-specific
    copies and superseded skill names, and releases those entries from the
    generic skill updater; change them through the harness manifests instead.
-5. Run `node scripts/meta-harness.mjs install-herdr-config --live`.
-6. Run `node scripts/meta-harness.mjs install-herdr-integration --live`.
+5. Run `node scripts/install-native-skills.mjs` to refresh the separate Claude Code
+   and Codex advisor bundle, including roles, team policy and intelligence profiles.
+6. Run `node scripts/meta-harness.mjs install-herdr-config --live`.
+7. Run `node scripts/meta-harness.mjs install-herdr-integration --live`.
 
 ## 3️⃣ Validate
 
-1. Run `node scripts/meta-harness.mjs doctor --live`.
-2. Restart Pi or use `/reload` only after doctor passes.
+1. Run `node scripts/meta-harness.mjs doctor --live`. This checks Pi, not the separate
+   native skills bundle; do not skip its installer in the previous step.
+2. Restart Pi or use `/reload` only after doctor passes. Start fresh Claude Code/Codex
+   conversations to load their updated skills.
 3. Confirm `node ~/.pi/agent/bin/intelligence-profile.mjs --list` reports the
     intended active guide and preferred recommendations.
 4. Start a fresh advisor workstream and run one bounded, read-only task that

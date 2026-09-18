@@ -10,6 +10,11 @@ Start a fresh native conversation and ask: **“Use the advisor skill for this t
 
 The installer copies eight skills (advisor, CoS and alias, intelligence, three worker roles and the legacy foreman compatibility alias) into `~/.local/share/pi-meta-harness/native-skills`, copies the canonical intelligence presets plus the shared checkpoint helper/team reference, and links them into `~/.codex/skills` and `~/.claude/skills`. Rerun to update. It removes only owned retired role links, including browser-verifier, and preserves unrelated user skills. It refuses conflicting user-owned active skill paths. Caught installation failures restore the previous bundle; this is not crash-atomic or concurrent-installer support. Do not run two installers together.
 
+**Update both installations.** `meta-harness.mjs install --live` and `doctor --live`
+cover Pi, not this separate native bundle. Bootstrap includes both installers; manual
+updates must run the command above too. A green Pi doctor does not prove Claude Code or
+Codex is reading current skills.
+
 The roles are advisor, builder and checker. Whoever changes behavior verifies its
 plausibly affected browser journeys, including direct advisor work and checker
 repairs. Internal changes need relevant checks and a short no-browser-impact
@@ -24,6 +29,13 @@ an automatic High-risk or repaired-checker gate.
 | Native `meta-harness` | Existing managed MCP/runtime lane, with its supported transport requirements. |
 | Pi `advisor` | Existing Pi advisor entry and managed tooling; `/cos` and `/advisor-team` opt into team style. |
 | Native `cos` / `advisor-team` | Same native advisor lane with workstream-lifetime teams where the host supports them. |
+
+`advisor` is the base workflow. `advisor-team` forwards to `cos`, which loads that same
+advisor plus the shared team policy. The overlay adds retained teammate lifetime and
+messaging, not different roles, review rules or implementation authority. Pi and native
+entries adapt host-specific tools; team mode is not a newer version of either entry.
+For live guidance use installed skills and their linked profiles, not past run artifacts
+or packed verification archives.
 
 Role skills are instructions supplied to available native agents, not newly registered agent types. An unavailable delegation tool or model cannot be added by prose. Required independent review remains outstanding if the host cannot supply it. Current Pi intelligence selection is reused read-only when present; otherwise the bundled balanced guide is the fallback. Only the selected guide is loaded. Native model identifiers and effort controls must actually exist in that host.
 

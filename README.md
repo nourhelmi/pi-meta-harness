@@ -107,8 +107,9 @@ npm run bootstrap
 ```
 
 `bootstrap` tests the repository, installs the browser verifier, backs up and installs the
-Pi harness, updates reviewed packages, restores pinned skills, installs Herdr integration,
-and runs the live doctor. It never copies credentials or reloads an active Pi process.
+Pi harness, updates reviewed packages, restores pinned skills, installs the native
+Claude Code/Codex advisor skills and Herdr integration, and runs the live Pi doctor.
+It never copies credentials or reloads an active agent process.
 
 Start Pi inside Herdr, then invoke:
 
@@ -136,6 +137,7 @@ npm test
 node scripts/meta-harness.mjs plan --live
 node scripts/meta-harness.mjs install --live
 node scripts/meta-harness.mjs install-skills --live
+node scripts/install-native-skills.mjs
 node scripts/meta-harness.mjs install-herdr-config --live
 node scripts/meta-harness.mjs install-herdr-integration --live
 node scripts/meta-harness.mjs doctor --live
@@ -143,6 +145,11 @@ node scripts/meta-harness.mjs doctor --live
 
 Live commands create scoped backups and refuse to mutate an active advisor setup unless
 you explicitly pass `--allow-active`. The installer does not reload Pi or Herdr.
+
+The native Claude Code/Codex skill bundle is separate from the Pi installation: the Pi
+installer and doctor do not update or verify it. Always rerun `install-native-skills.mjs`
+when updating those hosts, then start fresh native conversations. See
+[native advisor skills](docs/native-advisor-skills.md).
 
 `pi-detach` is a separate first-party package that provides visible background commands
 and worker panes. It tracks GitHub origin/HEAD:

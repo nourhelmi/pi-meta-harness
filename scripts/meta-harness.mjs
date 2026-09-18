@@ -682,6 +682,7 @@ async function install(options) {
   console.log(`Intelligence selection: ${selection.name} (${selection.mode})`);
   console.log(`Backup: ${backup}`);
   console.log("Pi was not reloaded. Run doctor before any later activation.");
+  console.log("Native Claude Code/Codex advisor skills are separate: run node scripts/install-native-skills.mjs to update them too.");
 }
 
 async function plan(options) {
@@ -991,6 +992,7 @@ async function doctor(options) {
   }
   console.log(`Doctor passed for ${target}`);
   console.log("All managed copies, fixed role guardrails, advisor guidance, package settings, and security checks passed.");
+  console.log("This doctor checks the Pi installation, not the separate native skills bundle. Refresh it with node scripts/install-native-skills.mjs.");
 }
 
 async function restoreScoped(options, target, backupRoot, runtimeName, expectedDestinations) {

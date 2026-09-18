@@ -1,13 +1,23 @@
 ---
 name: meta-harness
-description: Use the shared Meta runtime from an ordinary Codex or Claude Code CLI root when delegation helps. Keep normal direct work and one-worker tasks simple; no mandatory graph.
+description: Use when the user explicitly requests the managed Meta runtime or meta_harness MCP workers from Codex or Claude Code. Ordinary advisor workflow uses the native advisor skill instead.
 ---
 
 # Meta harness in a native CLI
 
-You remain a normal coding agent with your host's tools, authentication and permissions.
-The runtime manages delegated work; it does not replace your judgment. This entry uses
-Herdr for visible workers and needs no Pi parent session.
+This is the managed-runtime adapter, not the default advisor entry. For an ordinary
+"advisor workflow" request, read `~/.claude/skills/advisor/SKILL.md` in Claude Code or
+`~/.codex/skills/advisor/SKILL.md` in Codex instead. `advisor-team` / `cos` adds team
+continuity to that same advisor; it is not a replacement workflow.
+
+Use this lane only when the user requests managed runtime workers. You remain a normal
+coding agent with your host's tools, authentication and permissions. The runtime manages
+delegated work through Herdr for visible workers and needs no Pi parent session.
+
+For model routing, read the selected `~/.pi/agent/advisor-intelligence.json`, or the user's
+explicit `~/.pi/agent/intelligence-profiles/<name>.json`. Do not search past runs, backups
+or packed verification archives for current instructions. Missing installed guidance is
+a setup problem, not permission to substitute a historical copy.
 
 ## Choose the smallest useful workflow
 

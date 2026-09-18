@@ -38,6 +38,42 @@ test('native bundle installs advisor and CoS skills, resolves references and pre
   assert.equal(fs.existsSync(path.join(dir, '.agents')), false);
 });
 
+test('updating replaces stale native advisor, team, roles, profiles and helper through both host links', t => {
+  const dir = home(t);
+  const installed = installNativeSkills(dir);
+  const copies = [
+    ...fs.readdirSync('native-skills', { recursive: true, withFileTypes: true })
+      .filter(entry => entry.isFile())
+      .map(entry => path.join(entry.parentPath, entry.name)),
+    'skills/advisor/references/team.md',
+    ...['advisor-state.mjs', 'advisor-state-cli.mjs'].map(name => `scripts/advisor-core/${name}`),
+    ...fs.readdirSync('config/intelligence-profiles').filter(name => name.endsWith('.json'))
+      .map(name => `config/intelligence-profiles/${name}`),
+  ].map(source => [source, source.replace(/^native-skills\/|^skills\//, '')
+    .replace(/^scripts\/advisor-core\//, 'advisor/scripts/')
+    .replace(/^config\/intelligence-profiles\//, 'advisor-intelligence/profiles/')]);
+  for (const [, relative] of copies) fs.writeFileSync(path.join(installed.bundle, relative), 'stale instructions');
+  installNativeSkills(dir);
+  for (const host of ['.claude', '.codex']) {
+    for (const [source, relative] of copies) {
+      assert.deepEqual(fs.readFileSync(path.join(dir, host, 'skills', relative)), fs.readFileSync(source), `${host}/${relative}`);
+    }
+  }
+});
+
+test('native team entry composes the base advisor; managed entry points generic advisor requests back to it', () => {
+  const read = file => fs.readFileSync(file, 'utf8');
+  assert.match(read('native-skills/advisor-team/SKILL.md'), /\.\.\/cos\/SKILL\.md/);
+  const cos = read('native-skills/cos/SKILL.md');
+  assert.match(cos, /\.\.\/advisor\/SKILL\.md/);
+  assert.match(cos, /\.\.\/advisor\/references\/team\.md/);
+  assert.match(cos, /additive team overlay/);
+  const managed = read('skills/advisor-stock-entry/SKILL.md');
+  for (const host of ['.claude', '.codex']) assert.ok(managed.includes(`~/${host}/skills/advisor/SKILL.md`));
+  assert.match(managed, /only when the user requests managed runtime workers/);
+  assert.match(managed, /Do not search past runs, backups/);
+});
+
 test('collision in either host refuses before publishing anything', t => {
   const dir = home(t);
   const collision = path.join(dir, '.claude/skills/advisor');

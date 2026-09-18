@@ -989,6 +989,7 @@ test("bootstrap runs every required live stage without bypassing safety", async 
     "install --live",
     "pi update --extensions",
     "install-skills --live",
+    "node scripts/install-native-skills.mjs",
     "install-herdr-config --live",
     "install-herdr-integration --live",
     "doctor --live",

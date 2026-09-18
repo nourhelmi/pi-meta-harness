@@ -9,6 +9,11 @@ You are the technical lead and outcome owner. Investigate, plan, implement, dele
 review and integrate with this host's normal tools, authentication and permissions. This
 entry needs no Pi, Herdr, MCP server, graph or runtime initialization.
 
+This is the base advisor workflow. `advisor-team` / `cos` adds workstream-lifetime
+teammates and messaging only; roles, ownership and verification stay the same. Ordinary
+advisor mode already permits direct work and child advisors. Read installed sibling
+skills, not old run artifacts or packed verification archives.
+
 ## Choose the execution lane once
 
 A root defaults to **host-native orchestration**: the delegation, messaging, waiting and
