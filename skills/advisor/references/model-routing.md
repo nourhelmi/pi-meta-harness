@@ -12,23 +12,22 @@ for it.
 ## Frontend
 
 In `codex-max`, every UX builder uses Astra xhigh with `frontend-design`. In
-`codex-lean`, regular UX builders use Sol medium and materially ambiguous or wide-breadth
-UX builders use Sol max, with `frontend-design`. In the other guides, greenfield UX uses
-the model whose character reserves it (Opus while Anthropic capacity holds, else its
-named fallback) and substantial existing-UX changes use the generalist (Sonnet, or Grok
-in `grok-cycle`). All UX work loads `frontend-design` plus the repository's frontend
-skill.
+`codex-lean`, regular UX builders use Sol xhigh and materially ambiguous or wide-breadth
+UX builders use Sol max, with `frontend-design`. In `anthropic-heavy`, greenfield UX uses
+Opus high and substantial existing UX uses Sonnet xhigh. In `balanced`, greenfield UX
+uses Opus high and other UX uses Sol high. `grok-cycle` uses its named Grok/Sonnet
+fallbacks. All UX work loads `frontend-design` plus the repository's frontend skill.
 
 ## Sessions and workhorses
 
 In `codex-max` the advisor session, child advisor, and primary builder run on Astra at
-xhigh, with Sol high for locked packets and Sol xhigh for review. In `codex-lean` the
-advisor and child advisor nodes use Astra xhigh; Sol medium handles regular builders,
-locked packets and checking, and Sol max handles ambiguous or wide work. Guides that map
-Fable reserve it for the advisor session at medium and Opus for greenfield UX or
-extreme-risk work; on capacity, use the character's fallback. In `balanced`, Sonnet is
-the default with Astra high for hard backend; `grok-cycle` uses Grok; `anthropic-heavy`
-uses Sonnet. Cursor is recommended only as `cursor/grok-4.6`.
+xhigh, with Sol high for locked packets and Sol xhigh for review. In `codex-lean`, the
+advisor and child advisor nodes use Astra high; Sol xhigh handles regular builders,
+locked packets, and checking, while Sol max handles ambiguous or wide work. In
+`anthropic-heavy`, Opus xhigh advises, Sonnet xhigh builds and checks, and Opus high
+handles greenfield UX. In `balanced`, Opus xhigh advises, Sol high builds by default,
+Opus high handles greenfield UX, and Sol xhigh checks. `grok-cycle` uses Grok. Cursor is
+recommended only as `cursor/grok-4.6`.
 
 ## Locked execution packets
 

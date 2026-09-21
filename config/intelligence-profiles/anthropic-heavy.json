@@ -1,77 +1,40 @@
 {
   "name": "anthropic-heavy",
   "models": {
-    "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model, including planning and synthesis, at medium reasoning. Shares the Anthropic session allowance; delegate implementation and checking when useful to conserve capacity, not because the advisor cannot do them. At Anthropic capacity, the advisor session falls back to Grok at high.",
-      "defaultThinking": "high"
-    },
-    "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: Use leftover Codex quota here first: the procedural-tier workhorse at high reasoning for mechanical chores, routine checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is a fresh-context checker for schema, auth, security, money, and data boundaries. Own investigation, local planning, implementation or repair, and verification within the assignment. For locked packets, fix material decisions and deterministic anchors; resolve tooling obstacles locally and escalate material ambiguity outside the assignment. If Codex is fully exhausted, existing profile fallback guidance still applies.",
-      "defaultThinking": "high"
-    },
     "claude-bridge/claude-opus-5": {
-      "character": "Advisory: Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, preferably with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or risk is extreme. Runs at medium. Sonnet is the default builder; Grok is the UX fallback after a capacity limit. Own local planning and verification, but prefer cheaper choices for routine existing-UX tweaks.",
-      "defaultThinking": "medium"
+      "character": "Advisory: The advisor and planning/synthesis model at xhigh reasoning. At high, use Opus for genuinely new or greenfield UX/frontend implementation when the Anthropic window is healthy, preferably with frontend-design loaded. Own investigation, local planning, implementation or repair, and verification within the assignment.",
+      "defaultThinking": "xhigh"
     },
     "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: The decision-bearing implementation workhorse and default adversarial-tier checker. Backend, mixed-stack, substantial existing-UX, tests, schema/auth/security/money checks, and final whole-diff review. Own investigation, planning, implementation or repair, and verification within the assignment. Prefer Sol for a locked execution packet while Codex capacity is available. Prefer a fresh Sonnet context for review of a Sonnet build. Load frontend-design for UX work. 1M window. Opus takes greenfield UX while the 5-hour window is fresh.",
-      "defaultThinking": "high"
-    },
-    "cursor/grok-4.6": {
-      "character": "Advisory: Overflow generalist when Anthropic capacity is tight: research, bounded backend, mixed-stack, existing-UX, planning fallback, and procedural work if Sol is unavailable. Load frontend-design for UX work. 200K window — keep packets bounded. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
-      "defaultThinking": "high"
+      "character": "Advisory: The default implementation workhorse and fresh-context checker at xhigh reasoning for backend, mixed-stack, substantial existing UX, tests, schema/auth/security/money checks, and final whole-diff review. Own investigation, planning, implementation or repair, and verification within the assignment. For locked packets, resolve environment and tooling obstacles locally, use deterministic anchors, and escalate material ambiguity outside the assignment. Load frontend-design for UX work. 1M window.",
+      "defaultThinking": "xhigh"
     }
   },
   "recommendations": {
     "builder": [
       {
         "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Preferred implementation choice in this profile."
+        "thinking": "xhigh",
+        "fit": "Preferred implementation choice, including fully locked execution packets with deterministic anchors and stop-on-material-ambiguity."
       },
       {
         "model": "claude-bridge/claude-opus-5",
-        "thinking": "medium",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
-      },
-      {
-        "model": "cursor/grok-4.6",
         "thinking": "high",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
-      },
-      {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
-        "fit": "Preferred cheap executor for a locked execution packet while Codex capacity remains: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
+        "fit": "Use for genuinely new or greenfield UX/frontend implementation."
       }
     ],
     "advisor": [
       {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
+        "model": "claude-bridge/claude-opus-5",
+        "thinking": "xhigh",
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       }
     ],
     "checker": [
       {
         "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Preferred fresh-context review choice in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-opus-5",
-        "thinking": "medium",
-        "fit": "Alternate review choice; select by review tier, risk, and capacity."
-      },
-      {
-        "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "high",
-        "fit": "Alternate review choice; select by review tier, risk, and capacity."
-      },
-      {
-        "model": "cursor/grok-4.6",
-        "thinking": "high",
-        "fit": "Alternate review choice; select by review tier, risk, and capacity."
+        "thinking": "xhigh",
+        "fit": "Preferred fresh-context checker and reviewer in this profile."
       }
     ]
   }

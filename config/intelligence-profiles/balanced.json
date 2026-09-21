@@ -1,72 +1,40 @@
 {
   "name": "balanced",
   "models": {
-    "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model, including planning and synthesis, at medium reasoning. Shares the Anthropic session allowance; delegate implementation and checking when useful to conserve capacity, not because the advisor cannot do them. At Anthropic capacity, the advisor session falls back to Astra at high. Grok is not in this map; use grok-cycle when Grok should own the hefty maker+review loop.",
-      "defaultThinking": "high"
-    },
-    "openai-codex/gpt-6-astra": {
-      "character": "Advisory: Hard-implementation workhorse for long or difficult backend, data, service, mixed-stack, and genuinely hard debugging; also the advisor fallback when Fable reaches capacity, including planning and synthesis. Use high for substantial builds and bounded hard implementation needing material judgment, escalating to xhigh for genuinely difficult debugging. Prefer Sol high when material decisions are already locked. Frontend routes elsewhere: greenfield UX is Opus, other UX is Sonnet. Fresh-context checking is Sonnet-tier first, with Sol xhigh as the Codex alternate.",
-      "defaultThinking": "high"
-    },
-    "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: The default decision-bearing builder and adversarial-tier checker. Medium and well-known implementation needing material judgment, existing-UX work, tests, schema/auth/security/money checks, and final whole-diff review. Own investigation, planning, implementation or repair, and verification within the assignment. Prefer Sol high for a locked execution packet. Prefer a fresh Sonnet context for review of a Sonnet build; escalate to Opus for extreme risk. Load frontend-design for UX work. 1M window. Genuinely hard backend goes to Astra high; greenfield UX goes to Opus.",
-      "defaultThinking": "high"
-    },
     "claude-bridge/claude-opus-5": {
-      "character": "Advisory: Genuinely new or greenfield UX/frontend implementation when the Anthropic 5-hour window is healthy, preferably with frontend-design loaded, and optional fresh-context adversarial review when Sonnet is the maker or risk is extreme. Runs at medium. Sonnet is the default builder and the UX capacity fallback with frontend-design, not Grok. Own local planning and verification, but prefer cheaper choices for routine existing-UX tweaks.",
-      "defaultThinking": "medium"
+      "character": "Advisory: The advisor and planning/synthesis model at xhigh reasoning. At high, use Opus for genuinely new or greenfield UX/frontend implementation when the Anthropic window is healthy, preferably with frontend-design loaded. Own investigation, local planning, implementation or repair, and verification within the assignment.",
+      "defaultThinking": "xhigh"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The procedural-tier workhorse at high reasoning for mechanical chores, routine checks, repair verification, test-harness findings, browser verification, and implementation from a locked execution packet; at xhigh it is a fresh-context checker for schema, auth, security, money, and data boundaries. Own investigation, local planning, implementation or repair, and verification within the assignment. For locked packets, fix material decisions and deterministic anchors; resolve tooling obstacles locally and escalate material ambiguity outside the assignment. Prefer high for procedural work and xhigh for review or material ambiguity.",
+      "character": "Advisory: The default implementation workhorse at high reasoning and fresh-context checker at xhigh. Use for backend, mixed-stack, existing UX, tests, schema/auth/security/money checks, final whole-diff review, browser verification, and implementation from a locked execution packet. Own investigation, local planning, implementation or repair, and verification within the assignment. For locked packets, resolve environment and tooling obstacles locally, use deterministic anchors, and escalate material ambiguity outside the assignment. Load frontend-design for UX work.",
       "defaultThinking": "high"
     }
   },
   "recommendations": {
     "builder": [
       {
-        "model": "claude-bridge/claude-sonnet-5",
+        "model": "openai-codex/gpt-5.6-sol",
         "thinking": "high",
-        "fit": "Preferred implementation choice in this profile."
-      },
-      {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
-        "fit": "Alternate implementation choice for hard backend or mixed-stack work; select by task character, risk, and capacity."
+        "fit": "Preferred implementation choice, including fully locked execution packets with deterministic anchors and stop-on-material-ambiguity."
       },
       {
         "model": "claude-bridge/claude-opus-5",
-        "thinking": "medium",
-        "fit": "Alternate implementation choice; select by task character, risk, and capacity."
-      },
-      {
-        "model": "openai-codex/gpt-5.6-sol",
         "thinking": "high",
-        "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
+        "fit": "Use for genuinely new or greenfield UX/frontend implementation."
       }
     ],
     "advisor": [
       {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
+        "model": "claude-bridge/claude-opus-5",
+        "thinking": "xhigh",
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       }
     ],
     "checker": [
       {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "high",
-        "fit": "Preferred fresh-context review choice in this profile."
-      },
-      {
-        "model": "claude-bridge/claude-opus-5",
-        "thinking": "medium",
-        "fit": "Alternate review choice; select by review tier, risk, and capacity."
-      },
-      {
         "model": "openai-codex/gpt-5.6-sol",
         "thinking": "xhigh",
-        "fit": "Codex alternate review choice; select by review tier, risk, and capacity."
+        "fit": "Preferred fresh-context checker and reviewer in this profile."
       }
     ]
   }

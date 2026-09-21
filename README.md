@@ -171,9 +171,9 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs" codex-lean
 | Profile | Intended balance |
 | --- | --- |
 | `codex-max` | Strong Codex capacity across substantial work |
-| `codex-lean` | Codex-only routing with lower role-specific reasoning effort |
-| `anthropic-heavy` | Anthropic carries most implementation and review |
-| `balanced` | Codex handles hard builds; Anthropic carries ordinary work |
+| `codex-lean` | Codex-only routing with Astra high and Sol xhigh/max |
+| `anthropic-heavy` | Opus advises; Sonnet xhigh implements and checks |
+| `balanced` | Opus advises and handles greenfield UX; Sol builds and checks |
 | `grok-cycle` | Grok carries the substantial cycle when Codex is unavailable |
 
 See [`intelligence-profiles.md`](docs/intelligence-profiles.md).

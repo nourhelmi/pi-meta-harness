@@ -93,26 +93,25 @@ load and risk:
 
 - use the profile's strong builder when diagnosis, architecture, or a material
   product/schema/migration/auth/security/destructive-operation decision remains;
-- use the profile's cheap executor when a concise execution packet has fixed the
-  approach, bounded the surface, named existing patterns and non-goals, and
+- use the profile's locked-packet executor when a concise execution packet has fixed
+  the approach, bounded the surface, named existing patterns and non-goals, and
   provided deterministic anchors;
-- if the cheap executor discovers a missing material decision or contradictory
+- if the locked-packet executor discovers a missing material decision or contradictory
   evidence, it stops and escalates rather than inventing a route.
 
 The shipped locked-packet executors are:
 
-| Profile | Cheap executor |
+| Profile | Executor |
 | --- | --- |
 | `codex-max` | Sol high |
-| `codex-lean` | Sol medium |
+| `codex-lean` | Sol xhigh |
 | `balanced` | Sol high |
-| `anthropic-heavy` | Sol high while Codex capacity remains |
+| `anthropic-heavy` | Sonnet xhigh |
 | `grok-cycle` | Sonnet medium |
 
 This is advisory task-fit guidance, not a model allowlist or a deterministic
-small-file rule. A cheap maker does not automatically earn another checker;
-review tier follows the product risk and deterministic anchors remain the
-backstop.
+small-file rule. A locked-packet maker does not automatically earn another checker;
+review tier follows the product risk and deterministic anchors remain the backstop.
 
 ## 🧩 Topology
 
@@ -150,7 +149,7 @@ flowchart TD
   Start[Quota check you decide] --> CodexQ{Codex weekly healthy?}
   CodexQ -->|yes| UseCM[codex-max]
   CodexQ -->|dying leftover usable| UseCL[codex-lean]
-  CodexQ -->|hard builds plus Anthropic checks, no Grok| UseBA[balanced]
+  CodexQ -->|Opus advises, Sol builds and checks| UseBA[balanced]
   CodexQ -->|dead| AnthQ{Spend Anthropic as workhorse?}
   AnthQ -->|yes| UseAH[anthropic-heavy]
   AnthQ -->|no| UseGC[grok-cycle]
@@ -164,7 +163,7 @@ flowchart TD
 - **healthy Codex** → `codex-max`
 - **Codex leftover** → `codex-lean`
 - **Codex dead and Anthropic should implement** → `anthropic-heavy`
-- **Codex hard builds plus Anthropic default builds/checks, no Grok** → `balanced`
+- **Opus advice/greenfield UX plus Sol builds/checks** → `balanced`
 - **Codex dead and Grok owns maker/review** → `grok-cycle`
 
 The shipped guides recommend Cursor only as `cursor/grok-4.6`; that is guidance,
@@ -205,42 +204,40 @@ level or a worker's launch identity.
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Astra xhigh (root session and child advisor) |
-| builder | Sol medium; Sol max (ambiguous or wide breadth) |
-| checker | Sol medium |
+| advisor | Astra high (root session and child advisor) |
+| builder | Sol xhigh; Sol max (ambiguous or wide breadth) |
+| checker | Sol xhigh |
 
-Astra runs at xhigh wherever it is used, including advisor planning and synthesis.
-Sol medium is the regular builder, locked-packet executor, and checker; Sol max
+Astra runs at high wherever it is used, including advisor planning and synthesis.
+Sol xhigh is the regular builder, locked-packet executor, and checker; Sol max
 handles materially ambiguous or wide-breadth implementation. Luna max remains an
 optional model for explicitly assigned browser-heavy work. Every mapped model is
-an OpenAI Codex model; the guide
-remains advisory rather than a runtime allowlist.
+an OpenAI Codex model; the guide remains advisory rather than a runtime allowlist.
 
 ### `anthropic-heavy` — spend the 5-hour window deliberately
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Fable medium (root session); Sonnet high (child) |
-| builder | Sonnet high, Opus medium, Grok high, Sol high (locked packet) |
-| checker | Sonnet high, Opus medium, Sol high, Grok high |
+| advisor | Opus xhigh |
+| builder | Sonnet xhigh, Opus high (greenfield UX) |
+| checker | Sonnet xhigh |
 
-Sonnet is the decision-bearing implementation and review workhorse, Opus is the
-greenfield UX or extreme-risk option, Sol high uses remaining Codex for locked
-execution packets and procedural work, and Grok remains the capacity fallback,
-including for the root advisor when Fable reaches capacity.
+Sonnet xhigh is the default implementation and review workhorse, including locked
+execution packets. Opus xhigh owns advisor planning and synthesis; Opus high takes
+greenfield UX. This profile recommends only Anthropic models.
 
-### `balanced` — Codex builds hard, Anthropic builds/checks the rest
+### `balanced` — Opus advises; Sol builds and checks
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Fable medium (root session); Sonnet high (child) |
-| builder | Sonnet high, Astra high (hard backend), Opus medium, Sol high (locked packet) |
-| checker | Sonnet high, Opus medium, Sol xhigh |
+| advisor | Opus xhigh |
+| builder | Sol high, Opus high (greenfield UX) |
+| checker | Sol xhigh |
 
-Sonnet is the default decision-bearing maker and checker; Astra high takes hard
-backend work and root advisor capacity fallback. Opus takes greenfield UX; Sol high
-executes locked packets and procedural work and Sol xhigh is the Codex review
-alternate. Grok is absent from the recommendations but is not blocked at runtime.
+Sol high is the default maker and locked-packet executor; Sol xhigh owns
+fresh-context review. Opus xhigh owns advisor planning and synthesis, while Opus
+high takes greenfield UX. Sonnet, Astra, Fable, and Grok are absent from the
+profile recommendations but are not blocked at runtime.
 
 ### `grok-cycle` — no Codex recommendations
 

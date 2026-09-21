@@ -17,8 +17,8 @@ const HARNESS = join(ROOT, "scripts", "meta-harness.mjs");
 const NAMES = ["codex-max", "codex-lean", "anthropic-heavy", "balanced", "grok-cycle"];
 const LOCKED_EXECUTORS = {
   "codex-max": ["openai-codex/gpt-5.6-sol", "high"],
-  "codex-lean": ["openai-codex/gpt-5.6-sol", "medium"],
-  "anthropic-heavy": ["openai-codex/gpt-5.6-sol", "high"],
+  "codex-lean": ["openai-codex/gpt-5.6-sol", "xhigh"],
+  "anthropic-heavy": ["claude-bridge/claude-sonnet-5", "xhigh"],
   balanced: ["openai-codex/gpt-5.6-sol", "high"],
   "grok-cycle": ["claude-bridge/claude-sonnet-5", "medium"],
 };
@@ -119,23 +119,51 @@ test("codex-lean is Codex-only and assigns the requested effort ladder", async (
   const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
 
   assert(Object.keys(guide.models).every((model) => model.startsWith("openai-codex/")));
-  assert.equal(guide.models[astra].defaultThinking, "xhigh");
-  assert.equal(guide.models[sol].defaultThinking, "medium");
+  assert.equal(guide.models[astra].defaultThinking, "high");
+  assert.equal(guide.models[sol].defaultThinking, "xhigh");
   assert(
     Object.values(guide.recommendations)
       .flat()
       .filter(({ model }) => model === astra)
-      .every(({ thinking }) => thinking === "xhigh"),
+      .every(({ thinking }) => thinking === "high"),
   );
-  assert.deepEqual(identities("builder"), [[sol, "medium"], [sol, "max"]]);
-  assert.deepEqual(identities("advisor"), [[astra, "xhigh"]]);
-  assert.deepEqual(identities("checker"), [[sol, "medium"]]);
+  assert.deepEqual(identities("builder"), [[sol, "xhigh"], [sol, "max"]]);
+  assert.deepEqual(identities("advisor"), [[astra, "high"]]);
+  assert.deepEqual(identities("checker"), [[sol, "xhigh"]]);
   assert.equal(guide.recommendations["browser-verifier"], undefined);
-  assert.match(guide.models[astra].character, /Astra runs at xhigh wherever it is used/);
+  assert.match(guide.models[astra].character, /Astra runs at high wherever it is used/);
   assert.match(guide.models[sol].character, /Use Sol max for materially ambiguous or wide-breadth implementation/);
-  assert.match(guide.models[sol].character, /regular workhorse at medium reasoning/);
+  assert.match(guide.models[sol].character, /regular workhorse at xhigh reasoning/);
   assert.equal(guide.models[luna].defaultThinking, "max");
   assert.match(guide.models[luna].character, /not a separate role or required stage/);
+});
+
+test("anthropic-heavy routes Opus advice and Sonnet implementation/review", async () => {
+  const guide = JSON.parse(
+    await readFile(join(ROOT, "config", "intelligence-profiles", "anthropic-heavy.json"), "utf8"),
+  );
+  const opus = "claude-bridge/claude-opus-5";
+  const sonnet = "claude-bridge/claude-sonnet-5";
+  const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
+
+  assert.deepEqual(Object.keys(guide.models).sort(), [opus, sonnet].sort());
+  assert.deepEqual(identities("advisor"), [[opus, "xhigh"]]);
+  assert.deepEqual(identities("builder"), [[sonnet, "xhigh"], [opus, "high"]]);
+  assert.deepEqual(identities("checker"), [[sonnet, "xhigh"]]);
+});
+
+test("balanced routes Opus advice and UX with Sol implementation/review", async () => {
+  const guide = JSON.parse(
+    await readFile(join(ROOT, "config", "intelligence-profiles", "balanced.json"), "utf8"),
+  );
+  const opus = "claude-bridge/claude-opus-5";
+  const sol = "openai-codex/gpt-5.6-sol";
+  const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
+
+  assert.deepEqual(Object.keys(guide.models).sort(), [opus, sol].sort());
+  assert.deepEqual(identities("advisor"), [[opus, "xhigh"]]);
+  assert.deepEqual(identities("builder"), [[sol, "high"], [opus, "high"]]);
+  assert.deepEqual(identities("checker"), [[sol, "xhigh"]]);
 });
 
 test("every guide provides a native-routable choice for every semantic role", async () => {
@@ -153,7 +181,7 @@ test("every guide provides a native-routable choice for every semantic role", as
   }
 });
 
-test("every guide names a cheap locked-packet executor", async () => {
+test("every guide provides a locked-packet executor", async () => {
   for (const name of NAMES) {
     const guide = JSON.parse(
       await readFile(join(ROOT, "config", "intelligence-profiles", `${name}.json`), "utf8"),

@@ -1060,12 +1060,16 @@ test("reinstall keeps a switched intelligence profile", async () => {
   for (const role of ["scout", "planner", "reducer", "browser-verifier"]) await assert.rejects(readFile(join(target, "skills/advisor-worker/roles", role, "SKILL.md")), { code: "ENOENT" });
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-lean");
-  assert.equal(guide.recommendations.advisor[0].model, "openai-codex/gpt-6-astra");
+  assert.deepEqual(guide.recommendations.advisor[0], {
+    model: "openai-codex/gpt-6-astra",
+    thinking: "high",
+    fit: "Preferred for bounded end-to-end work with delegated internal steps in this profile.",
+  });
   assert.equal(guide.recommendations["browser-verifier"], undefined);
   assert.deepEqual(
     guide.recommendations.builder.map(({ model, thinking }) => [model, thinking]),
     [
-      ["openai-codex/gpt-5.6-sol", "medium"],
+      ["openai-codex/gpt-5.6-sol", "xhigh"],
       ["openai-codex/gpt-5.6-sol", "max"],
     ],
   );

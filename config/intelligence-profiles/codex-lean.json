@@ -2,12 +2,12 @@
   "name": "codex-lean",
   "models": {
     "openai-codex/gpt-6-astra": {
-      "character": "Advisory: Astra runs at xhigh wherever it is used in this profile: the advisor session and wide-breadth child advisors, including their planning and synthesis. Regular bounded builders use Sol medium, including fully locked execution packets. This profile recommends Codex models only.",
-      "defaultThinking": "xhigh"
+      "character": "Advisory: Astra runs at high wherever it is used in this profile: the advisor session and child advisors, including their planning and synthesis. Regular bounded builders use Sol xhigh, including fully locked execution packets. This profile recommends Codex models only.",
+      "defaultThinking": "high"
     },
     "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The regular workhorse at medium reasoning for bounded implementation, fully locked execution packets, and fresh-context checking. Own investigation, local planning, implementation or repair, and verification within the assignment. For locked packets, resolve environment and tooling obstacles locally, use deterministic anchors, and escalate material ambiguity outside the assignment. Use Sol max for materially ambiguous or wide-breadth implementation.",
-      "defaultThinking": "medium"
+      "character": "Advisory: The regular workhorse at xhigh reasoning for bounded implementation, fully locked execution packets, and fresh-context checking. Own investigation, local planning, implementation or repair, and verification within the assignment. For locked packets, resolve environment and tooling obstacles locally, use deterministic anchors, and escalate material ambiguity outside the assignment. Use Sol max for materially ambiguous or wide-breadth implementation.",
+      "defaultThinking": "xhigh"
     },
     "openai-codex/gpt-5.6-luna": {
       "character": "Advisory: An economical option at max reasoning for explicit browser-flow checks by the assigned builder or checker. Browser verification is an author responsibility, not a separate role or required stage.",
@@ -18,7 +18,7 @@
     "builder": [
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "thinking": "xhigh",
         "fit": "Preferred workhorse for regular bounded implementation, including fully locked execution packets with deterministic anchors and stop-on-material-ambiguity."
       },
       {
@@ -30,14 +30,14 @@
     "advisor": [
       {
         "model": "openai-codex/gpt-6-astra",
-        "thinking": "xhigh",
+        "thinking": "high",
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       }
     ],
     "checker": [
       {
         "model": "openai-codex/gpt-5.6-sol",
-        "thinking": "medium",
+        "thinking": "xhigh",
         "fit": "Preferred fresh-context checker and reviewer in this profile."
       }
     ]
