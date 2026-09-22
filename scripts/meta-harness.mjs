@@ -60,6 +60,7 @@ const GENERATED_SKILL_FILES = new Map([
 const PORTABLE_COPY_ENTRIES = [
   ["extensions/advisor-graph.ts", "extensions/advisor-graph.ts"],
   ["extensions/advisor-session.ts", "extensions/advisor-session.ts"],
+  ["extensions/jev-router.ts", "extensions/jev-router.ts"],
   ["extensions/advisor-memory.ts", "extensions/advisor-memory.ts"],
   ["third-party/gentle-engram", "third-party/gentle-engram"],
   ["extensions/advisor-worker.ts", "extensions/advisor-worker.ts"],

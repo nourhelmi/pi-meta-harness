@@ -64,23 +64,25 @@ inconsistent pair rather than guessing which side is authoritative.
 
 | Name | When | Workhorse | Adversarial review | Procedural |
 | --- | --- | --- | --- | --- |
-| `codex-max` | Codex weekly is healthy | Astra xhigh; Sol high for locked packets | Sol xhigh | Luna max browser verification; Sol high locked execution |
+| `codex-max` | Codex weekly is healthy | GPT-6 Sol xhigh; high for locked packets | Sol xhigh | Luna max browser verification; Sol high locked execution |
 | `codex-lean` | Codex remainder is usable | Sol xhigh; Sol max for ambiguous/wide builds | Sol xhigh | Luna max browser verification; Sol xhigh locked execution |
-| `anthropic-heavy` | Spend Anthropic on purpose | Sonnet xhigh; Opus high for greenfield UX | Sonnet xhigh | Sonnet xhigh locked execution |
-| `balanced` | Opus advises; Sol builds and checks | Sol high; Opus high for greenfield UX | Sol xhigh | Sol high locked execution |
-| `grok-cycle` | No Codex; Grok owns maker + hefty review | Grok | Grok | Sonnet |
+| `anthropic-heavy` | Spend Anthropic on purpose | Opus 5.5 medium; high for greenfield UX | Opus medium | Opus medium locked execution |
+| `balanced` | Opus high advises; Sol builds and checks | Sol high; Opus high for greenfield UX | Sol xhigh | Sol high locked execution |
+| `grok-cycle` | No Codex; Grok owns maker + hefty review | Grok | Grok | Opus 5.5 medium |
 
-In `codex-lean`, Astra runs at high wherever it is used: the advisor and child
-advisor. Regular builders, checking, and fully locked execution use Sol xhigh;
-materially ambiguous or wide-breadth builders use Sol max. Luna max is an optional
-economical choice for explicitly assigned browser-heavy work. The named guide
-contains only OpenAI Codex models.
+Sol and Luna refer to GPT-6; Opus refers to Claude Opus 5.5. Opus uses medium or high,
+never xhigh/max. Every former Sonnet recommendation uses Opus medium.
 
-In `anthropic-heavy`, Opus xhigh advises, Sonnet xhigh builds and checks, and Opus
-high handles greenfield UX. In `balanced`, Opus xhigh advises, Sol high is the
-default builder, Opus high handles greenfield UX, and Sol xhigh checks.
+In `codex-lean`, Sol high is the advisor and child-advisor choice. Regular builders,
+checking, and fully locked execution use Sol xhigh; materially ambiguous or
+wide-breadth builders use Sol max. Luna max is an optional economical choice for
+explicitly assigned browser-heavy work. The named guide contains only OpenAI Codex models.
 
-In `codex-max`, the advisor, child advisor, and primary builder use Astra
+In `anthropic-heavy`, Opus high advises, medium builds and checks, and high handles
+greenfield UX. In `balanced`, Opus high advises, Sol high is the default builder,
+Opus high handles greenfield UX, and Sol xhigh checks.
+
+In `codex-max`, the advisor, child advisor, and primary builder use GPT-6 Sol
 xhigh, including substantial and all UX implementation. Review uses Sol xhigh;
 Luna max remains optional for browser-heavy work. Advisors own planning and synthesis;
 builders and checkers own their investigation, local planning and verification.

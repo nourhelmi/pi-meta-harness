@@ -249,19 +249,19 @@ test("native mirrors carry the same rules for Codex and Claude hosts", async () 
 
 test("model routing agrees with the three-role profile cards", async () => {
   const [profiles, switcher] = await Promise.all([text("docs/intelligence-profiles.md"), text("skills/switch-intelligence-profile/SKILL.md")]);
-  assert.match(routing, /In `codex-max`, every UX builder uses Astra xhigh with `frontend-design`/);
-  assert.match(routing, /advisor session, child advisor, and primary builder run on Astra at\s+xhigh/);
+  assert.match(routing, /In `codex-max`, every UX builder uses Sol xhigh with `frontend-design`/);
+  assert.match(routing, /advisor session, child advisor, and primary builder run on Sol at\s+xhigh/);
   assert.match(routing, /`codex-lean`, regular UX builders use Sol xhigh/);
   assert.match(routing, /ambiguous or wide-breadth\s+UX builders use Sol max/);
-  assert.match(routing, /advisor and child advisor nodes use Astra high/);
+  assert.match(routing, /advisor and child advisor nodes use Sol high/);
   assert.match(routing, /## Locked execution packets/);
   const names = ["codex-max", "codex-lean", "anthropic-heavy", "balanced", "grok-cycle"];
   for (let i = 0; i < names.length; i++) {
     const card = section(profiles, `### \`${names[i]}\``, i + 1 < names.length ? `### \`${names[i + 1]}\`` : "## 📁 Files on disk");
     assert.deepEqual([...card.matchAll(/^\| (advisor|builder|checker) \|/gm)].map((m) => m[1]), ["advisor", "builder", "checker"]);
     assert.doesNotMatch(card, /\| (scout|planner|reducer|browser-verifier) \|/);
-    if (names[i] === "codex-max") assert.match(card, /\| advisor \| Astra xhigh/);
-    if (names[i] === "codex-lean") assert.match(card, /\| advisor \| Astra high/);
+    if (names[i] === "codex-max") assert.match(card, /\| advisor \| GPT-6 Sol xhigh/);
+    if (names[i] === "codex-lean") assert.match(card, /\| advisor \| GPT-6 Sol high/);
   }
   assert.match(switcher, /Browser verification belongs to the author/);
   assert.match(switcher, /https:\/\/github.com\/nourhelmi\/pi-meta-harness\/blob\/main\/docs\/intelligence-profiles.md/);

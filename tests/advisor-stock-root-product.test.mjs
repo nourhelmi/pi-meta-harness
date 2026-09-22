@@ -23,7 +23,7 @@ function fixture(t, host) {
   const behavior = value => writeFileSync(join(root, 'behavior.json'), JSON.stringify(value)); behavior({ status: 'working' });
   writeFileSync(join(root, 'config/pi-detach-runtime.json'), JSON.stringify({ v: 1, backend: 'runtime', node: process.execPath, host: resolve('scripts/advisor-runtime/pi-detach-host.mjs'), stateBase: join(root, 'state') }));
   writeFileSync(join(root, 'bin/herdr'), `#!/bin/sh\nexec '${process.execPath}' '${resolve('tests/bridge/fake-stock-herdr.mjs')}' "$@"\n`, { mode: 0o700 });
-  const env = { PATH: `${join(root, 'bin')}:${process.env.PATH}`, PI_CODING_AGENT_DIR: join(root, 'config'), HERDR_ENV: '1', HERDR_PANE_ID: 'w1:p1', STOCK_FAKE_ROOT: root };
+  const env = { PATH: `${join(root, 'bin')}:${process.env.PATH}`, PI_CODING_AGENT_DIR: join(root, 'config'), AGENT_ROUTER_CONFIG: resolve('tests/fixtures/agent-router-disabled.json'), HERDR_ENV: '1', HERDR_PANE_ID: 'w1:p1', STOCK_FAKE_ROOT: root };
   const clients = [];
   const calls = () => existsSync(join(root, 'calls.jsonl')) ? readFileSync(join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(JSON.parse) : [];
   const effects = () => calls().filter(a => ['split', 'start', 'prompt', 'send-keys', 'close'].includes(a[1]));

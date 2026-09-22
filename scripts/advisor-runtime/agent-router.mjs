@@ -34,7 +34,7 @@ export function agentRouterEnabled(options) {
   return readAgentRouterConfig(options).enabled;
 }
 
-async function loadRouter(config) {
+export async function loadAgentRouter(config) {
   let loaded = modules.get(config.modulePath);
   if (!loaded) {
     loaded = import(pathToFileURL(config.modulePath).href).catch(() => { throw codedError('AGENT_ROUTER_MODULE_INVALID'); });
@@ -86,7 +86,7 @@ function definitiveFreshLaunchFailure(error) {
 }
 
 /** Wrap the side-effect-free prepare boundary and the owned launch lifecycle. */
-export function createRoutedExecutionPort(port, { env = process.env, configPath, renewIntervalMs = DEFAULT_RENEW_MS } = {}) {
+export function createRoutedExecutionPort(port, { env = process.env, configPath, control, renewIntervalMs = DEFAULT_RENEW_MS } = {}) {
   if (!Number.isInteger(renewIntervalMs) || renewIntervalMs < 1) throw codedError('AGENT_ROUTER_CONFIG_INVALID');
   const leases = new Map();
 
@@ -178,9 +178,10 @@ export function createRoutedExecutionPort(port, { env = process.env, configPath,
   const leaseFor = async routing => {
     const existing = leases.get(routing.id);
     if (existing) return existing;
-    const config = readAgentRouterConfig({ env, ...(configPath ? { configPath } : {}) });
+    // Recovery/release always uses the immutable snapshot, irrespective of the current gate.
+    const config = control?.()?.snapshot() ?? readAgentRouterConfig({ env, ...(configPath ? { configPath } : {}) });
     if (!config.enabled) throw codedError('AGENT_ROUTER_CONFIG_INVALID');
-    const lease = { id: routing.id, api: await loadRouter(config), configPath: config.configPath, released: false, timer: undefined, releasing: undefined };
+    const lease = { id: routing.id, api: await loadAgentRouter(config), configPath: config.configPath, released: false, timer: undefined, releasing: undefined };
     leases.set(routing.id, lease);
     return lease;
   };
@@ -188,8 +189,16 @@ export function createRoutedExecutionPort(port, { env = process.env, configPath,
   return {
     version: port.version,
     async prepare(params, sourceDirectory, scope) {
-      const config = readAgentRouterConfig({ env, ...(configPath ? { configPath } : {}) });
-      if (!config.enabled) return port.prepare(params, sourceDirectory, scope);
+      // Capture before the first await, including OFF. A toggle never changes an admitted preparation.
+      const controller = control?.();
+      const selection = controller?.capture();
+      const config = selection ? selection.snapshot : readAgentRouterConfig({ env, ...(configPath ? { configPath } : {}) });
+      if (!(selection ? selection.enabled : config.enabled)) {
+        const intent = await port.prepare(params, sourceDirectory, scope);
+        controller?.seedChild(selection, intent, scope);
+        return intent;
+      }
+      if (!config) throw codedError('AGENT_ROUTER_CONFIG_INVALID');
       const prepared = routedPreparation(params, scope);
       if (prepared.invalidInput) {
         await port.prepare(params, sourceDirectory, scope);
@@ -207,7 +216,7 @@ export function createRoutedExecutionPort(port, { env = process.env, configPath,
         ? { ...prepared.params, model: PREFLIGHT_MODEL, thinking: 'off' }
         : prepared.params;
       const preview = await port.prepare(previewParams, sourceDirectory, prepared.scope);
-      const api = await loadRouter(config);
+      const api = await loadAgentRouter(config);
       let pin;
       if (params?.model !== undefined) pin = { model: params.model, ...(params.thinking !== undefined ? { thinking: params.thinking } : {}) };
       let decision;
@@ -223,6 +232,7 @@ export function createRoutedExecutionPort(port, { env = process.env, configPath,
         leases.set(routing.id, createdLease);
         const intent = await port.prepare({ ...prepared.params, model: routing.selected.model, thinking: routing.selected.thinking }, sourceDirectory, prepared.scope);
         if (intent.model !== routing.selected.model || intent.thinking !== routing.selected.thinking || intent.role !== preview.role || intent.harness !== preview.harness) throw codedError('AGENT_ROUTER_DECISION_INVALID');
+        controller?.seedChild(selection, intent, scope);
         return { ...intent, routing };
       } catch (error) {
         if (createdLease) await releaseLease(createdLease).catch(() => {});

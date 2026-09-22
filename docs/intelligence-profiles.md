@@ -103,11 +103,11 @@ The shipped locked-packet executors are:
 
 | Profile | Executor |
 | --- | --- |
-| `codex-max` | Sol high |
-| `codex-lean` | Sol xhigh |
-| `balanced` | Sol high |
-| `anthropic-heavy` | Sonnet xhigh |
-| `grok-cycle` | Sonnet medium |
+| `codex-max` | GPT-6 Sol high |
+| `codex-lean` | GPT-6 Sol xhigh |
+| `balanced` | GPT-6 Sol high |
+| `anthropic-heavy` | Opus 5.5 medium |
+| `grok-cycle` | Opus 5.5 medium |
 
 This is advisory task-fit guidance, not a model allowlist or a deterministic
 small-file rule. A locked-packet maker does not automatically earn another checker;
@@ -149,7 +149,7 @@ flowchart TD
   Start[Quota check you decide] --> CodexQ{Codex weekly healthy?}
   CodexQ -->|yes| UseCM[codex-max]
   CodexQ -->|dying leftover usable| UseCL[codex-lean]
-  CodexQ -->|Opus advises, Sol builds and checks| UseBA[balanced]
+  CodexQ -->|Opus 5.5 advises, GPT-6 Sol builds and checks| UseBA[balanced]
   CodexQ -->|dead| AnthQ{Spend Anthropic as workhorse?}
   AnthQ -->|yes| UseAH[anthropic-heavy]
   AnthQ -->|no| UseGC[grok-cycle]
@@ -163,7 +163,7 @@ flowchart TD
 - **healthy Codex** → `codex-max`
 - **Codex leftover** → `codex-lean`
 - **Codex dead and Anthropic should implement** → `anthropic-heavy`
-- **Opus advice/greenfield UX plus Sol builds/checks** → `balanced`
+- **Opus 5.5 advice/greenfield UX plus GPT-6 Sol builds/checks** → `balanced`
 - **Codex dead and Grok owns maker/review** → `grok-cycle`
 
 The shipped guides recommend Cursor only as `cursor/grok-4.6`; that is guidance,
@@ -185,15 +185,15 @@ assessment is. Required agentic PR review belongs to the project's review workfl
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Astra xhigh (root session and child advisor) |
-| builder | Astra xhigh (all decision-bearing work), Sol high (locked packet), Grok high |
-| checker | Sol xhigh, Sol high |
+| advisor | GPT-6 Sol xhigh (root session and child advisor) |
+| builder | GPT-6 Sol xhigh (all decision-bearing work), GPT-6 Sol high (locked packet), Grok high |
+| checker | GPT-6 Sol xhigh, GPT-6 Sol high |
 
-Astra owns advisor planning and synthesis and primary decision-bearing builds at
+GPT-6 Sol owns advisor planning and synthesis and primary decision-bearing builds at
 xhigh, including substantial implementation and every kind of UX work.
-Greenfield and existing UX both load `frontend-design`. Sol xhigh handles
-fresh-context review, including adversarial checks; Sol high handles routine
-checks and locked execution packets. Luna max remains an optional economical model
+Greenfield and existing UX both load `frontend-design`. GPT-6 Sol xhigh handles
+fresh-context review, including adversarial checks; GPT-6 Sol high handles routine
+checks and locked execution packets. GPT-6 Luna max remains an optional economical model
 for explicitly assigned browser-heavy builder/checker work, not a default handoff.
 Grok stays as the capacity alternate for bounded backend work. This profile
 recommends no Anthropic model. Lower total task cost is a hypothesis, not a measured
@@ -204,53 +204,53 @@ level or a worker's launch identity.
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Astra high (root session and child advisor) |
-| builder | Sol xhigh; Sol max (ambiguous or wide breadth) |
-| checker | Sol xhigh |
+| advisor | GPT-6 Sol high (root session and child advisor) |
+| builder | GPT-6 Sol xhigh; GPT-6 Sol max (ambiguous or wide breadth) |
+| checker | GPT-6 Sol xhigh |
 
-Astra runs at high wherever it is used, including advisor planning and synthesis.
-Sol xhigh is the regular builder, locked-packet executor, and checker; Sol max
-handles materially ambiguous or wide-breadth implementation. Luna max remains an
-optional model for explicitly assigned browser-heavy work. Every mapped model is
-an OpenAI Codex model; the guide remains advisory rather than a runtime allowlist.
+GPT-6 Sol runs at high for advisor planning and synthesis, xhigh as the regular
+builder, locked-packet executor, and checker, and max for materially ambiguous or
+wide-breadth implementation. GPT-6 Luna max remains an optional model for explicitly
+assigned browser-heavy work. Every mapped model is an OpenAI Codex model; the guide
+remains advisory rather than a runtime allowlist.
 
 ### `anthropic-heavy` — spend the 5-hour window deliberately
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Opus xhigh |
-| builder | Sonnet xhigh, Opus high (greenfield UX) |
-| checker | Sonnet xhigh |
+| advisor | Opus 5.5 high |
+| builder | Opus 5.5 medium (locked/procedural), Opus 5.5 high (greenfield UX) |
+| checker | Opus 5.5 medium |
 
-Sonnet xhigh is the default implementation and review workhorse, including locked
-execution packets. Opus xhigh owns advisor planning and synthesis; Opus high takes
-greenfield UX. This profile recommends only Anthropic models.
+Opus 5.5 medium is the default implementation and review workhorse, including locked
+execution packets. Opus 5.5 high owns advisor planning and synthesis and greenfield UX.
+This profile recommends only Opus 5.5.
 
-### `balanced` — Opus advises; Sol builds and checks
+### `balanced` — Opus 5.5 advises; GPT-6 Sol builds and checks
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Opus xhigh |
-| builder | Sol high, Opus high (greenfield UX) |
-| checker | Sol xhigh |
+| advisor | Opus 5.5 high |
+| builder | GPT-6 Sol high, Opus 5.5 high (greenfield UX) |
+| checker | GPT-6 Sol xhigh |
 
-Sol high is the default maker and locked-packet executor; Sol xhigh owns
-fresh-context review. Opus xhigh owns advisor planning and synthesis, while Opus
-high takes greenfield UX. Sonnet, Astra, Fable, and Grok are absent from the
-profile recommendations but are not blocked at runtime.
+GPT-6 Sol high is the default maker and locked-packet executor; GPT-6 Sol xhigh owns
+fresh-context review. Opus 5.5 high owns advisor planning and synthesis and greenfield
+UX. Other models are absent from the profile recommendations but are not blocked at
+runtime.
 
 ### `grok-cycle` — no Codex recommendations
 
 | Role | Ordered recommendations |
 | --- | --- |
-| advisor | Fable medium (root session); Grok high, Sonnet medium (child) |
-| builder | Grok high, Sonnet medium (locked packet) |
-| checker | Grok high, Sonnet medium |
+| advisor | Opus 5.5 high (root session); Grok high, Opus 5.5 medium (child) |
+| builder | Grok high, Opus 5.5 medium (locked packet) |
+| checker | Grok high, Opus 5.5 medium |
 
 Grok is preferred for decision-bearing implementation and review, and is the root
-advisor fallback when Fable reaches capacity. Sonnet medium handles locked execution
-packets, procedural work, and native-harness assignments without a Cursor route.
-When risk warrants independent review of a Grok build, use a fresh nonauthor
+advisor fallback when Opus 5.5 reaches capacity. Opus 5.5 medium handles locked
+execution packets, procedural work, and native-harness assignments without a Cursor
+route. When risk warrants independent review of a Grok build, use a fresh nonauthor
 assessment and preserve deterministic evidence.
 
 ## 📁 Files on disk

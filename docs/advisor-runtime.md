@@ -150,11 +150,18 @@ Switch with `node ~/.pi/agent/bin/intelligence-profile.mjs <name>`; the default 
 for the task from or outside the guide, and an outside-guide choice needs only a concise
 rationale when material. Deep dive: [`intelligence-profiles.md`](intelligence-profiles.md).
 
-An external `@nourhelmi/agent-router` installation is opt-in through trusted host config at
-`~/.config/agent-router/config.json` (or `AGENT_ROUTER_CONFIG`). Missing or
-`{"version":1,"enabled":false}` config preserves guide-driven behavior byte-for-byte.
-Enabled config names one absolute `modulePath`; invalid config/module is a launch error,
-never a fallback. The router owns only model/thinking selection after the runtime validates
+A configured external `@nourhelmi/agent-router` is controlled in Pi with `/jev-router on`
+and `/jev-router off` for the current session. `/jev-router config` opens the future-session
+default dialog. The footer-area row and advisor/child prompts use the actual host state,
+not a global JSON flag. Resume/reload preserve the setting; new/forked sessions use defaults.
+Older hosts without session controls report restart-required and fence fresh launches,
+without disrupting existing-worker controls. No automatic host restart occurs.
+
+Fresh managed Pi hosts privately snapshot `config.pi.json` (preferred) or `config.json`
+under `~/.config/agent-router/`; an explicit `AGENT_ROUTER_CONFIG` takes precedence.
+The original files and live sessions are never rewritten by the controls. Invalid
+config/module is a launch error, never a fallback. The router owns only model/thinking
+selection after the runtime validates
 the public request and resolves role/harness policy. A caller-supplied model, with optional
 thinking, is passed as a mandatory pin. Router identity and decision ID are persisted in the
 execution packet and exposed in launch responses/status; the canonical launch event records

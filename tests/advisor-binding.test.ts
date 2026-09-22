@@ -104,9 +104,11 @@ for (const [entry, harness] of [['tool', undefined], ['cos', 'native'], ['adviso
       const disk = readFileSync(join(base, 'checkpoint/workstreams/chosen-outcome.md'), 'utf8');
       assert.match(disk, /Advisor mode: `cos`/);
     }
-    const advisorParams = { role: 'advisor', ...(harness ? { harness } : {}), prompt: 'Own outcome', anchor: 'prove', promoteAfterMs: 0, keepAlive: true };
+    assert.equal((await root.request('router.status')).enabled, false);
+    const advisorParams = { role: 'advisor', ...(harness ? { harness } : {}), prompt: 'Own outcome', anchor: 'prove', promoteAfterMs: 0, keepAlive: true, model: 'openai-codex/example', thinking: 'high' };
+    assert.ok((await rootSession.emit('tool_call', { toolName: 'bg_agent', input: { ...advisorParams, model: undefined, thinking: undefined } })).some(v => v?.block), 'confirmed OFF requires explicit advisor identity');
     assert.ok((await rootSession.emit('tool_call', { toolName: 'bg_agent', input: advisorParams })).every(v => !v?.block));
-    assert.ok((await rootSession.emit('tool_call', { toolName: 'bg_agent', input: { role: 'builder', harness: 'pi', prompt: 'Forbidden', anchor: 'prove' } })).some(v => v?.block));
+    assert.ok((await rootSession.emit('tool_call', { toolName: 'bg_agent', input: { role: 'builder', harness: 'pi', prompt: 'Forbidden', anchor: 'prove', model: 'openai-codex/example', thinking: 'high' } })).some(v => v?.block));
     const a = await rootSession.invoke('bg_agent', 'advisor', advisorParams); await root.host.runtime.dispatch();
     const advisor = await root.request("get", { runId: a.details.runId }); assert.ok(advisor.handle, JSON.stringify(advisor));
     assert.equal(advisor.packet.execution.harness, "pi"); assert.equal(advisor.childService.family.workstream, "chosen-outcome"); assert.equal(advisor.childService.family.workerHarness, "native");

@@ -129,6 +129,23 @@ Choose the worker harness once per advisor session:
 Existing Pi sessions retain the instructions they loaded. Start a fresh session after an
 install when you need the new doctrine immediately.
 
+### Session model routing
+
+With `@nourhelmi/agent-router` configured, use Pi directly:
+
+```text
+/jev-router on       # automatic model/effort selection in this session
+/jev-router off      # manual selection in this session
+/jev-router config   # dialog: default for future sessions
+/jev-router          # actual host status
+```
+
+A compact footer-area row below the input shows the host-confirmed state. Changes
+apply to new launches, not existing workers; commands wait for the current turn to
+finish. Resume/reload retain the session setting. New/forked sessions use defaults.
+An older managed host reports **restart required**; `/reload` cannot replace its code.
+See [routing controls and lifecycle](docs/pi-detach-runtime-bridge.md#optional-external-agent-router).
+
 ## Updating a local checkout
 
 ```bash
@@ -171,9 +188,9 @@ node "$HOME/.pi/agent/bin/intelligence-profile.mjs" codex-lean
 | Profile | Intended balance |
 | --- | --- |
 | `codex-max` | Strong Codex capacity across substantial work |
-| `codex-lean` | Codex-only routing with Astra high and Sol xhigh/max |
-| `anthropic-heavy` | Opus advises; Sonnet xhigh implements and checks |
-| `balanced` | Opus advises and handles greenfield UX; Sol builds and checks |
+| `codex-lean` | Codex-only routing with GPT-6 Sol high/xhigh/max |
+| `anthropic-heavy` | Opus 5.5 high advises; Opus 5.5 medium implements and checks |
+| `balanced` | Opus 5.5 high advises and handles greenfield UX; GPT-6 Sol builds and checks |
 | `grok-cycle` | Grok carries the substantial cycle when Codex is unavailable |
 
 See [`intelligence-profiles.md`](docs/intelligence-profiles.md).

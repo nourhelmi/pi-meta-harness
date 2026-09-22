@@ -15,12 +15,15 @@ const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const SCRIPT = join(ROOT, "scripts", "intelligence-profile.mjs");
 const HARNESS = join(ROOT, "scripts", "meta-harness.mjs");
 const NAMES = ["codex-max", "codex-lean", "anthropic-heavy", "balanced", "grok-cycle"];
+const GPT6_SOL = "openai-codex/gpt-6-sol";
+const GPT6_LUNA = "openai-codex/gpt-6-luna";
+const OPUS55 = "claude-bridge/claude-opus-5-5";
 const LOCKED_EXECUTORS = {
-  "codex-max": ["openai-codex/gpt-5.6-sol", "high"],
-  "codex-lean": ["openai-codex/gpt-5.6-sol", "xhigh"],
-  "anthropic-heavy": ["claude-bridge/claude-sonnet-5", "xhigh"],
-  balanced: ["openai-codex/gpt-5.6-sol", "high"],
-  "grok-cycle": ["claude-bridge/claude-sonnet-5", "medium"],
+  "codex-max": [GPT6_SOL, "high"],
+  "codex-lean": [GPT6_SOL, "xhigh"],
+  "anthropic-heavy": [OPUS55, "medium"],
+  balanced: [GPT6_SOL, "high"],
+  "grok-cycle": [OPUS55, "medium"],
 };
 
 test("fixed role configuration is standalone and model-free", async () => {
@@ -89,22 +92,21 @@ test("codex-max retains maker/reviewer identities without a browser role", async
   const guide = JSON.parse(
     await readFile(join(ROOT, "config", "intelligence-profiles", "codex-max.json"), "utf8"),
   );
-  const astra = "openai-codex/gpt-6-astra";
-  const sol = "openai-codex/gpt-5.6-sol";
-  const luna = "openai-codex/gpt-5.6-luna";
+  const sol = GPT6_SOL;
+  const luna = GPT6_LUNA;
   const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
-  assert.equal(guide.models[astra].defaultThinking, "xhigh");
-  assert.deepEqual(identities("advisor"), [[astra, "xhigh"]]);
+  assert.equal(guide.models[sol].defaultThinking, "xhigh");
+  assert.deepEqual(identities("advisor"), [[sol, "xhigh"]]);
   assert.deepEqual(identities("builder"), [
-    [astra, "xhigh"],
+    [sol, "xhigh"],
     [sol, "high"],
     ["cursor/grok-4.6", "high"],
   ]);
   assert.deepEqual(identities("checker"), [[sol, "xhigh"], [sol, "high"]]);
   assert.equal(guide.recommendations["browser-verifier"], undefined);
   assert(!Object.keys(guide.models).some((model) => /^(anthropic|claude-bridge)\//.test(model)));
-  assert.match(guide.models[astra].character, /advisor session, child advisor, and primary builder model at xhigh/);
-  assert.match(guide.models[astra].character, /every kind of UX work with frontend-design loaded/);
+  assert.match(guide.models[sol].character, /advisor session, child advisor, primary decision-bearing builder, and fresh-context checker model at xhigh/);
+  assert.match(guide.models[sol].character, /every kind of UX work with frontend-design loaded/);
   assert.equal(guide.models[luna].defaultThinking, "max");
   assert.match(guide.models[luna].character, /assigned builder or checker/);
 });
@@ -113,57 +115,70 @@ test("codex-lean is Codex-only and assigns the requested effort ladder", async (
   const guide = JSON.parse(
     await readFile(join(ROOT, "config", "intelligence-profiles", "codex-lean.json"), "utf8"),
   );
-  const astra = "openai-codex/gpt-6-astra";
-  const sol = "openai-codex/gpt-5.6-sol";
-  const luna = "openai-codex/gpt-5.6-luna";
+  const sol = GPT6_SOL;
+  const luna = GPT6_LUNA;
   const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
 
   assert(Object.keys(guide.models).every((model) => model.startsWith("openai-codex/")));
-  assert.equal(guide.models[astra].defaultThinking, "high");
   assert.equal(guide.models[sol].defaultThinking, "xhigh");
-  assert(
-    Object.values(guide.recommendations)
-      .flat()
-      .filter(({ model }) => model === astra)
-      .every(({ thinking }) => thinking === "high"),
-  );
   assert.deepEqual(identities("builder"), [[sol, "xhigh"], [sol, "max"]]);
-  assert.deepEqual(identities("advisor"), [[astra, "high"]]);
+  assert.deepEqual(identities("advisor"), [[sol, "high"]]);
   assert.deepEqual(identities("checker"), [[sol, "xhigh"]]);
   assert.equal(guide.recommendations["browser-verifier"], undefined);
-  assert.match(guide.models[astra].character, /Astra runs at high wherever it is used/);
-  assert.match(guide.models[sol].character, /Use Sol max for materially ambiguous or wide-breadth implementation/);
-  assert.match(guide.models[sol].character, /regular workhorse at xhigh reasoning/);
+  assert.match(guide.models[sol].character, /GPT-6 Sol runs at high/);
+  assert.match(guide.models[sol].character, /Use max for materially ambiguous or wide-breadth implementation/);
+  assert.match(guide.models[sol].character, /regular workhorse at xhigh/);
   assert.equal(guide.models[luna].defaultThinking, "max");
   assert.match(guide.models[luna].character, /not a separate role or required stage/);
 });
 
-test("anthropic-heavy routes Opus advice and Sonnet implementation/review", async () => {
+test("anthropic-heavy routes Opus 5.5 across advice, implementation, and review", async () => {
   const guide = JSON.parse(
     await readFile(join(ROOT, "config", "intelligence-profiles", "anthropic-heavy.json"), "utf8"),
   );
-  const opus = "claude-bridge/claude-opus-5";
-  const sonnet = "claude-bridge/claude-sonnet-5";
+  const opus = OPUS55;
   const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
 
-  assert.deepEqual(Object.keys(guide.models).sort(), [opus, sonnet].sort());
-  assert.deepEqual(identities("advisor"), [[opus, "xhigh"]]);
-  assert.deepEqual(identities("builder"), [[sonnet, "xhigh"], [opus, "high"]]);
-  assert.deepEqual(identities("checker"), [[sonnet, "xhigh"]]);
+  assert.deepEqual(Object.keys(guide.models), [opus]);
+  assert.deepEqual(identities("advisor"), [[opus, "high"]]);
+  assert.deepEqual(identities("builder"), [[opus, "medium"], [opus, "high"]]);
+  assert.deepEqual(identities("checker"), [[opus, "medium"]]);
 });
 
-test("balanced routes Opus advice and UX with Sol implementation/review", async () => {
+test("balanced routes Opus 5.5 advice and UX with GPT-6 Sol implementation/review", async () => {
   const guide = JSON.parse(
     await readFile(join(ROOT, "config", "intelligence-profiles", "balanced.json"), "utf8"),
   );
-  const opus = "claude-bridge/claude-opus-5";
-  const sol = "openai-codex/gpt-5.6-sol";
+  const opus = OPUS55;
+  const sol = GPT6_SOL;
   const identities = (role) => guide.recommendations[role].map(({ model, thinking }) => [model, thinking]);
 
   assert.deepEqual(Object.keys(guide.models).sort(), [opus, sol].sort());
-  assert.deepEqual(identities("advisor"), [[opus, "xhigh"]]);
+  assert.deepEqual(identities("advisor"), [[opus, "high"]]);
   assert.deepEqual(identities("builder"), [[sol, "high"], [opus, "high"]]);
   assert.deepEqual(identities("checker"), [[sol, "xhigh"]]);
+});
+
+test("shipped guides use refreshed model IDs and bound Opus 5.5 effort", async () => {
+  const expectedModels = {
+    "codex-max": [GPT6_SOL, GPT6_LUNA, "cursor/grok-4.6"],
+    "codex-lean": [GPT6_SOL, GPT6_LUNA],
+    "anthropic-heavy": [OPUS55],
+    balanced: [OPUS55, GPT6_SOL],
+    "grok-cycle": [OPUS55, "cursor/grok-4.6"],
+  };
+  for (const name of NAMES) {
+    const guide = JSON.parse(
+      await readFile(join(ROOT, "config", "intelligence-profiles", `${name}.json`), "utf8"),
+    );
+    assert.deepEqual(Object.keys(guide.models).sort(), expectedModels[name].sort(), name);
+    for (const [model, details] of Object.entries(guide.models)) {
+      if (model === OPUS55) assert(["medium", "high"].includes(details.defaultThinking), name);
+    }
+    for (const choice of Object.values(guide.recommendations).flat()) {
+      if (choice.model === OPUS55) assert(["medium", "high"].includes(choice.thinking), name);
+    }
+  }
 });
 
 test("every guide provides a native-routable choice for every semantic role", async () => {

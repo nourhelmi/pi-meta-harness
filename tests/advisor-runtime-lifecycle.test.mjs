@@ -93,7 +93,7 @@ test('connect and supervision report the revision the service started with; malf
   const revision = 'ab'.repeat(16);
   const started = await service(t, base, join(base, 'state'), 'rev-session', { managedIdentity: { fixture: true }, revision });
   const ready = await started.request('connect', { identity: { fixture: true }, cwd: join(base, 'work') });
-  assert.deepEqual(ready, { ready: true, revision });
+  assert.deepEqual(ready, { ready: true, revision, router: await started.request('router.status') });
   assert.deepEqual(await started.request('supervision'), { settled: true, revision });
   const plain = await service(t, base, join(base, 'plain'), 'plain-session');
   assert.deepEqual(await plain.request('supervision'), { settled: true, revision: null });

@@ -1,39 +1,35 @@
 {
   "name": "anthropic-heavy",
   "models": {
-    "claude-bridge/claude-opus-5": {
-      "character": "Advisory: The advisor and planning/synthesis model at xhigh reasoning. At high, use Opus for genuinely new or greenfield UX/frontend implementation when the Anthropic window is healthy, preferably with frontend-design loaded. Own investigation, local planning, implementation or repair, and verification within the assignment.",
-      "defaultThinking": "xhigh"
-    },
-    "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: The default implementation workhorse and fresh-context checker at xhigh reasoning for backend, mixed-stack, substantial existing UX, tests, schema/auth/security/money checks, and final whole-diff review. Own investigation, planning, implementation or repair, and verification within the assignment. For locked packets, resolve environment and tooling obstacles locally, use deterministic anchors, and escalate material ambiguity outside the assignment. Load frontend-design for UX work. 1M window.",
-      "defaultThinking": "xhigh"
+    "claude-bridge/claude-opus-5-5": {
+      "character": "Advisory: Use Opus 5.5 at high for advisor planning/synthesis and genuinely new or greenfield UX/frontend implementation, preferably with frontend-design loaded. Use medium for backend, mixed-stack, substantial existing UX, tests, schema/auth/security/money checks, final whole-diff review, and implementation from a locked execution packet. Own investigation, local planning, implementation or repair, and verification within the assignment. For locked packets, resolve environment and tooling obstacles locally, use deterministic anchors, and escalate material ambiguity outside the assignment.",
+      "defaultThinking": "high"
     }
   },
   "recommendations": {
     "builder": [
       {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "xhigh",
+        "model": "claude-bridge/claude-opus-5-5",
+        "thinking": "medium",
         "fit": "Preferred implementation choice, including fully locked execution packets with deterministic anchors and stop-on-material-ambiguity."
       },
       {
-        "model": "claude-bridge/claude-opus-5",
+        "model": "claude-bridge/claude-opus-5-5",
         "thinking": "high",
         "fit": "Use for genuinely new or greenfield UX/frontend implementation."
       }
     ],
     "advisor": [
       {
-        "model": "claude-bridge/claude-opus-5",
-        "thinking": "xhigh",
+        "model": "claude-bridge/claude-opus-5-5",
+        "thinking": "high",
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       }
     ],
     "checker": [
       {
-        "model": "claude-bridge/claude-sonnet-5",
-        "thinking": "xhigh",
+        "model": "claude-bridge/claude-opus-5-5",
+        "thinking": "medium",
         "fit": "Preferred fresh-context checker and reviewer in this profile."
       }
     ]

@@ -6,6 +6,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { resultStatusLine } from "./advisor-core/result-artifact.ts";
 import { readChildScope, type ChildScope } from "../scripts/advisor-runtime/pi-detach-bootstrap.mjs";
 import { advisorActiveTools, advisorToolGuardReason, liveAdvisorDoctrine, liveIntelligenceGuide, withAdvisorSystemPrompt, workstreamHotSection } from "./advisor-session.ts";
+import { readRouterView, routerPromptState, routerLaunchGuard } from './advisor-core/router-control.ts';
 
 const ENTRY_TYPE = "advisor-worker";
 
@@ -229,16 +230,18 @@ function registerSessionStart(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 
 function registerSystemContract(pi: ExtensionAPI, runtime: WorkerRuntime): void {
 	pi.on("session_compact", () => { if (runtime.state?.childScope) runtime.state.checkpointPending = true; });
-	pi.on("before_agent_start", async (event) => {
+	pi.on("before_agent_start", async (event, ctx) => {
 		const state = runtime.state;
 		if (!state) return runtime.initializationError
 			? { systemPrompt: `${event.systemPrompt}\n\nAdvisor worker initialization failed: ${runtime.initializationError}. No scoped work is authorized; report this to your parent.` }
 			: undefined;
 		let systemPrompt = event.systemPrompt;
 		if (state.childScope) {
+			const routerState = routerPromptState(await readRouterView(pi, ctx));
 			systemPrompt = withAdvisorSystemPrompt(systemPrompt, {
 				doctrine: state.doctrine,
-				guide: await liveIntelligenceGuide().catch(() => undefined),
+				routerState,
+				guide: routerState === 'disabled' ? await liveIntelligenceGuide().catch(() => undefined) : undefined,
 				workerHarness: state.childScope.family.workerHarness,
 			});
 			systemPrompt += `\n\n${childAdvisorScope(state)}`;
@@ -250,14 +253,15 @@ function registerSystemContract(pi: ExtensionAPI, runtime: WorkerRuntime): void 
 		}
 		return { systemPrompt: `${systemPrompt}\n\n${workerContract(state)}` };
 	});
-	pi.on("tool_call", (event) => {
+	pi.on("tool_call", async (event, ctx) => {
 		if (runtime.initializationError) return { block: true, reason: `Advisor worker initialization failed: ${runtime.initializationError}` };
 		const state = runtime.state;
 		if (!state?.childScope) return;
 		if (["advisor_session_init", "advisor_launch", "intercom"].includes(event.toolName) || event.toolName.startsWith("Routine")) {
 			return { block: true, reason: "A child advisor owns its assigned scope; use bg_agent for descendants, not top-level workstream or inter-session orchestration." };
 		}
-		const reason = advisorToolGuardReason(event.toolName, event.input, state.childScope.family.workerHarness);
+		const reason = advisorToolGuardReason(event.toolName, event.input, state.childScope.family.workerHarness)
+			?? (event.toolName === 'bg_agent' ? await routerLaunchGuard(pi, ctx, event.input, true) : undefined);
 		return reason ? { block: true, reason } : undefined;
 	});
 }

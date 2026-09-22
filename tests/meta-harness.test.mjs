@@ -112,7 +112,7 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   // The installed extensions must actually load from the installed tree, not only exist.
   // Package imports resolve through the repository's node_modules, as the live Pi provides its own.
   await symlink(join(ROOT, "node_modules"), join(target, "node_modules"));
-  for (const extension of ["advisor-session.ts", "advisor-worker.ts", "advisor-pi-host.ts", "advisor-runtime.ts", "advisor-memory.ts"]) {
+  for (const extension of ["advisor-session.ts", "advisor-worker.ts", "advisor-pi-host.ts", "advisor-runtime.ts", "advisor-memory.ts", "jev-router.ts"]) {
     const loaded = spawnSync(
       process.execPath,
       ["--import", "tsx", "-e", `import(${JSON.stringify(join(target, "extensions", extension))}).then(() => process.stdout.write("loaded"))`],
@@ -194,13 +194,13 @@ test("install merges user settings, copies the harness, and is idempotent", asyn
   assert.match(await readFile(join(target, "skills", "advisor-pi", "SKILL.md"), "utf8"), /workerHarness: "pi"/);
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-max");
-  assert.equal(guide.models["openai-codex/gpt-6-astra"].defaultThinking, "xhigh");
-  assert.equal(guide.recommendations.advisor[0].model, "openai-codex/gpt-6-astra");
+  assert.equal(guide.models["openai-codex/gpt-6-sol"].defaultThinking, "xhigh");
+  assert.equal(guide.recommendations.advisor[0].model, "openai-codex/gpt-6-sol");
   assert.equal(guide.recommendations.advisor[0].thinking, "xhigh");
-  assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-5.6-sol");
+  assert.equal(guide.recommendations.checker[0].model, "openai-codex/gpt-6-sol");
   assert.equal(guide.recommendations.checker[0].thinking, "xhigh");
   assert(!JSON.stringify(guide).includes("claude-bridge/"), "codex-max recommends no Anthropic model");
-  assert.equal(guide.recommendations.builder[0].model, "openai-codex/gpt-6-astra");
+  assert.equal(guide.recommendations.builder[0].model, "openai-codex/gpt-6-sol");
   assert.equal(guide.recommendations.builder[0].thinking, "xhigh");
   assert.equal(await readFile(join(target, "intelligence-profiles", "ACTIVE"), "utf8"), "codex-max\n");
   assert(settings.enabledModels.includes("claude-bridge/claude-fable-5-1"));
@@ -1061,7 +1061,7 @@ test("reinstall keeps a switched intelligence profile", async () => {
   const guide = JSON.parse(await readFile(join(target, "advisor-intelligence.json"), "utf8"));
   assert.equal(guide.name, "codex-lean");
   assert.deepEqual(guide.recommendations.advisor[0], {
-    model: "openai-codex/gpt-6-astra",
+    model: "openai-codex/gpt-6-sol",
     thinking: "high",
     fit: "Preferred for bounded end-to-end work with delegated internal steps in this profile.",
   });
@@ -1069,11 +1069,11 @@ test("reinstall keeps a switched intelligence profile", async () => {
   assert.deepEqual(
     guide.recommendations.builder.map(({ model, thinking }) => [model, thinking]),
     [
-      ["openai-codex/gpt-5.6-sol", "xhigh"],
-      ["openai-codex/gpt-5.6-sol", "max"],
+      ["openai-codex/gpt-6-sol", "xhigh"],
+      ["openai-codex/gpt-6-sol", "max"],
     ],
   );
-  assert.equal(guide.models["openai-codex/gpt-5.6-luna"].defaultThinking, "max");
+  assert.equal(guide.models["openai-codex/gpt-6-luna"].defaultThinking, "max");
   assert(Object.keys(guide.models).every((id) => id.startsWith("openai-codex/")));
   const doctor = run("doctor", "--target", target);
   assert.equal(doctor.status, 0, `${doctor.stdout}\n${doctor.stderr}`);

@@ -1,32 +1,28 @@
 {
   "name": "codex-max",
   "models": {
-    "openai-codex/gpt-6-astra": {
-      "character": "Advisory: The advisor session, child advisor, and primary builder model at xhigh reasoning. Advisors own planning and synthesis. Use Astra xhigh for decision-bearing implementation, substantial builds, and every kind of UX work with frontend-design loaded. Fresh-context review prefers Sol xhigh. Prefer Sol high when an execution packet has already locked the approach and material decisions.",
+    "openai-codex/gpt-6-sol": {
+      "character": "Advisory: The advisor session, child advisor, primary decision-bearing builder, and fresh-context checker model at xhigh reasoning. Advisors own planning and synthesis. Use xhigh for substantial builds, every kind of UX work with frontend-design loaded, final whole-diff review, and adversarial checks on schema, auth, security, money, and data boundaries. Use high for mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and implementation from a locked execution packet. For locked packets, fix the material approach, bound the surface, name deterministic anchors, resolve environment and tooling obstacles locally, and escalate material decisions outside the assignment.",
       "defaultThinking": "xhigh"
     },
-    "openai-codex/gpt-5.6-sol": {
-      "character": "Advisory: The procedural-tier workhorse at high reasoning for mechanical chores, routine mid-phase checks, repair verification, test-harness findings, and implementation from a locked execution packet; at xhigh it is the fresh-context checker, including adversarial checks on schema, auth, security, money, and data boundaries. For locked packets, fix the material approach, bound the surface, and name deterministic anchors. Sol owns investigation, local planning, code choices, and verification within its assignment, resolves environment and tooling obstacles locally, and escalates material decisions outside that assignment. Prefer high for procedural work and xhigh for review or material ambiguity.",
-      "defaultThinking": "high"
-    },
-    "openai-codex/gpt-5.6-luna": {
+    "openai-codex/gpt-6-luna": {
       "character": "Advisory: An economical option at max reasoning for explicit browser-flow checks by the assigned builder or checker. Browser verification is an author responsibility, not a separate role or required stage.",
       "defaultThinking": "max"
     },
     "cursor/grok-4.6": {
-      "character": "Advisory: High-efficiency generalist at high reasoning, kept as the alternate for research and bounded backend or mixed-stack work when Codex capacity is tight. UX work routes to Astra, not Grok. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default. This guide recommends Cursor only as cursor/grok-4.6.",
+      "character": "Advisory: High-efficiency generalist at high reasoning, kept as the alternate for research and bounded backend or mixed-stack work when Codex capacity is tight. UX work routes to GPT-6 Sol, not Grok. 200K window — keep packets bounded and split oversized work. Preserve Cursor catalog fast-mode default. This guide recommends Cursor only as cursor/grok-4.6.",
       "defaultThinking": "high"
     }
   },
   "recommendations": {
     "builder": [
       {
-        "model": "openai-codex/gpt-6-astra",
+        "model": "openai-codex/gpt-6-sol",
         "thinking": "xhigh",
-        "fit": "Preferred for all decision-bearing implementation, including substantial builds and all UX work with frontend-design loaded; prefer Sol high for a locked execution packet."
+        "fit": "Preferred for all decision-bearing implementation, including substantial builds and all UX work with frontend-design loaded; prefer GPT-6 Sol high for a locked execution packet."
       },
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-sol",
         "thinking": "high",
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       },
@@ -38,19 +34,19 @@
     ],
     "advisor": [
       {
-        "model": "openai-codex/gpt-6-astra",
+        "model": "openai-codex/gpt-6-sol",
         "thinking": "xhigh",
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       }
     ],
     "checker": [
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-sol",
         "thinking": "xhigh",
         "fit": "Preferred fresh-context review choice in this profile, including adversarial checks on schema, auth, security, money, and data boundaries."
       },
       {
-        "model": "openai-codex/gpt-5.6-sol",
+        "model": "openai-codex/gpt-6-sol",
         "thinking": "high",
         "fit": "Alternate for routine mid-phase checks and repair verification."
       }

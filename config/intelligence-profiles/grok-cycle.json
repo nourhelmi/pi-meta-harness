@@ -1,16 +1,12 @@
 {
   "name": "grok-cycle",
   "models": {
-    "claude-bridge/claude-fable-5-1": {
-      "character": "Advisory: The advisor's own session model, including planning and synthesis, at medium reasoning. Shares the Anthropic session allowance; delegate implementation and checking when useful to conserve capacity, not because the advisor cannot do them. At Anthropic capacity, the advisor session falls back to Grok at high.",
+    "claude-bridge/claude-opus-5-5": {
+      "character": "Advisory: Use Opus 5.5 at high for the advisor's own session, including planning and synthesis. Use medium as the economical executor for locked execution packets, mechanical chores, routine checks, repair verification, test-harness findings, focused browser verification, and alternate review. Own investigation, local planning, code choices, and verification within the assignment. For locked packets, use fixed material decisions and deterministic anchors; resolve tooling obstacles locally and escalate material ambiguity outside the assignment. Shares the Anthropic session allowance; at capacity, the advisor session falls back to Grok at high.",
       "defaultThinking": "high"
     },
-    "claude-bridge/claude-sonnet-5": {
-      "character": "Advisory: Preferred economical executor for a locked execution packet, mechanical chores, routine checks, repair verification, test-harness findings, and focused browser verification. Default reasoning is medium. Own investigation, local planning, code choices, and verification within the assignment. For locked packets, use fixed material decisions and deterministic anchors; resolve tooling obstacles locally and escalate material ambiguity outside the assignment. Prefer Grok for adversarial checking, final whole-diff review, and decision-bearing substantial implementation.",
-      "defaultThinking": "medium"
-    },
     "cursor/grok-4.6": {
-      "character": "Advisory: The hefty decision-bearing cycle: implementation workhorse and adversarial-tier checker. Backend, data, mixed-stack, substantial existing-UX, greenfield UX (load frontend-design), research, schema/auth/security/money checks, final whole-diff review, and rechecks after an overturned pass. Own investigation, planning, implementation or repair, and verification within the assignment. Prefer Sonnet medium when material decisions are already locked. Grok is also the advisor fallback when Fable is at capacity, including planning and synthesis. 200K window — keep packets task-shaped and split oversized reviews per package or phase. Review a Grok build in a fresh Grok context when useful; independence means a nonauthor assessment, not a different model. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
+      "character": "Advisory: The hefty decision-bearing cycle: implementation workhorse and adversarial-tier checker. Backend, data, mixed-stack, substantial existing-UX, greenfield UX (load frontend-design), research, schema/auth/security/money checks, final whole-diff review, and rechecks after an overturned pass. Own investigation, planning, implementation or repair, and verification within the assignment. Prefer Opus 5.5 medium when material decisions are already locked. Grok is also the advisor fallback when Opus 5.5 is at capacity, including planning and synthesis. 200K window — keep packets task-shaped and split oversized reviews per package or phase. Review a Grok build in a fresh Grok context when useful; independence means a nonauthor assessment, not a different model. This guide recommends Cursor only as cursor/grok-4.6. Preserve Cursor catalog fast-mode default.",
       "defaultThinking": "high"
     }
   },
@@ -22,7 +18,7 @@
         "fit": "Preferred implementation choice in this profile."
       },
       {
-        "model": "claude-bridge/claude-sonnet-5",
+        "model": "claude-bridge/claude-opus-5-5",
         "thinking": "medium",
         "fit": "Preferred cheap executor for a locked execution packet: fixed approach, bounded surface, deterministic anchors, and stop-on-material-ambiguity."
       }
@@ -34,7 +30,7 @@
         "fit": "Preferred for bounded end-to-end work with delegated internal steps in this profile."
       },
       {
-        "model": "claude-bridge/claude-sonnet-5",
+        "model": "claude-bridge/claude-opus-5-5",
         "thinking": "medium",
         "fit": "Native-harness fallback for bounded end-to-end work with delegated internal steps."
       }
@@ -46,7 +42,7 @@
         "fit": "Preferred fresh-context review choice in this profile."
       },
       {
-        "model": "claude-bridge/claude-sonnet-5",
+        "model": "claude-bridge/claude-opus-5-5",
         "thinking": "medium",
         "fit": "Alternate review choice; select by review tier, risk, and capacity."
       }

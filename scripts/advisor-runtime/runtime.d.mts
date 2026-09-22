@@ -1,3 +1,5 @@
+import type { AgentRouterControl } from './agent-router-control.mjs';
+
 export interface RuntimeOptions {
   stateRoot: string;
   allowedRoots: string[];
@@ -10,6 +12,7 @@ export interface RuntimeOptions {
 export class AdvisorRuntime {
   constructor(options: RuntimeOptions);
   readonly stateRoot: string;
+  initializeRouterControl(options?: { env?: NodeJS.ProcessEnv; configPath?: string }): AgentRouterControl | null;
   registerPrincipal(registration: unknown): string;
   protectControlPath(path: string): string;
   revokePrincipal(principalId: string): void;

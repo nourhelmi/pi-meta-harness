@@ -19,6 +19,7 @@ import { cancelChildService, childWorkSettled, closeChildService } from './pi-de
 import { writeCredential } from './service.mjs';
 import { parseAgentMessage } from './messaging-client.mjs';
 import { configureAgentMessenger } from './messaging-launch.mjs';
+import { createAgentRouterControl } from './agent-router-control.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const TEAM_STATUS_MESSAGE_WINDOW = 128;
@@ -40,7 +41,7 @@ function utf8Preview(value, maxBytes) {
 /** Trusted host API. Never expose registration, ingestion, SQL, or adapters over transport. */
 export class AdvisorRuntime {
   #db; #release; #owner; #root; #allowedRoots; #adapters; #fault; #schema; #closed = false; #dispatching = null;
-  #piBridge; #repository;
+  #piBridge; #repository; #fresh;
   #controlPaths = new Set(); #controlDirectories = new Set();
   #notifications = new EventEmitter();
   constructor({ stateRoot, allowedRoots, controlPaths = [], controlDirectories = [], adapters = { roots: {}, workers: {} }, piBridge = null, fault = () => {} }) {
@@ -70,6 +71,7 @@ export class AdvisorRuntime {
     for (const path of controlPaths) { privateDirectory(dirname(path)); safeFile(path); }
     for (const directory of ['traces', 'runs', 'ownership', 'messengers']) privateDirectory(join(this.#root, directory));
     this.#release = acquireLock(join(this.#root, 'service.lock'));
+    this.#fresh = !existsSync(existingDatabase);
     this.#piBridge = piBridge;
     this.#repository = piBridge?.dynamic ? repositoryIdentity(piBridge.cwd) : null;
     this.#owner = randomUUID(); this.#adapters = adapters; this.#fault = fault;
@@ -120,6 +122,15 @@ export class AdvisorRuntime {
     } catch (error) { this.#db?.close(); this.#release(); throw error; }
   }
   get stateRoot() { return this.#root; }
+  initializeRouterControl(options = {}) {
+    this.#fence();
+    const config = this.#piBridge;
+    demand(config && (config.rootHost ?? 'pi') === 'pi', 'AGENT_ROUTER_CONTROL_UNSUPPORTED');
+    demand(config.routerControl === undefined, 'AGENT_ROUTER_CONTROL_ALREADY_INITIALIZED');
+    config.routerControl = createAgentRouterControl({ ...options, stateRoot: this.#root, sessionId: config.sessionId,
+      allowedRoots: this.#allowedRoots, allowInitialize: this.#fresh, childGrant: config.childGrant, assertOwner: () => this.#fence() });
+    return config.routerControl;
+  }
   initializeFamily() {
     const config = this.#piBridge;
     if (!config || config.childGrant) return;
@@ -778,7 +789,13 @@ export class AdvisorRuntime {
         fields(p, ['identity', 'cwd']);
         demand(config.managedIdentity && canonicalJson(p.identity) === canonicalJson(config.managedIdentity) && realpathSync(p.cwd) === config.cwd, 'PI_DETACH_BINDING_MISMATCH');
         this.#fence();
-        return { ok: true, value: { ready: true, revision: config.revision ?? null } };
+        return { ok: true, value: { ready: true, revision: config.revision ?? null, ...(config.routerControl ? { router: config.routerControl.status() } : {}) } };
+      }
+      if (c.action === 'router.status' || c.action === 'router.set') {
+        fields(p, c.action === 'router.status' ? [] : ['enabled', 'expectedGeneration']);
+        this.#fence();
+        demand(config.routerControl, 'AGENT_ROUTER_CONTROL_UNSUPPORTED');
+        return { ok: true, value: c.action === 'router.status' ? config.routerControl.status() : await config.routerControl.set(p) };
       }
       if (c.action === 'advisor.bind') {
         fields(p, ['workstream', 'workerHarness'], ['teamMode']);

@@ -58,7 +58,7 @@ const routerModule = join(root, 'fake-agent-router.mjs');
 const routerConfig = join(root, 'fake-agent-router.json');
 if (phase === 'router') {
  writeFileSync(routerModule, `export const events=[];export const leases=new Set();let next=0;export async function route(request,options){events.push({kind:'route',request,options});const id='product-route-'+(++next);leases.add(id);return {version:1,id,selected:{model:request.pin?.model??(request.harness==='native'?'openai-codex/router-native':'openai/router-pi'),thinking:request.pin?.thinking??'high'},strategy:request.pin?'pinned':'fallback',at:new Date().toISOString()}}export async function renew(id,options){events.push({kind:'renew',id,options});if(!leases.has(id))throw new Error('AGENT_ROUTER_LEASE_EXPIRED')}export async function release(id,options){events.push({kind:'release',id,options});leases.delete(id)}`);
- writeFileSync(routerConfig, JSON.stringify({ version: 1, enabled: true, modulePath: routerModule }));
+ writeFileSync(routerConfig, JSON.stringify({ version: 1, enabled: true, modulePath: routerModule, stateDir: join(root, 'router-store'), credentialsFile: join(root, 'router-credentials.json') }));
 }
 process.env.PI_DETACH_RUNTIME_BRIDGE = resolve('scripts/advisor-runtime/pi-detach-client.mjs');
 process.env.ADVISOR_RUNTIME_DESCRIPTOR = descriptor;

@@ -13,13 +13,17 @@ import { readChildScope } from "../scripts/advisor-runtime/pi-detach-bootstrap.m
 test("child advisors share doctrine, own checkpoints and link sibling graphs through validated runtime scopes", async () => {
   const base = await realpath(await mkdtemp("/tmp/adv-child-"));
   const cwd = join(base, "work"); await mkdir(cwd);
-  const keys = ["ADVISOR_BRIDGE_CHILD_STATE", "ADVISOR_BRIDGE_WORKER_DIR", "ADVISOR_STATE_DIR", "ADVISOR_WORKSTREAM", "PI_DETACH_AGENT_PROFILES", "PI_CODING_AGENT_DIR", "PI_DETACH_WORKER_HARNESS"];
+  const keys = ["ADVISOR_BRIDGE_CHILD_STATE", "ADVISOR_BRIDGE_WORKER_DIR", "ADVISOR_STATE_DIR", "ADVISOR_WORKSTREAM", "PI_DETACH_AGENT_PROFILES", "PI_CODING_AGENT_DIR", "PI_DETACH_WORKER_HARNESS", "PI_DETACH_RUNTIME_BRIDGE", "PI_DETACH_BACKEND"];
   const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   const hosts: Awaited<ReturnType<typeof hostPiDetach>>[] = [];
   const profiles = join(base, "roles.json");
   await writeFile(profiles, JSON.stringify({ profiles: { advisor: { skill: "advisor-role-advisor", maxTurns: 6 }, builder: {}, checker: {} } }));
   const guide = { name: "child-test", models: { "test/model": { character: "shared guide", defaultThinking: "high" } } };
   await writeFile(join(base, "advisor-intelligence.json"), JSON.stringify(guide));
+  const routerConfigPath = join(base, 'router.json');
+  const modulePath = join(base, 'router.mjs');
+  await writeFile(modulePath, 'export async function route(){throw Error("UNEXPECTED_ROUTE")}; export async function renew(){}; export async function release(){};', {mode: 0o600});
+  await writeFile(routerConfigPath, JSON.stringify({version: 1, enabled: false, modulePath, stateDir: join(base, 'router-state'), credentialsFile: join(base, 'not-read.json')}), {mode: 0o600});
   const port = {
     version: 1,
     async prepare(params: any, sourceDirectory: string, scope: any) {
@@ -30,7 +34,7 @@ test("child advisors share doctrine, own checkpoints and link sibling graphs thr
   };
   async function start(stateRoot: string, sessionId: string) {
     const credentialPath = join(stateRoot, "pi.json");
-    const host = await hostPiDetach({ stateRoot, cwd, sessionId, credentialPath, port, maxLaunches: 8, keepAlive: false, managedIdentity: { workstream: "root-outcome", workerHarness: "native" } });
+    const host = await hostPiDetach({ stateRoot, cwd, sessionId, credentialPath, port, routerConfigPath, routerControl: true, maxLaunches: 8, keepAlive: false, managedIdentity: { workstream: "root-outcome", workerHarness: "native" } });
     hosts.push(host);
     await writeFile(join(stateRoot, "startup.json"), JSON.stringify({ identity: { sessionId } }), { mode: 0o600 });
     const client = createPiDetachClient(credentialPath);
@@ -39,6 +43,8 @@ test("child advisors share doctrine, own checkpoints and link sibling graphs thr
   try {
     process.env.PI_DETACH_AGENT_PROFILES = profiles;
     process.env.PI_CODING_AGENT_DIR = base;
+    delete process.env.PI_DETACH_BACKEND;
+    process.env.PI_DETACH_RUNTIME_BRIDGE = '/fixture/not-imported.mjs';
     process.env.ADVISOR_STATE_DIR = join(base, "root-checkpoint");
     process.env.ADVISOR_WORKSTREAM = "untrusted-ambient-name";
     delete process.env.ADVISOR_BRIDGE_CHILD_STATE;
@@ -67,7 +73,7 @@ test("child advisors share doctrine, own checkpoints and link sibling graphs thr
         on(name: string, hook: (...args: any[]) => any) { hooks.set(name, [...(hooks.get(name) ?? []), hook]); },
         appendEntry: (kind: string) => entries.push(kind),
         getActiveTools: () => active, setActiveTools: (names: string[]) => { active = names; },
-        events: { emit(_name: string, request: any) { request.response = child.request(request.action, request.payload); } },
+        events: { emit(name: string, request: any) { if (name === 'pi-detach:request') request.response = child.request(request.action, request.payload); } },
       } as unknown as ExtensionAPI;
       advisorSessionExtension(pi); advisorWorkerExtension(pi); advisorGraphExtension(pi);
       const ctx = { cwd, model: { provider: "test", id: "model" }, thinkingLevel: "high", sessionManager: { getSessionId: () => `child-${id}`, getBranch: () => [] }, ui: { setStatus() {}, notify: (message: string) => notices.push(message) } } as unknown as ExtensionContext;
@@ -88,6 +94,13 @@ test("child advisors share doctrine, own checkpoints and link sibling graphs thr
       await emit("session_compact", {});
       const compacted = (await emit("before_agent_start", { systemPrompt: "base" })).find(value => value?.systemPrompt)?.systemPrompt;
       assert.match(compacted, /# Child Advisor Checkpoint/);
+      const before = await child.request('router.status');
+      assert.equal(before.enabled, false);
+      await child.request('router.set', {enabled: true, expectedGeneration: before.generation});
+      const routed = (await emit('before_agent_start', {systemPrompt: 'base'})).find(value => value?.systemPrompt)?.systemPrompt;
+      assert.match(routed, /# Agent Router[\s\S]*Omit `model` and `thinking`/);
+      assert.doesNotMatch(routed, /# Active Intelligence Guide|shared guide/);
+      assert.equal((await root.request('router.status')).enabled, false, 'child mode never changes parent');
       const guard = async (toolName: string, input = {}) => (await emit("tool_call", { toolName, input })).find(value => value?.block);
       assert.equal(await guard("bg_agent", { role: "advisor", harness: "pi", anchor: "prove it" }), undefined);
       assert.equal(await guard("bg_agent", { role: "builder", anchor: "prove it" }), undefined);

@@ -81,11 +81,51 @@ identity boundaries and honest delivery/retry semantics.
 
 ### Optional external agent router
 
-Trusted host config is read from `~/.config/agent-router/config.json`, or the
-`AGENT_ROUTER_CONFIG` override. Missing or disabled version-1 config leaves the existing
-execution port untouched. Enabled config must name an absolute module implementing
-`route`, `renew`, and `release`; invalid config/module and no-feasible-route results reject
-the launch rather than falling back.
+In Pi, `/jev-router on|off` controls **this session's future launches**. Commands wait
+for the current turn to finish, then change the authenticated host's durable gate and
+show its acknowledgement. `/jev-router` (or `status`) reports actual host state.
+`/jev-router config` uses a native dialog to save the default for **new sessions only**;
+Escape cancels without writing. No JSON editing is needed for ordinary switching.
+OFF restores ordinary model selection for new workers, without router quota/lease
+admission. It is not merely disabling Jev scoring; existing routed leases keep their
+normal renewal and release behavior.
+
+The compact status occupies a native row below the input, in the footer area. This
+stays visible even when a custom footer truncates other extension statuses; it never
+replaces the existing footer. ON/OFF, configuration error, disconnected/unknown and
+old-host restart-required are distinct. ON means routing is enabled, not that provider
+quota is available or that Jev rather than deterministic fallback won a decision.
+
+Future defaults live in private `~/.pi/agent/jev-router.json` (respecting
+`PI_CODING_AGENT_DIR`). Initially the existing `~/.config/agent-router/config.pi.json`
+is preferred, then `config.json`; the template's enabled flag supplies the initial
+default. Explicit `AGENT_ROUTER_CONFIG` selects both source and initial mode instead.
+A new host snapshots the complete template in its private owned control directory,
+retaining the original shared quota/lease state and credential/benchmark **paths**—not
+copying credential contents. The immutable snapshot stays enabled for lifecycle
+operations; only the separate session gate changes. Original global router configs,
+profiles and other sessions are untouched. The router must already be installed and
+configured; missing setup cannot be enabled by pretending it is ready.
+
+Resume/reload reuse the session gate and snapshot. New/forked top-level sessions use
+future defaults; same-session tree navigation does not rewind this operational switch.
+New approved descendants inherit their parent's mode/config at preparation, then own
+independent controls. Changes never broadcast to existing children or other sessions.
+A prepare captures the gate before its first await, so an already-preparing launch
+finishes under that captured mode. Turning OFF does not cancel it, reroute workers,
+clear leases, stop renewal, or change followup/release/recovery behavior.
+
+`router.status` and generation-checked `router.set` reuse the authenticated `pi.detach`
+channel. Public model tools cannot select control paths/modules. Lost acknowledgements
+show unknown; they do not cause automatic retry or rollback. Root and child advisor
+prompts and fresh-launch guards read the same host state. Old hosts without this
+capability require a **new Pi session**; `/reload` changes only the client. No restart,
+adoption of uncertain work, or migration over old leases is attempted.
+
+Nonmanaged/native-root callers retain the original trusted config path behavior.
+Enabled config must name an absolute module implementing `route`, `renew`, and
+`release`; invalid config/module and no-feasible-route results reject the launch
+rather than falling back.
 
 Routing wraps the managed execution port's side-effect-free prepare boundary. The original
 port first validates the public request and resolves role/harness policy, the router selects

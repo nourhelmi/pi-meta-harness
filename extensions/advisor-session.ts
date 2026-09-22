@@ -6,7 +6,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import { managedBridgeEnabled } from "../scripts/advisor-runtime/pi-detach-bootstrap.mjs";
-import { agentRouterEnabled } from "../scripts/advisor-runtime/agent-router.mjs";
+import { readRouterView, routerPromptState, routerLaunchGuard, type RouterPromptState } from './advisor-core/router-control.ts';
 import {
   advisorCheckpoint,
 	advisorStateRoot,
@@ -69,12 +69,8 @@ function agentDirectory(): string {
 	return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
 }
 
-function agentRouterState(): "disabled" | "enabled" | "invalid" {
-	try { return agentRouterEnabled() ? "enabled" : "disabled"; }
-	catch { return "invalid"; }
-}
-
-function advisorContinuation(workerHarness: WorkerHarness, routerState = agentRouterState()): string {
+function advisorContinuation(workerHarness: WorkerHarness, routerState: RouterPromptState): string {
+	if (routerState === 'invalid') return 'The managed host cannot confirm this session\'s routing mode. Fresh worker launches are fenced; do not bypass this by choosing a model. Existing-worker followups, output and cancellation remain available. Use /jev-router status for the operational state.';
 	const route = workerHarness === "native"
 		? "OpenAI models route to Codex CLI and Anthropic/Claude models route to Claude Code."
 		: "Selected worker models run through Pi.";
@@ -165,7 +161,8 @@ async function liveHotSection(workstreamPath: string): Promise<string | undefine
 	return content === undefined ? undefined : workstreamHotSection(content);
 }
 
-function workerHarnessDoctrine(workerHarness?: WorkerHarness, routerState: "disabled" | "enabled" | "invalid" = "disabled"): string {
+function workerHarnessDoctrine(workerHarness?: WorkerHarness, routerState: RouterPromptState = "disabled"): string {
+	if (routerState === 'invalid') return '# Advisor Worker Harness\n\nHost routing mode is unconfirmed. Do not launch fresh workers or fall back to manual model selection; existing-worker controls remain available.';
 	if (routerState === "disabled") {
 		const policy = workerHarness === "native"
 			? "Configured specialist roles use the native worker harness: OpenAI models route to Codex CLI and Anthropic/Claude models to Claude Code. Cursor-only models have no native route; choose a task-appropriate OpenAI or Anthropic recommendation instead."
@@ -186,7 +183,7 @@ interface AdvisorPromptParts {
 	doctrine?: string;
 	guide?: string;
 	workerHarness?: WorkerHarness;
-	routerState?: "disabled" | "enabled" | "invalid";
+	routerState?: RouterPromptState;
 	hotSection?: string;
   workstreamPath?: string;
   teamPolicy?: string;
@@ -202,9 +199,10 @@ export function withAdvisorSystemPrompt(systemPrompt: string, parts: AdvisorProm
 	}
 	const routerState = parts.routerState ?? "disabled";
   if (parts.guide && routerState === "disabled") sections.push(`# Active Intelligence Guide\n\n${parts.guide}`);
-	if (routerState !== "disabled") {
-		const availability = routerState === "enabled" ? "enabled" : "misconfigured";
-		sections.push(`# Agent Router\n\nThe external agent router is ${availability} and authoritative for worker model/thinking selection. Omit \`model\` and \`thinking\` from \`bg_agent\` unless the user explicitly pins a model (and optionally effort). A model without thinking is a valid pin; thinking without model is invalid. You still own the task, role, harness, acceptance, and dependency graph. Router failure is a launch failure; never bypass it by choosing an identity yourself.`);
+	if (routerState === 'invalid') {
+		sections.push('# Agent Router\n\nThe managed host cannot confirm this session\'s routing mode. Fresh bg_agent launches are fenced. Do not guess an identity or bypass this state; existing-worker followups, output and cancellation remain available. Use /jev-router status for the operational state.');
+	} else if (routerState === 'enabled') {
+		sections.push('# Agent Router\n\nThe external agent router is enabled and authoritative for worker model/thinking selection. Omit `model` and `thinking` from `bg_agent` unless the user explicitly pins a model (and optionally effort). A model without thinking is a valid pin; thinking without model is invalid. You still own the task, role, harness, acceptance, and dependency graph. Router failure is a launch failure; never bypass it by choosing an identity yourself.');
 	}
   if (parts.teamPolicy) sections.push(`# CoS team mode\n\n${parts.teamPolicy}`);
 	sections.push(workerHarnessDoctrine(parts.workerHarness, routerState));
@@ -604,7 +602,8 @@ function registerVisibilityGuard(
 			const checkpoint = await advisorCheckpoint(ctx);
 			if (!checkpoint?.content) return { block: true, reason: checkpoint?.problem ?? "Advisor checkpoint unavailable; reinitialize before worker effects." };
 		}
-		const reason = advisorToolGuardReason(event.toolName, event.input, state.workerHarness);
+		const reason = advisorToolGuardReason(event.toolName, event.input, state.workerHarness)
+			?? (event.toolName === 'bg_agent' ? await routerLaunchGuard(pi, ctx, event.input, true) : undefined);
 		return reason ? { block: true, reason } : undefined;
 	});
 }
@@ -761,7 +760,7 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		catch (error) { bindingError = String(error); return { systemPrompt: `${event.systemPrompt}\n\nAdvisor family binding failed: ${bindingError}. Worker effects are fenced; resolve initialization before proceeding.` }; }
     activeState = checkpoint.state;
 		if (doctrine === undefined) await loadDoctrine(ctx);
-		const routerState = agentRouterState();
+		const routerState = routerPromptState(await readRouterView(pi, ctx));
 		const guide = routerState === "disabled" ? await liveIntelligenceGuide().catch(() => undefined) : undefined;
 		let hotSection: string | undefined;
 		let workstreamPath: string | undefined;
@@ -886,7 +885,7 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 							`Workstream file: ${initialized.paths.workstream}\n` +
 							`Events: ${initialized.paths.events}\n` +
 							`Runs and graphs live under the same root. Legacy in-repo .advisor/ directories are read-only history.\n\n` +
-							advisorContinuation(initialized.state.workerHarness) +
+							advisorContinuation(initialized.state.workerHarness, routerPromptState(await readRouterView(pi, ctx))) +
 							(hotSection !== undefined ? `\n\n## Workstream hot section\n\n${hotSection}` : ""),
 					},
 				],

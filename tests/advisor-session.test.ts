@@ -141,7 +141,14 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
   let sessionCompact: ((event: SessionCompactEvent, ctx: ExtensionContext) => void) | undefined;
   let toolCall: ((event: ToolCallEvent, ctx: ExtensionContext) => Promise<{ block: boolean; reason: string } | undefined>) | undefined;
   let sessionName: string | undefined;
+  let routerEnabled = false;
   const pi = {
+    events: { emit(name: string, event: any) {
+      if (name === 'pi-detach:request' && event.action === 'advisor.bind') event.response = Promise.resolve({bound: true});
+      if (name === 'pi-detach:request' && event.action === 'router.status') event.response = Promise.resolve({
+        version: 1, sessionId: event.sessionId, enabled: routerEnabled, generation: 0, templatePath: '/configured/router.json',
+      });
+    } },
     getFlag: () => undefined,
     exec: async () => ({ code: 0, stdout: "", stderr: "" }),
     getSessionName: () => sessionName,
@@ -180,7 +187,7 @@ function installedAdvisorResumeRuntime(branch: unknown[]) {
     },
     ui: { notify: () => undefined },
   } as unknown as ExtensionContext;
-  return { beforeAgentStart, ctx, sessionCompact, sessionStart, toolCall: (event: ToolCallEvent) => toolCall!(event, ctx) };
+  return { beforeAgentStart, ctx, sessionCompact, sessionStart, toolCall: (event: ToolCallEvent) => toolCall!(event, ctx), setRouterEnabled: (enabled: boolean) => { routerEnabled = enabled; } };
 }
 
 const REFERENCE_NAMES = ["graphs", "model-routing", "team", "transport-and-settlement"];
@@ -357,10 +364,14 @@ test("advisor sessions inject the doctrine once with the live guide and re-send 
     advisorStateDir: process.env.ADVISOR_STATE_DIR,
     agentDir: process.env.PI_CODING_AGENT_DIR,
     routerConfig: process.env.AGENT_ROUTER_CONFIG,
+    backend: process.env.PI_DETACH_BACKEND,
+    bridge: process.env.PI_DETACH_RUNTIME_BRIDGE,
   };
   process.env.ADVISOR_STATE_DIR = stateDir;
   process.env.PI_CODING_AGENT_DIR = agentDir;
   process.env.AGENT_ROUTER_CONFIG = join(stateDir, "missing-router.json");
+  delete process.env.PI_DETACH_BACKEND;
+  process.env.PI_DETACH_RUNTIME_BRIDGE = '/fixture/never-imported.mjs';
   const branch = [
     {
       type: "custom",
@@ -389,7 +400,7 @@ test("advisor sessions inject the doctrine once with the live guide and re-send 
       }),
       "utf8",
     );
-    const { beforeAgentStart, ctx, sessionCompact, sessionStart } = installedAdvisorResumeRuntime(branch);
+    const { beforeAgentStart, ctx, sessionCompact, sessionStart, setRouterEnabled } = installedAdvisorResumeRuntime(branch);
 
     await sessionStart({ reason: "resume" }, ctx);
     const first = await beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
@@ -416,6 +427,9 @@ test("advisor sessions inject the doctrine once with the live guide and re-send 
     await writeFile(routerModule, "export async function route(){}; export async function renew(){}; export async function release(){};");
     await writeFile(routerConfig, JSON.stringify({ version: 1, enabled: true, modulePath: routerModule }));
     process.env.AGENT_ROUTER_CONFIG = routerConfig;
+    const unchanged = await beforeAgentStart({ systemPrompt: 'base prompt' }, ctx);
+    assert.match(unchanged!.systemPrompt, /# Active Intelligence Guide/, 'global config does not select the session mode');
+    setRouterEnabled(true);
     const routed = await beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
     assert.ok(routed);
     assert.match(routed.systemPrompt, /# Agent Router[\s\S]*Omit `model` and `thinking`/);
@@ -428,6 +442,8 @@ test("advisor sessions inject the doctrine once with the live guide and re-send 
     restore("ADVISOR_STATE_DIR", previous.advisorStateDir);
     restore("PI_CODING_AGENT_DIR", previous.agentDir);
     restore("AGENT_ROUTER_CONFIG", previous.routerConfig);
+    restore('PI_DETACH_BACKEND', previous.backend);
+    restore('PI_DETACH_RUNTIME_BRIDGE', previous.bridge);
     await rm(stateDir, { force: true, recursive: true });
     await rm(agentDir, { force: true, recursive: true });
   }
