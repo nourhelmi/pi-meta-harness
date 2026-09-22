@@ -48,8 +48,10 @@ export async function startService(runtime, { keepAlive = true, beforeShutdown =
           socket.end(encode({ ok: true, value: runtime.describe(request.token, request.audience) })); return;
         }
         const command = request.command;
-        demand(!closing || !(MUTATIONS.includes(command?.op) || command?.op === 'pi.detach' && (['call', 'cancel', 'shutdown', 'advisor.bind'].includes(command.action) || command.action?.startsWith('team.') && command.action !== 'team.status') || command?.op === 'family' && ['reserve', 'register', 'bind'].includes(command.action)), 'SHUTDOWN_BUSY');
-        const resultPromise = request.command?.op === 'family' ? runtime.familyRequest(request.token, request.command, request.audience) : request.command?.op === "pi.detach" ? runtime.piDetachRequest(request.token, request.command, request.audience) : runtime.request(request.token, request.command, request.audience);
+        const messageMutation = command?.op === 'agent.message' && ['send', 'reply'].includes(command.payload?.action)
+          || command?.op === 'pi.detach' && command.action === 'message' && ['send', 'reply'].includes(command.payload?.action);
+        demand(!closing || !(MUTATIONS.includes(command?.op) || messageMutation || command?.op === 'pi.detach' && (['call', 'cancel', 'shutdown', 'advisor.bind'].includes(command.action) || command.action?.startsWith('team.') && command.action !== 'team.status') || command?.op === 'family' && ['reserve', 'register', 'bind'].includes(command.action)), 'SHUTDOWN_BUSY');
+        const resultPromise = command?.op === 'agent.message' ? runtime.messageRequest(request.token, command, request.audience) : command?.op === 'family' ? runtime.familyRequest(request.token, command, request.audience) : command?.op === 'pi.detach' ? runtime.piDetachRequest(request.token, command, request.audience) : runtime.request(request.token, command, request.audience);
         if (request.command?.op === 'pi.detach' && request.command.action === 'shutdown') {
           const result = await resultPromise;
           if (result.ok) { await shutdown(); socket.end(encode(result)); server.close(); }

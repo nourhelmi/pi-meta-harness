@@ -51,8 +51,9 @@ for (const prompt of ['x'.repeat(16384), 'x'.repeat(20053), '🚀'.repeat(6000),
       commandId: 'public-packet', expectedRevision: 1, payload: { node: 'worker', packet: node.packet } };
     assert.ok(Buffer.byteLength(JSON.stringify(command)) > 32768, 'reproduces generated envelope expansion');
     assert.equal(root.launches.length, 1);
-    assert.equal(root.launches[0].intent.prompt, prompt, 'no truncation or loss during launch');
-    assert.equal(node.packet.task, prompt);
+    assert.equal(root.launches[0].intent.prompt.slice(0, prompt.length), prompt, 'no truncation or loss during launch');
+    assert.equal(node.packet.task, root.launches[0].intent.prompt);
+    assert.match(node.packet.task.slice(prompt.length), /^\n\n## Agent communication\n/);
     assert.deepEqual(node.packet.acceptance, params.acceptance);
     await root.launch('large', params);
     assert.equal(root.launches.length, 1, 'exact replay does not launch twice');
@@ -63,7 +64,7 @@ for (const prompt of ['x'.repeat(16384), 'x'.repeat(20053), '🚀'.repeat(6000),
     assert.deepEqual(root.host.runtime.execute(credential.token, { ...command, payload: { node: 'worker', packet: scalarPacket } }, 'model'), { ok: false, error: 'STALE_REVISION' }, 'large tasks retain revision fencing');
     root.settle(); await root.ack(runId);
     const large = await root.launch('oversized-task', { prompt: 'x'.repeat(200000) });
-    assert.equal(root.launches.length, 2); assert.equal(root.launches[1].intent.prompt.length, 200000);
+    assert.equal(root.launches.length, 2); assert.equal(root.launches[1].intent.prompt.slice(0, 200000), 'x'.repeat(200000));
     root.settle(); await root.ack(large);
     await root.host.service.close();
   });
@@ -72,7 +73,7 @@ for (const prompt of ['x'.repeat(16384), 'x'.repeat(20053), '🚀'.repeat(6000),
 test('host expansion stays bounded and ordinary admission reports errors without an intent preflight', async t => {
   const f = fixture(t); const root = await f.start('root', { promptPrefix: 'x'.repeat(65536) });
   const expanded = await root.launch('expanded-too-large');
-  assert.equal(root.launches[0].intent.prompt.length, 65540); root.settle(); await root.ack(expanded);
+  assert.equal(root.launches[0].intent.prompt.slice(0, 65540), 'x'.repeat(65536) + 'task'); root.settle(); await root.ack(expanded);
   const invalid = await f.start('invalid');
   const large = await invalid.launch('large-acceptance', { acceptance: ['x'.repeat(100000)] }); invalid.settle(); await invalid.ack(large);
   await assert.rejects(invalid.launch('bad-acceptance', { acceptance: [1] }), /^Error: INVALID_TEXT$/);

@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { EventEmitter } from 'node:events';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { closeSync, existsSync, openSync, readFileSync, realpathSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readFileSync, realpathSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { admitCommand } from '../advisor-core/command-admission.mjs';
 import { canonicalJson } from '../advisor-core/command-contract.mjs';
@@ -16,6 +16,9 @@ import { RuntimeError, acquireLock, atomicWrite, artifactRead, boundedRead, dema
 import { childStatePath, familyCall, parentRuntimeCall, publicChildScope } from './child-scope.mjs';
 import { newFamily, familyOperation } from './family.mjs';
 import { cancelChildService, childWorkSettled, closeChildService } from './pi-detach-bootstrap.mjs';
+import { writeCredential } from './service.mjs';
+import { parseAgentMessage } from './messaging-client.mjs';
+import { configureAgentMessenger } from './messaging-launch.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const TEAM_STATUS_MESSAGE_WINDOW = 128;
@@ -65,7 +68,7 @@ export class AdvisorRuntime {
     this.#root = privateDirectory(stateRoot);
     for (const path of this.#controlDirectories) privateDirectory(path);
     for (const path of controlPaths) { privateDirectory(dirname(path)); safeFile(path); }
-    for (const directory of ['traces', 'runs', 'ownership']) privateDirectory(join(this.#root, directory));
+    for (const directory of ['traces', 'runs', 'ownership', 'messengers']) privateDirectory(join(this.#root, directory));
     this.#release = acquireLock(join(this.#root, 'service.lock'));
     this.#piBridge = piBridge;
     this.#repository = piBridge?.dynamic ? repositoryIdentity(piBridge.cwd) : null;
@@ -98,7 +101,9 @@ export class AdvisorRuntime {
         CREATE TABLE IF NOT EXISTS family_admissions (id TEXT PRIMARY KEY, digest TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS family_control (singleton INTEGER PRIMARY KEY CHECK(singleton=1), sealed INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS workspace_identity (singleton INTEGER PRIMARY KEY CHECK(singleton=1), data TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS bootstrap (singleton INTEGER PRIMARY KEY CHECK(singleton=1), digest TEXT NOT NULL);`);
+        CREATE TABLE IF NOT EXISTS bootstrap (singleton INTEGER PRIMARY KEY CHECK(singleton=1), digest TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS messengers (run TEXT PRIMARY KEY, token TEXT UNIQUE NOT NULL, principal TEXT NOT NULL, descriptor TEXT NOT NULL, data TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS messages (sender TEXT NOT NULL, id TEXT NOT NULL, digest TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(sender,id));`);
       if (this.#piBridge?.dynamic) {
         const identity = canonicalJson({ cwd: this.#piBridge.cwd, common: this.#repository });
         const old = this.#one('SELECT data FROM workspace_identity WHERE singleton=1');
@@ -387,6 +392,7 @@ export class AdvisorRuntime {
     demand(['queued', 'rejected', 'unknown'].includes(delivery.status) && delivery.session === effect.payload.target.session, 'BRIDGE_MESSAGE_UNAVAILABLE');
     integer(delivery.generation, 1); text(delivery.state);
     const run = this.#load(runId);
+    this.#messageEffectStatus(effect, delivery.status);
     this.#delivery(run, name, { kind: 'message.delivery', commandId: effect.commandId, delivery: clone(delivery), text: effect.payload.text });
     this.#save(run);
   }
@@ -531,6 +537,221 @@ export class AdvisorRuntime {
     const principal = decode(row.data); demand(audience !== 'model' || principal.kind !== 'operator', 'MODEL_OPERATOR_FORBIDDEN');
     return { operations: principal.operations, scopes: principal.scopes };
   }
+  #messageRootId() {
+    const run = this.#piBridge?.childGrant?.parent?.scope?.run;
+    return run ?? `advisor-${hash(this.#piBridge?.sessionId ?? this.#root).slice(0, 24)}`;
+  }
+  #messagePeers() {
+    const rootId = this.#messageRootId();
+    const peers = [{ id: rootId, name: 'advisor', role: 'advisor', harness: this.#piBridge?.rootHost ?? 'pi', state: 'running', available: true, root: true }];
+    for (const row of this.#all('SELECT * FROM messengers ORDER BY run')) {
+      const data = decode(row.data); const run = this.#load(row.run); const node = run?.nodes?.worker;
+      const keepAlive = node && (node.cleanupKeepAlive ?? node.packet.execution?.keepAlive);
+      const available = Boolean(node?.launched && node.handle?.session && node.processExited === undefined && !node.snapshot.cancel
+        && !node.teamMemberRetired && !node.teamMemberRetiring && !['recovery-required', 'unavailable'].includes(node.runtimeState)
+        && node.sessionAvailability !== 'unavailable' && (node.snapshot.state !== 'terminal' || keepAlive));
+      peers.push({ id: row.run, name: data.name, role: data.role, harness: data.harness, state: node?.transportObservation?.state ?? node?.status ?? 'pending', available, node, row });
+    }
+    return peers;
+  }
+  #messageIdentity(token, audience, previous) {
+    demand(audience === 'model' && typeof token === 'string' && /^[0-9a-f]{64}$/.test(token), 'UNAUTHORIZED');
+    const messenger = this.#one('SELECT * FROM messengers WHERE token=?', hash(token));
+    if (messenger) {
+      const peer = this.#messagePeers().find(value => value.id === messenger.run);
+      demand(peer?.available, 'MESSAGE_SENDER_UNAVAILABLE');
+      if (previous) demand(canonicalJson(peer.node.handle) === canonicalJson(previous.peer?.node.handle)
+        && peer.node.snapshot.scope.ownerEpoch === previous.peer?.node.snapshot.scope.ownerEpoch, 'MESSAGE_SENDER_UNAVAILABLE');
+      return { id: peer.id, name: peer.name, kind: 'worker', peer };
+    }
+    const row = this.#one('SELECT * FROM principals WHERE token=?', hash(token));
+    demand(row && !row.revoked && this.#piBridge, 'UNAUTHORIZED');
+    const principal = decode(row.data);
+    demand(principal.id === this.#piBridge.principalId && principal.kind !== 'operator', 'MESSAGE_SCOPE_FORBIDDEN');
+    return { id: this.#messageRootId(), name: 'advisor', kind: 'root', principal };
+  }
+  async #messageActor(token, audience) {
+    const actor = this.#messageIdentity(token, audience);
+    if (actor.kind === 'worker') {
+      try { await this.#messageLive(actor.peer, true); } catch { throw new RuntimeError('MESSAGE_SENDER_UNAVAILABLE'); }
+    }
+    return this.#messageIdentity(token, audience, actor);
+  }
+  async #messageLive(peer, required = false) {
+    if (!peer?.available) { if (required) throw new RuntimeError('MESSAGE_TARGET_UNAVAILABLE'); return false; }
+    try {
+      const output = await this.#piBridge?.readLive?.(peer.id, peer.node.handle);
+      if (output === null || output === undefined) throw new RuntimeError('BRIDGE_SESSION_UNAVAILABLE');
+      const current = this.#messagePeers().find(value => value.id === peer.id);
+      demand(current?.available && canonicalJson(current.node.handle) === canonicalJson(peer.node.handle)
+        && current.node.snapshot.scope.ownerEpoch === peer.node.snapshot.scope.ownerEpoch, 'MESSAGE_TARGET_UNAVAILABLE');
+      return true;
+    } catch {
+      if (required) throw new RuntimeError('MESSAGE_TARGET_UNAVAILABLE');
+      return false;
+    }
+  }
+  #messageResolve(actor, reference) {
+    text(reference, 256);
+    if (actor.kind === 'root' && ['parent', 'root', 'advisor'].includes(reference)) throw new RuntimeError('MESSAGE_SELF_TARGET');
+    const peers = this.#messagePeers(); const aliases = actor.kind === 'worker' && ['parent', 'root', 'advisor'].includes(reference);
+    const matches = aliases ? peers.filter(peer => peer.root) : peers.filter(peer => peer.id === reference || peer.name === reference);
+    demand(matches.length === 1, matches.length ? 'MESSAGE_TARGET_AMBIGUOUS' : 'MESSAGE_TARGET_NOT_FOUND');
+    demand(matches[0].id !== actor.id, 'MESSAGE_SELF_TARGET');
+    return matches[0];
+  }
+  #messagePublic(record) {
+    const replies = this.#all('SELECT data FROM messages').map(row => decode(row.data))
+      .filter(value => value.replyTo === record.messageId && value.replySender === record.from)
+      .map(value => { const { replySender: _replySender, ...reply } = value; return { ...reply, replies: [] }; });
+    const { replySender: _replySender, ...message } = record;
+    return { ...message, replies };
+  }
+  #messageLookup(actor, messageId) {
+    id(messageId);
+    const rows = this.#all('SELECT data FROM messages WHERE id=?', messageId).map(row => decode(row.data))
+      .filter(message => actor.kind === 'root' || message.from === actor.id || message.to === actor.id);
+    demand(rows.length === 1, rows.length ? 'MESSAGE_REFERENCE_AMBIGUOUS' : 'MESSAGE_NOT_FOUND');
+    return rows[0];
+  }
+  #messageInbound(actor, messageId) {
+    id(messageId);
+    const rows = this.#all('SELECT data FROM messages WHERE id=?', messageId).map(row => decode(row.data)).filter(message => message.to === actor.id);
+    demand(rows.length === 1, rows.length ? 'MESSAGE_REFERENCE_AMBIGUOUS' : 'MESSAGE_REPLY_FORBIDDEN');
+    return rows[0];
+  }
+  #messageReplay(actor, messageId, digest) {
+    const prior = this.#one('SELECT * FROM messages WHERE sender=? AND id=?', actor.id, messageId);
+    if (!prior) return null;
+    demand(prior.digest === digest, 'MESSAGE_ID_REUSE');
+    return decode(prior.data);
+  }
+  #messageSetStatus(sender, messageId, status) {
+    const row = this.#one('SELECT data FROM messages WHERE sender=? AND id=?', sender, messageId);
+    if (!row) return;
+    const message = decode(row.data); message.status = status;
+    this.#write('UPDATE messages SET data=? WHERE sender=? AND id=?', canonicalJson(message), sender, messageId);
+  }
+  #messageEffectStatus(effect, status) {
+    const source = effect.payload?.agentMessage;
+    if (source) this.#messageSetStatus(source.sender, source.messageId, status);
+  }
+  #messageCredential(runId, execution) {
+    const descriptor = join(this.#root, 'messengers', `${runId}.json`); const token = randomBytes(32).toString('hex');
+    writeCredential(descriptor, { socketPath: join(this.#root, 'runtime.sock'), token }, this);
+    try {
+      this.#transaction(() => {
+        demand(!this.#one('SELECT run FROM messengers WHERE run=? OR token=?', runId, hash(token)), 'MESSENGER_EXISTS');
+        this.#write('INSERT INTO messengers VALUES (?,?,?,?,?)', runId, hash(token), this.#piBridge.principalId, descriptor,
+          canonicalJson({ name: execution.label ?? runId, role: execution.role, harness: execution.harness ?? execution.runtime ?? 'native' }));
+      });
+    } catch (error) { try { unlinkSync(descriptor); } catch {} throw error; }
+    return descriptor;
+  }
+  #messageDropCredential(runId) {
+    const row = this.#one('SELECT descriptor FROM messengers WHERE run=?', runId);
+    this.#transaction(() => this.#write('DELETE FROM messengers WHERE run=?', runId));
+    if (row) try { unlinkSync(row.descriptor); } catch {}
+  }
+  async messageRequest(token, input, audience = 'model') {
+    try {
+      fields(input, ['v', 'op', 'payload']); demand(input.v === 1 && input.op === 'agent.message', 'MESSAGE_VERSION');
+      const p = parseAgentMessage(clone(input.payload));
+      const actor = await this.#messageActor(token, audience); text(p.action, 16);
+      this.#messageIdentity(token, audience, actor);
+      if (p.action === 'list') {
+        fields(p, ['action']);
+        const peers = this.#messagePeers().filter(peer => peer.id !== actor.id).map(({ root: _root, node: _node, row: _row, ...peer }) => peer);
+        return { ok: true, value: { self: { id: actor.id, name: actor.name }, peers, parent: actor.kind === 'worker' ? this.#messageRootId() : null } };
+      }
+      if (p.action === 'status') {
+        fields(p, ['action', 'messageId']);
+        return { ok: true, value: this.#messagePublic(this.#messageLookup(actor, p.messageId)) };
+      }
+      if (p.action === 'wait') {
+        fields(p, ['action', 'messageId', 'timeoutMs']); integer(p.timeoutMs, 0, LIMITS.waitMs);
+        const deadline = Date.now() + p.timeoutMs;
+        while (true) {
+          let finish; const wake = new Promise(resolve => {
+            const listener = () => finish(); const timer = setTimeout(listener, Math.max(0, deadline - Date.now()));
+            finish = () => { clearTimeout(timer); this.#notifications.off('change', listener); resolve(); };
+            this.#notifications.once('change', listener);
+          });
+          const current = this.#messagePublic(this.#messageLookup(actor, p.messageId));
+          if (current.replies.length || p.timeoutMs === 0 || Date.now() >= deadline || ['rejected', 'unknown'].includes(current.status)) { finish(); return { ok: true, value: current }; }
+          await wake; await this.#messageActor(token, audience); this.#messageIdentity(token, audience, actor);
+        }
+      }
+      demand(['send', 'reply'].includes(p.action), 'MESSAGE_ACTION');
+      fields(p, p.action === 'send' ? ['action', 'to', 'text', 'messageId'] : ['action', 'replyTo', 'text', 'messageId'], p.action === 'send' ? ['replyTo'] : []);
+      id(p.messageId); text(p.text);
+      let target; let replySender = null;
+      if (p.action === 'reply') {
+        const original = this.#messageInbound(actor, p.replyTo); target = this.#messageResolve(actor, original.from); replySender = original.from;
+      } else {
+        target = this.#messageResolve(actor, p.to);
+        if (p.replyTo !== undefined) {
+          const original = this.#messageInbound(actor, p.replyTo);
+          demand(original.from === target.id, 'MESSAGE_REPLY_FORBIDDEN'); replySender = original.from;
+        }
+      }
+      const payload = { action: p.action, to: target.id, text: p.text, messageId: p.messageId, replyTo: p.replyTo ?? null };
+      const digest = hash(canonicalJson(payload)); const prior = this.#messageReplay(actor, p.messageId, digest);
+      if (prior) return { ok: true, value: this.#messagePublic(prior) };
+      const record = { messageId: p.messageId, from: actor.id, fromName: actor.name, to: target.id, text: p.text, replyTo: p.replyTo ?? null, status: 'accepted', read: null, done: null, ...(replySender ? { replySender } : {}) };
+      if (target.root) {
+        demand(actor.kind === 'worker', 'MESSAGE_SELF_TARGET');
+        this.#transaction(() => {
+          record.status = 'queued'; this.#write('INSERT INTO messages VALUES (?,?,?,?)', actor.id, p.messageId, digest, canonicalJson(record));
+          const run = this.#load(actor.id); this.#delivery(run, 'worker', { kind: 'agent.message', message: this.#messagePublic(record) }); this.#save(run);
+        });
+      } else {
+        const live = await this.#messageLive(target);
+        this.#messageIdentity(token, audience, actor);
+        const prior = this.#messageReplay(actor, p.messageId, digest);
+        if (prior) return { ok: true, value: this.#messagePublic(prior) };
+        const working = live && target.node.snapshot.state === 'running' && target.node.transportObservation?.state === 'working' && !this.#pending(this.#load(target.id), 'worker');
+        const keepAlive = target.node && (target.node.cleanupKeepAlive ?? target.node.packet.execution?.keepAlive);
+        const idle = live && target.node.snapshot.state === 'terminal' && ['done', 'failed'].includes(target.node.status) && keepAlive && !this.#pending(this.#load(target.id), 'worker');
+        if (!working && !idle) {
+          record.status = 'rejected'; this.#transaction(() => this.#write('INSERT INTO messages VALUES (?,?,?,?)', actor.id, p.messageId, digest, canonicalJson(record)));
+        } else {
+          const commandId = `agent-message-${hash(`${actor.id}\0${p.messageId}\0${target.id}`)}`;
+          const run = this.#load(target.id); const node = run.nodes.worker;
+          const attributed = `[agent_message from ${actor.name} (${actor.id}) id=${p.messageId}${p.replyTo ? ` replyTo=${p.replyTo}` : ''}]\n${p.text}`;
+          const command = { op: working ? 'node.message' : 'node.task', scope: node.snapshot.scope, commandId,
+            agentEffectId: `effect-agent-message-${hash(`${actor.id}\0${p.messageId}\0${target.id}`)}`,
+            payload: { attempt: node.snapshot.attempt, handleId: node.handle.id, generation: node.transportObservation?.generation ?? node.executionObservation?.generation, text: attributed,
+              agentMessage: { sender: actor.id, messageId: p.messageId } } };
+          if (!working) {
+            const familyDigest = hash(canonicalJson(command));
+            try { await this.familyOperation('reserve', { commandId, digest: familyDigest, scope: command.scope, op: command.op, attempt: command.payload.attempt + 1 }); }
+            catch (error) {
+              this.#messageIdentity(token, audience, actor);
+              const prior = this.#messageReplay(actor, p.messageId, digest);
+              if (prior) return { ok: true, value: this.#messagePublic(prior) };
+              if (error.code === 'COMMAND_ID_REUSE') throw new RuntimeError('MESSAGE_ID_REUSE');
+              throw error;
+            }
+            await this.familyOperation('check');
+          }
+          this.#transaction(() => {
+            this.#messageIdentity(token, audience, actor);
+            const prior = this.#messageReplay(actor, p.messageId, digest);
+            if (prior) { Object.assign(record, prior); return; }
+            const latest = this.#load(target.id); const current = latest.nodes.worker;
+            const peer = this.#messagePeers().find(value => value.id === target.id);
+            demand(peer?.available && canonicalJson(current.handle) === canonicalJson(node.handle)
+              && current.revision === node.revision && !this.#pending(latest, 'worker'), 'MESSAGE_TARGET_CHANGED');
+            this.#nodeCommand(latest, { ...command, expectedRevision: current.revision }, { id: actor.id, kind: actor.kind, scopes: [command.scope] });
+            this.#save(latest); this.#write('INSERT INTO messages VALUES (?,?,?,?)', actor.id, p.messageId, digest, canonicalJson(record));
+          });
+        }
+      }
+      this.#notifications.emit('change');
+      return { ok: true, value: this.#messagePublic(record) };
+    } catch (error) { return rejection(error); }
+  }
   /** Bounded host-configured Pi scopes. No wildcard grants or client-selected enrollment. */
   async piDetachRequest(token, input, audience) {
     try {
@@ -596,6 +817,7 @@ export class AdvisorRuntime {
         });
       }
       const bindings = () => this.#all('SELECT data FROM pi_bindings WHERE principal=?', principal).map(row => decode(row.data));
+      if (c.action === 'message') return this.messageRequest(token, { v: 1, op: 'agent.message', payload: p }, audience);
       const owned = runId => {
         id(runId);
         const binding = bindings().find(row => row.action === 'launch' && row.runId === runId);
@@ -1003,15 +1225,20 @@ export class AdvisorRuntime {
       // Reserve one exact scope before asynchronous role resolution.
       // A crash here is a durable incomplete binding, never a blind launch.
       this.#transaction(() => {
-          if (config.dynamic) {
+        if (config.dynamic) {
           const { ownerEpoch: _ownerEpoch, ...grant } = scope;
           for (const node of ['root', 'worker']) this.#write('INSERT INTO scope_grants VALUES (?,?)', principal, canonicalJson({ ...grant, node }));
         }
         this.#write('INSERT INTO pi_bindings VALUES (?,?,?,?)', key, principal, digest, canonicalJson({ action: 'launch', runId: scope.run, scope }));
       });
-      let execution;
-      try { execution = await config.prepare(p.params, sourceDirectory, { childState: childStatePath(this.#familyIdentity()?.rootStateRoot ?? this.#root, this.#root, scope.run), workstream: this.#familyIdentity()?.workstream, workerHarness: this.#familyIdentity()?.workerHarness, teamMode: this.#familyIdentity()?.teamMode === true }); }
-      catch (error) {
+      let execution; let messengerIssued = false;
+      try {
+        execution = await config.prepare(p.params, sourceDirectory, { childState: childStatePath(this.#familyIdentity()?.rootStateRoot ?? this.#root, this.#root, scope.run), workstream: this.#familyIdentity()?.workstream, workerHarness: this.#familyIdentity()?.workerHarness, teamMode: this.#familyIdentity()?.teamMode === true });
+        const descriptor = this.#messageCredential(scope.run, execution); messengerIssued = true;
+        execution = configureAgentMessenger(execution, descriptor);
+      } catch (error) {
+        if (messengerIssued) this.#messageDropCredential(scope.run);
+        try { if (execution) await config.release?.(execution); } catch {}
         // Only execution-port validation codes are safe to expose; never return arbitrary exception text.
         const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL', 'BRIDGE_UNKNOWN_ROLE', 'AGENT_ROUTER_CONFIG_INVALID', 'AGENT_ROUTER_MODULE_INVALID', 'AGENT_ROUTER_NO_FEASIBLE_ROUTE', 'AGENT_ROUTER_ROUTE_FAILED', 'AGENT_ROUTER_DECISION_INVALID', 'AGENT_ROUTER_PIN_MISMATCH'];
         const response = { ok: false, error: error instanceof Error && safe.includes(error.message) ? error.message : 'BRIDGE_PREPARATION_REJECTED' };
@@ -1027,7 +1254,9 @@ export class AdvisorRuntime {
         try {
           // A committed worker effect owns the lease even if its admission ACK is
           // lost/rejected. Only side-effect-free preparation can be rolled back.
-          if (!this.#one("SELECT id FROM effects WHERE run=? AND node='worker' LIMIT 1", scope.run)) await config.release?.(execution);
+          if (!this.#one("SELECT id FROM effects WHERE run=? AND node='worker' LIMIT 1", scope.run)) {
+            await config.release?.(execution); this.#messageDropCredential(scope.run);
+          }
         } catch { /* Preserve the admission result; never guess that a queued effect is absent. */ }
       };
       let result;
@@ -1304,7 +1533,7 @@ export class AdvisorRuntime {
       demand(node.snapshot.attempt === c.payload.attempt && node.handle?.id === c.payload.handleId && node.transportObservation.generation === c.payload.generation, 'BRIDGE_HANDLE_MISMATCH');
       this.#cwd(node.packet.cwd); this.#adapter('workers', node.packet.adapter, c.op);
       node.snapshot.revision++; node.revision = node.snapshot.revision;
-      this.#effect(run, c.scope.node, c.op, { text: c.payload.text, target: { handleId: node.handle.id, session: node.handle.session, generation: c.payload.generation } }, c.commandId);
+      this.#effect(run, c.scope.node, c.op, { text: c.payload.text, target: { handleId: node.handle.id, session: node.handle.session, generation: c.payload.generation }, ...(c.payload.agentMessage ? { agentMessage: clone(c.payload.agentMessage) } : {}) }, c.commandId, c.agentEffectId ? { id: c.agentEffectId } : {});
       return { commandId: c.commandId, outcome: 'accepted', revision: node.revision };
     }
     if (c.op === 'node.task') {
@@ -1326,7 +1555,7 @@ export class AdvisorRuntime {
         const assignment = member.assignments.at(-1); assignment.attempts.push({ attempt: node.snapshot.attempt, kind: 'repair', status: 'running', prompt: c.payload.text, consumedInputs: clone(node.consumedInputs) });
         assignment.latestAttempt = node.snapshot.attempt; assignment.status = 'running'; member.sequence = ++team.sequence; this.#saveTeam(team);
       }
-      this.#effect(run, c.scope.node, c.op, c.payload, c.commandId, { executionObservation: { ...node.executionObservation, generation: c.payload.generation } });
+      this.#effect(run, c.scope.node, c.op, c.payload, c.commandId, { executionObservation: { ...node.executionObservation, generation: c.payload.generation }, ...(c.agentEffectId ? { id: c.agentEffectId } : {}) });
       this.#event(run, c.scope.node, 'node.resumed', { reason: 'follow-up' });
       return { commandId: c.commandId, outcome: 'accepted', revision: node.revision };
     }
@@ -1524,6 +1753,7 @@ export class AdvisorRuntime {
   }
   #markRecovery(effect, reason) {
     this.#write("UPDATE effects SET state='recovery-required' WHERE id=?", effect.id);
+    const effectData = decode(effect.data); this.#messageEffectStatus(effectData, 'unknown');
     const run = this.#load(effect.run);
     if (effect.node === 'root') run.root.state = 'recovery-required';
     else {
@@ -1531,7 +1761,7 @@ export class AdvisorRuntime {
       // Submission uncertainty survives observation failures and owner restarts.
       // A later session turn is never evidence that this input was delivered.
       if (reason === 'BRIDGE_PROMPT_AMBIGUOUS' || node.recoveryCause === 'BRIDGE_PROMPT_AMBIGUOUS'
-        || reason === 'owner-restarted' && effect.state === 'claimed' && ['node.launch', 'node.task', 'node.reply', 'team.assign'].includes(decode(effect.data).op)) node.uncertainInput = true;
+        || reason === 'owner-restarted' && effect.state === 'claimed' && ['node.launch', 'node.task', 'node.reply', 'team.assign'].includes(effectData.op)) node.uncertainInput = true;
       node.runtimeState = 'recovery-required'; node.recoveryCause = reason; node.sessionAvailability = 'unknown';
     }
     this.#delivery(run, effect.node, { kind: 'recovery-required', effectId: effect.id, recordedHandle: Boolean(effect.handle), reason }); this.#save(run);
@@ -1618,7 +1848,8 @@ export class AdvisorRuntime {
           if (effect.op === 'node.launch' || effect.op === 'root.create') demand(current.handle, 'HANDLE_REQUIRED');
           if (effect.op === 'team.message') this.#completeTeamMessage(row.run, row.node, effect, output.delivery);
           else if (effect.op === 'node.message') this.#completeWorkerMessage(row.run, row.node, effect, output.delivery);
-          else if (!root && output.observation) {
+          if (effect.op === 'node.task' && effect.payload.agentMessage) this.#messageEffectStatus(effect, 'queued');
+          if (!['team.message', 'node.message'].includes(effect.op) && !root && output.observation) {
             const latest = this.#load(row.run); const worker = latest.nodes[row.node];
             if (worker.handle?.session === output.observation.session && output.observation.generation >= (worker.transportObservation?.generation ?? 0)) {
               if (effect.payload.uncertainInput) { worker.uncertainInput = true; worker.executionCompletion = 'unknown'; if (['done', 'idle'].includes(output.observation.state)) { worker.snapshot.state = 'terminal'; worker.status = 'stalled'; } }

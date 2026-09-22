@@ -45,7 +45,7 @@ function fixture(t, gitRepository = false, operations = OPERATIONS, subdirectory
 
 test('large prompts, followups and reports retain full content; report state never gates completed turns', async t => {
   const f = fixture(t); const prompt = '🚀 task\n'.repeat(30000);
-  const runId = await f.launch('large', { prompt }); assert.equal(f.calls[0].intent.prompt, prompt);
+  const runId = await f.launch('large', { prompt }); assert.equal(f.calls[0].intent.prompt.startsWith(prompt), true); assert.match(f.calls[0].intent.prompt, /## Agent communication/);
   f.settle(null);
   let node = await f.request('get', { runId }); assert.equal(node.status, 'done'); assert.equal(node.reportStatus.availability, 'result-blank'); assert.equal(node.reusable, true);
   for (const [i, report] of ['', 'Status: IN PROGRESS', 'Status: BLOCKED\nChoose A?', 'plain unusual format', 'Status: DONE\n' + 'é'.repeat(800000)].entries()) {

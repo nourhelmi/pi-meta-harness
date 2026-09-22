@@ -71,6 +71,14 @@ there is no cumulative launch/reply/task quota.
   is held open: the parent sees a progress note and one settlement on the final turn.
   Integrated delivery still requires the actual accepted work to be complete.
 
+### Cross-harness messages
+
+Use `agent_message` for scoped questions, advice and replies between Pi, Codex CLI
+and Claude Code workers and their advisor. The shared `list/send/reply/status/wait`
+contract is exposed as a Pi tool, native MCP tool and CLI; no team enlistment or
+separate message-board service. See [agent messaging](agent-messaging.md) for examples,
+identity boundaries and honest delivery/retry semantics.
+
 ### Optional external agent router
 
 Trusted host config is read from `~/.config/agent-router/config.json`, or the

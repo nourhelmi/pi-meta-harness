@@ -102,7 +102,7 @@ test('optional dependency consumes host proof, retains captures but invalidates 
   const consumed = await evidence('checker'); assert.equal(consumed.dependencies[0].proof, 'verified'); assert.equal(consumed.dependencies[0].result.tested.surface.sha256, proof.surface.sha256); assert.ok(consumed.prompt.includes(node.result.path));
   assert.equal(consumed.dependencies[0].result.tested.producer, 'independent-host-check');
   // Actually use the dependency prompt in the existing worker launch path, not an isolated metadata assertion.
-  const downstream = await f.launch({ role: 'checker', prompt: consumed.prompt }); assert.equal(f.launches.at(-1).intent.prompt, consumed.prompt); f.settle('PASS'); await f.ack(downstream);
+  const downstream = await f.launch({ role: 'checker', prompt: consumed.prompt }); assert.equal(f.launches.at(-1).intent.prompt.slice(0, consumed.prompt.length), consumed.prompt); f.settle('PASS'); await f.ack(downstream);
   mkdirSync(join(f.work, 'nested')); assert.deepEqual(contentSurface(join(f.work, 'nested')), contentSurface(f.work), 'nested cwd hashes the complete root');
   writeFileSync(join(f.work, 'dependency.lock'), 'changed dependency'); assert.equal((await evidence('checker')).dependencies[0].proof, 'unknown'); rmSync(join(f.work, 'dependency.lock'));
   const check = readFileSync(join(f.work, 'check.mjs')); writeFileSync(join(f.work, 'check.mjs'), 'throw Error("regression")'); assert.equal((await evidence('checker')).dependencies[0].proof, 'unknown'); writeFileSync(join(f.work, 'check.mjs'), check);
@@ -281,7 +281,7 @@ test('public launch admission prevents late bind and continuation from launderin
   const reviewer = await f.launch({ role: 'checker', prompt: supplied.prompt }); f.settle('PASS');
   const admitted = await f.request('get', { runId: reviewer });
   assert.equal(admitted.consumedInputs[0].inputs[0].attempt, 1);
-  assert.equal(f.launches.at(-1).intent.prompt, supplied.prompt);
+  assert.equal(f.launches.at(-1).intent.prompt.slice(0, supplied.prompt.length), supplied.prompt);
   await f.launch({ name: maker }); f.settle('PASS'); await evidence('maker', maker); await check(maker);
   await evidence('checker', reviewer); await check(reviewer);
   const late = (await evidence('checker', reviewer)).node;

@@ -276,7 +276,7 @@ for (const status of ['PASS', 'FAIL', 'BLOCKED', 'malformed', null]) test(`stock
     launches[1].hooks.settled('done', 'repaired', 4);
     const supplied = await call('graph_evidence', { graph, node: 'checker' });
     const reviewer = await call('launch', { commandId: 'review', prompt: supplied.prompt }); await host.runtime.dispatch();
-    assert.equal(launches[2].intent.prompt, supplied.prompt);
+    assert.equal(launches[2].intent.prompt.slice(0, supplied.prompt.length), supplied.prompt);
     writeFileSync(join(launches[2].intent.sourceDirectory, 'result.md'), markdown); launches[2].hooks.settled('done', 'reviewed', 2);
     const linked = await call('graph_evidence', { graph, node: 'checker', runId: reviewer.runId });
     assert.equal(linked.node.consumedInputs[0].attempt, 2);

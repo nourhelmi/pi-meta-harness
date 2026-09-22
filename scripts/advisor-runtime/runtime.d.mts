@@ -15,6 +15,7 @@ export class AdvisorRuntime {
   revokePrincipal(principalId: string): void;
   execute(token: string, input: unknown, audience?: "operator" | "model"): Record<string, unknown>;
   request(token: string, input: unknown, audience?: "operator" | "model"): Promise<Record<string, unknown>>;
+  messageRequest(token: string, input: unknown, audience?: "model"): Promise<Record<string, unknown>>;
   dispatch(): Promise<void>;
   checkNode(input: { scope: { workstream: string; run: string; node: string; ownerEpoch: number }; command: string; args?: string[]; producer?: string; timeout?: number }): Record<string, unknown>;
   assertClosable(): void;

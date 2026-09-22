@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "bin": {
-    "advisor-eval": "./scripts/advisor-eval.mjs"
+    "advisor-eval": "./scripts/advisor-eval.mjs",
+    "agent-message": "./scripts/advisor-runtime/messaging-cli.mjs"
   },
   "description": "Portable, reproducible Pi advisor and Herdr setup",
   "license": "MIT",
