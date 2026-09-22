@@ -6,6 +6,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import { managedBridgeEnabled } from "../scripts/advisor-runtime/pi-detach-bootstrap.mjs";
+import { agentRouterEnabled } from "../scripts/advisor-runtime/agent-router.mjs";
 import {
   advisorCheckpoint,
 	advisorStateRoot,
@@ -68,11 +69,17 @@ function agentDirectory(): string {
 	return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
 }
 
-function advisorContinuation(workerHarness: WorkerHarness): string {
+function agentRouterState(): "disabled" | "enabled" | "invalid" {
+	try { return agentRouterEnabled() ? "enabled" : "disabled"; }
+	catch { return "invalid"; }
+}
+
+function advisorContinuation(workerHarness: WorkerHarness, routerState = agentRouterState()): string {
 	const route = workerHarness === "native"
 		? "OpenAI models route to Codex CLI and Anthropic/Claude models route to Claude Code."
 		: "Selected worker models run through Pi.";
-	return `The advisor doctrine core and the active intelligence guide are in your system prompt for this whole session; do not read them with a tool. Situational references live under ${fileURLToPath(ADVISOR_REFERENCES_URL)} and are read only when their situation arises. Every bg_agent launch must include an explicit model and thinking level selected with that guide; omission is invalid. ${route}`;
+	if (routerState === "disabled") return `The advisor doctrine core and the active intelligence guide are in your system prompt for this whole session; do not read them with a tool. Situational references live under ${fileURLToPath(ADVISOR_REFERENCES_URL)} and are read only when their situation arises. Every bg_agent launch must include an explicit model and thinking level selected with that guide; omission is invalid. ${route}`;
+	return `The advisor doctrine core is in your system prompt for this whole session; do not read it with a tool. Situational references live under ${fileURLToPath(ADVISOR_REFERENCES_URL)} and are read only when their situation arises. The external agent router is authoritative for model and thinking selection. Omit both from bg_agent unless the user explicitly pins a model (and optionally effort); never bypass a router failure. ${route}`;
 }
 
 function advisorSkillBody(source: string): string {
@@ -158,19 +165,28 @@ async function liveHotSection(workstreamPath: string): Promise<string | undefine
 	return content === undefined ? undefined : workstreamHotSection(content);
 }
 
-function workerHarnessDoctrine(workerHarness?: WorkerHarness): string {
+function workerHarnessDoctrine(workerHarness?: WorkerHarness, routerState: "disabled" | "enabled" | "invalid" = "disabled"): string {
+	if (routerState === "disabled") {
+		const policy = workerHarness === "native"
+			? "Configured specialist roles use the native worker harness: OpenAI models route to Codex CLI and Anthropic/Claude models to Claude Code. Cursor-only models have no native route; choose a task-appropriate OpenAI or Anthropic recommendation instead."
+			: workerHarness === "pi"
+				? "Configured specialist roles use the Pi worker harness."
+				: "No specialist harness preference was inherited. Use the host's configured defaults; do not infer native or Pi specialist routing from the advisor's transport.";
+		return `# Advisor Worker Harness\n\nSession mode: **${workerHarness ?? "host default"}**.\n\n${policy} The advisor role and freeform workers are Pi-hosted; the advisor profile's transport constraint overrides the specialist default. Choose model and thinking from the live intelligence guide.`;
+	}
 	const policy = workerHarness === "native"
-		? "Configured specialist roles use the native worker harness: OpenAI models route to Codex CLI and Anthropic/Claude models to Claude Code. Cursor-only models have no native route; choose a task-appropriate OpenAI or Anthropic recommendation instead."
+		? "Configured specialist roles use the native worker harness: OpenAI models route to Codex CLI and Anthropic/Claude models to Claude Code."
 		: workerHarness === "pi"
 			? "Configured specialist roles use the Pi worker harness."
 			: "No specialist harness preference was inherited. Use the host's configured defaults; do not infer native or Pi specialist routing from the advisor's transport.";
-	return `# Advisor Worker Harness\n\nSession mode: **${workerHarness ?? "host default"}**.\n\n${policy} The advisor role and freeform workers are Pi-hosted; the advisor profile's transport constraint overrides the specialist default. Choose model and thinking from the live intelligence guide.`;
+	return `# Advisor Worker Harness\n\nSession mode: **${workerHarness ?? "host default"}**.\n\n${policy} The advisor role and freeform workers are Pi-hosted; the advisor profile's transport constraint overrides the specialist default. The external agent router chooses model and thinking within these role and transport constraints.`;
 }
 
 interface AdvisorPromptParts {
 	doctrine?: string;
 	guide?: string;
 	workerHarness?: WorkerHarness;
+	routerState?: "disabled" | "enabled" | "invalid";
 	hotSection?: string;
   workstreamPath?: string;
   teamPolicy?: string;
@@ -184,9 +200,14 @@ export function withAdvisorSystemPrompt(systemPrompt: string, parts: AdvisorProm
 			`# Current Advisor Doctrine\n\nThis installed doctrine is authoritative for the active advisor session. Any advisor skill snapshot or summary in conversation history is archival and must not override it.\n\n${parts.doctrine}`,
 		);
 	}
-  if (parts.guide) sections.push(`# Active Intelligence Guide\n\n${parts.guide}`);
+	const routerState = parts.routerState ?? "disabled";
+  if (parts.guide && routerState === "disabled") sections.push(`# Active Intelligence Guide\n\n${parts.guide}`);
+	if (routerState !== "disabled") {
+		const availability = routerState === "enabled" ? "enabled" : "misconfigured";
+		sections.push(`# Agent Router\n\nThe external agent router is ${availability} and authoritative for worker model/thinking selection. Omit \`model\` and \`thinking\` from \`bg_agent\` unless the user explicitly pins a model (and optionally effort). A model without thinking is a valid pin; thinking without model is invalid. You still own the task, role, harness, acceptance, and dependency graph. Router failure is a launch failure; never bypass it by choosing an identity yourself.`);
+	}
   if (parts.teamPolicy) sections.push(`# CoS team mode\n\n${parts.teamPolicy}`);
-	sections.push(workerHarnessDoctrine(parts.workerHarness));
+	sections.push(workerHarnessDoctrine(parts.workerHarness, routerState));
 	if (parts.hotSection !== undefined) {
 		const location = parts.workstreamPath ? ` of ${parts.workstreamPath}` : "";
 		sections.push(
@@ -740,7 +761,8 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		catch (error) { bindingError = String(error); return { systemPrompt: `${event.systemPrompt}\n\nAdvisor family binding failed: ${bindingError}. Worker effects are fenced; resolve initialization before proceeding.` }; }
     activeState = checkpoint.state;
 		if (doctrine === undefined) await loadDoctrine(ctx);
-		const guide = await liveIntelligenceGuide().catch(() => undefined);
+		const routerState = agentRouterState();
+		const guide = routerState === "disabled" ? await liveIntelligenceGuide().catch(() => undefined) : undefined;
 		let hotSection: string | undefined;
 		let workstreamPath: string | undefined;
     workstreamPath = checkpoint.path;
@@ -751,6 +773,7 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 				doctrine,
 				guide,
 				workerHarness: activeState.workerHarness,
+				routerState,
 				hotSection,
         workstreamPath,
         teamPolicy: activeState.mode === 'cos' ? await readFile(new URL('../skills/advisor/references/team.md', import.meta.url), 'utf8') : undefined,

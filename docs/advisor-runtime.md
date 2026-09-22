@@ -18,7 +18,7 @@ and does not imply that a model response started.
 
 1. Start every independent root advisor from an ordinary Pi session with `advisor_launch`; it creates a new Herdr tab, never a pane split. A manually opened advisor may invoke `/advisor` in its own fresh tab.
 2. `advisor_session_init` creates or claims one isolated workstream, persists one worker mode (`pi` or `native`), trims the session's active tool set, and returns the workstream hot section. The root advisor remains Pi in both modes.
-3. The advisor session extension injects the doctrine core (`skills/advisor/doctrine.md`) and a compact rendering of the live intelligence guide into the system prompt on every turn, and re-sends the workstream hot section after every compaction. When a root advisor settles idle with detached runs outstanding and at least 120k context tokens on a provider whose compaction request shares the prompt cache (OpenAI Codex), the extension compacts immediately so the wake-up does not re-bill the whole conversation; `ADVISOR_WAIT_COMPACTION=off` disables it and `ADVISOR_WAIT_COMPACTION_MIN_TOKENS` moves the threshold. Situational references under `skills/advisor/references/` are read only when needed.
+3. The advisor session extension injects the doctrine core and routing policy into the system prompt on every turn, and re-sends the workstream hot section after every compaction. With no enabled external agent router it also injects the compact live intelligence guide; with routing enabled the router policy replaces that guide and advisors omit `model`/`thinking` unless the user pins a model. When a root advisor settles idle with detached runs outstanding and at least 120k context tokens on a provider whose compaction request shares the prompt cache (OpenAI Codex), the extension compacts immediately so the wake-up does not re-bill the whole conversation; `ADVISOR_WAIT_COMPACTION=off` disables it and `ADVISOR_WAIT_COMPACTION_MIN_TOKENS` moves the threshold. Situational references under `skills/advisor/references/` are read only when needed.
 4. Each live root advisor uses a different workstream. A child owns a bounded outcome under its parent and launches only through `bg_agent` with `role: "advisor"`; its settlement is the parent completion channel.
 5. Within advisor state, an advisor writes only its own session record, its owned workstream record, new immutable events, and unique run output. Product edits follow the assigned checkout boundary.
 6. Legacy in-repo `.advisor/` directories are read-only history. Ownership transfers with an immutable handoff event.
@@ -141,7 +141,7 @@ impose no lifetime quotas. Descendant cancellation is downward. A child advisor 
 turn ends without a terminal report while its descendants are live is held open and
 settles on its final turn; the parent sees a progress note in between.
 
-Named guides in [`../config/intelligence-profiles/`](../config/intelligence-profiles/)
+Without an enabled external router, named guides in [`../config/intelligence-profiles/`](../config/intelligence-profiles/)
 are the advisor's source of model character and ordered role recommendations. Install
 copies them to `~/.pi/agent/intelligence-profiles/` and materializes the active guide as
 `~/.pi/agent/advisor-intelligence.json`, rendered into the system prompt every turn.
@@ -150,12 +150,27 @@ Switch with `node ~/.pi/agent/bin/intelligence-profile.mjs <name>`; the default 
 for the task from or outside the guide, and an outside-guide choice needs only a concise
 rationale when material. Deep dive: [`intelligence-profiles.md`](intelligence-profiles.md).
 
+An external `@nourhelmi/agent-router` installation is opt-in through trusted host config at
+`~/.config/agent-router/config.json` (or `AGENT_ROUTER_CONFIG`). Missing or
+`{"version":1,"enabled":false}` config preserves guide-driven behavior byte-for-byte.
+Enabled config names one absolute `modulePath`; invalid config/module is a launch error,
+never a fallback. The router owns only model/thinking selection after the runtime validates
+the public request and resolves role/harness policy. A caller-supplied model, with optional
+thinking, is passed as a mandatory pin. Router identity and decision ID are persisted in the
+execution packet and exposed in launch responses/status; the canonical launch event records
+the exact selected model and thinking. Fresh/followup input requires an acknowledged
+renewal; an expired lease never reroutes or resurrects. The runtime retains capacity across
+blocked/in-progress/uncertain work and through terminal idle turns for `keepAlive` workers.
+Non-kept terminal turns release; kept workers release only after confirmed stop/closure.
+Lease loss interrupts the owned worker when possible and becomes recovery-required, never
+silent unreserved execution. See [lease lifetime and idle-worker cleanup](pi-detach-runtime-bridge.md#optional-external-agent-router).
+
 ## 🧠 Session context
 
-The advisor's standing context is small by construction: the doctrine core (about two
-thousand tokens), the compact live guide, the workstream hot section (everything above
-`## Log`, about sixty lines, returned by `advisor_session_init` and after every
-compaction), and a trimmed tool set. References under `skills/advisor/references/`
+The advisor's standing context is small by construction: the doctrine core, either the
+compact live guide or the authoritative external-router policy, the workstream hot section
+(everything above `## Log`, about sixty lines, returned by `advisor_session_init` and after
+every compaction), and a trimmed tool set. References under `skills/advisor/references/`
 (graphs, model routing, transport and settlement, team) are read only when their
 situation arises.
 

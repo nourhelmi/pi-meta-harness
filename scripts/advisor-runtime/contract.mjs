@@ -67,7 +67,7 @@ export function validatePacket(p) {
   if (p.execution !== undefined) {
     demand(p.adapter === 'pi-detach', 'EXECUTION_ADAPTER');
     const e = p.execution;
-    fields(e, ['v', 'command', 'prompt', 'role', 'runtime', 'model', 'thinking', 'maxTurns', 'requiredSkills', 'harness', 'keepAlive', 'label', 'resultDiscovery', 'resultPolicy', 'sourceDirectory', 'environment']);
+    fields(e, ['v', 'command', 'prompt', 'role', 'runtime', 'model', 'thinking', 'maxTurns', 'requiredSkills', 'harness', 'keepAlive', 'label', 'resultDiscovery', 'resultPolicy', 'sourceDirectory', 'environment'], ['routing']);
     fields(e.environment, ['ADVISOR_RUNTIME_DESCRIPTOR', 'PI_DETACH_RUNTIME_BRIDGE', 'ADVISOR_BRIDGE_WORKER_DIR', 'ADVISOR_RUNTIME_CANONICAL_OWNER'], ['ADVISOR_BRIDGE_CHILD_STATE', 'PATH', 'PI_CODING_AGENT_DIR', 'PI_DETACH_AGENT_PROFILES', 'CODEX_HOME', 'ADVISOR_WORKSTREAM', 'PI_DETACH_WORKER_HARNESS', 'ADVISOR_TEAM_MODE']);
     demand(e.environment.ADVISOR_RUNTIME_DESCRIPTOR === '' && e.environment.PI_DETACH_RUNTIME_BRIDGE === '' && e.environment.ADVISOR_RUNTIME_CANONICAL_OWNER === '1' && e.environment.ADVISOR_BRIDGE_WORKER_DIR === e.sourceDirectory, 'EXECUTION_ENVIRONMENT');
     for (const value of Object.values(e.environment)) demand(typeof value === 'string' && Buffer.byteLength(value) <= 4096, 'EXECUTION_ENVIRONMENT');
@@ -77,6 +77,13 @@ export function validatePacket(p) {
     demand(e.maxTurns === null || Number.isSafeInteger(e.maxTurns) && e.maxTurns > 0, 'EXECUTION_TURNS');
     demand(Array.isArray(e.requiredSkills), 'EXECUTION_SKILLS'); e.requiredSkills.forEach(skill => text(skill, 128));
     demand(e.resultDiscovery === null || typeof e.resultDiscovery === 'string', 'EXECUTION_DISCOVERY');
+    if (e.routing !== undefined) {
+      fields(e.routing, ['version', 'id', 'selected', 'strategy', 'at']);
+      demand(e.routing.version === 1 && ['jev', 'fallback', 'pinned'].includes(e.routing.strategy), 'EXECUTION_ROUTING');
+      text(e.routing.id, 1024); text(e.routing.at, 128);
+      fields(e.routing.selected, ['model', 'thinking']); text(e.routing.selected.model, 256); text(e.routing.selected.thinking, 128);
+      demand(e.routing.selected.model === e.model && e.routing.selected.thinking === e.thinking, 'EXECUTION_ROUTING_MISMATCH');
+    }
     demand(e.role === p.role && e.prompt === p.task && e.model === p.model && e.thinking === p.thinking, 'EXECUTION_MISMATCH');
   }
   text(p.task);

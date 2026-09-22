@@ -867,7 +867,7 @@ export class AdvisorRuntime {
         fields(p, []);
         return { ok: true, value: bindings().filter(row => row.action === 'launch').map(row => {
           const run = this.#load(row.runId); const node = run?.nodes.worker;
-          return { runId: row.runId, node: node ? { ...this.#handoff(run, 'worker'), runtimeState: node.runtimeState, snapshot: { state: node.snapshot.state, cancel: node.snapshot.cancel }, packet: { cwd: node.packet.cwd, execution: { label: node.packet.execution.label.slice(0, 128) } } } : null };
+          return { runId: row.runId, node: node ? { ...this.#handoff(run, 'worker'), runtimeState: node.runtimeState, snapshot: { state: node.snapshot.state, cancel: node.snapshot.cancel }, packet: { cwd: node.packet.cwd, execution: { label: node.packet.execution.label.slice(0, 128), ...(node.packet.execution.routing ? { model: node.packet.execution.model, thinking: node.packet.execution.thinking, routing: node.packet.execution.routing } : {}) } } } : null };
         }) };
       }
       if (c.action === 'artifact') {
@@ -943,7 +943,7 @@ export class AdvisorRuntime {
           const status = node.runtimeState === 'recovery-required' ? 'recovery-required' : node.snapshot.cancel && node.snapshot.state !== 'terminal' ? 'cancel-pending' : node.status;
           const e = node.packet.execution;
           const reusable = Boolean(node.snapshot.state === 'terminal' && ['done', 'failed'].includes(node.status) && !node.snapshot.cancel && node.processExited === undefined && node.runtimeState !== 'recovery-required' && !this.#pending(run, 'worker'));
-          binding.toolResult = { runId: run.id, agentName: run.id, promoted: node.snapshot.state === 'running', status, agentState: status, durationMs: 0, role: e.role, model: e.model, thinking: e.thinking, maxTurns: e.maxTurns, keepAlive: node.cleanupKeepAlive ?? e.keepAlive, reusable, ...this.#handoff(run, 'worker') };
+          binding.toolResult = { runId: run.id, agentName: run.id, promoted: node.snapshot.state === 'running', status, agentState: status, durationMs: 0, role: e.role, model: e.model, thinking: e.thinking, ...(e.routing ? { routing: e.routing } : {}), maxTurns: e.maxTurns, keepAlive: node.cleanupKeepAlive ?? e.keepAlive, reusable, ...this.#handoff(run, 'worker') };
           this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson(binding), key);
           return { ok: true, value: binding.toolResult };
         });
@@ -1013,7 +1013,7 @@ export class AdvisorRuntime {
       try { execution = await config.prepare(p.params, sourceDirectory, { childState: childStatePath(this.#familyIdentity()?.rootStateRoot ?? this.#root, this.#root, scope.run), workstream: this.#familyIdentity()?.workstream, workerHarness: this.#familyIdentity()?.workerHarness, teamMode: this.#familyIdentity()?.teamMode === true }); }
       catch (error) {
         // Only execution-port validation codes are safe to expose; never return arbitrary exception text.
-        const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL', 'BRIDGE_UNKNOWN_ROLE'];
+        const safe = ['BRIDGE_INVALID_INPUT', 'BRIDGE_CUSTOM_ARTIFACT_UNSUPPORTED', 'BRIDGE_EXPLICIT_COMMAND_UNSUPPORTED', 'BRIDGE_FOLLOWUP_REQUIRES_BINDING', 'BRIDGE_EMPTY_PROMPT', 'BRIDGE_INVALID_SKILL', 'BRIDGE_UNKNOWN_ROLE', 'AGENT_ROUTER_CONFIG_INVALID', 'AGENT_ROUTER_MODULE_INVALID', 'AGENT_ROUTER_NO_FEASIBLE_ROUTE', 'AGENT_ROUTER_ROUTE_FAILED', 'AGENT_ROUTER_DECISION_INVALID', 'AGENT_ROUTER_PIN_MISMATCH'];
         const response = { ok: false, error: error instanceof Error && safe.includes(error.message) ? error.message : 'BRIDGE_PREPARATION_REJECTED' };
         this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: 'rejected', scope, response }), key));
         return response;
@@ -1023,11 +1023,22 @@ export class AdvisorRuntime {
       this.#transaction(() => {
         this.#write('UPDATE pi_bindings SET data=? WHERE id=? AND principal=? AND digest=?', canonicalJson({ action: 'launch', runId: scope.run, scope, packet }), key, principal, digest);
       });
-      let result = await call(scope, 'workstream.create', { cwd, host: config.rootHost ?? 'pi' }, `${key}-create`, 0);
-      // Host preparation duplicates/enriches the prompt; this is not a second public request.
-      if (result.ok) result = this.#execute(token, { v: 1, op: 'packet.admit', scope, payload: { node: 'worker', packet }, commandId: `${key}-packet`, expectedRevision: 1 }, audience, undefined);
-      if (result.ok) result = await call(scope, 'node.launch', { node: 'worker' }, `${key}-launch`, 2);
-      const response = result.ok ? { ok: true, value: { runId: scope.run, status: 'admitted', receipt: result.receipt } } : result;
+      const releasePrepared = async () => {
+        try {
+          // A committed worker effect owns the lease even if its admission ACK is
+          // lost/rejected. Only side-effect-free preparation can be rolled back.
+          if (!this.#one("SELECT id FROM effects WHERE run=? AND node='worker' LIMIT 1", scope.run)) await config.release?.(execution);
+        } catch { /* Preserve the admission result; never guess that a queued effect is absent. */ }
+      };
+      let result;
+      try {
+        result = await call(scope, 'workstream.create', { cwd, host: config.rootHost ?? 'pi' }, `${key}-create`, 0);
+        // Host preparation duplicates/enriches the prompt; this is not a second public request.
+        if (result.ok) result = this.#execute(token, { v: 1, op: 'packet.admit', scope, payload: { node: 'worker', packet }, commandId: `${key}-packet`, expectedRevision: 1 }, audience, undefined);
+        if (result.ok) result = await call(scope, 'node.launch', { node: 'worker' }, `${key}-launch`, 2);
+      } catch (error) { await releasePrepared(); throw error; }
+      if (!result.ok) await releasePrepared();
+      const response = result.ok ? { ok: true, value: { runId: scope.run, status: 'admitted', receipt: result.receipt, ...(execution.routing ? { routing: execution.routing } : {}) } } : result;
       this.#transaction(() => this.#write('UPDATE pi_bindings SET data=? WHERE id=?', canonicalJson({ action: result.ok ? 'launch' : 'rejected', runId: scope.run, scope, packet, response }), key));
       return response;
     } catch (error) { return rejection(error); }
@@ -1796,6 +1807,8 @@ export class AdvisorRuntime {
         const run = decode(row.data);
         demand(!run.root || (run.root.state === 'idle' && (!(run.root.handle?.pid || run.root.handle?.requiresExit) || run.root.processExited !== undefined)), 'SHUTDOWN_ACTIVE');
         demand(Object.values(run.nodes).every(node => node.snapshot.state === 'terminal' && !['working', 'blocked'].includes(node.transportObservation?.state) && (!(node.handle?.pid || node.handle?.requiresExit) || node.processExited !== undefined)), 'SHUTDOWN_ACTIVE');
+        demand(Object.values(run.nodes).every(node => !node.packet.execution?.routing || !(node.cleanupKeepAlive ?? node.packet.execution.keepAlive)
+          || !node.handle || node.processExited !== undefined || node.status === 'cancelled' || node.sessionAvailability === 'unavailable'), 'SHUTDOWN_ROUTED_WORKER_ACTIVE');
       }
       const team = this.#teamState(false);
       demand(!team || Object.values(team.members).every(member => member.status === 'retired'), 'SHUTDOWN_TEAM_ACTIVE');

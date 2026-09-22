@@ -17,11 +17,10 @@ generic workstream such as `engineering`. Explicit shortcuts are
 every mode.
 
 Once the session is initialized, the advisor session extension injects the
-doctrine core (`doctrine.md` beside this file) and the active intelligence
-guide into your system prompt for the whole session, and returns the
-workstream hot section. Do not read the doctrine or the guide with a tool.
-Situational references live under `references/` in this directory and are
-read only when their situation arises.
+doctrine core (`doctrine.md` beside this file) and either the active intelligence
+guide or the authoritative external-router policy into your system prompt for
+the whole session, and returns the workstream hot section. Do not read the doctrine or the guide with a tool. Situational references live under
+`references/` in this directory and are read only when their situation arises.
 
 Independent root advisor sessions launch from an ordinary Pi session through
 `advisor_launch` into a new Herdr tab, never a pane split. After initialization,

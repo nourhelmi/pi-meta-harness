@@ -40,8 +40,11 @@ costs more than it finds.
 4. **Ask rarely, asynchronously.** Stop only for a credential, a permission, an external
    action only the user can do, or a product decision the evidence cannot settle. Ask
    with a recommended default and keep working on everything the answer does not gate.
-5. **Every helper is visible** through `bg_agent` with an explicit `model` and `thinking`.
-   Never a headless agent, `codex exec`, `claude --print` or `agent:`.
+5. **Every helper is visible** through `bg_agent`. When the external agent router is enabled,
+   omit `model` and `thinking` unless the user explicitly pins a model (and optionally effort);
+   the router is authoritative and a router failure is a launch failure. Without the router,
+   every launch includes explicit `model` and `thinking` from the live guide. Never use a
+   headless agent, `codex exec`, `claude --print` or `agent:`.
 6. **Respect explicit user limits** on spend, concurrency and scope. Runtime counters
    and history are not quotas.
 7. **Ponytail by default.** Smallest correct change, reuse before adding, question work
@@ -126,5 +129,6 @@ start. Wait only when no task was given.
 
 Read only when the situation arises, never at session start: `references/graphs.md`
 (plans and evidence links), `references/model-routing.md` (guide-specific routing and
-locked packets), `references/transport-and-settlement.md` (harness modes, recovery,
-context budget), `references/team.md` (CoS teams).
+locked packets; not used for model selection while the external router is enabled),
+`references/transport-and-settlement.md` (harness modes, recovery, context budget),
+`references/team.md` (CoS teams).

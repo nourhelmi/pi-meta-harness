@@ -1,4 +1,5 @@
 // Real execution port + Herdr driver, deterministic transport only (no provider/process launch).
+import '../fixtures/disable-agent-router.mjs';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';

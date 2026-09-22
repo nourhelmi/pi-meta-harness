@@ -103,6 +103,9 @@ export function createPiDetachAdapter(port) {
           ...(childState ? { childrenSettled: () => childWorkSettled(childState) } : {}),
           recordHandle(value) { recordHandle(value); boundHandle = value; },
           recoveryRequired: context.recoveryRequired,
+          // Router lease-loss safety interrupts use the same descendant shutdown
+          // as admitted cancellation, but never emit an unadmitted cancelled result.
+          async beforeInterrupt() { if (childState) await context.cancelChildren(childState); },
           settled(state, output, generation, providerSession) {
             context.assertActive();
             if (settlement) return settlement;

@@ -10,6 +10,7 @@ import advisorSessionExtension, {
   renderIntelligenceGuide,
   parseTeamCommand,
   workstreamHotSection,
+  withAdvisorSystemPrompt,
 } from "../extensions/advisor-session.ts";
 
 // Session-extension units intentionally run without the separately tested managed bridge.
@@ -226,6 +227,20 @@ test("advisor mode entrypoints select their worker harness and defer to the inje
   }
 });
 
+test("enabled agent router replaces model guide with authoritative omission policy", () => {
+  const prompt = withAdvisorSystemPrompt("base", {
+    doctrine: "core",
+    guide: "SHOULD_NOT_APPEAR",
+    workerHarness: "native",
+    routerState: "enabled",
+  });
+  assert.match(prompt, /# Agent Router/);
+  assert.match(prompt, /authoritative for worker model\/thinking selection/);
+  assert.match(prompt, /Omit `model` and `thinking`/);
+  assert.match(prompt, /router chooses model and thinking within these role and transport constraints/);
+  assert.doesNotMatch(prompt, /SHOULD_NOT_APPEAR|# Active Intelligence Guide/);
+});
+
 
 test("resumed advisors receive current doctrine over stale expanded skill history", async t => {
   const dir = await mkdtemp(join(tmpdir(), "advisor-resume-valid-"));
@@ -341,9 +356,11 @@ test("advisor sessions inject the doctrine once with the live guide and re-send 
   const previous = {
     advisorStateDir: process.env.ADVISOR_STATE_DIR,
     agentDir: process.env.PI_CODING_AGENT_DIR,
+    routerConfig: process.env.AGENT_ROUTER_CONFIG,
   };
   process.env.ADVISOR_STATE_DIR = stateDir;
   process.env.PI_CODING_AGENT_DIR = agentDir;
+  process.env.AGENT_ROUTER_CONFIG = join(stateDir, "missing-router.json");
   const branch = [
     {
       type: "custom",
@@ -393,6 +410,16 @@ test("advisor sessions inject the doctrine once with the live guide and re-send 
     const third = await beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
     assert.ok(third);
     assert.match(third.systemPrompt, /# Workstream Hot Section[\s\S]*Review the document\./);
+
+    const routerModule = join(stateDir, "fake-router.mjs");
+    const routerConfig = join(stateDir, "router.json");
+    await writeFile(routerModule, "export async function route(){}; export async function renew(){}; export async function release(){};");
+    await writeFile(routerConfig, JSON.stringify({ version: 1, enabled: true, modulePath: routerModule }));
+    process.env.AGENT_ROUTER_CONFIG = routerConfig;
+    const routed = await beforeAgentStart({ systemPrompt: "base prompt" }, ctx);
+    assert.ok(routed);
+    assert.match(routed.systemPrompt, /# Agent Router[\s\S]*Omit `model` and `thinking`/);
+    assert.doesNotMatch(routed.systemPrompt, /# Active Intelligence Guide|gpt-6-astra/);
   } finally {
     const restore = (name: string, value: string | undefined) => {
       if (value === undefined) delete process.env[name];
@@ -400,6 +427,7 @@ test("advisor sessions inject the doctrine once with the live guide and re-send 
     };
     restore("ADVISOR_STATE_DIR", previous.advisorStateDir);
     restore("PI_CODING_AGENT_DIR", previous.agentDir);
+    restore("AGENT_ROUTER_CONFIG", previous.routerConfig);
     await rm(stateDir, { force: true, recursive: true });
     await rm(agentDir, { force: true, recursive: true });
   }

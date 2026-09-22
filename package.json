@@ -64,8 +64,8 @@
     "eval:advisor:prospective:baseline": "node scripts/advisor-prospective-manage.mjs baseline",
     "eval:advisor:prospective:suite": "node scripts/advisor-prospective-manage.mjs suite",
     "eval:advisor:prospective:view": "node scripts/advisor-eval-dashboard/server.mjs",
-    "test:harness": "node --test tests/*.test.mjs",
-    "test:extensions": "node --import tsx --test tests/*.test.ts",
+    "test:harness": "node --import ./tests/fixtures/disable-agent-router.mjs --test tests/*.test.mjs",
+    "test:extensions": "node --import ./tests/fixtures/disable-agent-router.mjs --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:harness && npm run test:extensions",
     "check": "npm test"

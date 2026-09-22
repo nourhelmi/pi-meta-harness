@@ -1,3 +1,4 @@
+import '../fixtures/disable-agent-router.mjs';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { spawnSync } from 'node:child_process';
@@ -19,18 +20,22 @@ const { registerBgOutputTool } = await import(pathToFileURL(join(detach, 'src/to
 const { registerManagedTeamTools } = await import(pathToFileURL(join(detach, 'src/tools/team.ts')).href);
 const phase = process.env.BRIDGE_PHASE;
 const timing = (step: string) => { if (process.env.BRIDGE_TEST_TIMING === '1') process.stderr.write(`${Date.now()} ${step}\n`); };
-if (!phase) {
+function fixtureRoot() {
  const root = realpathSync(mkdtempSync('/tmp/pibr-'));
  mkdirSync(join(root, 'work'), { mode: 0o700 });
  for (const args of [['init', '-q'], ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-qm', 'fixture'], ['worktree', 'add', '--detach', join(root, 'registered')]]) {
   const git = spawnSync('git', ['-C', join(root, 'work'), ...args], { encoding: 'utf8' }); assert.equal(git.status, 0, git.stderr);
  }
  symlinkSync(root, join(root, 'work', 'outside-alias'));
+ return root;
+}
+if (!phase) {
+ const root = fixtureRoot();
 
  // The real SQLite/host/port exercise includes65+ admissions; measured breadth alone exceeds30s.
  const phaseTimeout = Number(process.env.BRIDGE_TEST_TIMEOUT_MS ?? 180000);
  assert.ok(Number.isSafeInteger(phaseTimeout) && phaseTimeout > 0 && phaseTimeout <= 600000);
- for (const next of ['blocked-cancel', 'blank-recovery', 'exercise', 'restart']) {
+ for (const next of ['blocked-cancel', 'blank-recovery', 'router', 'exercise', 'restart']) {
   const child = spawnSync(process.execPath, [...process.execArgv, fileURLToPath(import.meta.url)], { env: { ...process.env, BRIDGE_PHASE: next, BRIDGE_ROOT: root }, encoding: 'utf8', timeout: phaseTimeout });
   process.stdout.write(child.stdout); process.stderr.write(child.stderr);
   assert.equal(child.status, 0, `${next} process failed`);
@@ -38,17 +43,23 @@ if (!phase) {
  console.log('PASS: actual process death/restart retains recovery-required; no relaunch');
  process.exit(0);
 }
-const root = process.env.BRIDGE_ROOT!;
+const root = process.env.BRIDGE_ROOT ?? fixtureRoot();
 delete process.env.ADVISOR_RUNTIME_CANONICAL_OWNER;
 delete process.env.ADVISOR_BRIDGE_CHILD_STATE;
 delete process.env.PI_DETACH_WORKER_HARNESS;
 delete process.env.ADVISOR_WORKSTREAM;
-const stateName = phase === 'blocked-cancel' ? 'cancel-state' : phase === 'blank-recovery' ? 'blank-state' : 'state';
+const stateName = phase === 'blocked-cancel' ? 'cancel-state' : phase === 'blank-recovery' ? 'blank-state' : phase === 'router' ? 'router-state' : 'state';
 const stateRoot = join(root, stateName); const cwd = join(root, 'work');
 const descriptor = join(root, `${stateName}-pi.json`);
 const profile = join(root, 'profiles.json');
 writeFileSync(profile, JSON.stringify({ defaultAgent: 'pi', profiles: { scout: { agent: 'pi' }, planner: { agent: 'pi' }, advisor: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, foreman: { agent: 'pi', cliArgs: ['--advisor-worker-allow-subagents'], maxTurns: 6 }, reviewer: { agent: 'pi', skill: 'role-reviewer', maxTurns: 4, requireAnchor: true, resultDiscovery: 'advisor-worker' } } }));
 process.env.PI_DETACH_AGENT_PROFILES = profile;
+const routerModule = join(root, 'fake-agent-router.mjs');
+const routerConfig = join(root, 'fake-agent-router.json');
+if (phase === 'router') {
+ writeFileSync(routerModule, `export const events=[];export const leases=new Set();let next=0;export async function route(request,options){events.push({kind:'route',request,options});const id='product-route-'+(++next);leases.add(id);return {version:1,id,selected:{model:request.pin?.model??(request.harness==='native'?'openai-codex/router-native':'openai/router-pi'),thinking:request.pin?.thinking??'high'},strategy:request.pin?'pinned':'fallback',at:new Date().toISOString()}}export async function renew(id,options){events.push({kind:'renew',id,options});if(!leases.has(id))throw new Error('AGENT_ROUTER_LEASE_EXPIRED')}export async function release(id,options){events.push({kind:'release',id,options});leases.delete(id)}`);
+ writeFileSync(routerConfig, JSON.stringify({ version: 1, enabled: true, modulePath: routerModule }));
+}
 process.env.PI_DETACH_RUNTIME_BRIDGE = resolve('scripts/advisor-runtime/pi-detach-client.mjs');
 process.env.ADVISOR_RUNTIME_DESCRIPTOR = descriptor;
 const calls: string[][] = [];
@@ -86,7 +97,7 @@ const cli = {
     ...(kind === 'codex' ? {} : { agent_session: { source: 'fixture', agent: 'pi', kind: 'id', value: `session-${counter}` } }), state_change_seq: 1, status: 'idle' });
    return ok({ result: { agent: occupants.get(pane) } });
   }
-  if (args[0] === 'agent' && args[1] === 'get') return ok({ result: { agent: occupants.get(args[2]) } });
+  if (args[0] === 'agent' && args[1] === 'get') return occupants.has(args[2]) ? ok({ result: { agent: occupants.get(args[2]) } }) : { ok: false, code: 1, stdout: '', stderr: '', errorCode: 'not_found' };
   if (args[1] === 'prompt') {
    const occupant = occupants.get(args[2]);
    const recordedEffect = dbRows('effects').find(row => row.handle && JSON.parse(JSON.parse(row.handle).id)[0] === occupant.pane_id);
@@ -132,7 +143,7 @@ const cli = {
 const port = portModule.createAgentExecutionPort({ cli, ctx: { paneId: 'w1:p1' }, panes: createPaneManager(cli, { paneId: 'w1:p1' }), env: { PI_DETACH_AGENT_PROFILES: profile, PATH: process.env.PATH, ADVISOR_TEAM_MODE: '1' } });
 // Primitive host fixture intentionally leaves specialist preference unbound so both transports
 // are exercised; real advisor binding freezes that preference in advisor-binding.test.ts.
-const { runtime, service } = await hostPiDetach({ stateRoot, cwd, sessionId: 'owning-pi-session', credentialPath: descriptor, port, slots: 1, managedIdentity: { fixture: true, workstream: 'product-team-workstream', teamMode: true }, maxLaunches: 64 });
+const { runtime, service } = await hostPiDetach({ stateRoot, cwd, sessionId: 'owning-pi-session', credentialPath: descriptor, port, slots: 1, managedIdentity: { fixture: true, workstream: 'product-team-workstream', teamMode: true }, maxLaunches: 64, ...(phase === 'router' ? { routerConfigPath: routerConfig } : {}) });
 const client = createPiDetachClient(descriptor);
 const req = (action: string, payload: object) => client.request('owning-pi-session', action, payload);
 if (phase === 'restart') {
@@ -170,6 +181,72 @@ for (const [field, value, code, guidance] of [
 assert.match(BgAgentParameters.properties.resultPath.description, /Legacy backend only/);
 assert.match(BgAgentParameters.properties.agent.description, /Legacy backend only/);
 console.log('PASS: incompatible launch arguments return actionable durable rejection without execution');
+if (phase === 'router') {
+ const routedRuns: string[] = [];
+ for (const harness of ['pi', 'native'] as const) {
+  const launched = await invoke('bg_agent', `router-${harness}`, { role: 'reviewer', harness, prompt: `Routed ${harness} task`, acceptance: ['route is exact'], promoteAfterMs: 0 });
+  await runtime.dispatch(); routedRuns.push(launched.details.runId);
+  const node: any = await req('get', { runId: launched.details.runId });
+  const expectedModel = harness === 'native' ? 'openai-codex/router-native' : 'openai/router-pi';
+  assert.equal(node.packet.execution.model, expectedModel); assert.equal(node.packet.execution.thinking, 'high');
+  assert.deepEqual(node.packet.execution.routing.selected, { model: expectedModel, thinking: 'high' });
+  assert.deepEqual(launched.details.routing, node.packet.execution.routing);
+  assert.equal(node.packet.execution.harness, harness);
+  assert.match(node.packet.execution.command, harness === 'native' ? /codex.*--model router-native/ : /--provider openai --model router-pi --thinking high/);
+  await settle(launched.details.runId, '# Status\nPASS\nRouter identity verified.');
+ }
+ for (const [toolCallId, routedParams] of [
+  ['router-advisor-policy', { role: 'advisor', harness: 'native', prompt: 'Advisor stays Pi', acceptance: ['advisor transport is safe'], promoteAfterMs: 0 }],
+  ['router-freeform-policy', { prompt: 'Freeform stays Pi', acceptance: ['freeform transport is safe'], promoteAfterMs: 0 }],
+ ] as const) {
+  const launched = await invoke('bg_agent', toolCallId, routedParams); await runtime.dispatch(); routedRuns.push(launched.details.runId);
+  const node: any = await req('get', { runId: launched.details.runId });
+  assert.equal(node.packet.execution.harness, 'pi'); assert.equal(node.packet.execution.model, 'openai/router-pi');
+  assert.deepEqual(launched.details.routing, node.packet.execution.routing);
+  await settle(launched.details.runId, '# Status\nPASS\nPi transport policy verified.');
+ }
+ const pinned = await invoke('bg_agent', 'router-pin', { role: 'reviewer', harness: 'pi', prompt: 'Pinned route', model: 'openai/pinned', acceptance: ['pin is exact'], promoteAfterMs: 0 });
+ await runtime.dispatch(); routedRuns.push(pinned.details.runId);
+ const pinnedNode: any = await req('get', { runId: pinned.details.runId });
+ assert.equal(pinnedNode.packet.execution.model, 'openai/pinned'); assert.equal(pinnedNode.packet.execution.thinking, 'high'); assert.equal(pinnedNode.packet.execution.routing.strategy, 'pinned');
+ assert.deepEqual(pinned.details.routing, pinnedNode.packet.execution.routing);
+ await settle(pinned.details.runId, '# Status\nPASS\nPinned identity verified.');
+ const router = await import(pathToFileURL(routerModule).href) as { events: Array<{ kind: string; request?: any; id?: string }>; leases: Set<string> };
+ assert.deepEqual(router.events.filter(event => event.kind === 'route').map(event => event.request.harness), ['pi', 'native', 'pi', 'pi', 'pi']);
+ assert.deepEqual(router.events.filter(event => event.kind === 'route').at(-1)?.request.pin, { model: 'openai/pinned' });
+ assert.equal(router.events.filter(event => event.kind === 'release').length, 5);
+ const kept = await invoke('bg_agent', 'router-kept', { role: 'reviewer', harness: 'pi', prompt: 'Keep for followup', acceptance: ['same reservation'], keepAlive: true, promoteAfterMs: 0 });
+ await runtime.dispatch(); routedRuns.push(kept.details.runId);
+ const keptNode: any = await settle(kept.details.runId, '# Status\nPASS\nKept idle.');
+ const decision = keptNode.packet.execution.routing.id;
+ assert.equal(router.leases.has(decision), true, 'terminal keepAlive still reserves capacity');
+ assert.throws(() => runtime.assertClosable(), /SHUTDOWN_ROUTED_WORKER_ACTIVE/, 'service cannot abandon an idle routed lifetime reservation');
+ await invoke('bg_stop', 'router-kept-idle-stop', { runId: kept.details.runId });
+ assert.equal(router.leases.has(decision), true, 'already-completed stop sends no interrupt and releases nothing');
+ await invoke('bg_agent', 'router-kept-followup', { name: kept.details.runId, prompt: 'Followup on the same lease', promoteAfterMs: 0 });
+ await runtime.dispatch();
+ await settle(kept.details.runId, '# Status\nPASS\nSame kept reservation.');
+ assert.equal(router.events.filter(event => event.kind === 'route').length, 6, 'followup never reroutes');
+ assert.equal(router.leases.has(decision), true);
+ const promptsBeforeExpiry = calls.filter(args => args[0] === 'agent' && args[1] === 'prompt').length;
+ router.leases.delete(decision);
+ await invoke('bg_agent', 'router-kept-expired', { name: kept.details.runId, prompt: 'Never submit expired input', promoteAfterMs: 0 });
+ await runtime.dispatch();
+ const lost: any = await req('get', { runId: kept.details.runId });
+ assert.equal(lost.runtimeState, 'recovery-required'); assert.equal(lost.recoveryCause, 'BRIDGE_ROUTER_LEASE_LOST');
+ assert.equal(calls.filter(args => args[0] === 'agent' && args[1] === 'prompt').length, promptsBeforeExpiry);
+ // The user closes the exact owned idle pane; observation-only reconcile proves absence.
+ occupants.delete(JSON.parse(keptNode.handle.id)[0]);
+ await req('reconcile', { runId: kept.details.runId });
+ const closed: any = await req('get', { runId: kept.details.runId });
+ assert.equal(closed.sessionAvailability, 'unavailable');
+ assert.equal(router.events.filter(event => event.kind === 'release' && event.id === decision).length, 1);
+ assert.equal(router.events.filter(event => event.kind === 'route').length, 6);
+ console.log('PASS: real driver keeps idle/followup reservations, rejects expired input, and reconciles exact pane closure');
+ for (const runId of routedRuns) for (const delivery of await req('wait', { runId }) as any[]) await req('ack', { runId, deliveryId: delivery.id });
+ runtime.assertClosable(); await req('shutdown', {});
+ console.log('PASS: actual Pi/native execution port accepts model-less routed identities, exact pins, audit metadata and terminal lease release'); process.exit(0);
+}
 if (phase === 'blocked-cancel') {
  for (const harness of ['pi', 'native']) {
   const result = await invoke('bg_agent', `${harness}-block-launch`, { ...params, harness, ...(harness === 'native' ? { model: 'openai-codex/example' } : {}) }); await runtime.dispatch();

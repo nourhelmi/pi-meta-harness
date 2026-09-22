@@ -50,7 +50,9 @@ there is no cumulative launch/reply/task quota.
   authors investigate and verify their work, including affected browser journeys.
   No graph or separate investigation/planning/browser stage is required.
 - Omit managed `agent` and `resultPath` compatibility overrides. The resolver and
-  runtime own transport and artifact identity; use `role`, `harness` and `model`.
+  runtime own transport and artifact identity; use `role` and `harness`. Supply `model`
+  (and optional `thinking`) only as an explicit pin when the external router is enabled;
+  without it, legacy explicit/default model selection is unchanged.
 - A receipt proves admission, not prompt delivery or task completion. Exact command
   replay cannot execute the same task twice. Correct a definite pre-effect rejection
   under a new call; never retry uncertain delivery as a fresh launch.
@@ -68,6 +70,47 @@ there is no cumulative launch/reply/task quota.
   that parks at its composer without a terminal report while its descendants still run
   is held open: the parent sees a progress note and one settlement on the final turn.
   Integrated delivery still requires the actual accepted work to be complete.
+
+### Optional external agent router
+
+Trusted host config is read from `~/.config/agent-router/config.json`, or the
+`AGENT_ROUTER_CONFIG` override. Missing or disabled version-1 config leaves the existing
+execution port untouched. Enabled config must name an absolute module implementing
+`route`, `renew`, and `release`; invalid config/module and no-feasible-route results reject
+the launch rather than falling back.
+
+Routing wraps the managed execution port's side-effect-free prepare boundary. The original
+port first validates the public request and resolves role/harness policy, the router selects
+model/thinking (respecting caller pins), then the original port prepares the exact selected
+identity. The router never builds provider commands and no tool parameter can select its
+module. The decision ID and selected identity are durable execution metadata. Existing
+workers are never rerouted. Fresh launches, followups and queued messages await successful
+renewal before submitting input; an expired/released lease fails closed. Renewal calls are
+serialized, including across release. Blocked/in-progress and uncertain launches retain
+capacity until definitive resolution.
+
+V1 uses **conservative keepAlive lifetime accounting**: terminal idle turns keep the same
+reservation and keep renewing it. Only non-keepAlive terminal turns release automatically.
+Terminal turns do not release kept-worker reservations; there is no unreserved continuation
+or reservation resurrection. A followup can set
+`keepAlive: false` to release at its final terminal turn. `bg_stop` on an already-completed
+kept worker does not send Escape and does not release capacity. To end that idle worker,
+close its exact owned pane: the reservation monitor observes `BRIDGE_SESSION_UNAVAILABLE`
+on the next renewal cycle (30 seconds by default), releases, and marks recovery for
+observation-only reconciliation. Identity mismatch is not proof of closure.
+
+Renewal loss fences further input, attempts an identity-checked safety interrupt using
+`DriverHandle.interrupt` (including descendant cancellation), and reports
+`BRIDGE_ROUTER_LEASE_LOST` through `recoveryRequired`. It never calls the forbidden raw
+`stop()` or synthesizes an admitted cancellation, successful result, or process exit.
+Recovery is marked after the Escape attempt because it fences the driver's ownership hooks;
+a subsequently fenced stop observation is uncertain and does not release capacity. Failed
+or ambiguous interruption requires explicit inspection/closure and reconciliation; a missing
+recorded handle never authorizes a guessed pane or replay. External lease expiry cannot be
+undone, so recovery cannot promise capacity remains reserved after lease loss.
+Normal service shutdown refuses still-owned routed kept workers with
+`SHUTDOWN_ROUTED_WORKER_ACTIVE`; close/reconcile them first rather than abandoning renewal.
+Crashes or forced process termination still require recovery and cannot preserve an expired lease.
 
 There are no semantic message/result byte ceilings or fixed graph node/repair
 quotas. Large output is read in pages rather than rejected or silently replaced by
