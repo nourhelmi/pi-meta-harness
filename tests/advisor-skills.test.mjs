@@ -141,6 +141,7 @@ test("the doctrine keeps the invariants the runtime and the user rely on", () =>
   assert.match(review, /failure-path probes and a checker before delivery/);
   assert.match(review, /low-confidence decision that users will see[\s\S]*gates delivery/);
   assert.match(routes, /Before launching more than one\s+maker, tell the user in one line/);
+  assert.match(routes, /then launch: it is a notice, not a request for approval/);
   assert.match(rules, /\*\*Clean up only what you started\.\*\*/);
   assert.match(packets, /the base ref, a private\s+scratch path and where deliverables land/);
   assert.match(review, /A worker PASS is a\s+claim, not proof/);
@@ -249,6 +250,7 @@ test("native mirrors carry the same rules for Codex and Claude hosts", async () 
   assert.match(nativeChecker, /commit only when authorized/);
   assert.match(advisor, /a checker before delivery/);
   assert.match(advisor, /tell the user in one\s+line what you launch/);
+  assert.match(advisor, /then launch: it is\s+a notice, not a request for approval/);
   assert.match(advisor, /the base ref, a private scratch path and where deliverables land/);
   assert.match(nativeContract, /Clean up only what you started/);
   assert.match(nativeContract, /confidence flag each, tests whose expectations changed and why/);

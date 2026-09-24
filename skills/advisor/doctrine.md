@@ -15,7 +15,7 @@ Pick the cheapest route that finishes the outcome well:
    parallel writer in its own worktree. Record dependencies with `advisor_graph_plan`
    when they matter; a graph is a plan, never a permit. Before launching more than one
    maker, tell the user in one line what you launch, its rough cost and why the parts are
-   independent.
+   independent, then launch: it is a notice, not a request for approval.
 
 Roles are `advisor`, `builder` and `checker`. All three investigate, plan, implement and
 verify inside their scope. There is no scouting, planning or reduction stage: grep what
