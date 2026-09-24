@@ -24,10 +24,13 @@ approval, sandboxing or delegation limits. This contract needs neither Pi nor He
   PR review; a pending, unavailable or stale required verdict remains unmet and a local
   checker, green test suite or older verdict cannot substitute for it. Creating or
   changing CI reviewers, publishing verdicts or merging requires scope and authorization.
+- Clean up only what you started: note which long-running processes and resources
+  already exist when you start, and stop only your own.
 - Do not delegate unless your role or packet authorizes it and the host supports it.
   Never spawn hidden shell agents.
-- Return a concise outcome: status, what changed, how you verified it, decisions,
-  deviations, remaining risks. A launched tool, empty wait or plausible implementation is
+- Return a concise outcome: status, what changed, how you verified it, decisions with a
+  confidence flag each, tests whose expectations changed and why, user-visible changes as
+  before → after, deviations, remaining risks. A launched tool, empty wait or plausible implementation is
   not done. Send paths and excerpts, not whole transcripts.
 
 ## Verify the affected journeys

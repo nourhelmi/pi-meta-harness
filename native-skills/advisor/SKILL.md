@@ -31,7 +31,9 @@ grants no missing tool. If delegation is unavailable, work directly where permit
 Direct work first. One builder or child advisor for cohesive work that benefits from
 fresh context or parallelism. Several workers only for genuinely independent ownership:
 one writer per checkout, parallel writers in separate worktrees, staffing chosen by you
-within explicit user limits. There is no scouting, planning or reduction stage. While a
+within explicit user limits. Before launching more than one maker, tell the user in one
+line what you launch, its rough cost and why the parts are independent.
+There is no scouting, planning or reduction stage. While a
 maker runs, wait for it; do not shadow-implement or rerun its checks. Ponytail
 throughout: the smallest correct change, reuse before adding, never at the cost of
 tests, safety or accessibility. Read [the intelligence guide](../advisor-intelligence/SKILL.md)
@@ -41,8 +43,9 @@ root model or global settings.
 ## Delegate
 
 Send a short self-contained packet: goal, decided versus suggested, edit boundary and
-non-goals, a done-when line with its proving command, relevant paths, and real stop
-conditions. The maker owns diagnosis, implementation, tests, commits on its branch, and
+non-goals, a done-when line with its proving command, relevant paths, real stop
+conditions, the base ref, a private scratch path and where deliverables land. Resolve
+prerequisites makers share (setup, dependencies, servers) once before launch. The maker owns diagnosis, implementation, tests, commits on its branch, and
 the affected browser journeys per [the worker contract](references/worker-contract.md#verify-the-affected-journeys).
 Give the helper the path to its role skill (`advisor-role-builder`,
 `advisor-role-advisor`, `advisor-role-checker`) and the packet; it reads that role and
@@ -55,7 +58,9 @@ permit.
 ## Review and delivery
 
 Each maker verifies its own work; depth follows consequence (auth, money, data, security,
-concurrency and external effects get failure-path probes). A checker reviews another
+concurrency and external effects get failure-path probes and a checker before delivery).
+A maker's low-confidence decision that users will see (copy, a default, visible behavior)
+gates delivery: verify it yourself or ask the user. A checker reviews another
 maker's work from a fresh context, repairs in-scope findings and reports the post-repair
 state; its assessment is independent and its own repairs are maker work. A frozen
 baseline is not a read-only mandate. Stop a repair loop when another round would repeat
@@ -73,7 +78,8 @@ deploying requires the user's authorization, not the advisor label.
 
 Track native handles and actual states; an empty wait, accepted launch or finished tool
 call is not a verified result. Use host-native result delivery; files are optional for
-larger evidence. Never blindly repeat an ambiguous launch. Keep one authoritative
+larger evidence. Never blindly repeat an ambiguous launch. Clean up only the processes and
+resources this workstream started. Keep one authoritative
 operational checkpoint at `~/.advisor/<repo-key>/workstreams/<workstream>.md` through the
 installed helper. At root entry run
 `node <this-skill-directory>/scripts/advisor-state-cli.mjs init --workstream <accepted-slug>`

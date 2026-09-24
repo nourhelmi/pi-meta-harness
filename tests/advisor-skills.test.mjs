@@ -138,6 +138,11 @@ test("the doctrine keeps the invariants the runtime and the user rely on", () =>
 
   const review = section(core, "## Verify and review", "## Blocked versus obstacle");
   assert.match(review, /Depth follows consequence/);
+  assert.match(review, /failure-path probes and a checker before delivery/);
+  assert.match(review, /low-confidence decision that users will see[\s\S]*gates delivery/);
+  assert.match(routes, /Before launching more than one\s+maker, tell the user in one line/);
+  assert.match(rules, /\*\*Clean up only what you started\.\*\*/);
+  assert.match(packets, /the base ref, a private\s+scratch path and where deliverables land/);
   assert.match(review, /A worker PASS is a\s+claim, not proof/);
   assert.match(review, /Checkers repair what they find inside the reviewed surface/);
   assert.doesNotMatch(review, /checker-of-checker|non-author|named uncertainty|fixed stage/);
@@ -173,6 +178,8 @@ test("the worker contract and role skills carry commit, handoff, obstacle and jo
   assert.match(contract, /Never push, open a PR, deploy or mutate an external system\s+without explicit authority/);
   assert.match(contract, /a `Status` line first \(`DONE`,\s+`BLOCKED: reason`, `FAILED`, `IN PROGRESS`\)/);
   assert.match(contract, /`Deviations`/);
+  assert.match(contract, /with a confidence\s+flag each, tests whose expectations changed and why, user-visible changes as before →\s+after/);
+  assert.match(checker, /try routes around the rule, role and identity combinations, missing data that\s+fails open/);
   assert.match(contract, /`Adjacent findings`/);
   assert.match(contract, /A check you\s+did not run is not a pass/);
   assert.match(contract, /Blocked means a missing product decision, a permission, a credential, or an external\s+action only the user can perform/);
@@ -240,6 +247,13 @@ test("native mirrors carry the same rules for Codex and Claude hosts", async () 
   assert.match(nativeChecker, /Repair every finding you can/);
   assert.match(nativeChecker, /frozen baseline alone does not/);
   assert.match(nativeChecker, /commit only when authorized/);
+  assert.match(advisor, /a checker before delivery/);
+  assert.match(advisor, /tell the user in one\s+line what you launch/);
+  assert.match(advisor, /the base ref, a private scratch path and where deliverables land/);
+  assert.match(nativeContract, /Clean up only what you started/);
+  assert.match(nativeContract, /confidence flag each, tests whose expectations changed and why/);
+  assert.match(nativeChecker, /try routes around the rule/);
+  assert.doesNotMatch(await text("native-skills/advisor-role-builder/SKILL.md"), /risk alone never mandates/);
   for (const path of ["skills/advisor-worker/roles/foreman/SKILL.md", "native-skills/advisor-role-foreman/SKILL.md"]) {
     const legacy = await text(path);
     assert.match(legacy, /compatibility/);

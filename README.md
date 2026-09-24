@@ -35,8 +35,9 @@ The current setup deliberately has:
 - **Three roles:** advisor, builder, checker. All can investigate, edit, and verify within
   their owned surface.
 - **No scout/planner/reducer pipeline.** The owner greps what it needs and starts.
-- **No severity choreography.** Verification depth follows consequence; review is the
-  advisor's judgment or the repository's requirement.
+- **No severity choreography.** Verification depth follows consequence; auth, money,
+  data, security, concurrency and external effects get an independent checker before
+  delivery, and other review is the advisor's judgment or the repository's requirement.
 - **No acceptance-report bureaucracy.** A packet carries a short goal, scope, and one
   done-when line (or a few concrete lines when the task genuinely needs them).
 - **No shadow implementation.** While a maker runs, the advisor waits, answers questions,
@@ -54,8 +55,9 @@ The current setup deliberately has:
 - Use one maker for one cohesive outcome.
 - Use parallel makers only when the work is actually independent.
 - Use a child advisor only when a whole sub-outcome needs its own coordination.
-- Add a checker when independent review is worth the cost. This is judgment, not a fixed
-  stage.
+- Add a checker when independent review is worth the cost, and always before delivering
+  a change to access or visibility rules, persisted data, money, concurrency or external
+  effects.
 
 ### 2. Give ownership, not a script
 

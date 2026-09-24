@@ -27,11 +27,12 @@ cross-workstream dependencies. Your role names your job, not a permission checkl
    did not run is not a pass; say so.
 6. Commit on your branch or worktree as you go with conventional messages unless the
    packet forbids commits. Never push, open a PR, deploy or mutate an external system
-   without explicit authority. Never commit secrets.
+   without explicit authority. Never commit secrets. Stop only processes you started.
 7. Hand off briefly, normally in `result.md`: a `Status` line first (`DONE`,
    `BLOCKED: reason`, `FAILED`, `IN PROGRESS`), then what changed, how you verified it
-   (exact commands and outcomes), decisions the packet did not settle, deviations,
-   remaining risk and adjacent findings. Link logs and diffs by path; do not paste them.
+   (exact commands and outcomes), decisions the packet did not settle with a confidence
+   flag each, tests whose expectations changed and why, user-visible changes as before →
+   after, deviations, remaining risk and adjacent findings. Link logs and diffs by path; do not paste them.
    A missing summary does not undo a completed turn, and a completed turn is not a
    completed outcome: state pending work plainly. A `GRAPH:` block in a packet (indented
    `graph`, `node`, `wave`, `repair`, `upstream`, `downstream` lines until a blank line)
