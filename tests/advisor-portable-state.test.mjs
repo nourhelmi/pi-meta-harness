@@ -60,6 +60,28 @@ test('Pi and installed native helper claim the same canonical namespace without 
   assert.equal(f.call(['read', '--workstream', 'native-work'], { CODEX_THREAD_ID: '', CLAUDE_SESSION_ID: 'native-a' }, script).status, 1);
 });
 
+test('checkpoint CLI runs init/read/write and reports errors through both installed host symlinks', t => {
+  const f = fixture(t); installNativeSkills(f.directory);
+  for (const host of ['claude', 'codex']) {
+    const script = join(f.directory, `.${host}/skills/advisor/scripts/advisor-state-cli.mjs`);
+    const env = host === 'claude' ? { CODEX_THREAD_ID: '', CLAUDE_SESSION_ID: 'claude-a' } : {};
+    const original = json(f.call(['init', '--workstream', `${host}-work`], env, script));
+    assert.equal(original.identity.host, host === 'claude' ? 'claude-code' : 'codex');
+    const content = original.content + '\nVerified through the installed skill symlink.\n';
+    const updated = json(f.call(['write', '--expected-digest', original.digest], env, script, content));
+    assert.equal(updated.content, content);
+    assert.notEqual(updated.digest, original.digest);
+    const current = json(f.call(['read'], env, script));
+    assert.equal(current.content, content); assert.equal(current.digest, updated.digest);
+    const stale = f.call(['write', '--expected-digest', original.digest], env, script, content);
+    assert.equal(stale.status, 1); assert.match(stale.stderr, /Stale checkpoint digest/);
+    const invalid = f.call(['unknown'], env, script);
+    assert.equal(invalid.status, 1); assert.match(invalid.stderr, /Usage:/);
+    const malformed = f.call(['write', '--expected-digest', updated.digest], env, script, `# Workstream: ${host}-work\n\nNo state heading.\n`);
+    assert.equal(malformed.status, 1); assert.match(malformed.stderr, /must start with "# Workstream: .*" and contain a "## Current state" section/);
+  }
+});
+
 test('display/owner arguments and absent host context do not claim ownership; helpers cannot create competing checkpoints', t => {
   const f = fixture(t);
   assert.equal(f.call(['init', '--workstream', 'outcome', '--owner', 'pi-a']).status, 1);
