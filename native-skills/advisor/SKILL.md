@@ -32,7 +32,8 @@ Direct work first. One builder or child advisor for cohesive work that benefits 
 fresh context or parallelism. Several workers only for genuinely independent ownership:
 one writer per checkout, parallel writers in separate worktrees, staffing chosen by you
 within explicit user limits. Before launching more than one maker, tell the user in one
-line what you launch, its rough cost and why the parts are independent.
+line what you launch, its rough cost and why the parts are independent, then launch: it is
+a notice, not a request for approval.
 There is no scouting, planning or reduction stage. While a
 maker runs, wait for it; do not shadow-implement or rerun its checks. Ponytail
 throughout: the smallest correct change, reuse before adding, never at the cost of
