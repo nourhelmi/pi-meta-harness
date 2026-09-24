@@ -3,8 +3,8 @@ import test from 'node:test';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { Readable, Writable } from 'node:stream';
-import { createStockFacade, identifyStockRoot, stockConfig, stockError, stockTools, stockInheritedEnv } from '../scripts/advisor-runtime/stock-root.mjs';
+import { PassThrough, Readable, Writable } from 'node:stream';
+import { createStockFacade, exitWhenIdle, herdrBound, identifyStockRoot, stockConfig, stockError, stockTools, stockInheritedEnv } from '../scripts/advisor-runtime/stock-root.mjs';
 import { bootstrapIdentity } from '../scripts/advisor-runtime/pi-detach-bootstrap.mjs';
 import { createMcpHandler, serveMcp } from '../scripts/advisor-runtime/mcp.mjs';
 
@@ -287,4 +287,26 @@ for (const status of ['PASS', 'FAIL', 'BLOCKED', 'malformed', null]) test(`stock
   for (const delivery of await call('wait', { runId, timeoutMs: 0 })) await call('ack', { runId, deliveryId: delivery.id });
   if (status === 'BLOCKED') { await call('cancel', { commandId: 'cancel', runId }); await host.runtime.dispatch(); for (const delivery of await call('wait', { runId, timeoutMs: 0 })) await call('ack', { runId, deliveryId: delivery.id }); }
   await host.service.close();
+});
+
+test('Regression: a bridge outside Herdr exits once idle instead of leaking per Codex thread', async () => {
+  // Codex's desktop app-server keeps each thread's MCP child alive; hourly automations piled up
+  // bridges that could never serve a call. Only Herdr-bound bridges may live indefinitely.
+  assert.equal(herdrBound({ HERDR_ENV: '1', HERDR_PANE_ID: 'p1' }), true);
+  for (const env of [{}, { HERDR_ENV: '1' }, { HERDR_PANE_ID: 'p1' }, { HERDR_ENV: '0', HERDR_PANE_ID: 'p1' }, { HERDR_ENV: '1', HERDR_PANE_ID: 'p1', PI_DETACH_NO_HERDR: '1' }]) {
+    assert.equal(herdrBound(env), false, JSON.stringify(env));
+  }
+  const wait = ms => new Promise(done => setTimeout(done, ms));
+  const input = new PassThrough(); let exits = 0;
+  exitWhenIdle(input, 60, () => { exits++; });
+  input.resume();
+  for (let i = 0; i < 4; i++) { await wait(30); input.write('{}\n'); }
+  assert.equal(exits, 0, 'traffic keeps an active bridge alive');
+  await wait(100);
+  assert.equal(exits, 1, 'silence ends an unbound bridge');
+  const ended = new PassThrough(); let endedExits = 0;
+  exitWhenIdle(ended, 40, () => { endedExits++; });
+  ended.resume(); ended.end();
+  await wait(80);
+  assert.equal(endedExits, 0, 'a closed stdin already ends the bridge; the timer must not fire again');
 });
