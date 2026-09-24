@@ -80,11 +80,33 @@ function processAncestry(env) {
   return ancestors;
 }
 
+/** Every stock tool binds to a Herdr pane; without one, no call can succeed. */
+export function herdrBound(env) {
+  return env.HERDR_ENV === '1' && Boolean(env.HERDR_PANE_ID) && env.PI_DETACH_NO_HERDR !== '1';
+}
+
+/**
+ * Codex's desktop app-server keeps one MCP child per thread until the app quits, so hourly
+ * automations leaked one bridge per run. Outside Herdr the bridge can never serve a tool, so
+ * it exits after this much silence; inside Herdr it lives as long as its host keeps stdin open.
+ */
+export const UNBOUND_IDLE_EXIT_MS = 5 * 60_000;
+
+/** Calls `exit` once `input` has been silent for `ms`; every chunk restarts the countdown. */
+export function exitWhenIdle(input, ms, exit) {
+  let timer;
+  const arm = () => { clearTimeout(timer); timer = setTimeout(exit, ms); };
+  input.on('data', arm);
+  input.once('end', () => clearTimeout(timer));
+  arm();
+  return () => clearTimeout(timer);
+}
+
 /** All inputs here are trusted host context, never model arguments. Queries are bounded, read-only. */
 export function identifyStockRoot({ host, cwd, env = process.env }, query = herdrQuery, ancestry = processAncestry) {
   demand(!env.ADVISOR_RUNTIME_CANONICAL_OWNER && !env.ADVISOR_BRIDGE_CHILD_STATE && !env.ADVISOR_RUNTIME_DESCRIPTOR && !env.PI_DETACH_RUNTIME_BRIDGE, 'STOCK_WORKER_FORBIDDEN');
   demand(['codex', 'claude-code'].includes(host), 'STOCK_HOST_REQUIRED');
-  demand(env.HERDR_ENV === '1' && env.HERDR_PANE_ID && env.PI_DETACH_NO_HERDR !== '1', 'STOCK_HERDR_REQUIRED');
+  demand(herdrBound(env), 'STOCK_HERDR_REQUIRED');
   const paneId = env.HERDR_PANE_ID; text(paneId, 128);
   const agent = query(['agent', 'get', paneId], env)?.agent;
   const info = query(['pane', 'process-info', '--pane', paneId], env)?.process_info;
@@ -213,6 +235,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const [mode, host, detachPath] = process.argv.slice(2);
     demand(process.argv.length === 5 && ['mcp', 'config'].includes(mode) && ['codex', 'claude-code'].includes(host) && isAbsolute(detachPath), 'STOCK_INVALID_ARGUMENTS');
     if (mode === 'config') process.stdout.write(stockConfig(host, detachPath).text);
-    else await serveMcp(null, process.stdin, process.stdout, createMcpHandler(null, createStockFacade({ host, detachPath })));
+    else {
+      if (!herdrBound(process.env)) exitWhenIdle(process.stdin, UNBOUND_IDLE_EXIT_MS, () => process.exit(0));
+      await serveMcp(null, process.stdin, process.stdout, createMcpHandler(null, createStockFacade({ host, detachPath })));
+    }
   } catch (error) { process.stderr.write(stockError(error) + '\n'); process.exitCode = 1; }
 }
