@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { advisorStateRoot, nativeAdvisorIdentity, readAdvisorSession, claimAdvisorCheckpoint, readAdvisorCheckpoint, updateAdvisorCheckpoint } from './advisor-state.mjs';
 
 export async function checkpointCommand(argv, env = process.env, input) {
@@ -30,7 +29,7 @@ export async function checkpointCommand(argv, env = process.env, input) {
   }
   return { ...value, lane: 'unchanged', executionRuntimeStarted: false, identitySource: 'local trusted host context; not host-attested evidence' };
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   try { console.log(JSON.stringify(await checkpointCommand(process.argv.slice(2)), null, 2)); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }

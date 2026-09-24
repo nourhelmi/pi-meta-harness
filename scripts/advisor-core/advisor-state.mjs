@@ -116,7 +116,7 @@ function transaction(root, action) {
   try { return action(); } finally { rmdirSync(lock); }
 }
 function metadata(content, workstream) {
-  demand(content?.startsWith(`# Workstream: ${workstream}\n`) && content.includes('## Current state'), 'Checkpoint missing or corrupt; recover accepted artifacts explicitly');
+  demand(content?.startsWith(`# Workstream: ${workstream}\n`) && content.includes('## Current state'), `Checkpoint missing or corrupt: it must start with "# Workstream: ${workstream}" and contain a "## Current state" section; recover accepted artifacts explicitly`);
   function field(label, fallback) {
     const lines = content.split('\n').filter(line => line.startsWith(`- ${label}:`));
     demand(lines.length <= 1, `Duplicate checkpoint ${label}`);
