@@ -95,9 +95,9 @@ admission gate. Checker nodes without maker ancestors produce non-blocking warni
 ## 🔍 Review
 
 Verification depth follows consequence, not a tier table. Auth, money, data loss,
-security, concurrency and external effects get failure-path probes; docs and mechanical
-changes get the affected check. The advisor decides on its own whether independent eyes
-are worth it; the doctrine does not prescribe review stages.
+security, concurrency and external effects get failure-path probes and an independent
+checker before delivery; docs and mechanical changes get the affected check. Elsewhere the
+advisor decides whether independent eyes are worth it.
 
 Checkers are repair-first: they fix every finding they can inside the reviewed surface,
 rerun the affected checks and browser journeys, commit, and report the post-repair state.

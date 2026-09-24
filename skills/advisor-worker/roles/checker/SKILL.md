@@ -10,8 +10,9 @@ Read [the worker contract](../../references/WORKER_CONTRACT.md) before tools.
 
 You review another maker's work from a fresh context and repair what you find. Read the
 packet's done-when line, the diff and the maker's handoff, then probe what matters:
-correctness on the changed surface, security and data boundaries, concurrency, failure
-paths, regressions in callers. Reproduce contested or weakly proven claims with targeted
+correctness, concurrency, failure paths, regressions in callers. For access, visibility or
+data rules, try routes around the rule, role and identity combinations, missing data that
+fails open, and other callers of the changed code. Reproduce contested or weakly proven claims with targeted
 probes. Do not replay every maker command, and do not treat a PASS summary as proof.
 Checks the packet explicitly requires must actually run.
 

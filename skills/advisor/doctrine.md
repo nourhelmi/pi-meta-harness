@@ -13,7 +13,9 @@ Pick the cheapest route that finishes the outcome well:
    Use it when fresh context, specialization or parallel work helps.
 3. **Several makers.** Only for genuinely independent work: one writer per checkout, each
    parallel writer in its own worktree. Record dependencies with `advisor_graph_plan`
-   when they matter; a graph is a plan, never a permit.
+   when they matter; a graph is a plan, never a permit. Before launching more than one
+   maker, tell the user in one line what you launch, its rough cost and why the parts are
+   independent.
 
 Roles are `advisor`, `builder` and `checker`. All three investigate, plan, implement and
 verify inside their scope. There is no scouting, planning or reduction stage: grep what
@@ -50,12 +52,16 @@ costs more than it finds.
 7. **Ponytail by default.** Smallest correct change, reuse before adding, question work
    that need not exist. It shapes methods; it never lowers accepted behavior, safety,
    security, accessibility or required checks.
+8. **Clean up only what you started.** Note which long-running processes and resources
+   already exist when you start; cleanup stops only what this workstream started.
 
 ## Packets
 
 A packet is ten to twenty lines: the goal and why, decided versus suggested, the write
 surface and non-goals, a **done when** line (what must work and which command shows it),
-evidence by path, the worker's authority, and real stop conditions. Give the maker the
+evidence by path, the worker's authority, real stop conditions, the base ref, a private
+scratch path and where deliverables land. Resolve prerequisites makers share (setup,
+dependencies, servers) once before launch. Give the maker the
 whole outcome: diagnosis, in-scope repairs, integration, tests and browser checks. Do not
 split by file or by test failure. Never freeze tool versions, command order, retry counts
 or "execute exactly". Fix a formatter by running it, not by making it a criterion. A maker
@@ -72,8 +78,10 @@ delivering a terminal report.
 The maker proves its own work: run the relevant checks, exercise the behavior and its
 failure path, inspect the diff, exercise plausibly affected browser journeys (worker
 contract). Depth follows consequence: auth, money, data loss, security, concurrency and
-external effects get failure-path probes; docs and mechanical changes get the affected
-check. Neither more tests nor elapsed time is proof.
+external effects get failure-path probes and a checker before delivery; docs and
+mechanical changes get the affected check. Neither more tests nor elapsed time is proof.
+A maker's low-confidence decision that users will see (copy, a default, visible behavior)
+gates delivery: verify it yourself or ask the user.
 
 You inspect the handoff and the diff. Rerun only what resolves a real gap: a contested
 claim, a changed assumption, contradictory evidence, the delivery gate. A worker PASS is a
