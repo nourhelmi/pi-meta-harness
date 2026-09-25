@@ -77,8 +77,9 @@ test('checkpoint CLI runs init/read/write and reports errors through both instal
     assert.equal(stale.status, 1); assert.match(stale.stderr, /Stale checkpoint digest/);
     const invalid = f.call(['unknown'], env, script);
     assert.equal(invalid.status, 1); assert.match(invalid.stderr, /Usage:/);
-    const malformed = f.call(['write', '--expected-digest', updated.digest], env, script, `# Workstream: ${host}-work\n\nNo state heading.\n`);
-    assert.equal(malformed.status, 1); assert.match(malformed.stderr, /must start with "# Workstream: .*" and contain a "## Current state" section/);
+    const freeform = f.call(['write', '--expected-digest', updated.digest], env, script, 'PAUSED — exact\nNo prescribed headings.\n');
+    assert.equal(json(freeform).content, 'PAUSED — exact\nNo prescribed headings.\n');
+    assert.equal(json(f.call(['read'], env, script)).mode, original.mode);
   }
 });
 
@@ -95,16 +96,18 @@ test('display/owner arguments and absent host context do not claim ownership; he
   assert.throws(() => nativeAdvisorIdentity({ PI_SESSION_ID: 'foreign', PI_SESSION_FILE: piContext }), /mismatch/);
 });
 
-test('safe writes preserve owner/mode, require current digest and preserve attributed helper evidence locators', t => {
+test('freeform writes preserve stored owner/mode, require current digest and retain helper evidence locators', t => {
   const f = fixture(t); const original = claimAdvisorCheckpoint({ ...f.request, mode: 'cos' });
   const content = original.content + '\n## Evidence\n\nHelper child-session/run-1: /assigned/result.md — native returned evidence, not host attestation.\n';
   const updated = updateAdvisorCheckpoint({ ...f.request, content, expectedDigest: original.digest });
   assert.notEqual(updated.digest, original.digest); assert.match(updated.content, /child-session\/run-1/);
   assert.throws(() => updateAdvisorCheckpoint({ ...f.request, content, expectedDigest: original.digest }), /Stale/);
-  assert.throws(() => updateAdvisorCheckpoint({ ...f.request, content: content.replace('`pi-a`', '`foreign`'), expectedDigest: updated.digest }), /owner\/mode/);
-  assert.throws(() => updateAdvisorCheckpoint({ ...f.request, content: content.replace('`cos`', '`advisor`'), expectedDigest: updated.digest }), /owner\/mode/);
+  const freeform = updateAdvisorCheckpoint({ ...f.request, content: 'PAUSED — exact\nOwner session: foreign; advisor mode: anything.\n', expectedDigest: updated.digest });
+  assert.equal(freeform.mode, 'cos'); assert.equal(readAdvisorCheckpoint(f.request).content, freeform.content);
+  const blank = updateAdvisorCheckpoint({ ...f.request, content: '', expectedDigest: freeform.digest });
+  assert.equal(blank.content, ''); assert.equal(blank.mode, 'cos');
   assert.throws(() => claimAdvisorCheckpoint({ ...f.request, workstream: 'renamed' }), /different advisor workstream/);
-  assert.equal(readAdvisorCheckpoint(f.request).digest, updated.digest);
+  assert.equal(readAdvisorCheckpoint(f.request).digest, blank.digest);
   const nextIdentity = advisorIdentity('codex', 'new-root');
   const transferred = claimAdvisorCheckpoint({ ...f.request, identity: nextIdentity, transferFrom: f.request.identity });
   assert.equal(transferred.mode, 'cos'); assert.equal(readdirSync(join(f.root, 'events')).length, 1);
@@ -114,6 +117,10 @@ test('safe writes preserve owner/mode, require current digest and preserve attri
 test('symlink, hardlink, redirected directory and missing checkpoint reject without clobber or adoption', t => {
   const f = fixture(t); const original = claimAdvisorCheckpoint(f.request);
   const victim = join(f.directory, 'victim'); writeFileSync(victim, 'sentinel');
+  const ownerFile = join(f.root, 'workstreams/outcome.owner.json');
+  const owner = readFileSync(ownerFile, 'utf8'); unlinkSync(ownerFile); symlinkSync(victim, ownerFile);
+  assert.throws(() => readAdvisorCheckpoint(f.request), /symlink/);
+  unlinkSync(ownerFile); writeFileSync(ownerFile, owner);
   unlinkSync(original.paths.workstream); symlinkSync(victim, original.paths.workstream);
   assert.throws(() => claimAdvisorCheckpoint(f.request), /symlink/);
   assert.throws(() => updateAdvisorCheckpoint({ ...f.request, content: original.content, expectedDigest: original.digest }), /symlink/);
@@ -139,19 +146,38 @@ test('separate native processes cannot overwrite a collision winner or reset a s
   assert.equal(rejected.status, 1); assert.match(rejected.stderr, /different advisor workstream/);
 });
 
-test('malformed metadata never falls back and competing same-owner CAS processes preserve the winner', async t => {
+test('freeform text cannot mutate stored ownership and competing same-owner CAS processes preserve the winner', async t => {
   const f = fixture(t); const original = json(f.call(['init', '--workstream', 'outcome', '--mode', 'cos']));
   const request = { ...f.request, identity: original.identity };
-  for (const content of [original.content + '\n- Owner session: `foreign`\n', original.content.replace('`cos`', '`invalid`'), original.content.replace('`codex`', 'codex')]) {
-    assert.throws(() => updateAdvisorCheckpoint({ ...request, expectedDigest: original.digest, content }), /Duplicate|Invalid|Malformed/);
-    assert.equal(readAdvisorCheckpoint(request).digest, original.digest);
+  let current = original;
+  for (const content of [original.content + '\n- Owner session: `foreign`\n', '# Anything\n- Advisor mode: `invalid`\n', 'PAUSED — exact']) {
+    current = updateAdvisorCheckpoint({ ...request, expectedDigest: current.digest, content });
+    assert.equal(readAdvisorCheckpoint(request).content, content);
+    assert.equal(current.mode, 'cos');
   }
-  const writes = await Promise.all(['one', 'two'].map(name => processCall(cli, ['write', '--cwd', f.cwd, '--expected-digest', original.digest], f.env, original.content + `\n## Evidence\n\n${name}: /assigned/${name}/result.md\n`)));
+  const ownerFile = join(f.root, 'workstreams/outcome.owner.json');
+  const storedOwner = readFileSync(ownerFile, 'utf8');
+  writeFileSync(ownerFile, JSON.stringify({ ...JSON.parse(storedOwner), sessionId: 'foreign' }));
+  assert.throws(() => readAdvisorCheckpoint(request), /foreign-owner/);
+  writeFileSync(ownerFile, storedOwner);
+  const writes = await Promise.all(['one', 'two'].map(name => processCall(cli, ['write', '--cwd', f.cwd, '--expected-digest', current.digest], f.env, current.content + `\n## Evidence\n\n${name}: /assigned/${name}/result.md\n`)));
   assert.equal(writes.filter(value => value.status === 0).length, 1);
   const winner = JSON.parse(writes.find(value => value.status === 0).stdout);
   for (const failed of writes.filter(value => value.status !== 0)) assert.match(failed.stderr, /busy|Stale/);
   assert.equal(readAdvisorCheckpoint(request).content, winner.content);
   assert.equal(readAdvisorCheckpoint(request).mode, 'cos');
+});
+
+test('a legacy checkpoint migrates ownership before accepting unstructured text', t => {
+  const f = fixture(t); const original = claimAdvisorCheckpoint(f.request);
+  const ownerFile = join(f.root, 'workstreams/outcome.owner.json');
+  unlinkSync(ownerFile);
+  writeFileSync(original.paths.workstream, '# Workstream: outcome\n- Owner session: `pi-a`\n- Owner host: `pi`\n- Advisor mode: `advisor`\n');
+  const legacy = readAdvisorCheckpoint(f.request);
+  const updated = updateAdvisorCheckpoint({ ...f.request, expectedDigest: legacy.digest, content: 'PAUSED — exact' });
+  assert.equal(updated.content, 'PAUSED — exact');
+  assert.equal(JSON.parse(readFileSync(ownerFile, 'utf8')).sessionId, 'pi-a');
+  assert.equal(readAdvisorCheckpoint(f.request).content, updated.content);
 });
 
 test('checkpoint content above the former ceiling survives guarded writes and reads', t => {

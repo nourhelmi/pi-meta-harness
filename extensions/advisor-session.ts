@@ -347,7 +347,7 @@ interface TeamProjection {
 }
 async function refreshTeamCheckpoint(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
   const checkpoint = await advisorCheckpoint(ctx);
-  if (!checkpoint?.content || checkpoint.state.mode !== 'cos') return;
+  if (checkpoint?.content === undefined || checkpoint.state.mode !== 'cos') return;
   const request: { sessionId: string; action: string; context: ExtensionContext; payload: object; response?: Promise<unknown> } = {
     sessionId: ctx.sessionManager.getSessionId(), action: 'team.status', context: ctx, payload: {},
   };
@@ -600,7 +600,7 @@ function registerVisibilityGuard(
 		if (!state) return;
     if (effect) {
 			const checkpoint = await advisorCheckpoint(ctx);
-			if (!checkpoint?.content) return { block: true, reason: checkpoint?.problem ?? "Advisor checkpoint unavailable; reinitialize before worker effects." };
+			if (checkpoint?.content === undefined) return { block: true, reason: checkpoint?.problem ?? "Advisor checkpoint unavailable; reinitialize before worker effects." };
 		}
 		const reason = advisorToolGuardReason(event.toolName, event.input, state.workerHarness)
 			?? (event.toolName === 'bg_agent' ? await routerLaunchGuard(pi, ctx, event.input, true) : undefined);
@@ -734,7 +734,7 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		hotSectionPending = false;
 		if (!activeState) return;
     const checkpoint = await advisorCheckpoint(ctx);
-    if (checkpoint?.content) {
+    if (checkpoint?.content !== undefined) {
       const claimed = await claimWorkstream(ctx, activeState.workstream, activeState.sessionId, activeState.workerHarness, checkpoint.state.mode);
       activeState = { ...activeState, ...(claimed.mode === 'cos' ? { mode: 'cos' as const } : {}) };
       pi.events?.emit('advisor:team-mode', { enabled: activeState.mode === 'cos' });
@@ -765,7 +765,7 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
 		let hotSection: string | undefined;
 		let workstreamPath: string | undefined;
     workstreamPath = checkpoint.path;
-    hotSection = checkpoint.problem ?? (hotSectionPending && checkpoint.content ? workstreamHotSection(checkpoint.content) : undefined);
+    hotSection = checkpoint.problem ?? (hotSectionPending && checkpoint.content !== undefined ? workstreamHotSection(checkpoint.content) : undefined);
     hotSectionPending = false;
 		return {
 			systemPrompt: withAdvisorSystemPrompt(event.systemPrompt, {
@@ -908,12 +908,12 @@ export default function advisorSessionExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'advisor_checkpoint', label: 'Advisor Checkpoint',
     description: 'Read the canonical owned checkpoint and its digest, or replace it using that digest. Root-only, collision-safe; preserves host/workstream ownership. Helper evidence belongs in assigned artifacts.',
-    parameters: Type.Object({ content: Type.Optional(Type.String({ maxLength: 65536 })), expectedDigest: Type.Optional(Type.String()) }),
+    parameters: Type.Object({ content: Type.Optional(Type.String()), expectedDigest: Type.Optional(Type.String()) }),
     async execute(_id, params, _signal, _update, ctx) {
       if (pi.getFlag?.('advisor-worker-role')) throw new Error('Scoped helpers must use assigned evidence artifacts.');
       if (params.content === undefined) await refreshTeamCheckpoint(pi, ctx);
       const checkpoint = await advisorCheckpoint(ctx);
-      if (!checkpoint?.content) throw new Error(checkpoint?.problem ?? 'Initialize the advisor workstream first.');
+      if (checkpoint?.content === undefined) throw new Error(checkpoint?.problem ?? 'Initialize the advisor workstream first.');
       const root = await advisorStateRoot(ctx.cwd);
       const identity = advisorIdentity('pi', ctx.sessionManager.getSessionId());
       const current = params.content === undefined ? checkpoint : updateAdvisorCheckpoint({ root, workstream: checkpoint.state.workstream, identity, content: params.content, expectedDigest: params.expectedDigest ?? '' });

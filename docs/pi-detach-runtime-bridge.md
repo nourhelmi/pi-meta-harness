@@ -53,9 +53,12 @@ there is no cumulative launch/reply/task quota.
   runtime own transport and artifact identity; use `role` and `harness`. Supply `model`
   (and optional `thinking`) only as an explicit pin when the external router is enabled;
   without it, legacy explicit/default model selection is unchanged.
-- A receipt proves admission, not prompt delivery or task completion. Exact command
-  replay cannot execute the same task twice. Correct a definite pre-effect rejection
-  under a new call; never retry uncertain delivery as a fresh launch.
+- A receipt proves admission, not prompt delivery or task completion. Fresh launch
+  transport timeouts replay the same tool-call ID for up to 60 seconds; concurrent
+  replays wait for the original admission instead of preparing a second worker.
+  If it remains unconfirmed, inspect `bg_list` before any new launch. Correct a
+  definite pre-effect rejection under a new call; never retry uncertain delivery
+  as a fresh launch.
 - Use the returned opaque `pib-…` run ID for follow-up, output and stop. Current
   identity-checked transport determines whether input can be accepted. Busy advice
   is queued only through a supported messaging path; no typing through trust,

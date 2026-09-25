@@ -105,11 +105,11 @@ export async function callSocket(credential, command, audience = 'operator') {
   demand(typeof credential.socketPath === 'string' && credential.socketPath.startsWith('/'), 'UNIX_SOCKET_REQUIRED');
   const wire = JSON.stringify({ v: 1, token: credential.token, command, audience });
   return new Promise((resolve, reject) => {
-    const socket = createConnection({ path: credential.socketPath }); let chunks = []; let finished = false;
+    const socket = createConnection({ path: credential.socketPath }); let chunks = []; let finished = false; let submitted = false;
     const fail = error => { if (!finished) { finished = true; socket.destroy(); reject(error); } };
     socket.setTimeout(LIMITS.waitMs + 3000, () => fail(new RuntimeError('TRANSPORT_TIMEOUT')));
-    socket.on('error', () => fail(new RuntimeError('TRANSPORT_ERROR')));
-    socket.on('connect', () => socket.write(wire + '\n'));
+    socket.on('error', () => { const error = new RuntimeError('TRANSPORT_ERROR'); error.submitted = submitted; fail(error); });
+    socket.on('connect', () => { submitted = true; socket.write(wire + '\n'); });
     socket.on('data', chunk => {
       chunks.push(chunk);
       const end = chunk.indexOf(10); if (end < 0) return;

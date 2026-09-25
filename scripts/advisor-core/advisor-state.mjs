@@ -115,8 +115,8 @@ function transaction(root, action) {
   catch (error) { if (error.code === 'EEXIST') throw new Error('Advisor checkpoint is busy; retry after its owner finishes. A crashed lock requires explicit local inspection.'); throw error; }
   try { return action(); } finally { rmdirSync(lock); }
 }
-function metadata(content, workstream) {
-  demand(content?.startsWith(`# Workstream: ${workstream}\n`) && content.includes('## Current state'), `Checkpoint missing or corrupt: it must start with "# Workstream: ${workstream}" and contain a "## Current state" section; recover accepted artifacts explicitly`);
+function metadata(content) {
+  demand(content !== undefined, 'Checkpoint missing; recover accepted artifacts explicitly');
   function field(label, fallback) {
     const lines = content.split('\n').filter(line => line.startsWith(`- ${label}:`));
     demand(lines.length <= 1, `Duplicate checkpoint ${label}`);
@@ -130,11 +130,20 @@ function metadata(content, workstream) {
   demand(['advisor', 'cos'].includes(mode), 'Invalid checkpoint advisor mode');
   return { ...identity, mode };
 }
+function ownerPath(root, workstream) { return join(root, 'workstreams', `${workstream}.owner.json`); }
+function checkpointOwner(root, workstream, content) {
+  const stored = readSafe(root, ownerPath(root, workstream));
+  if (stored === undefined) return metadata(content); // Legacy checkpoint migration.
+  let value;
+  try { value = JSON.parse(stored); } catch { throw new Error('Checkpoint ownership corrupt'); }
+  demand(value?.v === 1 && value.workstream === workstream && ['advisor', 'cos'].includes(value.mode), 'Checkpoint ownership corrupt');
+  return { ...advisorIdentity(value.host, value.sessionId), mode: value.mode };
+}
 function sameOwner(a, b) { return a.host === b.host && a.sessionId === b.sessionId; }
 export function readAdvisorCheckpoint({ root, workstream, identity }) {
   const paths = advisorPaths(root, workstream, identity);
   const content = readSafe(root, paths.workstream);
-  const owner = metadata(content, workstream);
+  const owner = checkpointOwner(root, workstream, content);
   demand(sameOwner(owner, identity), `Workstream ${workstream} is owned by ${owner.host} session ${owner.sessionId}; no foreign-owner takeover.`);
   return { paths, content, digest: digest(content), mode: owner.mode, identity };
 }
@@ -142,7 +151,7 @@ export function advisorCheckpointOwner({ root, workstream, identity }) {
   const paths = advisorPaths(root, workstream, identity);
   if (!info(root)) return undefined;
   const content = readSafe(root, paths.workstream);
-  return content === undefined ? undefined : metadata(content, workstream);
+  return content === undefined ? undefined : checkpointOwner(root, workstream, content);
 }
 export function readAdvisorSession({ root, identity }) {
   advisorIdentity(identity?.host, identity?.sessionId);
@@ -160,7 +169,7 @@ function writePointer(paths, identity, state) {
     demand(prior === undefined || prior === old, 'Legacy session archive differs; preserve and resolve it explicitly');
     if (prior === undefined) writeSafe(paths.root, archive, old);
   }
-  writeSafe(paths.root, paths.session, `# Advisor Session ${identity.sessionId.slice(0, 8)}\n\n- Host: \`${identity.host}\`\n- Workstream: \`${state.workstream}\`\n- Checkpoint: \`../workstreams/${state.workstream}.md\`\n- Initialized: \`${state.initializedAt}\`\n- Worker harness: \`${state.workerHarness}\`\n- Advisor mode: \`${state.mode}\`\n\nOperational state lives only in the workstream current section. This is an identity pointer, not a diary.\n`);
+  writeSafe(paths.root, paths.session, `# Advisor Session ${identity.sessionId.slice(0, 8)}\n\n- Host: \`${identity.host}\`\n- Workstream: \`${state.workstream}\`\n- Checkpoint: \`../workstreams/${state.workstream}.md\`\n- Initialized: \`${state.initializedAt}\`\n- Worker harness: \`${state.workerHarness}\`\n- Advisor mode: \`${state.mode}\`\n\nThe workstream checkpoint is freeform; ownership lives in its sidecar. This is an identity pointer, not a diary.\n`);
 }
 export function claimAdvisorCheckpoint({ root, workstream, identity, workerHarness = 'pi', mode, transferFrom }) {
   const paths = advisorPaths(root, workstream, identity);
@@ -169,19 +178,16 @@ export function claimAdvisorCheckpoint({ root, workstream, identity, workerHarne
     const prior = readAdvisorSession({ root, identity });
     demand(!prior || prior.workstream === workstream, 'This host session already owns a different advisor workstream; start a fresh session.');
     const current = readSafe(root, paths.workstream);
-    demand(current !== undefined || !prior, 'Checkpoint missing; session pointer is not proof. Recover accepted artifacts explicitly.');
-    const owner = current === undefined ? undefined : metadata(current, workstream);
+    demand(current !== undefined || !prior && readSafe(root, ownerPath(root, workstream)) === undefined, 'Checkpoint missing; session pointer is not proof. Recover accepted artifacts explicitly.');
+    const owner = current === undefined ? undefined : checkpointOwner(root, workstream, current);
     if (owner && !sameOwner(owner, identity)) demand(transferFrom && sameOwner(owner, transferFrom), `Workstream ${workstream} is owned by ${owner.host} session ${owner.sessionId}; explicit owner-confirmed transfer required.`);
     const state = { workstream, sessionId: identity.sessionId, initializedAt: prior?.initializedAt ?? new Date().toISOString(), workerHarness: prior?.workerHarness ?? workerHarness, mode: mode === 'cos' || owner?.mode === 'cos' ? 'cos' : 'advisor' };
-    let content = current ?? `# Workstream: ${workstream}\n\n- Owner session: \`${identity.sessionId}\`\n- Owner host: \`${identity.host}\`\n- Advisor mode: \`${state.mode}\`\n- Status: active\n\n## Goal\n\nTo be defined from the advisor conversation.\n\n## Current state\n\nInitialized by the shared advisor checkpoint helper.\n\n## Scope ledger\n\nRecord material scope decisions and why: accepted outcome, ownership and safety boundaries, necessary in-scope work, and unresolved product choices. The maker owns remaining diagnosis, implementation and verification. Update on material changes, not every edit.\n`;
+    let content = current ?? `# Workstream: ${workstream}\n\n- Status: active\n\n## Goal\n\nTo be defined from the advisor conversation.\n\n## Current state\n\nInitialized by the shared advisor checkpoint helper.\n\n## Scope ledger\n\nRecord material scope decisions and why: accepted outcome, ownership and safety boundaries, necessary in-scope work, and unresolved product choices. The maker owns remaining diagnosis, implementation and verification. Update on material changes, not every edit.\n`;
     if (owner && !sameOwner(owner, identity)) {
       writeSafe(root, join(paths.events, `${randomUUID()}-handoff.md`), `# Advisor workstream handoff\n\n- Workstream: \`${workstream}\`\n- Previous owner: \`${owner.host}/${owner.sessionId}\`\n- New owner: \`${identity.host}/${identity.sessionId}\`\n\n${current}`);
-      content = content.replace(/^- Owner session: `[^`]+`$/m, `- Owner session: \`${identity.sessionId}\``);
     }
-    for (const [label, value] of [['Owner host', identity.host], ['Advisor mode', state.mode]]) {
-      const pattern = new RegExp(`^- ${label}: .*$`, 'm');
-      content = pattern.test(content) ? content.replace(pattern, `- ${label}: \`${value}\``) : content.replace(/(^- Owner session:.*$)/m, `$1\n- ${label}: \`${value}\``);
-    }
+    const storedOwner = readSafe(root, ownerPath(root, workstream));
+    if (storedOwner === undefined || !sameOwner(owner, identity) || owner.mode !== state.mode) writeSafe(root, ownerPath(root, workstream), JSON.stringify({ v: 1, workstream, host: identity.host, sessionId: identity.sessionId, mode: state.mode }));
     if (content !== current) writeSafe(root, paths.workstream, content);
     writePointer(paths, identity, state);
     return { ...readAdvisorCheckpoint({ root, workstream, identity }), state };
@@ -193,8 +199,7 @@ export function updateAdvisorCheckpoint({ root, workstream, identity, expectedDi
   return transaction(root, () => {
     const current = readAdvisorCheckpoint({ root, workstream, identity });
     demand(current.digest === expectedDigest, 'Stale checkpoint digest; read current state before writing');
-    const next = metadata(content, workstream);
-    demand(sameOwner(next, identity) && next.mode === current.mode, 'Checkpoint owner/mode mutation refused; use explicit initialization/transfer');
+    if (readSafe(root, ownerPath(root, workstream)) === undefined) writeSafe(root, ownerPath(root, workstream), JSON.stringify({ v: 1, workstream, host: identity.host, sessionId: identity.sessionId, mode: current.mode }));
     writeSafe(root, current.paths.workstream, content);
     return readAdvisorCheckpoint({ root, workstream, identity });
   });

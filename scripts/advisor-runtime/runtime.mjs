@@ -1198,6 +1198,8 @@ export class AdvisorRuntime {
         demand(previous.principal === principal, 'PRINCIPAL_MISMATCH'); demand(previous.digest === digest, 'COMMAND_ID_REUSE');
         const binding = decode(previous.data);
         if (binding.action === 'rejected') return clone(binding.response);
+        // A replay during preparation waits for the original admission.
+        if (!binding.response && !binding.command) return { ok: false, error: 'BRIDGE_ADMISSION_PENDING' };
         this.#scopeRun({ scope: binding.scope });
         if (binding.response) return clone(binding.response);
         demand(binding.command, 'BRIDGE_RECOVERY_REQUIRED');

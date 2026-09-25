@@ -123,14 +123,16 @@ file header. Workstream names and display IDs are not ownership tokens. There is
 The identity boundary is **cooperating local host context**, not an OS sandbox: the same
 OS user can forge environment variables or edit their files. State checks reject path
 escape, symlinks inside the namespace or at the root/`.advisor`, hardlink/special-file
-clobber, foreign ownership, stale digest, malformed metadata and files over 64KiB.
-Writes are same-directory atomic replacements with a small exclusive lock. A crashed
-lock requires explicit local inspection; it is never automatically stolen. This is local
+clobber, foreign ownership, stale digest and malformed ownership records. Checkpoint
+Markdown has no required headings or owner fields; owner/mode live in a guarded
+`workstreams/<slug>.owner.json` sidecar. Writes are same-directory atomic replacements
+with a small exclusive lock. A crashed lock requires explicit local inspection;
+it is never automatically stolen. This is local
 filesystem coordination, not distributed multi-machine replication.
 
 A session belongs to one workstream for its lifetime. Missing/corrupt checkpoints remain
 unknown; a session pointer or host summary is not a substitute. Legacy Pi owner headers
-and session diaries can be read/migrated into identity pointers; old in-repo `.advisor`
+are read for migration before accepting freeform text; old in-repo `.advisor`
 directories remain read-only history. A foreign checkpoint transfer requires an explicit
 Pi confirmation and expected previous owner, archives the old file in an event, and
 **does not adopt** foreign runtime workers, native conversations or teammate context.
